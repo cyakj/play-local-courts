@@ -4,15 +4,13 @@ import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Navigate } from 'react-router-dom';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
-import { mockUsers } from '../services/mockDataService';
 import { UserStatus } from '../types';
 
 const PendingRequests = () => {
   const { currentUser, isAdmin } = useAuth();
-  const { getPendingUsersByHOAId, approveUser, rejectUser } = useData();
+  const { users, approveUser, rejectUser } = useData();
   const [pendingUsers, setPendingUsers] = useState<any[]>([]);
   
   // Redirect if not an admin
@@ -23,14 +21,14 @@ const PendingRequests = () => {
   // Use useEffect to get the latest pending users
   useEffect(() => {
     if (currentUser) {
-      // Get all pending users directly from mockUsers
-      const allPendingUsers = mockUsers.filter(
+      // Get all pending users from the actual users array, not mockUsers
+      const actualPendingUsers = users.filter(
         u => u.hoaId === currentUser.hoaId && u.status === UserStatus.PENDING
       );
-      console.log("Found pending users:", allPendingUsers);
-      setPendingUsers(allPendingUsers);
+      console.log("Found pending users:", actualPendingUsers);
+      setPendingUsers(actualPendingUsers);
     }
-  }, [currentUser]);
+  }, [currentUser, users]); // Add users dependency to refresh when users array changes
   
   return (
     <div className="space-y-8">
@@ -75,8 +73,7 @@ const PendingRequests = () => {
                             size="sm"
                             onClick={() => {
                               rejectUser(user.id);
-                              // Update the local state
-                              setPendingUsers(prev => prev.filter(u => u.id !== user.id));
+                              // Update the local state automatically through the dependency
                             }}
                             className="text-red-500"
                           >
@@ -86,8 +83,7 @@ const PendingRequests = () => {
                             size="sm"
                             onClick={() => {
                               approveUser(user.id);
-                              // Update the local state
-                              setPendingUsers(prev => prev.filter(u => u.id !== user.id));
+                              // Update the local state automatically through the dependency
                             }}
                           >
                             Approve

@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { User, HOA, Court, Booking, UserStatus, CourtStatus, TimeSlot } from '../types';
 import { mockUsers, mockHOAs, mockCourts, mockBookings, generateTimeSlots } from '../services/mockDataService';
@@ -17,7 +16,7 @@ interface DataContextType {
   rejectUser: (userId: string) => void;
   addCourt: (name: string, hoaId: string, courtType: "tennis" | "pickleball") => void;
   removeCourt: (courtId: string) => void;
-  bookCourt: (userId: string, userName: string, courtId: string, courtName: string, date: string, timeSlot: TimeSlot) => void;
+  bookCourt: (userId: string, userName: string, courtId: string, courtName: string, date: string, timeSlot: TimeSlot, playType?: 'singles' | 'doubles') => void;
   cancelBooking: (bookingId: string) => void;
   getUserBookings: (userId: string) => Booking[];
   getTimeSlots: (date: string, courtId: string) => TimeSlot[];
@@ -42,8 +41,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const newTimeSlots: Record<string, TimeSlot[]> = {};
     const today = new Date();
     
-    // Generate time slots for next 7 days
-    for (let i = 0; i < 7; i++) {
+    // Generate time slots for today and tomorrow only
+    for (let i = 0; i < 2; i++) {
       const date = new Date(today);
       date.setDate(today.getDate() + i);
       const dateString = date.toISOString().split('T')[0];
@@ -118,7 +117,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return timeSlots[key];
   };
 
-  const bookCourt = (userId: string, userName: string, courtId: string, courtName: string, date: string, timeSlot: TimeSlot) => {
+  const bookCourt = (
+    userId: string, 
+    userName: string, 
+    courtId: string, 
+    courtName: string, 
+    date: string, 
+    timeSlot: TimeSlot,
+    playType: 'singles' | 'doubles' = 'singles'
+  ) => {
     // Check if user already has a booking for this date
     const hasBooking = hasBookingForDate(userId, date);
     
@@ -138,12 +145,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         ...timeSlot,
         status: CourtStatus.BOOKED
       },
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      playType // Add playType to booking
     };
     
     setBookings(prev => [...prev, newBooking]);
     
-    // Update time slot status
+    // Update time slot status for the booked slot
     const key = `${date}-${courtId}`;
     setTimeSlots(prev => ({
       ...prev,
@@ -154,7 +162,22 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       ) || []
     }));
     
-    toast.success("Court booked successfully");
+    // If doubles, also block the next time slot
+    if (playType === 'doubles') {
+      const slotHour = new Date(timeSlot.start).getHours();
+      const nextSlotId = `${courtId}-${date}-${slotHour + 1}`;
+      
+      setTimeSlots(prev => ({
+        ...prev,
+        [key]: prev[key]?.map(slot => 
+          slot.id === nextSlotId 
+            ? { ...slot, status: CourtStatus.BOOKED } 
+            : slot
+        ) || []
+      }));
+    }
+    
+    toast.success(`Court booked successfully for ${playType}`);
   };
 
   const cancelBooking = (bookingId: string) => {

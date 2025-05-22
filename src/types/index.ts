@@ -65,4 +65,5 @@ export interface Booking {
   date: string; // YYYY-MM-DD
   timeSlot: TimeSlot;
   createdAt: string;
+  playType?: 'singles' | 'doubles'; // Added playType field
 }
