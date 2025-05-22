@@ -9,6 +9,7 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (fullName: string, email: string, password: string, dateOfBirth: string | undefined, hoaId: string) => Promise<void>;
+  registerAdmin: (username: string, password: string) => Promise<void>;
   logout: () => void;
   isAdmin: boolean;
   isPending: boolean;
@@ -41,7 +42,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    // In a real app, we would make an API call here
+    // For admin login with preset credentials
+    if (email === 'Boss' && password === 'greens') {
+      const adminUser = mockUsers.find(u => u.role === UserRole.ADMIN);
+      if (adminUser) {
+        setCurrentUser(adminUser);
+        try {
+          localStorage.setItem('currentUser', JSON.stringify(adminUser));
+          toast.success("Admin login successful");
+        } catch (error) {
+          console.error("Error saving user to localStorage:", error);
+          toast.error("Failed to save login session");
+        }
+        return;
+      }
+    }
+    
+    // Regular user login
     const user = mockUsers.find(u => u.email === email);
     
     if (!user) {
@@ -59,10 +76,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error("Account rejected");
     }
     
-    // In a real app, we would check the password here
     setCurrentUser(user);
     
-    // Store user data in localStorage for persistence
     try {
       localStorage.setItem('currentUser', JSON.stringify(user));
       toast.success("Login successful");
@@ -100,6 +115,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     toast.success("Registration successful! Your account is pending approval from the HOA admin.");
   };
 
+  // New function to register an admin with preset credentials
+  const registerAdmin = async (username: string, password: string) => {
+    // Verify preset credentials
+    if (username !== 'Boss' || password !== 'greens') {
+      toast.error("Invalid admin credentials");
+      throw new Error("Invalid admin credentials");
+    }
+    
+    // Check if admin already exists for the default HOA
+    const existingAdmin = mockUsers.find(u => u.role === UserRole.ADMIN && u.hoaId === "1");
+    
+    if (existingAdmin) {
+      toast.error("An admin account already exists");
+      throw new Error("Admin already exists");
+    }
+
+    // Create new admin user
+    const newAdmin: User = {
+      id: `admin${mockUsers.length + 1}`,
+      fullName: "Administrator",
+      email: "admin@example.com", // This won't be used for login, but we need it for the User type
+      role: UserRole.ADMIN,
+      status: UserStatus.APPROVED,
+      hoaId: "1", // Default to the first HOA
+      createdAt: new Date().toISOString()
+    };
+    
+    // Add admin to mock users
+    mockUsers.push(newAdmin);
+    
+    // Log in the admin automatically
+    setCurrentUser(newAdmin);
+    try {
+      localStorage.setItem('currentUser', JSON.stringify(newAdmin));
+      toast.success("Admin account created and logged in successfully");
+    } catch (error) {
+      console.error("Error saving admin to localStorage:", error);
+      toast.error("Failed to save login session");
+    }
+  };
+
   const logout = () => {
     setCurrentUser(null);
     localStorage.removeItem('currentUser');
@@ -114,6 +170,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading,
     login,
     register,
+    registerAdmin,
     logout,
     isAdmin,
     isPending
