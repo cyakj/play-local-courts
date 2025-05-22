@@ -1,0 +1,146 @@
+
+import React from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { useData } from '../contexts/DataContext';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+
+const MyReservations = () => {
+  const { currentUser } = useAuth();
+  const { getUserBookings, cancelBooking } = useData();
+  
+  const bookings = currentUser ? getUserBookings(currentUser.id) : [];
+  
+  // Sort bookings by date (newest first)
+  const sortedBookings = [...bookings].sort((a, b) => {
+    return new Date(b.timeSlot.start).getTime() - new Date(a.timeSlot.start).getTime();
+  });
+  
+  // Separate upcoming and past bookings
+  const now = new Date();
+  const upcomingBookings = sortedBookings.filter(booking => {
+    return new Date(booking.timeSlot.start) > now;
+  });
+  const pastBookings = sortedBookings.filter(booking => {
+    return new Date(booking.timeSlot.start) <= now;
+  });
+
+  const handleCancelBooking = (bookingId: string) => {
+    if (window.confirm('Are you sure you want to cancel this reservation?')) {
+      cancelBooking(bookingId);
+    }
+  };
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">My Reservations</h1>
+        <p className="text-muted-foreground">
+          View and manage your court reservations
+        </p>
+      </div>
+      
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Upcoming Reservations</CardTitle>
+            <CardDescription>Court times you have scheduled</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {upcomingBookings.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">You don't have any upcoming reservations</p>
+                <Button className="mt-4" asChild>
+                  <a href="/reserve">Book a Court</a>
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {upcomingBookings.map(booking => {
+                  const startTime = new Date(booking.timeSlot.start);
+                  const endTime = new Date(booking.timeSlot.end);
+                  
+                  return (
+                    <Card key={booking.id} className="overflow-hidden">
+                      <div className="flex flex-col sm:flex-row">
+                        <div className="bg-primary p-4 text-white sm:w-32 flex flex-row sm:flex-col justify-between sm:justify-center items-center">
+                          <div className="text-lg font-medium">
+                            {startTime.toLocaleDateString('en-US', { weekday: 'short' })}
+                          </div>
+                          <div className="text-2xl font-bold">
+                            {startTime.getDate()}
+                          </div>
+                        </div>
+                        <div className="p-4 flex-1">
+                          <div className="font-semibold">{booking.courtName}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {startTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            {' • '}
+                            {startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} - 
+                            {endTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </div>
+                        <div className="p-4 flex items-center">
+                          <Button 
+                            variant="destructive" 
+                            size="sm"
+                            onClick={() => handleCancelBooking(booking.id)}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        
+        {pastBookings.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Past Reservations</CardTitle>
+              <CardDescription>Your court booking history</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {pastBookings.slice(0, 5).map(booking => {
+                  const startTime = new Date(booking.timeSlot.start);
+                  const endTime = new Date(booking.timeSlot.end);
+                  
+                  return (
+                    <Card key={booking.id} className="overflow-hidden bg-gray-50">
+                      <div className="flex flex-col sm:flex-row">
+                        <div className="bg-gray-200 p-4 text-gray-700 sm:w-32 flex flex-row sm:flex-col justify-between sm:justify-center items-center">
+                          <div className="text-lg font-medium">
+                            {startTime.toLocaleDateString('en-US', { weekday: 'short' })}
+                          </div>
+                          <div className="text-2xl font-bold">
+                            {startTime.getDate()}
+                          </div>
+                        </div>
+                        <div className="p-4 flex-1">
+                          <div className="font-semibold">{booking.courtName}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {startTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            {' • '}
+                            {startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} - 
+                            {endTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default MyReservations;
