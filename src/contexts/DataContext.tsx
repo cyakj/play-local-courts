@@ -33,6 +33,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [courts, setCourts] = useState<Court[]>([...mockCourts]);
   const [bookings, setBookings] = useState<Booking[]>([...mockBookings]);
   const [timeSlots, setTimeSlots] = useState<Record<string, TimeSlot[]>>({});
+  
+  // Get the current user from AuthContext but don't use it directly during initialization
   const { currentUser } = useAuth();
 
   // Initialize time slots for today and next 7 days
