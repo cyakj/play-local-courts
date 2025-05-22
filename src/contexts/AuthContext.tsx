@@ -96,7 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // In a real app, we would make an API call here to register the user
     const newUser: User = {
-      id: `user${mockUsers.length + 1}`,
+      id: `user${Date.now()}`, // More unique ID using timestamp
       fullName,
       email,
       dateOfBirth,
@@ -106,8 +106,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       createdAt: new Date().toISOString()
     };
     
-    // Simulate adding to the database
+    // Add to the mockUsers array directly
     mockUsers.push(newUser);
+    console.log("User registered:", newUser);
+    console.log("Updated mockUsers:", mockUsers);
     
     // Get HOA details for notification message
     const hoa = mockHOAs.find(h => h.hoaId === hoaId);
