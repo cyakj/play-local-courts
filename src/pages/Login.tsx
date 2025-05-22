@@ -34,20 +34,26 @@ const Login = () => {
   const loginAsAdmin = async () => {
     setEmail('admin1@example.com');
     setPassword('password');
+    setIsLoading(true);
     try {
       await login('admin1@example.com', 'password');
     } catch (err: any) {
       setError(err.message || 'Failed to login');
+    } finally {
+      setIsLoading(false);
     }
   };
   
   const loginAsResident = async () => {
     setEmail('alice@example.com');
     setPassword('password');
+    setIsLoading(true);
     try {
       await login('alice@example.com', 'password');
     } catch (err: any) {
       setError(err.message || 'Failed to login');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -94,10 +100,10 @@ const Login = () => {
         <div className="mt-6">
           <p className="text-center text-sm text-muted-foreground mb-2">Demo Accounts</p>
           <div className="grid grid-cols-2 gap-2">
-            <Button variant="outline" onClick={loginAsAdmin} size="sm">
+            <Button variant="outline" onClick={loginAsAdmin} size="sm" disabled={isLoading}>
               Login as Admin
             </Button>
-            <Button variant="outline" onClick={loginAsResident} size="sm">
+            <Button variant="outline" onClick={loginAsResident} size="sm" disabled={isLoading}>
               Login as Resident
             </Button>
           </div>

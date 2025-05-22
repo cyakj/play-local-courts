@@ -22,11 +22,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   
   // Check if user is already logged in
   useEffect(() => {
-    const storedUser = localStorage.getItem('currentUser');
-    if (storedUser) {
-      setCurrentUser(JSON.parse(storedUser));
-    }
-    setLoading(false);
+    const loadUserFromStorage = () => {
+      try {
+        const storedUser = localStorage.getItem('currentUser');
+        if (storedUser) {
+          const parsedUser = JSON.parse(storedUser);
+          setCurrentUser(parsedUser);
+        }
+      } catch (error) {
+        console.error("Error loading user from localStorage:", error);
+        localStorage.removeItem('currentUser'); // Clear corrupted data
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadUserFromStorage();
   }, []);
 
   const login = async (email: string, password: string) => {
@@ -50,8 +61,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     // In a real app, we would check the password here
     setCurrentUser(user);
-    localStorage.setItem('currentUser', JSON.stringify(user));
-    toast.success("Login successful");
+    
+    // Store user data in localStorage for persistence
+    try {
+      localStorage.setItem('currentUser', JSON.stringify(user));
+      toast.success("Login successful");
+    } catch (error) {
+      console.error("Error saving user to localStorage:", error);
+      toast.error("Failed to save login session");
+    }
   };
 
   const register = async (fullName: string, email: string, password: string, dateOfBirth: string | undefined, hoaId: string) => {
