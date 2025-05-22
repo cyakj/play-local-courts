@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { mockHOAs } from '../services/mockDataService';
@@ -150,11 +150,8 @@ const Register = () => {
                 <SelectValue placeholder="Select your HOA community" />
               </SelectTrigger>
               <SelectContent>
-                {mockHOAs.map((hoa) => (
-                  <SelectItem key={hoa.id} value={hoa.id}>
-                    {hoa.name}
-                  </SelectItem>
-                ))}
+                <SelectItem value="1">The Greens</SelectItem>
+                <SelectItem value="2">The Fairways</SelectItem>
               </SelectContent>
             </Select>
           </div>

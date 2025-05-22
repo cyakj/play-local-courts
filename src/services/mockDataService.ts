@@ -1,18 +1,16 @@
-
 import { User, UserRole, UserStatus, HOA, Court, Booking, TimeSlot, CourtStatus } from '../types';
 
 // Mock HOAs
 export const mockHOAs: HOA[] = [
-  { id: "1", name: "Pinehurst Community", adminId: "admin1" },
-  { id: "2", name: "Lakeside Villas", adminId: "admin2" },
-  { id: "3", name: "Oak Ridge Estates", adminId: "admin3" }
+  { id: "1", name: "The Greens", adminId: "admin1" },
+  { id: "2", name: "The Fairways", adminId: "admin2" }
 ];
 
 // Mock Users
 export const mockUsers: User[] = [
   {
     id: "admin1",
-    fullName: "John Admin",
+    fullName: "The Greens Admin",
     email: "admin1@example.com",
     role: UserRole.ADMIN,
     status: UserStatus.APPROVED,
@@ -21,20 +19,11 @@ export const mockUsers: User[] = [
   },
   {
     id: "admin2",
-    fullName: "Jane Admin",
+    fullName: "The Fairways Admin",
     email: "admin2@example.com",
     role: UserRole.ADMIN,
     status: UserStatus.APPROVED,
     hoaId: "2",
-    createdAt: "2023-01-01T00:00:00Z"
-  },
-  {
-    id: "admin3",
-    fullName: "Mike Admin",
-    email: "admin3@example.com",
-    role: UserRole.ADMIN,
-    status: UserStatus.APPROVED,
-    hoaId: "3",
     createdAt: "2023-01-01T00:00:00Z"
   },
   {
@@ -55,15 +44,6 @@ export const mockUsers: User[] = [
     status: UserStatus.PENDING,
     hoaId: "1",
     createdAt: "2023-03-01T00:00:00Z"
-  },
-  {
-    id: "user3",
-    fullName: "Charlie Resident",
-    email: "charlie@example.com",
-    role: UserRole.RESIDENT,
-    status: UserStatus.APPROVED,
-    hoaId: "2",
-    createdAt: "2023-02-15T00:00:00Z"
   }
 ];
 
@@ -73,8 +53,7 @@ export const mockCourts: Court[] = [
   { id: "court2", name: "Tennis Court 2", hoaId: "1", courtType: "tennis" },
   { id: "court3", name: "Pickleball Court 1", hoaId: "1", courtType: "pickleball" },
   { id: "court4", name: "Tennis Court 1", hoaId: "2", courtType: "tennis" },
-  { id: "court5", name: "Pickleball Court 1", hoaId: "2", courtType: "pickleball" },
-  { id: "court6", name: "Tennis Court 1", hoaId: "3", courtType: "tennis" }
+  { id: "court5", name: "Pickleball Court 1", hoaId: "2", courtType: "pickleball" }
 ];
 
 // Function to generate time slots for a given date and court
