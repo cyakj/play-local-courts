@@ -36,6 +36,7 @@ export interface HOA {
   id: string;
   name: string;
   adminId: string;
+  hoaId?: string; // Adding this property to fix the type error
 }
 
 // Court type
