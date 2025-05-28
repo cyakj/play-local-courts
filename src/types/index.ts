@@ -24,6 +24,7 @@ export interface User {
   id: string;
   fullName: string;
   email: string;
+  phoneNumber?: string; // Added phone number field
   dateOfBirth?: string;
   role: UserRole;
   status: UserStatus;

@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { mockHOAs } from '../services/mockDataService';
+import { useData } from '../contexts/DataContext';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 const Register = () => {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [hoaId, setHoaId] = useState('');
@@ -24,6 +25,7 @@ const Register = () => {
   const [error, setError] = useState('');
   
   const { register } = useAuth();
+  const { hoas } = useData();
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,6 +48,7 @@ const Register = () => {
         fullName, 
         email, 
         password, 
+        phoneNumber || undefined,
         date ? date.toISOString().split('T')[0] : undefined,
         hoaId
       );
@@ -71,7 +74,7 @@ const Register = () => {
         )}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="fullName">Full Name</Label>
+            <Label htmlFor="fullName">Full Name *</Label>
             <Input
               id="fullName"
               placeholder="John Doe"
@@ -82,7 +85,7 @@ const Register = () => {
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">Email *</Label>
             <Input
               id="email"
               type="email"
@@ -92,9 +95,20 @@ const Register = () => {
               required
             />
           </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="phoneNumber">Phone Number</Label>
+            <Input
+              id="phoneNumber"
+              type="tel"
+              placeholder="(555) 123-4567"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+            />
+          </div>
           
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">Password *</Label>
             <Input
               id="password"
               type="password"
@@ -106,7 +120,7 @@ const Register = () => {
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Confirm Password</Label>
+            <Label htmlFor="confirmPassword">Confirm Password *</Label>
             <Input
               id="confirmPassword"
               type="password"
@@ -118,7 +132,7 @@ const Register = () => {
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="dob">Date of Birth (Optional)</Label>
+            <Label htmlFor="dob">Date of Birth</Label>
             <Popover>
               <PopoverTrigger asChild>
                 <Button
@@ -144,14 +158,17 @@ const Register = () => {
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="hoa">Select Your HOA</Label>
+            <Label htmlFor="hoa">Select Your HOA Community *</Label>
             <Select value={hoaId} onValueChange={setHoaId}>
               <SelectTrigger>
                 <SelectValue placeholder="Select your HOA community" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="1">The Greens</SelectItem>
-                <SelectItem value="2">The Fairways</SelectItem>
+                {hoas.map((hoa) => (
+                  <SelectItem key={hoa.id} value={hoa.id}>
+                    {hoa.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

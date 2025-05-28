@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Navigate } from 'react-router-dom';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { UserStatus } from '../types';
+import { Badge } from '@/components/ui/badge';
 
 const PendingRequests = () => {
   const { currentUser, isAdmin } = useAuth();
@@ -56,6 +57,9 @@ const PendingRequests = () => {
                   <TableRow>
                     <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
+                    <TableHead>Phone</TableHead>
+                    <TableHead>Date of Birth</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead>Requested Date</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -65,6 +69,16 @@ const PendingRequests = () => {
                     <TableRow key={user.id}>
                       <TableCell className="font-medium">{user.fullName}</TableCell>
                       <TableCell>{user.email}</TableCell>
+                      <TableCell>{user.phoneNumber || 'Not provided'}</TableCell>
+                      <TableCell>
+                        {user.dateOfBirth 
+                          ? new Date(user.dateOfBirth).toLocaleDateString() 
+                          : 'Not provided'
+                        }
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">Pending</Badge>
+                      </TableCell>
                       <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
@@ -75,9 +89,9 @@ const PendingRequests = () => {
                               rejectUser(user.id);
                               // Update the local state automatically through the dependency
                             }}
-                            className="text-red-500"
+                            className="text-red-500 hover:text-red-600"
                           >
-                            Reject
+                            ❌ Reject
                           </Button>
                           <Button 
                             size="sm"
@@ -85,8 +99,9 @@ const PendingRequests = () => {
                               approveUser(user.id);
                               // Update the local state automatically through the dependency
                             }}
+                            className="text-green-600 hover:text-green-700"
                           >
-                            Approve
+                            ✅ Approve
                           </Button>
                         </div>
                       </TableCell>

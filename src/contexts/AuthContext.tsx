@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { User, UserRole, UserStatus } from '../types';
 import { mockUsers, mockHOAs } from '../services/mockDataService';
@@ -8,7 +7,7 @@ interface AuthContextType {
   currentUser: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (fullName: string, email: string, password: string, dateOfBirth: string | undefined, hoaId: string) => Promise<void>;
+  register: (fullName: string, email: string, password: string, phoneNumber: string | undefined, dateOfBirth: string | undefined, hoaId: string) => Promise<void>;
   registerAdmin: (username: string, password: string) => Promise<void>;
   logout: () => void;
   isAdmin: boolean;
@@ -67,7 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     
     if (user.status === UserStatus.PENDING) {
-      toast.error("Your account is pending approval by the HOA admin");
+      toast.error("Your account is pending approval by your HOA administrator. You will be notified once approved.");
       throw new Error("Account pending approval");
     }
     
@@ -87,7 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const register = async (fullName: string, email: string, password: string, dateOfBirth: string | undefined, hoaId: string) => {
+  const register = async (fullName: string, email: string, password: string, phoneNumber: string | undefined, dateOfBirth: string | undefined, hoaId: string) => {
     // Check if email already exists
     if (mockUsers.some(u => u.email === email)) {
       toast.error("Email already registered");
@@ -99,6 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       id: `user${Date.now()}`, // More unique ID using timestamp
       fullName,
       email,
+      phoneNumber,
       dateOfBirth,
       role: UserRole.RESIDENT,
       status: UserStatus.PENDING,
@@ -112,9 +112,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     console.log("Updated mockUsers:", mockUsers);
     
     // Get HOA details for notification message
-    const hoa = mockHOAs.find(h => h.hoaId === hoaId);
+    const hoa = mockHOAs.find(h => h.id === hoaId);
     
-    toast.success("Registration successful! Your account is pending approval from the HOA admin.");
+    toast.success(`Registration successful! Your account is pending approval from ${hoa?.name || 'your HOA'} admin.`);
   };
 
   // New function to register an admin with preset credentials
