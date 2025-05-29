@@ -1,12 +1,11 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { User, HOA, Court, Booking, UserRole, UserStatus, ProfileRow, HOARow, CourtRow, BookingRow } from '../types';
 
 // Helper functions to transform database rows to app types
-const transformProfileToUser = (profile: any): User => ({
+const transformProfileToUser = (profile: any, userEmail?: string): User => ({
   id: profile.id,
   fullName: profile.full_name,
-  email: profile.email || '', // Handle missing email
+  email: userEmail || '', // Use userEmail parameter or empty string
   phoneNumber: profile.phone_number,
   dateOfBirth: profile.date_of_birth,
   role: profile.hoa_role as UserRole,
@@ -60,13 +59,8 @@ export const getCurrentUserProfile = async (): Promise<User | null> => {
 
   if (error || !profile) return null;
   
-  // Add email from auth user if not in profile
-  const profileWithEmail = {
-    ...profile,
-    email: profile.email || user.email
-  };
-  
-  return transformProfileToUser(profileWithEmail);
+  // Pass the email from the auth user to the transform function
+  return transformProfileToUser(profile, user.email);
 };
 
 export const updateUserProfile = async (userId: string, updates: any): Promise<void> => {
@@ -98,7 +92,7 @@ export const getPendingUsersByHOAId = async (hoaId: string): Promise<User[]> => 
     .eq('hoa_status', 'pending');
 
   if (error || !data) return [];
-  return data.map(transformProfileToUser);
+  return data.map(profile => transformProfileToUser(profile));
 };
 
 export const approveUser = async (userId: string): Promise<void> => {
