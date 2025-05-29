@@ -1,6 +1,9 @@
+
 import React, { createContext, useState, useEffect, useContext } from 'react';
+import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { User, UserRole, UserStatus } from '../types';
-import { mockUsers, mockHOAs } from '../services/mockDataService';
+import { supabase } from '@/integrations/supabase/client';
+import { getCurrentUserProfile } from '../services/supabaseService';
 import { toast } from 'sonner';
 
 interface AuthContextType {
@@ -8,7 +11,6 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (fullName: string, email: string, password: string, phoneNumber: string | undefined, dateOfBirth: string | undefined, hoaId: string) => Promise<void>;
-  registerAdmin: (username: string, password: string) => Promise<void>;
   logout: () => void;
   isAdmin: boolean;
   isPending: boolean;
@@ -18,150 +20,137 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  
-  // Check if user is already logged in
+
   useEffect(() => {
-    const loadUserFromStorage = () => {
-      try {
-        const storedUser = localStorage.getItem('currentUser');
-        if (storedUser) {
-          const parsedUser = JSON.parse(storedUser);
-          setCurrentUser(parsedUser);
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.id);
+        setSession(session);
+        
+        if (session?.user) {
+          // Fetch user profile from our profiles table
+          setTimeout(async () => {
+            try {
+              const userProfile = await getCurrentUserProfile();
+              console.log('User profile fetched:', userProfile);
+              setCurrentUser(userProfile);
+            } catch (error) {
+              console.error('Error fetching user profile:', error);
+              setCurrentUser(null);
+            } finally {
+              setLoading(false);
+            }
+          }, 0);
+        } else {
+          setCurrentUser(null);
+          setLoading(false);
         }
-      } catch (error) {
-        console.error("Error loading user from localStorage:", error);
-        localStorage.removeItem('currentUser'); // Clear corrupted data
-      } finally {
+      }
+    );
+
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session check:', session?.user?.id);
+      if (!session) {
         setLoading(false);
       }
-    };
+    });
 
-    loadUserFromStorage();
+    return () => subscription.unsubscribe();
   }, []);
 
   const login = async (email: string, password: string) => {
-    // For admin login with preset credentials
-    if (email === 'Boss' && password === 'greens') {
-      const adminUser = mockUsers.find(u => u.role === UserRole.ADMIN);
-      if (adminUser) {
-        setCurrentUser(adminUser);
-        try {
-          localStorage.setItem('currentUser', JSON.stringify(adminUser));
-          toast.success("Admin login successful");
-        } catch (error) {
-          console.error("Error saving user to localStorage:", error);
-          toast.error("Failed to save login session");
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        if (error.message.includes('Invalid login credentials')) {
+          toast.error("Invalid email or password");
+        } else {
+          toast.error(error.message);
         }
-        return;
+        throw error;
       }
-    }
-    
-    // Regular user login
-    const user = mockUsers.find(u => u.email === email);
-    
-    if (!user) {
-      toast.error("User not found");
-      throw new Error("User not found");
-    }
-    
-    if (user.status === UserStatus.PENDING) {
-      toast.error("Your account is pending approval by your HOA administrator. You will be notified once approved.");
-      throw new Error("Account pending approval");
-    }
-    
-    if (user.status === UserStatus.REJECTED) {
-      toast.error("Your account has been rejected by the HOA admin");
-      throw new Error("Account rejected");
-    }
-    
-    setCurrentUser(user);
-    
-    try {
-      localStorage.setItem('currentUser', JSON.stringify(user));
+
+      // The auth state change listener will handle setting the user
       toast.success("Login successful");
-    } catch (error) {
-      console.error("Error saving user to localStorage:", error);
-      toast.error("Failed to save login session");
+    } catch (error: any) {
+      console.error('Login error:', error);
+      throw error;
     }
   };
 
-  const register = async (fullName: string, email: string, password: string, phoneNumber: string | undefined, dateOfBirth: string | undefined, hoaId: string) => {
-    // Check if email already exists
-    if (mockUsers.some(u => u.email === email)) {
-      toast.error("Email already registered");
-      throw new Error("Email already registered");
-    }
-
-    // In a real app, we would make an API call here to register the user
-    const newUser: User = {
-      id: `user${Date.now()}`, // More unique ID using timestamp
-      fullName,
-      email,
-      phoneNumber,
-      dateOfBirth,
-      role: UserRole.RESIDENT,
-      status: UserStatus.PENDING,
-      hoaId,
-      createdAt: new Date().toISOString()
-    };
-    
-    // Add to the mockUsers array directly
-    mockUsers.push(newUser);
-    console.log("User registered:", newUser);
-    console.log("Updated mockUsers:", mockUsers);
-    
-    // Get HOA details for notification message
-    const hoa = mockHOAs.find(h => h.id === hoaId);
-    
-    toast.success(`Registration successful! Your account is pending approval from ${hoa?.name || 'your HOA'} admin.`);
-  };
-
-  // New function to register an admin with preset credentials
-  const registerAdmin = async (username: string, password: string) => {
-    // Verify preset credentials
-    if (username !== 'Boss' || password !== 'greens') {
-      toast.error("Invalid admin credentials");
-      throw new Error("Invalid admin credentials");
-    }
-    
-    // Check if admin already exists for the default HOA
-    const existingAdmin = mockUsers.find(u => u.role === UserRole.ADMIN && u.hoaId === "1");
-    
-    if (existingAdmin) {
-      toast.error("An admin account already exists");
-      throw new Error("Admin already exists");
-    }
-
-    // Create new admin user
-    const newAdmin: User = {
-      id: `admin${mockUsers.length + 1}`,
-      fullName: "Administrator",
-      email: "admin@example.com", // This won't be used for login, but we need it for the User type
-      role: UserRole.ADMIN,
-      status: UserStatus.APPROVED,
-      hoaId: "1", // Default to the first HOA
-      createdAt: new Date().toISOString()
-    };
-    
-    // Add admin to mock users
-    mockUsers.push(newAdmin);
-    
-    // Log in the admin automatically
-    setCurrentUser(newAdmin);
+  const register = async (
+    fullName: string, 
+    email: string, 
+    password: string, 
+    phoneNumber: string | undefined, 
+    dateOfBirth: string | undefined, 
+    hoaId: string
+  ) => {
     try {
-      localStorage.setItem('currentUser', JSON.stringify(newAdmin));
-      toast.success("Admin account created and logged in successfully");
-    } catch (error) {
-      console.error("Error saving admin to localStorage:", error);
-      toast.error("Failed to save login session");
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+            phone_number: phoneNumber,
+            date_of_birth: dateOfBirth,
+            hoa_id: hoaId,
+          }
+        }
+      });
+
+      if (error) {
+        if (error.message.includes('already registered')) {
+          toast.error("Email already registered");
+        } else {
+          toast.error(error.message);
+        }
+        throw error;
+      }
+
+      // Update the profile with additional info after creation
+      if (data.user) {
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({
+            phone_number: phoneNumber,
+            date_of_birth: dateOfBirth,
+            hoa_id: hoaId,
+            full_name: fullName,
+          })
+          .eq('id', data.user.id);
+
+        if (updateError) {
+          console.error('Error updating profile:', updateError);
+        }
+      }
+
+      toast.success("Registration successful! Your account is pending approval from your HOA admin.");
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      throw error;
     }
   };
 
-  const logout = () => {
-    setCurrentUser(null);
-    localStorage.removeItem('currentUser');
-    toast.success("Logged out successfully");
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+      setCurrentUser(null);
+      setSession(null);
+      toast.success("Logged out successfully");
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast.error("Error logging out");
+    }
   };
 
   const isAdmin = currentUser?.role === UserRole.ADMIN;
@@ -172,7 +161,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading,
     login,
     register,
-    registerAdmin,
     logout,
     isAdmin,
     isPending

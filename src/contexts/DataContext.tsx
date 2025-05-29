@@ -109,13 +109,26 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (currentUser) {
       refreshData();
+    } else {
+      // Clear data when user logs out
+      setCurrentHOA(null);
+      setHOAs([]);
+      setCourts([]);
+      setBookings([]);
+      setPendingUsers([]);
+      setLoading(false);
     }
   }, [currentUser]);
 
   const refreshData = async () => {
+    if (!currentUser) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
-      if (currentUser && currentUser.hoaId) {
+      if (currentUser.hoaId) {
         const [hoaData, courtsData, userBookings, pendingUsersData] = await Promise.all([
           getHOAById(currentUser.hoaId),
           getCourtsByHOAId(currentUser.hoaId),

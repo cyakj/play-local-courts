@@ -1,8 +1,8 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { useData } from '../contexts/DataContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -12,6 +12,11 @@ import { format } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+
+interface HOA {
+  id: string;
+  name: string;
+}
 
 const Register = () => {
   const [fullName, setFullName] = useState('');
@@ -23,9 +28,27 @@ const Register = () => {
   const [date, setDate] = useState<Date>();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [hoas, setHOAs] = useState<HOA[]>([]);
   
   const { register } = useAuth();
-  const { hoas } = useData();
+
+  // Fetch HOAs from Supabase
+  useEffect(() => {
+    const fetchHOAs = async () => {
+      const { data, error } = await supabase
+        .from('hoas')
+        .select('id, name')
+        .order('name');
+
+      if (error) {
+        console.error('Error fetching HOAs:', error);
+      } else {
+        setHOAs(data || []);
+      }
+    };
+
+    fetchHOAs();
+  }, []);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

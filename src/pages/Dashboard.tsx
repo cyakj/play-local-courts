@@ -5,9 +5,10 @@ import { useData } from '../contexts/DataContext';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
+import PendingApprovalMessage from '../components/PendingApprovalMessage';
 
 const Dashboard = () => {
-  const { currentUser, isAdmin } = useAuth();
+  const { currentUser, isAdmin, isPending } = useAuth();
   const { 
     bookings, 
     courts, 
@@ -15,6 +16,32 @@ const Dashboard = () => {
     currentHOA,
     loading
   } = useData();
+
+  if (loading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  // Show pending approval message if user is pending
+  if (isPending) {
+    return <PendingApprovalMessage />;
+  }
+
+  if (!currentUser) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-4">Please log in to continue</h2>
+          <Button asChild>
+            <Link to="/login">Go to Login</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
   
   // Filter for upcoming bookings
   const upcomingBookings = bookings.filter(booking => {
@@ -25,10 +52,6 @@ const Dashboard = () => {
     const dateB = new Date(`${b.date}T${b.startTime}`);
     return dateA.getTime() - dateB.getTime();
   }).slice(0, 3); // Show only next 3 upcoming bookings
-
-  if (loading) {
-    return <div>Loading...</div>;
-  }
   
   return (
     <div className="space-y-8">
