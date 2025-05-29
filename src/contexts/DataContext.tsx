@@ -27,19 +27,17 @@ interface DataContextType {
   courts: Court[];
   bookings: Booking[];
   loading: boolean;
-  getHOAById: (id: string) => Promise<HOA | undefined>;
-  getCourtsByHOAId: (hoaId: string) => Promise<Court[]>;
-  getPendingUsersByHOAId: (hoaId: string) => Promise<User[]>;
+  currentHOA: HOA | null;
+  pendingUsers: User[];
+  getTimeSlots: (date: string, courtId: string) => TimeSlot[];
   approveUser: (userId: string) => Promise<void>;
   rejectUser: (userId: string) => Promise<void>;
   addCourt: (name: string, hoaId: string, courtType: "tennis" | "pickleball") => Promise<void>;
   removeCourt: (courtId: string) => Promise<void>;
   bookCourt: (userId: string, userName: string, courtId: string, courtName: string, date: string, timeSlot: TimeSlot, playType?: 'singles' | 'doubles') => Promise<void>;
   cancelBooking: (bookingId: string) => Promise<void>;
-  getUserBookings: (userId: string) => Promise<Booking[]>;
-  getTimeSlots: (date: string, courtId: string) => Promise<TimeSlot[]>;
   setCourtMaintenance: (courtId: string, date: string, hour: number, isMaintenance: boolean) => Promise<void>;
-  hasBookingForDate: (userId: string, date: string) => Promise<boolean>;
+  hasBookingForDate: (userId: string, date: string) => boolean;
   refreshData: () => Promise<void>;
 }
 
@@ -100,7 +98,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [hoas, setHOAs] = useState<HOA[]>([]);
   const [courts, setCourts] = useState<Court[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [currentHOA, setCurrentHOA] = useState<HOA | null>(null);
+  const [pendingUsers, setPendingUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [timeSlotsCache, setTimeSlotsCache] = useState<{[key: string]: TimeSlot[]}>({});
   
   const { currentUser } = useAuth();
 
@@ -115,15 +116,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     try {
       if (currentUser && currentUser.hoaId) {
-        const [hoaData, courtsData, userBookings] = await Promise.all([
+        const [hoaData, courtsData, userBookings, pendingUsersData] = await Promise.all([
           getHOAById(currentUser.hoaId),
           getCourtsByHOAId(currentUser.hoaId),
-          getUserBookings(currentUser.id)
+          getUserBookings(currentUser.id),
+          currentUser.role === 'admin' ? getPendingUsersByHOAId(currentUser.hoaId) : Promise.resolve([])
         ]);
         
+        setCurrentHOA(hoaData);
         if (hoaData) setHOAs([hoaData]);
         setCourts(courtsData);
         setBookings(userBookings);
+        setPendingUsers(pendingUsersData);
       }
     } catch (error) {
       console.error('Error loading data:', error);
@@ -134,31 +138,35 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Helper functions
-  const getHOAByIdAsync = async (id: string): Promise<HOA | undefined> => {
-    try {
-      return await getHOAById(id) || undefined;
-    } catch (error) {
-      console.error('Error fetching HOA:', error);
-      return undefined;
+  const getTimeSlots = (date: string, courtId: string): TimeSlot[] => {
+    const cacheKey = `${date}-${courtId}`;
+    if (timeSlotsCache[cacheKey]) {
+      return timeSlotsCache[cacheKey];
     }
-  };
-  
-  const getCourtsByHOAIdAsync = async (hoaId: string): Promise<Court[]> => {
-    try {
-      return await getCourtsByHOAId(hoaId);
-    } catch (error) {
-      console.error('Error fetching courts:', error);
-      return [];
+    
+    // Generate slots synchronously for now, fetch async in background
+    generateTimeSlots(date, courtId).then(slots => {
+      setTimeSlotsCache(prev => ({
+        ...prev,
+        [cacheKey]: slots
+      }));
+    });
+    
+    // Return basic available slots immediately
+    const slots: TimeSlot[] = [];
+    for (let hour = 6; hour < 22; hour++) {
+      const start = new Date(`${date}T${hour.toString().padStart(2, '0')}:00:00`);
+      const end = new Date(start.getTime() + 60 * 60 * 1000);
+      
+      slots.push({
+        id: `${courtId}-${date}-${hour}`,
+        start: start.toISOString(),
+        end: end.toISOString(),
+        status: CourtStatus.AVAILABLE
+      });
     }
-  };
-  
-  const getPendingUsersByHOAIdAsync = async (hoaId: string): Promise<User[]> => {
-    try {
-      return await getPendingUsersByHOAId(hoaId);
-    } catch (error) {
-      console.error('Error fetching pending users:', error);
-      return [];
-    }
+    
+    return slots;
   };
 
   const approveUserAsync = async (userId: string): Promise<void> => {
@@ -206,15 +214,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const getTimeSlotsAsync = async (date: string, courtId: string): Promise<TimeSlot[]> => {
-    try {
-      return await generateTimeSlots(date, courtId);
-    } catch (error) {
-      console.error('Error generating time slots:', error);
-      return [];
-    }
-  };
-
   const bookCourtAsync = async (
     userId: string, 
     userName: string, 
@@ -256,15 +255,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const getUserBookingsAsync = async (userId: string): Promise<Booking[]> => {
-    try {
-      return await getUserBookings(userId);
-    } catch (error) {
-      console.error('Error fetching user bookings:', error);
-      return [];
-    }
-  };
-
   const setCourtMaintenanceAsync = async (courtId: string, date: string, hour: number, isMaintenance: boolean): Promise<void> => {
     try {
       if (isMaintenance) {
@@ -276,19 +266,22 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       toast.success(isMaintenance 
         ? "Court set to maintenance" 
         : "Court maintenance removed");
+      
+      // Clear time slots cache for this court/date
+      const cacheKey = `${date}-${courtId}`;
+      setTimeSlotsCache(prev => {
+        const newCache = { ...prev };
+        delete newCache[cacheKey];
+        return newCache;
+      });
     } catch (error) {
       console.error('Error setting court maintenance:', error);
       toast.error('Failed to update court maintenance');
     }
   };
 
-  const hasBookingForDateAsync = async (userId: string, date: string): Promise<boolean> => {
-    try {
-      return await supabaseHasBookingForDate(userId, date);
-    } catch (error) {
-      console.error('Error checking booking for date:', error);
-      return false;
-    }
+  const hasBookingForDateSync = (userId: string, date: string): boolean => {
+    return bookings.some(booking => booking.userId === userId && booking.date === date);
   };
 
   const value = {
@@ -296,20 +289,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     hoas,
     courts,
     bookings,
+    currentHOA,
+    pendingUsers,
     loading,
-    getHOAById: getHOAByIdAsync,
-    getCourtsByHOAId: getCourtsByHOAIdAsync,
-    getPendingUsersByHOAId: getPendingUsersByHOAIdAsync,
+    getTimeSlots,
     approveUser: approveUserAsync,
     rejectUser: rejectUserAsync,
     addCourt: addCourtAsync,
     removeCourt: removeCourtAsync,
     bookCourt: bookCourtAsync,
     cancelBooking: cancelBookingAsync,
-    getUserBookings: getUserBookingsAsync,
-    getTimeSlots: getTimeSlotsAsync,
     setCourtMaintenance: setCourtMaintenanceAsync,
-    hasBookingForDate: hasBookingForDateAsync,
+    hasBookingForDate: hasBookingForDateSync,
     refreshData
   };
 

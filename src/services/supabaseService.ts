@@ -3,10 +3,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { User, HOA, Court, Booking, UserRole, UserStatus, ProfileRow, HOARow, CourtRow, BookingRow } from '../types';
 
 // Helper functions to transform database rows to app types
-const transformProfileToUser = (profile: ProfileRow, hoa?: HOARow): User => ({
+const transformProfileToUser = (profile: any): User => ({
   id: profile.id,
   fullName: profile.full_name,
-  email: profile.email,
+  email: profile.email || '', // Handle missing email
   phoneNumber: profile.phone_number,
   dateOfBirth: profile.date_of_birth,
   role: profile.hoa_role as UserRole,
@@ -33,12 +33,12 @@ const transformCourtRow = (court: CourtRow): Court => ({
   createdAt: court.created_at
 });
 
-const transformBookingRow = (booking: BookingRow, courtName: string, userName: string): Booking => ({
+const transformBookingRow = (booking: any): Booking => ({
   id: booking.id,
   userId: booking.user_id,
-  userName,
+  userName: booking.profiles?.full_name || 'Unknown User',
   courtId: booking.court_id,
-  courtName,
+  courtName: booking.courts?.name || 'Unknown Court',
   date: booking.date,
   startTime: booking.start_time,
   endTime: booking.end_time,
@@ -60,10 +60,16 @@ export const getCurrentUserProfile = async (): Promise<User | null> => {
 
   if (error || !profile) return null;
   
-  return transformProfileToUser(profile);
+  // Add email from auth user if not in profile
+  const profileWithEmail = {
+    ...profile,
+    email: profile.email || user.email
+  };
+  
+  return transformProfileToUser(profileWithEmail);
 };
 
-export const updateUserProfile = async (userId: string, updates: Partial<ProfileRow>): Promise<void> => {
+export const updateUserProfile = async (userId: string, updates: any): Promise<void> => {
   const { error } = await supabase
     .from('profiles')
     .update(updates)
@@ -92,7 +98,7 @@ export const getPendingUsersByHOAId = async (hoaId: string): Promise<User[]> => 
     .eq('hoa_status', 'pending');
 
   if (error || !data) return [];
-  return data.map(profile => transformProfileToUser(profile));
+  return data.map(transformProfileToUser);
 };
 
 export const approveUser = async (userId: string): Promise<void> => {
@@ -141,19 +147,15 @@ export const getUserBookings = async (userId: string): Promise<Booking[]> => {
     .from('bookings')
     .select(`
       *,
-      courts!inner(name),
-      profiles!inner(full_name)
+      courts(name),
+      profiles(full_name)
     `)
     .eq('user_id', userId)
     .eq('status', 'confirmed');
 
   if (error || !data) return [];
   
-  return data.map(booking => transformBookingRow(
-    booking,
-    booking.courts.name,
-    booking.profiles.full_name
-  ));
+  return data.map(transformBookingRow);
 };
 
 export const createBooking = async (
@@ -205,8 +207,8 @@ export const getBookingsForDateAndCourt = async (date: string, courtId: string):
     .from('bookings')
     .select(`
       *,
-      courts!inner(name),
-      profiles!inner(full_name)
+      courts(name),
+      profiles(full_name)
     `)
     .eq('court_id', courtId)
     .eq('date', date)
@@ -214,11 +216,7 @@ export const getBookingsForDateAndCourt = async (date: string, courtId: string):
 
   if (error || !data) return [];
   
-  return data.map(booking => transformBookingRow(
-    booking,
-    booking.courts.name,
-    booking.profiles.full_name
-  ));
+  return data.map(transformBookingRow);
 };
 
 export const hasBookingForDate = async (userId: string, date: string): Promise<boolean> => {

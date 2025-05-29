@@ -7,22 +7,24 @@ import { Button } from '@/components/ui/button';
 
 const MyReservations = () => {
   const { currentUser } = useAuth();
-  const { getUserBookings, cancelBooking } = useData();
-  
-  const bookings = currentUser ? getUserBookings(currentUser.id) : [];
+  const { bookings, cancelBooking } = useData();
   
   // Sort bookings by date (newest first)
   const sortedBookings = [...bookings].sort((a, b) => {
-    return new Date(b.timeSlot.start).getTime() - new Date(a.timeSlot.start).getTime();
+    const dateA = new Date(`${a.date}T${a.startTime}`);
+    const dateB = new Date(`${b.date}T${b.startTime}`);
+    return dateB.getTime() - dateA.getTime();
   });
   
   // Separate upcoming and past bookings
   const now = new Date();
   const upcomingBookings = sortedBookings.filter(booking => {
-    return new Date(booking.timeSlot.start) > now;
+    const bookingDateTime = new Date(`${booking.date}T${booking.startTime}`);
+    return bookingDateTime > now;
   });
   const pastBookings = sortedBookings.filter(booking => {
-    return new Date(booking.timeSlot.start) <= now;
+    const bookingDateTime = new Date(`${booking.date}T${booking.startTime}`);
+    return bookingDateTime <= now;
   });
 
   const handleCancelBooking = (bookingId: string) => {
@@ -57,8 +59,8 @@ const MyReservations = () => {
             ) : (
               <div className="space-y-4">
                 {upcomingBookings.map(booking => {
-                  const startTime = new Date(booking.timeSlot.start);
-                  const endTime = new Date(booking.timeSlot.end);
+                  const startTime = new Date(`${booking.date}T${booking.startTime}`);
+                  const endTime = new Date(`${booking.date}T${booking.endTime}`);
                   
                   return (
                     <Card key={booking.id} className="overflow-hidden">
@@ -107,8 +109,8 @@ const MyReservations = () => {
             <CardContent>
               <div className="space-y-4">
                 {pastBookings.slice(0, 5).map(booking => {
-                  const startTime = new Date(booking.timeSlot.start);
-                  const endTime = new Date(booking.timeSlot.end);
+                  const startTime = new Date(`${booking.date}T${booking.startTime}`);
+                  const endTime = new Date(`${booking.date}T${booking.endTime}`);
                   
                   return (
                     <Card key={booking.id} className="overflow-hidden bg-gray-50">

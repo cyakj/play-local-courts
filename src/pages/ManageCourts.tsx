@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
@@ -11,12 +12,11 @@ import { Badge } from '@/components/ui/badge';
 import { Navigate } from 'react-router-dom';
 import { format, addDays } from 'date-fns';
 import { CourtStatus } from '../types';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const ManageCourts = () => {
   const { currentUser, isAdmin } = useAuth();
   const { 
-    getCourtsByHOAId, 
+    courts, 
     addCourt, 
     removeCourt, 
     getTimeSlots,
@@ -33,8 +33,6 @@ const ManageCourts = () => {
   if (!isAdmin) {
     return <Navigate to="/dashboard" replace />;
   }
-  
-  const courts = currentUser ? getCourtsByHOAId(currentUser.hoaId) : [];
   
   // Get next 7 days for the date selector
   const dateOptions = Array.from({ length: 7 }, (_, i) => {

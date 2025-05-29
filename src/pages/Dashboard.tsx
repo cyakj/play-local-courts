@@ -9,24 +9,26 @@ import { Link } from 'react-router-dom';
 const Dashboard = () => {
   const { currentUser, isAdmin } = useAuth();
   const { 
-    getUserBookings, 
-    getCourtsByHOAId, 
-    getPendingUsersByHOAId,
-    getHOAById 
+    bookings, 
+    courts, 
+    pendingUsers,
+    currentHOA,
+    loading
   } = useData();
   
-  const userBookings = currentUser ? getUserBookings(currentUser.id) : [];
-  const courts = currentUser ? getCourtsByHOAId(currentUser.hoaId) : [];
-  const pendingUsers = currentUser && isAdmin ? getPendingUsersByHOAId(currentUser.hoaId) : [];
-  const userHOA = currentUser ? getHOAById(currentUser.hoaId) : undefined;
-
   // Filter for upcoming bookings
-  const upcomingBookings = userBookings.filter(booking => {
-    const bookingDate = new Date(booking.timeSlot.start);
-    return bookingDate > new Date();
+  const upcomingBookings = bookings.filter(booking => {
+    const bookingDateTime = new Date(`${booking.date}T${booking.startTime}`);
+    return bookingDateTime > new Date();
   }).sort((a, b) => {
-    return new Date(a.timeSlot.start).getTime() - new Date(b.timeSlot.start).getTime();
+    const dateA = new Date(`${a.date}T${a.startTime}`);
+    const dateB = new Date(`${b.date}T${b.startTime}`);
+    return dateA.getTime() - dateB.getTime();
   }).slice(0, 3); // Show only next 3 upcoming bookings
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
   
   return (
     <div className="space-y-8">
@@ -34,7 +36,7 @@ const Dashboard = () => {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground">
-            Welcome to {userHOA?.name || 'your HOA'} court reservation system.
+            Welcome to {currentHOA?.name || 'your HOA'} court reservation system.
           </p>
         </div>
       </div>
@@ -105,8 +107,8 @@ const Dashboard = () => {
           <h2 className="text-xl font-semibold mb-4">Your Upcoming Reservations</h2>
           <div className="space-y-4">
             {upcomingBookings.map((booking) => {
-              const bookingDate = new Date(booking.timeSlot.start);
-              const endTime = new Date(booking.timeSlot.end);
+              const bookingDate = new Date(`${booking.date}T${booking.startTime}`);
+              const endTime = new Date(`${booking.date}T${booking.endTime}`);
               
               return (
                 <Card key={booking.id} className="overflow-hidden">

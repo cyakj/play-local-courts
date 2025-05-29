@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label';
 const ReserveCourt = () => {
   const { currentUser } = useAuth();
   const { 
-    getCourtsByHOAId, 
+    courts, 
     getTimeSlots, 
     bookCourt,
     hasBookingForDate 
@@ -42,9 +42,6 @@ const ReserveCourt = () => {
     }
   ];
   
-  // Get courts for the current user's HOA
-  const courts = currentUser ? getCourtsByHOAId(currentUser.hoaId) : [];
-  
   // Get time slots for the selected date and court
   const timeSlots = selectedCourt && selectedDate 
     ? getTimeSlots(format(selectedDate, 'yyyy-MM-dd'), selectedCourt) 
@@ -56,7 +53,7 @@ const ReserveCourt = () => {
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
     
     // Check if user already has a booking for this date
-    if (hasBookingForDate(currentUser.id, dateStr)) {
+    if (currentUser && hasBookingForDate(currentUser.id, dateStr)) {
       toast.error("You already have a booking for this date");
       return;
     }
