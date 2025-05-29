@@ -2,8 +2,8 @@ import { User, UserRole, UserStatus, HOA, Court, Booking, TimeSlot, CourtStatus 
 
 // Mock HOAs
 export const mockHOAs: HOA[] = [
-  { id: "1", name: "The Greens", adminId: "admin1" },
-  { id: "2", name: "The Fairways", adminId: "admin2" }
+  { id: "1", name: "The Greens", adminId: "admin1", createdAt: "2023-01-01T00:00:00Z" },
+  { id: "2", name: "The Fairways", adminId: "admin2", createdAt: "2023-01-01T00:00:00Z" }
 ];
 
 // Mock Users
@@ -49,11 +49,11 @@ export const mockUsers: User[] = [
 
 // Mock Courts
 export const mockCourts: Court[] = [
-  { id: "court1", name: "Tennis Court 1", hoaId: "1", courtType: "tennis" },
-  { id: "court2", name: "Tennis Court 2", hoaId: "1", courtType: "tennis" },
-  { id: "court3", name: "Pickleball Court 1", hoaId: "1", courtType: "pickleball" },
-  { id: "court4", name: "Tennis Court 1", hoaId: "2", courtType: "tennis" },
-  { id: "court5", name: "Pickleball Court 1", hoaId: "2", courtType: "pickleball" }
+  { id: "court1", name: "Tennis Court 1", hoaId: "1", courtType: "tennis", createdAt: "2023-01-01T00:00:00Z" },
+  { id: "court2", name: "Tennis Court 2", hoaId: "1", courtType: "tennis", createdAt: "2023-01-01T00:00:00Z" },
+  { id: "court3", name: "Pickleball Court 1", hoaId: "1", courtType: "pickleball", createdAt: "2023-01-01T00:00:00Z" },
+  { id: "court4", name: "Tennis Court 1", hoaId: "2", courtType: "tennis", createdAt: "2023-01-01T00:00:00Z" },
+  { id: "court5", name: "Pickleball Court 1", hoaId: "2", courtType: "pickleball", createdAt: "2023-01-01T00:00:00Z" }
 ];
 
 // Function to generate time slots for a given date and court
@@ -117,6 +117,9 @@ export function initializeBookings() {
       const user = mockUsers.find(u => u.id === userId);
       
       if (user && user.hoaId === court.hoaId) {
+        const startTime = new Date(slot.start).toTimeString().slice(0, 5);
+        const endTime = new Date(slot.end).toTimeString().slice(0, 5);
+        
         mockBookings.push({
           id: `booking-${slot.id}`,
           userId: user.id,
@@ -124,7 +127,10 @@ export function initializeBookings() {
           courtId: court.id,
           courtName: court.name,
           date: slot.start.split('T')[0],
-          timeSlot: slot,
+          startTime: startTime,
+          endTime: endTime,
+          playType: 'singles',
+          status: 'confirmed',
           createdAt: new Date().toISOString()
         });
       }
