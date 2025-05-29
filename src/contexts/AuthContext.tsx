@@ -24,6 +24,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('Setting up auth state listener...');
+    
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -31,7 +33,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(session);
         
         if (session?.user) {
-          // Fetch user profile from our profiles table
+          console.log('User authenticated, fetching profile...');
+          // Use setTimeout to avoid potential recursive issues
           setTimeout(async () => {
             try {
               const userProfile = await getCurrentUserProfile();
@@ -45,6 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
           }, 0);
         } else {
+          console.log('No user session found');
           setCurrentUser(null);
           setLoading(false);
         }
@@ -64,12 +68,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string) => {
     try {
+      console.log('Attempting to login user:', email);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
+        console.error('Login error:', error);
         if (error.message.includes('Invalid login credentials')) {
           toast.error("Invalid email or password");
         } else {
@@ -78,7 +84,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw error;
       }
 
-      // The auth state change listener will handle setting the user
+      console.log('Login successful:', data.user?.id);
       toast.success("Login successful");
     } catch (error: any) {
       console.error('Login error:', error);
@@ -95,6 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     hoaId: string
   ) => {
     try {
+      console.log('Attempting to register user:', email, 'with HOA:', hoaId);
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -109,6 +116,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (error) {
+        console.error('Registration error:', error);
         if (error.message.includes('already registered')) {
           toast.error("Email already registered");
         } else {
@@ -117,8 +125,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw error;
       }
 
+      console.log('Registration successful:', data.user?.id);
+
       // Update the profile with additional info after creation
       if (data.user) {
+        console.log('Updating user profile with additional data...');
         const { error: updateError } = await supabase
           .from('profiles')
           .update({
@@ -131,6 +142,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (updateError) {
           console.error('Error updating profile:', updateError);
+        } else {
+          console.log('Profile updated successfully');
         }
       }
 
@@ -143,6 +156,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
+      console.log('Logging out user...');
       await supabase.auth.signOut();
       setCurrentUser(null);
       setSession(null);

@@ -2,80 +2,66 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { getAllHOAs } from '../services/supabaseService';
+import { HOA } from '../types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { format } from 'date-fns';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn } from '@/lib/utils';
-
-interface HOA {
-  id: string;
-  name: string;
-}
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 
 const Register = () => {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [hoaId, setHoaId] = useState('');
-  const [date, setDate] = useState<Date>();
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [selectedHOAId, setSelectedHOAId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [hoas, setHOAs] = useState<HOA[]>([]);
+  const [loadingHOAs, setLoadingHOAs] = useState(true);
   
   const { register } = useAuth();
 
-  // Fetch HOAs from Supabase
   useEffect(() => {
-    const fetchHOAs = async () => {
-      const { data, error } = await supabase
-        .from('hoas')
-        .select('id, name')
-        .order('name');
-
-      if (error) {
-        console.error('Error fetching HOAs:', error);
-      } else {
-        setHOAs(data || []);
+    const loadHOAs = async () => {
+      try {
+        console.log('Loading HOAs for registration...');
+        const hoaList = await getAllHOAs();
+        console.log('HOAs loaded:', hoaList);
+        setHOAs(hoaList);
+      } catch (error) {
+        console.error('Error loading HOAs:', error);
+        setError('Failed to load HOA communities');
+      } finally {
+        setLoadingHOAs(false);
       }
     };
 
-    fetchHOAs();
+    loadHOAs();
   }, []);
   
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
-    if (password !== confirmPassword) {
-      setError("Passwords don't match");
-      return;
-    }
-    
-    if (!hoaId) {
-      setError("Please select your HOA");
-      return;
-    }
-    
     setIsLoading(true);
+    
+    if (!selectedHOAId) {
+      setError('Please select your HOA community');
+      setIsLoading(false);
+      return;
+    }
     
     try {
       await register(
         fullName, 
         email, 
         password, 
-        phoneNumber || undefined,
-        date ? date.toISOString().split('T')[0] : undefined,
-        hoaId
+        phoneNumber || undefined, 
+        dateOfBirth || undefined, 
+        selectedHOAId
       );
-      // Redirect handled by success toast and user clicking away
     } catch (err: any) {
       setError(err.message || 'Failed to register');
     } finally {
@@ -83,11 +69,24 @@ const Register = () => {
     }
   };
 
+  if (loadingHOAs) {
+    return (
+      <Card className="w-full shadow-lg">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+            <span className="ml-2">Loading communities...</span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="w-full shadow-lg">
       <CardHeader>
         <CardTitle className="text-2xl">Create Account</CardTitle>
-        <CardDescription>Register to reserve courts at your HOA</CardDescription>
+        <CardDescription>Join your HOA court reservation system</CardDescription>
       </CardHeader>
       <CardContent>
         {error && (
@@ -95,11 +94,13 @@ const Register = () => {
             {error}
           </div>
         )}
-        <form onSubmit={handleSubmit} className="space-y-4">
+
+        <form onSubmit={handleRegister} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="fullName">Full Name *</Label>
+            <Label htmlFor="fullName">Full Name</Label>
             <Input
               id="fullName"
+              type="text"
               placeholder="John Doe"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
@@ -108,7 +109,7 @@ const Register = () => {
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="email">Email *</Label>
+            <Label htmlFor="email">Email</Label>
             <Input
               id="email"
               type="email"
@@ -118,20 +119,9 @@ const Register = () => {
               required
             />
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="phoneNumber">Phone Number</Label>
-            <Input
-              id="phoneNumber"
-              type="tel"
-              placeholder="(555) 123-4567"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-            />
-          </div>
           
           <div className="space-y-2">
-            <Label htmlFor="password">Password *</Label>
+            <Label htmlFor="password">Password</Label>
             <Input
               id="password"
               type="password"
@@ -143,48 +133,31 @@ const Register = () => {
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Confirm Password *</Label>
+            <Label htmlFor="phoneNumber">Phone Number (Optional)</Label>
             <Input
-              id="confirmPassword"
-              type="password"
-              placeholder="••••••••"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
+              id="phoneNumber"
+              type="tel"
+              placeholder="(555) 123-4567"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
             />
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="dob">Date of Birth</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !date && "text-muted-foreground"
-                  )}
-                >
-                  {date ? format(date, "PPP") : <span>Pick a date</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 pointer-events-auto">
-                <Calendar
-                  mode="single"
-                  selected={date}
-                  onSelect={setDate}
-                  initialFocus
-                  disabled={(date) => date > new Date()}
-                />
-              </PopoverContent>
-            </Popover>
+            <Label htmlFor="dateOfBirth">Date of Birth (Optional)</Label>
+            <Input
+              id="dateOfBirth"
+              type="date"
+              value={dateOfBirth}
+              onChange={(e) => setDateOfBirth(e.target.value)}
+            />
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="hoa">Select Your HOA Community *</Label>
-            <Select value={hoaId} onValueChange={setHoaId}>
+            <Label htmlFor="hoa">Select Your HOA Community</Label>
+            <Select value={selectedHOAId} onValueChange={setSelectedHOAId} required>
               <SelectTrigger>
-                <SelectValue placeholder="Select your HOA community" />
+                <SelectValue placeholder="Choose your HOA community" />
               </SelectTrigger>
               <SelectContent>
                 {hoas.map((hoa) => (
@@ -197,7 +170,7 @@ const Register = () => {
           </div>
           
           <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? 'Creating account...' : 'Create Account'}
+            {isLoading ? 'Creating Account...' : 'Create Account'}
           </Button>
         </form>
       </CardContent>
@@ -205,7 +178,7 @@ const Register = () => {
         <p className="text-sm text-center w-full">
           Already have an account?{' '}
           <Link to="/login" className="text-primary hover:underline font-medium">
-            Log in
+            Sign in
           </Link>
         </p>
       </CardFooter>

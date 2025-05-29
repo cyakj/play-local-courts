@@ -4,8 +4,8 @@ import { User, HOA, Court, Booking, UserRole, UserStatus, ProfileRow, HOARow, Co
 // Helper functions to transform database rows to app types
 const transformProfileToUser = (profile: any, userEmail?: string): User => ({
   id: profile.id,
-  fullName: profile.full_name,
-  email: userEmail || '', // Use userEmail parameter or empty string
+  fullName: profile.full_name || 'Unknown User',
+  email: userEmail || profile.email || '',
   phoneNumber: profile.phone_number,
   dateOfBirth: profile.date_of_birth,
   role: profile.hoa_role as UserRole,
@@ -48,8 +48,15 @@ const transformBookingRow = (booking: any): Booking => ({
 
 // User/Profile operations
 export const getCurrentUserProfile = async (): Promise<User | null> => {
+  console.log('Getting current user profile...');
+  
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
+  if (!user) {
+    console.log('No authenticated user found');
+    return null;
+  }
+
+  console.log('Authenticated user found:', user.id);
 
   const { data: profile, error } = await supabase
     .from('profiles')
@@ -57,10 +64,34 @@ export const getCurrentUserProfile = async (): Promise<User | null> => {
     .eq('id', user.id)
     .single();
 
-  if (error || !profile) return null;
+  if (error) {
+    console.error('Error fetching profile:', error);
+    return null;
+  }
+
+  if (!profile) {
+    console.log('No profile found for user:', user.id);
+    return null;
+  }
   
-  // Pass the email from the auth user to the transform function
+  console.log('Profile fetched successfully:', profile);
   return transformProfileToUser(profile, user.email);
+};
+
+export const getAllHOAs = async (): Promise<HOA[]> => {
+  console.log('Fetching all HOAs...');
+  
+  const { data, error } = await supabase
+    .from('hoas')
+    .select('*');
+
+  if (error) {
+    console.error('Error fetching HOAs:', error);
+    return [];
+  }
+
+  console.log('HOAs fetched:', data?.length || 0);
+  return data?.map(transformHOARow) || [];
 };
 
 export const updateUserProfile = async (userId: string, updates: any): Promise<void> => {
