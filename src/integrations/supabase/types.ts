@@ -9,6 +9,53 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      bookings: {
+        Row: {
+          court_id: string
+          created_at: string | null
+          date: string
+          end_time: string
+          id: string
+          play_type: string | null
+          start_time: string
+          status: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          court_id: string
+          created_at?: string | null
+          date: string
+          end_time: string
+          id?: string
+          play_type?: string | null
+          start_time: string
+          status?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          court_id?: string
+          created_at?: string | null
+          date?: string
+          end_time?: string
+          id?: string
+          play_type?: string | null
+          start_time?: string
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bookings_court_id_fkey"
+            columns: ["court_id"]
+            isOneToOne: false
+            referencedRelation: "courts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clubs: {
         Row: {
           created_at: string | null
@@ -102,6 +149,115 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      court_maintenance: {
+        Row: {
+          court_id: string
+          created_at: string | null
+          date: string
+          description: string | null
+          end_time: string
+          id: string
+          start_time: string
+          updated_at: string | null
+        }
+        Insert: {
+          court_id: string
+          created_at?: string | null
+          date: string
+          description?: string | null
+          end_time: string
+          id?: string
+          start_time: string
+          updated_at?: string | null
+        }
+        Update: {
+          court_id?: string
+          created_at?: string | null
+          date?: string
+          description?: string | null
+          end_time?: string
+          id?: string
+          start_time?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "court_maintenance_court_id_fkey"
+            columns: ["court_id"]
+            isOneToOne: false
+            referencedRelation: "courts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      courts: {
+        Row: {
+          court_type: string
+          created_at: string | null
+          hoa_id: string
+          id: string
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          court_type: string
+          created_at?: string | null
+          hoa_id: string
+          id?: string
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          court_type?: string
+          created_at?: string | null
+          hoa_id?: string
+          id?: string
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "courts_hoa_id_fkey"
+            columns: ["hoa_id"]
+            isOneToOne: false
+            referencedRelation: "hoas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hoas: {
+        Row: {
+          address: string | null
+          admin_id: string | null
+          created_at: string | null
+          email: string | null
+          id: string
+          name: string
+          phone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          address?: string | null
+          admin_id?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          name: string
+          phone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          address?: string | null
+          admin_id?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          name?: string
+          phone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       likes: {
         Row: {
@@ -411,9 +567,13 @@ export type Database = {
           date_of_birth: string | null
           full_name: string | null
           gender: string | null
+          hoa_id: string | null
+          hoa_role: string | null
+          hoa_status: string | null
           id: string
           is_verified: boolean | null
           location: string | null
+          phone_number: string | null
           referred_by: string | null
           role: Database["public"]["Enums"]["user_role"] | null
           updated_at: string | null
@@ -427,9 +587,13 @@ export type Database = {
           date_of_birth?: string | null
           full_name?: string | null
           gender?: string | null
+          hoa_id?: string | null
+          hoa_role?: string | null
+          hoa_status?: string | null
           id: string
           is_verified?: boolean | null
           location?: string | null
+          phone_number?: string | null
           referred_by?: string | null
           role?: Database["public"]["Enums"]["user_role"] | null
           updated_at?: string | null
@@ -443,9 +607,13 @@ export type Database = {
           date_of_birth?: string | null
           full_name?: string | null
           gender?: string | null
+          hoa_id?: string | null
+          hoa_role?: string | null
+          hoa_status?: string | null
           id?: string
           is_verified?: boolean | null
           location?: string | null
+          phone_number?: string | null
           referred_by?: string | null
           role?: Database["public"]["Enums"]["user_role"] | null
           updated_at?: string | null
@@ -453,6 +621,13 @@ export type Database = {
           utr_rating?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "profiles_hoa_id_fkey"
+            columns: ["hoa_id"]
+            isOneToOne: false
+            referencedRelation: "hoas"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "profiles_referred_by_fkey"
             columns: ["referred_by"]
