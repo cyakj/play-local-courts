@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -153,13 +152,13 @@ const Register = () => {
             />
           </div>
           
-          <div className="space-y-2">
+          <div className="space-y-2 relative z-50">
             <Label htmlFor="hoa">Select Your HOA Community</Label>
             <Select value={selectedHOAId} onValueChange={setSelectedHOAId} required>
               <SelectTrigger>
                 <SelectValue placeholder="Choose your HOA community" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="z-[99999]">
                 {hoas.map((hoa) => (
                   <SelectItem key={hoa.id} value={hoa.id}>
                     {hoa.name}
