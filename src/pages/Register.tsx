@@ -152,17 +152,13 @@ const Register = () => {
             />
           </div>
           
-          <div className="space-y-2 relative z-50">
+          <div className="space-y-2">
             <Label htmlFor="hoa">Select Your HOA Community</Label>
             <Select value={selectedHOAId} onValueChange={setSelectedHOAId} required>
-              <SelectTrigger className="relative z-10">
+              <SelectTrigger>
                 <SelectValue placeholder="Choose your HOA community" />
               </SelectTrigger>
-              <SelectContent 
-                className="z-[9999] bg-white border shadow-lg" 
-                position="popper"
-                sideOffset={4}
-              >
+              <SelectContent>
                 {hoas.map((hoa) => (
                   <SelectItem key={hoa.id} value={hoa.id}>
                     {hoa.name}
