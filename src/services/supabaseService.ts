@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { User, HOA, Court, Booking, UserRole, UserStatus, ProfileRow, HOARow, CourtRow, BookingRow } from '../types';
 import { shouldSendEmail } from './emailService';
@@ -199,8 +200,8 @@ export const getUserBookings = async (userId: string): Promise<Booking[]> => {
     .from('bookings')
     .select(`
       *,
-      courts(name),
-      profiles(full_name)
+      courts!inner(name),
+      profiles!inner(full_name)
     `)
     .eq('user_id', userId)
     .eq('status', 'confirmed');
@@ -243,8 +244,8 @@ export const createBooking = async (
     })
     .select(`
       *,
-      courts(name),
-      profiles(full_name, email)
+      courts!inner(name),
+      profiles!inner(full_name)
     `)
     .single();
 
@@ -252,12 +253,12 @@ export const createBooking = async (
 
   // Check user preferences before sending email
   const shouldSend = await shouldSendEmail(userId, 'booking_confirmations');
-  if (shouldSend) {
+  if (shouldSend && booking) {
     try {
       await sendBookingEmail({
         type: 'booking_confirmation',
         bookingId: booking.id,
-        userEmail: booking.profiles?.email || '',
+        userEmail: '', // Will be populated by edge function from auth
         userName: booking.profiles?.full_name || 'User',
         courtName: booking.courts?.name || 'Court',
         date,
@@ -278,8 +279,8 @@ export const cancelBooking = async (bookingId: string): Promise<void> => {
     .from('bookings')
     .select(`
       *,
-      courts(name),
-      profiles(full_name, email)
+      courts!inner(name),
+      profiles!inner(full_name)
     `)
     .eq('id', bookingId)
     .single();
@@ -299,7 +300,7 @@ export const cancelBooking = async (bookingId: string): Promise<void> => {
         await sendBookingEmail({
           type: 'booking_cancellation',
           bookingId: booking.id,
-          userEmail: booking.profiles?.email || '',
+          userEmail: '', // Will be populated by edge function from auth
           userName: booking.profiles?.full_name || 'User',
           courtName: booking.courts?.name || 'Court',
           date: booking.date,
@@ -320,8 +321,8 @@ export const getBookingsForDateAndCourt = async (date: string, courtId: string):
     .from('bookings')
     .select(`
       *,
-      courts(name),
-      profiles(full_name)
+      courts!inner(name),
+      profiles!inner(full_name)
     `)
     .eq('court_id', courtId)
     .eq('date', date)
@@ -414,8 +415,8 @@ export const sendBookingReminders = async (): Promise<void> => {
     .from('bookings')
     .select(`
       *,
-      courts(name),
-      profiles(full_name, email)
+      courts!inner(name),
+      profiles!inner(full_name)
     `)
     .eq('date', tomorrowStr)
     .eq('status', 'confirmed');
@@ -433,7 +434,7 @@ export const sendBookingReminders = async (): Promise<void> => {
         await sendBookingEmail({
           type: 'booking_reminder',
           bookingId: booking.id,
-          userEmail: booking.profiles?.email || '',
+          userEmail: '', // Will be populated by edge function from auth
           userName: booking.profiles?.full_name || 'User',
           courtName: booking.courts?.name || 'Court',
           date: booking.date,

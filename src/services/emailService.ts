@@ -12,79 +12,59 @@ export interface EmailPreference {
   updated_at?: string;
 }
 
-// Get user email preferences
+// Get user email preferences using RPC call
 export const getUserEmailPreferences = async (userId: string): Promise<EmailPreference | null> => {
   try {
-    const response = await fetch(`${supabase.supabaseUrl}/rest/v1/email_preferences?user_id=eq.${userId}`, {
-      headers: {
-        'apikey': supabase.supabaseKey,
-        'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (response.ok) {
-      const result = await response.json();
-      return result.length > 0 ? result[0] : null;
+    const { data, error } = await supabase.rpc('get_email_preferences', { user_id: userId });
+    
+    if (error) {
+      console.error('Error fetching email preferences:', error);
+      return null;
     }
-    return null;
+    
+    return data && data.length > 0 ? data[0] : null;
   } catch (error) {
     console.error('Error fetching email preferences:', error);
     return null;
   }
 };
 
-// Create default email preferences for a user
+// Create default email preferences for a user using RPC call
 export const createDefaultEmailPreferences = async (userId: string): Promise<EmailPreference | null> => {
   try {
-    const defaultPrefs = {
-      user_id: userId,
-      booking_confirmations: true,
-      booking_reminders: true,
-      cancellation_notifications: true,
-      admin_announcements: true
-    };
-
-    const response = await fetch(`${supabase.supabaseUrl}/rest/v1/email_preferences`, {
-      method: 'POST',
-      headers: {
-        'apikey': supabase.supabaseKey,
-        'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=representation'
-      },
-      body: JSON.stringify(defaultPrefs)
-    });
-
-    if (response.ok) {
-      const result = await response.json();
-      return result[0];
+    const { data, error } = await supabase.rpc('create_default_email_preferences', { user_id: userId });
+    
+    if (error) {
+      console.error('Error creating email preferences:', error);
+      return null;
     }
-    return null;
+    
+    return data;
   } catch (error) {
     console.error('Error creating email preferences:', error);
     return null;
   }
 };
 
-// Update specific email preference
+// Update specific email preference using RPC call
 export const updateEmailPreference = async (
   userId: string, 
   key: keyof EmailPreference, 
   value: boolean
 ): Promise<boolean> => {
   try {
-    const response = await fetch(`${supabase.supabaseUrl}/rest/v1/email_preferences?user_id=eq.${userId}`, {
-      method: 'PATCH',
-      headers: {
-        'apikey': supabase.supabaseKey,
-        'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ [key]: value })
+    const { error } = await supabase.rpc('update_email_preference', {
+      user_id: userId,
+      preference_key: key,
+      preference_value: value
     });
 
-    return response.ok;
+    if (error) {
+      console.error('Error updating email preference:', error);
+      return false;
+    }
+    
+    return true;
   } catch (error) {
     console.error('Error updating email preference:', error);
     return false;
