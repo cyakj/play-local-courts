@@ -15,7 +15,7 @@ export interface EmailPreference {
 // Get user email preferences using RPC call
 export const getUserEmailPreferences = async (userId: string): Promise<EmailPreference | null> => {
   try {
-    const { data, error } = await supabase.rpc('get_email_preferences', { user_id: userId });
+    const { data, error } = await supabase.rpc('get_email_preferences', { target_user_id: userId });
     
     if (error) {
       console.error('Error fetching email preferences:', error);
@@ -32,7 +32,7 @@ export const getUserEmailPreferences = async (userId: string): Promise<EmailPref
 // Create default email preferences for a user using RPC call
 export const createDefaultEmailPreferences = async (userId: string): Promise<EmailPreference | null> => {
   try {
-    const { data, error } = await supabase.rpc('create_default_email_preferences', { user_id: userId });
+    const { data, error } = await supabase.rpc('create_default_email_preferences', { target_user_id: userId });
     
     if (error) {
       console.error('Error creating email preferences:', error);
@@ -54,7 +54,7 @@ export const updateEmailPreference = async (
 ): Promise<boolean> => {
   try {
     const { error } = await supabase.rpc('update_email_preference', {
-      user_id: userId,
+      target_user_id: userId,
       preference_key: key,
       preference_value: value
     });

@@ -226,6 +226,39 @@ export type Database = {
           },
         ]
       }
+      email_preferences: {
+        Row: {
+          admin_announcements: boolean
+          booking_confirmations: boolean
+          booking_reminders: boolean
+          cancellation_notifications: boolean
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          admin_announcements?: boolean
+          booking_confirmations?: boolean
+          booking_reminders?: boolean
+          cancellation_notifications?: boolean
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          admin_announcements?: boolean
+          booking_confirmations?: boolean
+          booking_reminders?: boolean
+          cancellation_notifications?: boolean
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       hoas: {
         Row: {
           address: string | null
@@ -791,7 +824,40 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      create_default_email_preferences: {
+        Args: { target_user_id: string }
+        Returns: {
+          id: string
+          user_id: string
+          booking_confirmations: boolean
+          booking_reminders: boolean
+          cancellation_notifications: boolean
+          admin_announcements: boolean
+          created_at: string
+          updated_at: string
+        }[]
+      }
+      get_email_preferences: {
+        Args: { target_user_id: string }
+        Returns: {
+          id: string
+          user_id: string
+          booking_confirmations: boolean
+          booking_reminders: boolean
+          cancellation_notifications: boolean
+          admin_announcements: boolean
+          created_at: string
+          updated_at: string
+        }[]
+      }
+      update_email_preference: {
+        Args: {
+          target_user_id: string
+          preference_key: string
+          preference_value: boolean
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       court_type: "hard" | "clay" | "grass" | "indoor"
