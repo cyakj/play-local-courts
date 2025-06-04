@@ -11,25 +11,19 @@ import { Badge } from '@/components/ui/badge';
 
 const PendingRequests = () => {
   const { currentUser, isAdmin } = useAuth();
-  const { users, approveUser, rejectUser } = useData();
-  const [pendingUsers, setPendingUsers] = useState<any[]>([]);
+  const { pendingUsers, approveUser, rejectUser, refreshData } = useData();
   
   // Redirect if not an admin
   if (!isAdmin) {
     return <Navigate to="/dashboard" replace />;
   }
-  
-  // Use useEffect to get the latest pending users
+
+  // Refresh data when component mounts to ensure we have latest pending users
   useEffect(() => {
-    if (currentUser) {
-      // Get all pending users from the actual users array, not mockUsers
-      const actualPendingUsers = users.filter(
-        u => u.hoaId === currentUser.hoaId && u.status === UserStatus.PENDING
-      );
-      console.log("Found pending users:", actualPendingUsers);
-      setPendingUsers(actualPendingUsers);
+    if (currentUser && isAdmin) {
+      refreshData();
     }
-  }, [currentUser, users]); // Add users dependency to refresh when users array changes
+  }, [currentUser, isAdmin, refreshData]);
   
   return (
     <div className="space-y-8">
@@ -85,9 +79,8 @@ const PendingRequests = () => {
                           <Button 
                             variant="outline"
                             size="sm"
-                            onClick={() => {
-                              rejectUser(user.id);
-                              // Update the local state automatically through the dependency
+                            onClick={async () => {
+                              await rejectUser(user.id);
                             }}
                             className="text-red-500 hover:text-red-600"
                           >
@@ -95,9 +88,8 @@ const PendingRequests = () => {
                           </Button>
                           <Button 
                             size="sm"
-                            onClick={() => {
-                              approveUser(user.id);
-                              // Update the local state automatically through the dependency
+                            onClick={async () => {
+                              await approveUser(user.id);
                             }}
                             className="text-green-600 hover:text-green-700"
                           >
