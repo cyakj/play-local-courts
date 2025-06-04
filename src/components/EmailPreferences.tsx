@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '../contexts/AuthContext';
@@ -15,6 +14,8 @@ interface EmailPreference {
   booking_reminders: boolean;
   cancellation_notifications: boolean;
   admin_announcements: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 const EmailPreferences = () => {
@@ -32,46 +33,89 @@ const EmailPreferences = () => {
     if (!currentUser) return;
 
     try {
+      console.log('Loading email preferences for user:', currentUser.id);
+      
+      // Use rpc or raw query since the table might not be in types yet
       const { data, error } = await supabase
-        .from('email_preferences')
-        .select('*')
-        .eq('user_id', currentUser.id)
+        .rpc('exec_sql', {
+          sql: `SELECT * FROM email_preferences WHERE user_id = $1`,
+          params: [currentUser.id]
+        })
         .single();
 
       if (error && error.code !== 'PGRST116') {
-        throw error;
-      }
-
-      if (data) {
-        setPreferences(data);
+        console.error('Error loading preferences, trying direct query:', error);
+        
+        // Fallback to direct query
+        const response = await fetch(`${supabase.supabaseUrl}/rest/v1/email_preferences?user_id=eq.${currentUser.id}`, {
+          headers: {
+            'apikey': supabase.supabaseKey,
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          if (result.length > 0) {
+            setPreferences(result[0] as EmailPreference);
+          } else {
+            await createDefaultPreferences();
+          }
+        } else {
+          throw new Error('Failed to fetch preferences');
+        }
+      } else if (data) {
+        setPreferences(data as EmailPreference);
       } else {
-        // Create default preferences if they don't exist
-        const defaultPrefs = {
-          user_id: currentUser.id,
-          booking_confirmations: true,
-          booking_reminders: true,
-          cancellation_notifications: true,
-          admin_announcements: true
-        };
-
-        const { data: newPrefs, error: createError } = await supabase
-          .from('email_preferences')
-          .insert(defaultPrefs)
-          .select()
-          .single();
-
-        if (createError) throw createError;
-        setPreferences(newPrefs);
+        await createDefaultPreferences();
       }
     } catch (error) {
       console.error('Error loading email preferences:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load email preferences",
-        variant: "destructive"
-      });
+      await createDefaultPreferences();
     } finally {
       setLoading(false);
+    }
+  };
+
+  const createDefaultPreferences = async () => {
+    if (!currentUser) return;
+
+    try {
+      console.log('Creating default email preferences');
+      
+      const defaultPrefs = {
+        user_id: currentUser.id,
+        booking_confirmations: true,
+        booking_reminders: true,
+        cancellation_notifications: true,
+        admin_announcements: true
+      };
+
+      const response = await fetch(`${supabase.supabaseUrl}/rest/v1/email_preferences`, {
+        method: 'POST',
+        headers: {
+          'apikey': supabase.supabaseKey,
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify(defaultPrefs)
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setPreferences(result[0] as EmailPreference);
+      } else {
+        throw new Error('Failed to create default preferences');
+      }
+    } catch (error) {
+      console.error('Error creating default preferences:', error);
+      toast({
+        title: "Error",
+        description: "Failed to initialize email preferences",
+        variant: "destructive"
+      });
     }
   };
 
@@ -80,20 +124,29 @@ const EmailPreferences = () => {
 
     setSaving(true);
     try {
-      const updatedPrefs = { ...preferences, [key]: value };
+      console.log(`Updating ${key} to ${value}`);
       
-      const { error } = await supabase
-        .from('email_preferences')
-        .update({ [key]: value })
-        .eq('user_id', currentUser.id);
-
-      if (error) throw error;
-
-      setPreferences(updatedPrefs);
-      toast({
-        title: "Success",
-        description: "Email preferences updated successfully"
+      const response = await fetch(`${supabase.supabaseUrl}/rest/v1/email_preferences?user_id=eq.${currentUser.id}`, {
+        method: 'PATCH',
+        headers: {
+          'apikey': supabase.supabaseKey,
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify({ [key]: value })
       });
+
+      if (response.ok) {
+        const updatedPrefs = { ...preferences, [key]: value };
+        setPreferences(updatedPrefs);
+        toast({
+          title: "Success",
+          description: "Email preferences updated successfully"
+        });
+      } else {
+        throw new Error('Failed to update preferences');
+      }
     } catch (error) {
       console.error('Error updating email preferences:', error);
       toast({
