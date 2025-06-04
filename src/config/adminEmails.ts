@@ -1,8 +1,8 @@
 
 // Predefined admin email addresses that should automatically get admin privileges
 export const ADMIN_EMAILS = [
-  'admin1@hoaresorts.com', // Replace with actual admin email
-  'admin2@hoaresorts.com', // Replace with actual admin email
+  'thegreens.tennis@gmail.com',
+  'thefairways.tennis@gmail.com',
 ];
 
 // Check if an email should be granted admin privileges
