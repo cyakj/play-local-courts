@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -29,6 +30,10 @@ const Register = () => {
         console.log('Loading HOAs for registration...');
         const hoaList = await getAllHOAs();
         console.log('HOAs loaded:', hoaList);
+        console.log('Number of HOAs:', hoaList.length);
+        hoaList.forEach((hoa, index) => {
+          console.log(`HOA ${index + 1}:`, hoa.name, hoa.id);
+        });
         setHOAs(hoaList);
       } catch (error) {
         console.error('Error loading HOAs:', error);
@@ -154,16 +159,26 @@ const Register = () => {
           
           <div className="space-y-2">
             <Label htmlFor="hoa">Select Your HOA Community</Label>
-            <Select value={selectedHOAId} onValueChange={setSelectedHOAId} required>
-              <SelectTrigger>
+            <div className="text-sm text-gray-600 mb-2">
+              Available communities: {hoas.length} {hoas.length > 0 && `(${hoas.map(h => h.name).join(', ')})`}
+            </div>
+            <Select value={selectedHOAId} onValueChange={(value) => {
+              console.log('Selected HOA:', value);
+              setSelectedHOAId(value);
+            }} required>
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Choose your HOA community" />
               </SelectTrigger>
-              <SelectContent>
-                {hoas.map((hoa) => (
-                  <SelectItem key={hoa.id} value={hoa.id}>
-                    {hoa.name}
-                  </SelectItem>
-                ))}
+              <SelectContent className="z-50 bg-white border border-gray-200 shadow-lg">
+                {hoas.length === 0 ? (
+                  <SelectItem value="no-hoas" disabled>No communities available</SelectItem>
+                ) : (
+                  hoas.map((hoa) => (
+                    <SelectItem key={hoa.id} value={hoa.id}>
+                      {hoa.name}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
