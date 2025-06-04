@@ -21,6 +21,7 @@ import ReserveCourt from "./pages/ReserveCourt";
 import MyReservations from "./pages/MyReservations";
 import PendingRequests from "./pages/PendingRequests";
 import ManageCourts from "./pages/ManageCourts";
+import EmailSettings from "./pages/EmailSettings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -46,6 +47,7 @@ const App = () => (
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/reserve" element={<ReserveCourt />} />
                 <Route path="/my-reservations" element={<MyReservations />} />
+                <Route path="/email-settings" element={<EmailSettings />} />
                 <Route path="/pending-requests" element={<PendingRequests />} />
                 <Route path="/manage-courts" element={<ManageCourts />} />
               </Route>

@@ -192,7 +192,7 @@ export const removeCourt = async (courtId: string): Promise<void> => {
   if (error) throw error;
 };
 
-// Booking operations
+// Booking operations with email integration
 export const getUserBookings = async (userId: string): Promise<Booking[]> => {
   const { data, error } = await supabase
     .from('bookings')
@@ -229,7 +229,7 @@ export const createBooking = async (
     throw new Error('You already have a booking for this date');
   }
 
-  const { error } = await supabase
+  const { data: booking, error } = await supabase
     .from('bookings')
     .insert({
       user_id: userId,
@@ -239,18 +239,73 @@ export const createBooking = async (
       end_time: endTime,
       play_type: playType,
       status: 'confirmed'
-    });
+    })
+    .select(`
+      *,
+      courts(name),
+      profiles(full_name, email)
+    `)
+    .single();
 
   if (error) throw error;
+
+  // Send confirmation email
+  try {
+    await sendBookingEmail({
+      type: 'booking_confirmation',
+      bookingId: booking.id,
+      userEmail: booking.profiles?.email || '',
+      userName: booking.profiles?.full_name || 'User',
+      courtName: booking.courts?.name || 'Court',
+      date,
+      startTime,
+      endTime,
+      playType
+    });
+  } catch (emailError) {
+    console.error('Failed to send confirmation email:', emailError);
+    // Don't throw error - booking was successful even if email failed
+  }
 };
 
 export const cancelBooking = async (bookingId: string): Promise<void> => {
+  // Get booking details before canceling
+  const { data: booking } = await supabase
+    .from('bookings')
+    .select(`
+      *,
+      courts(name),
+      profiles(full_name, email)
+    `)
+    .eq('id', bookingId)
+    .single();
+
   const { error } = await supabase
     .from('bookings')
     .update({ status: 'cancelled' })
     .eq('id', bookingId);
 
   if (error) throw error;
+
+  // Send cancellation email
+  if (booking) {
+    try {
+      await sendBookingEmail({
+        type: 'booking_cancellation',
+        bookingId: booking.id,
+        userEmail: booking.profiles?.email || '',
+        userName: booking.profiles?.full_name || 'User',
+        courtName: booking.courts?.name || 'Court',
+        date: booking.date,
+        startTime: booking.start_time,
+        endTime: booking.end_time,
+        playType: booking.play_type
+      });
+    } catch (emailError) {
+      console.error('Failed to send cancellation email:', emailError);
+      // Don't throw error - cancellation was successful even if email failed
+    }
+  }
 };
 
 export const getBookingsForDateAndCourt = async (date: string, courtId: string): Promise<Booking[]> => {
@@ -313,4 +368,72 @@ export const getMaintenanceForDateAndCourt = async (date: string, courtId: strin
 
   if (error || !data) return [];
   return data;
+};
+
+// Email service functions
+interface EmailData {
+  type: 'booking_confirmation' | 'booking_cancellation' | 'booking_reminder';
+  bookingId: string;
+  userEmail: string;
+  userName: string;
+  courtName: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  playType?: string;
+}
+
+export const sendBookingEmail = async (emailData: EmailData): Promise<void> => {
+  const { data, error } = await supabase.functions.invoke('send-booking-email', {
+    body: emailData
+  });
+
+  if (error) {
+    console.error('Error sending booking email:', error);
+    throw error;
+  }
+
+  console.log('Booking email sent successfully:', data);
+};
+
+export const sendBookingReminders = async (): Promise<void> => {
+  // Get tomorrow's date
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+  // Get all bookings for tomorrow
+  const { data: bookings, error } = await supabase
+    .from('bookings')
+    .select(`
+      *,
+      courts(name),
+      profiles(full_name, email)
+    `)
+    .eq('date', tomorrowStr)
+    .eq('status', 'confirmed');
+
+  if (error || !bookings) {
+    console.error('Error fetching tomorrow\'s bookings:', error);
+    return;
+  }
+
+  // Send reminder emails
+  for (const booking of bookings) {
+    try {
+      await sendBookingEmail({
+        type: 'booking_reminder',
+        bookingId: booking.id,
+        userEmail: booking.profiles?.email || '',
+        userName: booking.profiles?.full_name || 'User',
+        courtName: booking.courts?.name || 'Court',
+        date: booking.date,
+        startTime: booking.start_time,
+        endTime: booking.end_time,
+        playType: booking.play_type
+      });
+    } catch (emailError) {
+      console.error(`Failed to send reminder email for booking ${booking.id}:`, emailError);
+    }
+  }
 };
