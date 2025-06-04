@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getAllHOAs } from '../services/supabaseService';
+import { isAdminEmail } from '../config/adminEmails';
 import { HOA } from '../types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,9 @@ const Register = () => {
   const [hoaError, setHOAError] = useState('');
   
   const { register } = useAuth();
+
+  // Check if current email is an admin email
+  const willBeAdmin = isAdminEmail(email);
 
   useEffect(() => {
     const loadHOAs = async () => {
@@ -109,6 +113,12 @@ const Register = () => {
         {hoaError && (
           <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded mb-4">
             {hoaError}
+          </div>
+        )}
+
+        {willBeAdmin && email && (
+          <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded mb-4">
+            <strong>Admin Account Detected:</strong> This email will be granted administrator privileges with full system access.
           </div>
         )}
 
@@ -206,7 +216,7 @@ const Register = () => {
             className="w-full" 
             disabled={isLoading || hoas.length === 0}
           >
-            {isLoading ? 'Creating Account...' : 'Create Account'}
+            {isLoading ? 'Creating Account...' : willBeAdmin ? 'Create Admin Account' : 'Create Account'}
           </Button>
         </form>
       </CardContent>

@@ -1,9 +1,10 @@
-
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { User, UserRole, UserStatus } from '../types';
 import { supabase } from '@/integrations/supabase/client';
 import { getCurrentUserProfile } from '../services/supabaseService';
+import { createDefaultEmailPreferences } from '../services/emailService';
+import { isAdminEmail } from '../config/adminEmails';
 import { toast } from 'sonner';
 
 interface AuthContextType {
@@ -102,6 +103,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   ) => {
     try {
       console.log('Attempting to register user:', email, 'with HOA:', hoaId);
+      
+      // Determine if this email should get admin privileges
+      const shouldBeAdmin = isAdminEmail(email);
+      const userRole = shouldBeAdmin ? UserRole.ADMIN : UserRole.RESIDENT;
+      const userStatus = shouldBeAdmin ? UserStatus.APPROVED : UserStatus.PENDING;
+      
+      console.log('User role assignment:', { email, shouldBeAdmin, userRole, userStatus });
+      
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -111,6 +120,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             phone_number: phoneNumber,
             date_of_birth: dateOfBirth,
             hoa_id: hoaId,
+            hoa_role: userRole,
+            hoa_status: userStatus,
           }
         }
       });
@@ -137,17 +148,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             date_of_birth: dateOfBirth,
             hoa_id: hoaId,
             full_name: fullName,
+            hoa_role: userRole,
+            hoa_status: userStatus,
           })
           .eq('id', data.user.id);
 
         if (updateError) {
           console.error('Error updating profile:', updateError);
         } else {
-          console.log('Profile updated successfully');
+          console.log('Profile updated successfully with role:', userRole);
+        }
+
+        // Create default email preferences for the new user
+        try {
+          await createDefaultEmailPreferences(data.user.id);
+          console.log('Default email preferences created for user');
+        } catch (emailPrefError) {
+          console.error('Error creating email preferences:', emailPrefError);
+          // Don't throw error - registration was successful even if email prefs failed
         }
       }
 
-      toast.success("Registration successful! Your account is pending approval from your HOA admin.");
+      if (shouldBeAdmin) {
+        toast.success("Admin account created successfully! You have full access to the system.");
+      } else {
+        toast.success("Registration successful! Your account is pending approval from your HOA admin.");
+      }
     } catch (error: any) {
       console.error('Registration error:', error);
       throw error;
