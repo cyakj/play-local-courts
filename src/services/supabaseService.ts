@@ -34,12 +34,12 @@ const transformCourtRow = (court: CourtRow): Court => ({
   createdAt: court.created_at
 });
 
-const transformBookingRow = (booking: any): Booking => ({
+const transformBookingRow = (booking: any, userName?: string, courtName?: string): Booking => ({
   id: booking.id,
   userId: booking.user_id,
-  userName: booking.profiles?.full_name || 'Unknown User',
+  userName: userName || 'Unknown User',
   courtId: booking.court_id,
-  courtName: booking.courts?.name || 'Unknown Court',
+  courtName: courtName || 'Unknown Court',
   date: booking.date,
   startTime: booking.start_time,
   endTime: booking.end_time,
@@ -194,21 +194,38 @@ export const removeCourt = async (courtId: string): Promise<void> => {
   if (error) throw error;
 };
 
+// Helper function to get user and court names separately
+const getUserAndCourtNames = async (userId: string, courtId: string) => {
+  const [userResult, courtResult] = await Promise.all([
+    supabase.from('profiles').select('full_name').eq('id', userId).single(),
+    supabase.from('courts').select('name').eq('id', courtId).single()
+  ]);
+
+  return {
+    userName: userResult.data?.full_name || 'Unknown User',
+    courtName: courtResult.data?.name || 'Unknown Court'
+  };
+};
+
 // Booking operations with email integration
 export const getUserBookings = async (userId: string): Promise<Booking[]> => {
   const { data, error } = await supabase
     .from('bookings')
-    .select(`
-      *,
-      courts!inner(name),
-      profiles!inner(full_name)
-    `)
+    .select('*')
     .eq('user_id', userId)
     .eq('status', 'confirmed');
 
   if (error || !data) return [];
   
-  return data.map(transformBookingRow);
+  // Get user and court names for each booking
+  const bookingsWithNames = await Promise.all(
+    data.map(async (booking) => {
+      const { userName, courtName } = await getUserAndCourtNames(booking.user_id, booking.court_id);
+      return transformBookingRow(booking, userName, courtName);
+    })
+  );
+
+  return bookingsWithNames;
 };
 
 export const createBooking = async (
@@ -242,11 +259,7 @@ export const createBooking = async (
       play_type: playType,
       status: 'confirmed'
     })
-    .select(`
-      *,
-      courts!inner(name),
-      profiles!inner(full_name)
-    `)
+    .select('*')
     .single();
 
   if (error) throw error;
@@ -255,12 +268,14 @@ export const createBooking = async (
   const shouldSend = await shouldSendEmail(userId, 'booking_confirmations');
   if (shouldSend && booking) {
     try {
+      const { userName, courtName } = await getUserAndCourtNames(userId, courtId);
+      
       await sendBookingEmail({
         type: 'booking_confirmation',
         bookingId: booking.id,
         userEmail: '', // Will be populated by edge function from auth
-        userName: booking.profiles?.full_name || 'User',
-        courtName: booking.courts?.name || 'Court',
+        userName,
+        courtName,
         date,
         startTime,
         endTime,
@@ -277,11 +292,7 @@ export const cancelBooking = async (bookingId: string): Promise<void> => {
   // Get booking details before canceling
   const { data: booking } = await supabase
     .from('bookings')
-    .select(`
-      *,
-      courts!inner(name),
-      profiles!inner(full_name)
-    `)
+    .select('*')
     .eq('id', bookingId)
     .single();
 
@@ -297,12 +308,14 @@ export const cancelBooking = async (bookingId: string): Promise<void> => {
     const shouldSend = await shouldSendEmail(booking.user_id, 'cancellation_notifications');
     if (shouldSend) {
       try {
+        const { userName, courtName } = await getUserAndCourtNames(booking.user_id, booking.court_id);
+        
         await sendBookingEmail({
           type: 'booking_cancellation',
           bookingId: booking.id,
           userEmail: '', // Will be populated by edge function from auth
-          userName: booking.profiles?.full_name || 'User',
-          courtName: booking.courts?.name || 'Court',
+          userName,
+          courtName,
           date: booking.date,
           startTime: booking.start_time,
           endTime: booking.end_time,
@@ -319,18 +332,22 @@ export const cancelBooking = async (bookingId: string): Promise<void> => {
 export const getBookingsForDateAndCourt = async (date: string, courtId: string): Promise<Booking[]> => {
   const { data, error } = await supabase
     .from('bookings')
-    .select(`
-      *,
-      courts!inner(name),
-      profiles!inner(full_name)
-    `)
+    .select('*')
     .eq('court_id', courtId)
     .eq('date', date)
     .eq('status', 'confirmed');
 
   if (error || !data) return [];
   
-  return data.map(transformBookingRow);
+  // Get user and court names for each booking
+  const bookingsWithNames = await Promise.all(
+    data.map(async (booking) => {
+      const { userName, courtName } = await getUserAndCourtNames(booking.user_id, booking.court_id);
+      return transformBookingRow(booking, userName, courtName);
+    })
+  );
+
+  return bookingsWithNames;
 };
 
 export const hasBookingForDate = async (userId: string, date: string): Promise<boolean> => {
@@ -413,11 +430,7 @@ export const sendBookingReminders = async (): Promise<void> => {
   // Get all bookings for tomorrow
   const { data: bookings, error } = await supabase
     .from('bookings')
-    .select(`
-      *,
-      courts!inner(name),
-      profiles!inner(full_name)
-    `)
+    .select('*')
     .eq('date', tomorrowStr)
     .eq('status', 'confirmed');
 
@@ -431,12 +444,14 @@ export const sendBookingReminders = async (): Promise<void> => {
     try {
       const shouldSend = await shouldSendEmail(booking.user_id, 'booking_reminders');
       if (shouldSend) {
+        const { userName, courtName } = await getUserAndCourtNames(booking.user_id, booking.court_id);
+        
         await sendBookingEmail({
           type: 'booking_reminder',
           bookingId: booking.id,
           userEmail: '', // Will be populated by edge function from auth
-          userName: booking.profiles?.full_name || 'User',
-          courtName: booking.courts?.name || 'Court',
+          userName,
+          courtName,
           date: booking.date,
           startTime: booking.start_time,
           endTime: booking.end_time,

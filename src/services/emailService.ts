@@ -22,6 +22,7 @@ export const getUserEmailPreferences = async (userId: string): Promise<EmailPref
       return null;
     }
     
+    // RPC functions return arrays, so get the first item
     return data && data.length > 0 ? data[0] : null;
   } catch (error) {
     console.error('Error fetching email preferences:', error);
@@ -39,7 +40,8 @@ export const createDefaultEmailPreferences = async (userId: string): Promise<Ema
       return null;
     }
     
-    return data;
+    // RPC functions return arrays, so get the first item
+    return data && data.length > 0 ? data[0] : null;
   } catch (error) {
     console.error('Error creating email preferences:', error);
     return null;
