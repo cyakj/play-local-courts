@@ -85,13 +85,26 @@ export const getAllHOAs = async (): Promise<HOA[]> => {
     .from('hoas')
     .select('*');
 
+  console.log('Raw Supabase response:', { data, error });
+
   if (error) {
     console.error('Error fetching HOAs:', error);
+    console.error('Error details:', error.message, error.code, error.details);
     return [];
   }
 
-  console.log('HOAs fetched:', data?.length || 0);
-  return data?.map(transformHOARow) || [];
+  if (!data) {
+    console.log('No HOA data returned from database');
+    return [];
+  }
+
+  console.log('Raw HOA data from database:', data);
+  console.log('Number of HOAs returned:', data.length);
+  
+  const transformedHOAs = data.map(transformHOARow);
+  console.log('Transformed HOAs:', transformedHOAs);
+  
+  return transformedHOAs;
 };
 
 export const updateUserProfile = async (userId: string, updates: any): Promise<void> => {
