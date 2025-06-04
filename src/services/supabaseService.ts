@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { User, HOA, Court, Booking, UserRole, UserStatus, ProfileRow, HOARow, CourtRow, BookingRow } from '../types';
 
@@ -81,6 +82,13 @@ export const getCurrentUserProfile = async (): Promise<User | null> => {
 export const getAllHOAs = async (): Promise<HOA[]> => {
   console.log('Fetching all HOAs...');
   
+  // First try to check if we can access the table
+  const { count, error: countError } = await supabase
+    .from('hoas')
+    .select('*', { count: 'exact', head: true });
+
+  console.log('HOA table count check:', { count, countError });
+
   const { data, error } = await supabase
     .from('hoas')
     .select('*');
@@ -90,6 +98,18 @@ export const getAllHOAs = async (): Promise<HOA[]> => {
   if (error) {
     console.error('Error fetching HOAs:', error);
     console.error('Error details:', error.message, error.code, error.details);
+    
+    // Check if it's a permissions error
+    if (error.code === 'PGRST116' || error.message?.includes('permission denied')) {
+      console.error('Possible RLS issue - checking table access...');
+      
+      // Try to get table info to see if it exists
+      const { data: tableInfo, error: tableError } = await supabase
+        .rpc('check_table_access', { table_name: 'hoas' });
+      
+      console.log('Table access check:', { tableInfo, tableError });
+    }
+    
     return [];
   }
 

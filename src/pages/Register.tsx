@@ -21,6 +21,7 @@ const Register = () => {
   const [error, setError] = useState('');
   const [hoas, setHOAs] = useState<HOA[]>([]);
   const [loadingHOAs, setLoadingHOAs] = useState(true);
+  const [hoaError, setHOAError] = useState('');
   
   const { register } = useAuth();
 
@@ -28,6 +29,7 @@ const Register = () => {
     const loadHOAs = async () => {
       try {
         console.log('Loading HOAs for registration...');
+        setHOAError('');
         const hoaList = await getAllHOAs();
         console.log('HOAs loaded:', hoaList);
         console.log('Number of HOAs:', hoaList.length);
@@ -35,9 +37,14 @@ const Register = () => {
           console.log(`HOA ${index + 1}:`, hoa.name, hoa.id);
         });
         setHOAs(hoaList);
+        
+        if (hoaList.length === 0) {
+          setHOAError('No HOA communities are currently available. Please contact support.');
+        }
       } catch (error) {
         console.error('Error loading HOAs:', error);
         setError('Failed to load HOA communities');
+        setHOAError('Failed to load communities. Please try refreshing the page.');
       } finally {
         setLoadingHOAs(false);
       }
@@ -96,6 +103,12 @@ const Register = () => {
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
             {error}
+          </div>
+        )}
+
+        {hoaError && (
+          <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded mb-4">
+            {hoaError}
           </div>
         )}
 
@@ -162,12 +175,17 @@ const Register = () => {
             <div className="text-sm text-gray-600 mb-2">
               Available communities: {hoas.length} {hoas.length > 0 && `(${hoas.map(h => h.name).join(', ')})`}
             </div>
-            <Select value={selectedHOAId} onValueChange={(value) => {
-              console.log('Selected HOA:', value);
-              setSelectedHOAId(value);
-            }} required>
+            <Select 
+              value={selectedHOAId} 
+              onValueChange={(value) => {
+                console.log('Selected HOA:', value);
+                setSelectedHOAId(value);
+              }} 
+              required
+              disabled={hoas.length === 0}
+            >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Choose your HOA community" />
+                <SelectValue placeholder={hoas.length === 0 ? "No communities available" : "Choose your HOA community"} />
               </SelectTrigger>
               <SelectContent className="z-50 bg-white border border-gray-200 shadow-lg">
                 {hoas.length === 0 ? (
@@ -183,7 +201,11 @@ const Register = () => {
             </Select>
           </div>
           
-          <Button type="submit" className="w-full" disabled={isLoading}>
+          <Button 
+            type="submit" 
+            className="w-full" 
+            disabled={isLoading || hoas.length === 0}
+          >
             {isLoading ? 'Creating Account...' : 'Create Account'}
           </Button>
         </form>
