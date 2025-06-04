@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { User, HOA, Court, Booking, UserRole, UserStatus, ProfileRow, HOARow, CourtRow, BookingRow } from '../types';
 
@@ -101,13 +100,7 @@ export const getAllHOAs = async (): Promise<HOA[]> => {
     
     // Check if it's a permissions error
     if (error.code === 'PGRST116' || error.message?.includes('permission denied')) {
-      console.error('Possible RLS issue - checking table access...');
-      
-      // Try to get table info to see if it exists
-      const { data: tableInfo, error: tableError } = await supabase
-        .rpc('check_table_access', { table_name: 'hoas' });
-      
-      console.log('Table access check:', { tableInfo, tableError });
+      console.error('Possible RLS issue - table may need public read policy');
     }
     
     return [];

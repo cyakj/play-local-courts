@@ -5,27 +5,18 @@ export const setupHOARLS = async () => {
   console.log('Setting up RLS policies for HOAs table...');
   
   try {
-    // Enable RLS on hoas table if not already enabled
-    const { error: rlsError } = await supabase.rpc('enable_rls_if_not_exists', {
-      table_name: 'hoas'
-    });
-    
-    if (rlsError) {
-      console.log('RLS may already be enabled:', rlsError.message);
+    // Check if we can access the hoas table
+    const { data, error } = await supabase
+      .from('hoas')
+      .select('count', { count: 'exact', head: true });
+
+    if (error) {
+      console.error('Error accessing hoas table:', error);
+      return;
     }
 
-    // Create policy for public read access to hoas
-    const { error: policyError } = await supabase.rpc('create_policy_if_not_exists', {
-      table_name: 'hoas',
-      policy_name: 'Allow public read access to hoas',
-      policy_definition: 'CREATE POLICY "Allow public read access to hoas" ON public.hoas FOR SELECT USING (true);'
-    });
-
-    if (policyError) {
-      console.log('Policy may already exist:', policyError.message);
-    }
-
-    console.log('HOA RLS setup completed');
+    console.log('HOA table accessible, count:', data);
+    console.log('RLS policies should be configured via SQL migrations in Supabase dashboard');
   } catch (error) {
     console.error('Error setting up HOA RLS:', error);
   }
