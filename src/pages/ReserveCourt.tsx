@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
@@ -12,6 +11,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from '@/components/ui/label';
 import TimeSelector from '../components/TimeSelector';
 import CourtPoliciesDialog from '../components/CourtPoliciesDialog';
+import { CourtStatus } from '../types';
 
 const ReserveCourt = () => {
   const { currentUser } = useAuth();
@@ -97,7 +97,7 @@ const ReserveCourt = () => {
         id: `${selectedCourt}-${dateStr}-${selectedStartTime}`,
         start: new Date(`${dateStr}T${selectedStartTime}:00`).toISOString(),
         end: new Date(`${dateStr}T${selectedEndTime}:00`).toISOString(),
-        status: 'AVAILABLE' as const
+        status: CourtStatus.AVAILABLE
       };
       
       await bookCourt(
