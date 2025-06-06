@@ -6,17 +6,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { format, addDays } from 'date-fns';
-import { CourtStatus } from '../types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from '@/components/ui/label';
+import TimeSelector from '../components/TimeSelector';
+import CourtPoliciesDialog from '../components/CourtPoliciesDialog';
 
 const ReserveCourt = () => {
   const { currentUser } = useAuth();
   const { 
     courts, 
-    getTimeSlots, 
     bookCourt,
     hasBookingForDate 
   } = useData();
@@ -24,6 +24,9 @@ const ReserveCourt = () => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedCourt, setSelectedCourt] = useState<string>('');
   const [playType, setPlayType] = useState<'singles' | 'doubles'>('singles');
+  const [selectedStartTime, setSelectedStartTime] = useState<string>('');
+  const [selectedEndTime, setSelectedEndTime] = useState<string>('');
+  const [showPoliciesDialog, setShowPoliciesDialog] = useState(false);
   
   // Get only today and tomorrow for date options
   const today = new Date();
@@ -42,13 +45,33 @@ const ReserveCourt = () => {
     }
   ];
   
-  // Get time slots for the selected date and court
-  const timeSlots = selectedCourt && selectedDate 
-    ? getTimeSlots(format(selectedDate, 'yyyy-MM-dd'), selectedCourt) 
-    : [];
+  // Mock data for booked and maintenance slots - in real app this would come from the data context
+  const getBookedSlots = (courtId: string, date: string) => {
+    // This should be replaced with actual data from your booking system
+    return [
+      { start: '08:00', end: '09:00' },
+      { start: '14:00', end: '15:30' },
+      { start: '18:00', end: '19:00' }
+    ];
+  };
   
-  const handleBookCourt = (timeSlotId: string) => {
-    if (!currentUser || !selectedCourt) return;
+  const getMaintenanceSlots = (courtId: string, date: string) => {
+    // This should be replaced with actual maintenance data
+    return [
+      { start: '12:00', end: '13:00' }
+    ];
+  };
+  
+  const handleTimeSelect = (startTime: string, endTime: string) => {
+    setSelectedStartTime(startTime);
+    setSelectedEndTime(endTime);
+  };
+  
+  const handleBookCourt = () => {
+    if (!currentUser || !selectedCourt || !selectedStartTime || !selectedEndTime) {
+      toast.error("Please select a court and time slot");
+      return;
+    }
     
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
     
@@ -58,12 +81,26 @@ const ReserveCourt = () => {
       return;
     }
     
-    const timeSlot = timeSlots.find(slot => slot.id === timeSlotId);
+    // Show policies dialog before booking
+    setShowPoliciesDialog(true);
+  };
+  
+  const handlePoliciesAgreed = async () => {
+    if (!currentUser || !selectedCourt) return;
+    
+    const dateStr = format(selectedDate, 'yyyy-MM-dd');
     const court = courts.find(court => court.id === selectedCourt);
     
-    if (timeSlot && court) {
-      // Pass the play type to bookCourt
-      bookCourt(
+    if (court) {
+      // Create a time slot object for the booking
+      const timeSlot = {
+        id: `${selectedCourt}-${dateStr}-${selectedStartTime}`,
+        start: new Date(`${dateStr}T${selectedStartTime}:00`).toISOString(),
+        end: new Date(`${dateStr}T${selectedEndTime}:00`).toISOString(),
+        status: 'AVAILABLE' as const
+      };
+      
+      await bookCourt(
         currentUser.id,
         currentUser.fullName,
         court.id,
@@ -72,6 +109,11 @@ const ReserveCourt = () => {
         timeSlot,
         playType
       );
+      
+      // Reset form
+      setSelectedStartTime('');
+      setSelectedEndTime('');
+      setShowPoliciesDialog(false);
     }
   };
   
@@ -123,11 +165,11 @@ const ReserveCourt = () => {
                 <RadioGroup value={playType} onValueChange={(value) => setPlayType(value as 'singles' | 'doubles')}>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="singles" id="singles" />
-                    <Label htmlFor="singles">Singles (1 hour)</Label>
+                    <Label htmlFor="singles">Singles (up to 1 hour)</Label>
                   </div>
                   <div className="flex items-center space-x-2 mt-2">
                     <RadioGroupItem value="doubles" id="doubles" />
-                    <Label htmlFor="doubles">Doubles (1.5 hours)</Label>
+                    <Label htmlFor="doubles">Doubles (up to 1 hour)</Label>
                   </div>
                 </RadioGroup>
               </div>
@@ -147,7 +189,7 @@ const ReserveCourt = () => {
                 <p className="text-muted-foreground">No tennis courts available in your community</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 {tennisCourts.map(court => (
                   <Card key={court.id} className={selectedCourt === court.id ? "border-primary" : ""}>
                     <CardHeader className="pb-2">
@@ -163,53 +205,25 @@ const ReserveCourt = () => {
                       </Button>
                       
                       {selectedCourt === court.id && (
-                        <div className="mt-4">
-                          <h4 className="font-medium mb-2">Available Time Slots</h4>
-                          <div className="grid grid-cols-2 gap-2">
-                            {timeSlots.map(slot => {
-                              const startTime = new Date(slot.start);
-                              const endTime = new Date(slot.end);
-                              
-                              // For doubles, we need to check that there's an available slot after this one
-                              let isValidForPlayType = true;
-                              if (playType === 'doubles') {
-                                const slotHour = startTime.getHours();
-                                const nextSlotId = `${court.id}-${format(selectedDate, 'yyyy-MM-dd')}-${slotHour + 1}`;
-                                const nextSlot = timeSlots.find(s => s.id === nextSlotId);
-                                isValidForPlayType = nextSlot && nextSlot.status === CourtStatus.AVAILABLE;
-                              }
-                              
-                              return (
-                                <div 
-                                  key={slot.id} 
-                                  className={`
-                                    time-slot p-2 rounded text-center text-sm cursor-pointer
-                                    ${slot.status === CourtStatus.AVAILABLE && isValidForPlayType ? 'bg-green-100 hover:bg-green-200' : ''}
-                                    ${slot.status === CourtStatus.BOOKED || !isValidForPlayType ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : ''}
-                                    ${slot.status === CourtStatus.MAINTENANCE ? 'bg-yellow-100 text-yellow-800 cursor-not-allowed' : ''}
-                                  `}
-                                  onClick={() => {
-                                    if (slot.status === CourtStatus.AVAILABLE && isValidForPlayType) {
-                                      handleBookCourt(slot.id);
-                                    }
-                                  }}
-                                >
-                                  {startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} - 
-                                  {playType === 'singles' 
-                                    ? endTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-                                    : new Date(new Date(endTime).setMinutes(endTime.getMinutes() + 30))
-                                        .toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-                                  }
-                                  <div className="text-[10px]">
-                                    {slot.status === CourtStatus.AVAILABLE && isValidForPlayType && 'Available'}
-                                    {slot.status === CourtStatus.BOOKED && 'Booked'}
-                                    {slot.status === CourtStatus.MAINTENANCE && 'Maintenance'}
-                                    {slot.status === CourtStatus.AVAILABLE && !isValidForPlayType && 'Not enough time for doubles'}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
+                        <div className="mt-4 space-y-4">
+                          <TimeSelector
+                            selectedDate={selectedDate}
+                            onTimeSelect={handleTimeSelect}
+                            isDoubles={playType === 'doubles'}
+                            bookedSlots={getBookedSlots(court.id, format(selectedDate, 'yyyy-MM-dd'))}
+                            maintenanceSlots={getMaintenanceSlots(court.id, format(selectedDate, 'yyyy-MM-dd'))}
+                          />
+                          
+                          {selectedStartTime && selectedEndTime && (
+                            <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                              <p className="text-sm font-medium text-green-800">
+                                Selected Time: {selectedStartTime} - {selectedEndTime}
+                              </p>
+                              <Button onClick={handleBookCourt} className="mt-2 w-full">
+                                Book Court
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       )}
                     </CardContent>
@@ -225,7 +239,7 @@ const ReserveCourt = () => {
                 <p className="text-muted-foreground">No pickleball courts available in your community</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 {pickleballCourts.map(court => (
                   <Card key={court.id} className={selectedCourt === court.id ? "border-primary" : ""}>
                     <CardHeader className="pb-2">
@@ -241,53 +255,25 @@ const ReserveCourt = () => {
                       </Button>
                       
                       {selectedCourt === court.id && (
-                        <div className="mt-4">
-                          <h4 className="font-medium mb-2">Available Time Slots</h4>
-                          <div className="grid grid-cols-2 gap-2">
-                            {timeSlots.map(slot => {
-                              const startTime = new Date(slot.start);
-                              const endTime = new Date(slot.end);
-                              
-                              // For doubles, we need to check that there's an available slot after this one
-                              let isValidForPlayType = true;
-                              if (playType === 'doubles') {
-                                const slotHour = startTime.getHours();
-                                const nextSlotId = `${court.id}-${format(selectedDate, 'yyyy-MM-dd')}-${slotHour + 1}`;
-                                const nextSlot = timeSlots.find(s => s.id === nextSlotId);
-                                isValidForPlayType = nextSlot && nextSlot.status === CourtStatus.AVAILABLE;
-                              }
-                              
-                              return (
-                                <div 
-                                  key={slot.id} 
-                                  className={`
-                                    time-slot p-2 rounded text-center text-sm cursor-pointer
-                                    ${slot.status === CourtStatus.AVAILABLE && isValidForPlayType ? 'bg-green-100 hover:bg-green-200' : ''}
-                                    ${slot.status === CourtStatus.BOOKED || !isValidForPlayType ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : ''}
-                                    ${slot.status === CourtStatus.MAINTENANCE ? 'bg-yellow-100 text-yellow-800 cursor-not-allowed' : ''}
-                                  `}
-                                  onClick={() => {
-                                    if (slot.status === CourtStatus.AVAILABLE && isValidForPlayType) {
-                                      handleBookCourt(slot.id);
-                                    }
-                                  }}
-                                >
-                                  {startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} - 
-                                  {playType === 'singles' 
-                                    ? endTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-                                    : new Date(new Date(endTime).setMinutes(endTime.getMinutes() + 30))
-                                        .toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-                                  }
-                                  <div className="text-[10px]">
-                                    {slot.status === CourtStatus.AVAILABLE && isValidForPlayType && 'Available'}
-                                    {slot.status === CourtStatus.BOOKED && 'Booked'}
-                                    {slot.status === CourtStatus.MAINTENANCE && 'Maintenance'}
-                                    {slot.status === CourtStatus.AVAILABLE && !isValidForPlayType && 'Not enough time for doubles'}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
+                        <div className="mt-4 space-y-4">
+                          <TimeSelector
+                            selectedDate={selectedDate}
+                            onTimeSelect={handleTimeSelect}
+                            isDoubles={playType === 'doubles'}
+                            bookedSlots={getBookedSlots(court.id, format(selectedDate, 'yyyy-MM-dd'))}
+                            maintenanceSlots={getMaintenanceSlots(court.id, format(selectedDate, 'yyyy-MM-dd'))}
+                          />
+                          
+                          {selectedStartTime && selectedEndTime && (
+                            <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                              <p className="text-sm font-medium text-green-800">
+                                Selected Time: {selectedStartTime} - {selectedEndTime}
+                              </p>
+                              <Button onClick={handleBookCourt} className="mt-2 w-full">
+                                Book Court
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       )}
                     </CardContent>
@@ -298,6 +284,12 @@ const ReserveCourt = () => {
           </TabsContent>
         </Tabs>
       </div>
+      
+      <CourtPoliciesDialog
+        isOpen={showPoliciesDialog}
+        onClose={() => setShowPoliciesDialog(false)}
+        onAgree={handlePoliciesAgreed}
+      />
     </div>
   );
 };
