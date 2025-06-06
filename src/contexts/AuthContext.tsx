@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { User, UserRole, UserStatus } from '../types';
@@ -104,17 +105,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('Attempting to register user:', email, 'with HOA:', hoaId);
       
+      if (!hoaId) {
+        toast.error("Please select an HOA");
+        throw new Error("HOA selection is required");
+      }
+      
       // Determine if this email should get admin privileges
       const shouldBeAdmin = isAdminEmail(email);
       const userRole = shouldBeAdmin ? UserRole.ADMIN : UserRole.RESIDENT;
       const userStatus = shouldBeAdmin ? UserStatus.APPROVED : UserStatus.PENDING;
       
-      console.log('User role assignment:', { email, shouldBeAdmin, userRole, userStatus });
+      console.log('User role assignment:', { email, shouldBeAdmin, userRole, userStatus, hoaId });
       
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
+          emailRedirectTo: `${window.location.origin}/dashboard`,
           data: {
             full_name: fullName,
             phone_number: phoneNumber,
@@ -138,25 +145,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       console.log('Registration successful:', data.user?.id);
 
-      // Update the profile with additional info after creation
+      // Ensure the profile gets created with the correct data immediately
       if (data.user) {
-        console.log('Updating user profile with additional data...');
+        console.log('Creating/updating user profile with HOA data...');
+        
+        // Wait a moment for the trigger to fire, then update
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
         const { error: updateError } = await supabase
           .from('profiles')
-          .update({
+          .upsert({
+            id: data.user.id,
             phone_number: phoneNumber,
             date_of_birth: dateOfBirth,
-            hoa_id: hoaId,
+            hoa_id: hoaId, // Ensure HOA ID is set
             full_name: fullName,
             hoa_role: userRole,
             hoa_status: userStatus,
-          })
-          .eq('id', data.user.id);
+          }, {
+            onConflict: 'id'
+          });
 
         if (updateError) {
           console.error('Error updating profile:', updateError);
+          // Don't throw - registration was successful
         } else {
-          console.log('Profile updated successfully with role:', userRole);
+          console.log('Profile updated successfully with HOA:', hoaId, 'role:', userRole);
         }
 
         // Create default email preferences for the new user
@@ -170,9 +184,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (shouldBeAdmin) {
-        toast.success("Admin account created successfully! You have full access to the system.");
+        toast.success("Admin account created successfully! Please check your email to confirm your account.");
       } else {
-        toast.success("Registration successful! Your account is pending approval from your HOA admin.");
+        toast.success("Registration successful! Please check your email to confirm your account, then wait for HOA admin approval.");
       }
     } catch (error: any) {
       console.error('Registration error:', error);
