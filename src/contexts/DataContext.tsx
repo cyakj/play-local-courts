@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { User, HOA, Amenity, Booking, UserStatus, AmenityStatus, TimeSlot } from '../types';
 import { useAuth } from './AuthContext';
@@ -252,6 +253,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
       const startTime = new Date(timeSlot.start).toTimeString().split(' ')[0].substring(0, 5);
       const endTime = new Date(timeSlot.end).toTimeString().split(' ')[0].substring(0, 5);
+      
+      // TODO: Add validation against amenity rules here
+      // - Check if booking time is within allowed window
+      // - Check if duration respects max duration
+      // - Check if user has exceeded daily/weekly limits
+      // - Check if booking respects advance booking window
+      // - Check other rule constraints
       
       await createBooking(userId, amenityId, date, startTime, endTime, playType);
       toast.success(`${amenityName} booked successfully for ${playType}`);
