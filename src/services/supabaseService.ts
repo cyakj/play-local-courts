@@ -1,6 +1,5 @@
-
 import { supabase } from '@/integrations/supabase/client';
-import { User, HOA, Court, Booking, UserRole, UserStatus, ProfileRow, HOARow, CourtRow, BookingRow } from '../types';
+import { User, HOA, Amenity, Booking, UserRole, UserStatus, ProfileRow, HOARow, AmenityRow, BookingRow } from '../types';
 import { shouldSendEmail } from './emailService';
 
 // Helper functions to transform database rows to app types
@@ -26,24 +25,24 @@ const transformHOARow = (hoa: HOARow): HOA => ({
   createdAt: hoa.created_at
 });
 
-const transformCourtRow = (court: CourtRow): Court => ({
-  id: court.id,
-  name: court.name,
-  hoaId: court.hoa_id,
-  courtType: court.court_type as "tennis" | "pickleball",
-  createdAt: court.created_at
+const transformAmenityRow = (amenity: AmenityRow): Amenity => ({
+  id: amenity.id,
+  name: amenity.name,
+  hoaId: amenity.hoa_id,
+  amenityType: amenity.amenity_type as Amenity['amenityType'],
+  createdAt: amenity.created_at
 });
 
-const transformBookingRow = (booking: any, userName?: string, courtName?: string): Booking => ({
+const transformBookingRow = (booking: any, userName?: string, amenityName?: string): Booking => ({
   id: booking.id,
   userId: booking.user_id,
   userName: userName || 'Unknown User',
-  courtId: booking.court_id,
-  courtName: courtName || 'Unknown Court',
+  amenityId: booking.amenity_id || booking.court_id, // Support both field names
+  amenityName: amenityName || 'Unknown Amenity',
   date: booking.date,
   startTime: booking.start_time,
   endTime: booking.end_time,
-  playType: booking.play_type as 'singles' | 'doubles',
+  playType: booking.play_type as 'singles' | 'doubles' | 'family' | 'group',
   status: booking.status as 'confirmed' | 'cancelled',
   createdAt: booking.created_at
 });
@@ -162,48 +161,59 @@ export const rejectUser = async (userId: string): Promise<void> => {
   await updateUserProfile(userId, { hoa_status: 'rejected' });
 };
 
-// Court operations
-export const getCourtsByHOAId = async (hoaId: string): Promise<Court[]> => {
+// Amenity operations
+export const getAmenitiesByHOAId = async (hoaId: string): Promise<Amenity[]> => {
   const { data, error } = await supabase
     .from('courts')
     .select('*')
     .eq('hoa_id', hoaId);
 
   if (error || !data) return [];
-  return data.map(transformCourtRow);
+  return data.map(court => ({
+    id: court.id,
+    name: court.name,
+    hoaId: court.hoa_id,
+    amenityType: court.court_type as Amenity['amenityType'],
+    createdAt: court.created_at
+  }));
 };
 
-export const addCourt = async (name: string, hoaId: string, courtType: "tennis" | "pickleball"): Promise<void> => {
+export const addAmenity = async (name: string, hoaId: string, amenityType: Amenity['amenityType']): Promise<void> => {
   const { error } = await supabase
     .from('courts')
     .insert({
       name,
       hoa_id: hoaId,
-      court_type: courtType
+      court_type: amenityType
     });
 
   if (error) throw error;
 };
 
-export const removeCourt = async (courtId: string): Promise<void> => {
+export const removeAmenity = async (amenityId: string): Promise<void> => {
   const { error } = await supabase
     .from('courts')
     .delete()
-    .eq('id', courtId);
+    .eq('id', amenityId);
 
   if (error) throw error;
 };
 
-// Helper function to get user and court names separately
-const getUserAndCourtNames = async (userId: string, courtId: string) => {
-  const [userResult, courtResult] = await Promise.all([
+// Legacy court functions for backward compatibility
+export const getCourtsByHOAId = getAmenitiesByHOAId;
+export const addCourt = addAmenity;
+export const removeCourt = removeAmenity;
+
+// Helper function to get user and amenity names separately
+const getUserAndAmenityNames = async (userId: string, amenityId: string) => {
+  const [userResult, amenityResult] = await Promise.all([
     supabase.from('profiles').select('full_name').eq('id', userId).single(),
-    supabase.from('courts').select('name').eq('id', courtId).single()
+    supabase.from('courts').select('name').eq('id', amenityId).single()
   ]);
 
   return {
     userName: userResult.data?.full_name || 'Unknown User',
-    courtName: courtResult.data?.name || 'Unknown Court'
+    amenityName: amenityResult.data?.name || 'Unknown Amenity'
   };
 };
 
@@ -217,11 +227,11 @@ export const getUserBookings = async (userId: string): Promise<Booking[]> => {
 
   if (error || !data) return [];
   
-  // Get user and court names for each booking
+  // Get user and amenity names for each booking
   const bookingsWithNames = await Promise.all(
     data.map(async (booking) => {
-      const { userName, courtName } = await getUserAndCourtNames(booking.user_id, booking.court_id);
-      return transformBookingRow(booking, userName, courtName);
+      const { userName, amenityName } = await getUserAndAmenityNames(booking.user_id, booking.court_id);
+      return transformBookingRow(booking, userName, amenityName);
     })
   );
 
@@ -230,11 +240,11 @@ export const getUserBookings = async (userId: string): Promise<Booking[]> => {
 
 export const createBooking = async (
   userId: string,
-  courtId: string,
+  amenityId: string,
   date: string,
   startTime: string,
   endTime: string,
-  playType: 'singles' | 'doubles' = 'singles'
+  playType: 'singles' | 'doubles' | 'family' | 'group' = 'singles'
 ): Promise<void> => {
   // Check if user already has a booking for this date
   const { data: existingBookings } = await supabase
@@ -252,7 +262,7 @@ export const createBooking = async (
     .from('bookings')
     .insert({
       user_id: userId,
-      court_id: courtId,
+      court_id: amenityId, // Using court_id field for backward compatibility
       date,
       start_time: startTime,
       end_time: endTime,
@@ -268,14 +278,14 @@ export const createBooking = async (
   const shouldSend = await shouldSendEmail(userId, 'booking_confirmations');
   if (shouldSend && booking) {
     try {
-      const { userName, courtName } = await getUserAndCourtNames(userId, courtId);
+      const { userName, amenityName } = await getUserAndAmenityNames(userId, amenityId);
       
       await sendBookingEmail({
         type: 'booking_confirmation',
         bookingId: booking.id,
         userEmail: '', // Will be populated by edge function from auth
         userName,
-        courtName,
+        amenityName,
         date,
         startTime,
         endTime,
@@ -308,14 +318,14 @@ export const cancelBooking = async (bookingId: string): Promise<void> => {
     const shouldSend = await shouldSendEmail(booking.user_id, 'cancellation_notifications');
     if (shouldSend) {
       try {
-        const { userName, courtName } = await getUserAndCourtNames(booking.user_id, booking.court_id);
+        const { userName, amenityName } = await getUserAndAmenityNames(booking.user_id, booking.court_id);
         
         await sendBookingEmail({
           type: 'booking_cancellation',
           bookingId: booking.id,
           userEmail: '', // Will be populated by edge function from auth
           userName,
-          courtName,
+          amenityName,
           date: booking.date,
           startTime: booking.start_time,
           endTime: booking.end_time,
@@ -329,21 +339,21 @@ export const cancelBooking = async (bookingId: string): Promise<void> => {
   }
 };
 
-export const getBookingsForDateAndCourt = async (date: string, courtId: string): Promise<Booking[]> => {
+export const getBookingsForDateAndAmenity = async (date: string, amenityId: string): Promise<Booking[]> => {
   const { data, error } = await supabase
     .from('bookings')
     .select('*')
-    .eq('court_id', courtId)
+    .eq('court_id', amenityId)
     .eq('date', date)
     .eq('status', 'confirmed');
 
   if (error || !data) return [];
   
-  // Get user and court names for each booking
+  // Get user and amenity names for each booking
   const bookingsWithNames = await Promise.all(
     data.map(async (booking) => {
-      const { userName, courtName } = await getUserAndCourtNames(booking.user_id, booking.court_id);
-      return transformBookingRow(booking, userName, courtName);
+      const { userName, amenityName } = await getUserAndAmenityNames(booking.user_id, booking.court_id);
+      return transformBookingRow(booking, userName, amenityName);
     })
   );
 
@@ -363,9 +373,9 @@ export const hasBookingForDate = async (userId: string, date: string): Promise<b
   return data && data.length > 0;
 };
 
-// Court maintenance operations
-export const setCourtMaintenance = async (
-  courtId: string,
+// Amenity maintenance operations
+export const setAmenityMaintenance = async (
+  amenityId: string,
   date: string,
   startTime: string,
   endTime: string,
@@ -374,7 +384,7 @@ export const setCourtMaintenance = async (
   const { error } = await supabase
     .from('court_maintenance')
     .insert({
-      court_id: courtId,
+      court_id: amenityId,
       date,
       start_time: startTime,
       end_time: endTime,
@@ -384,16 +394,20 @@ export const setCourtMaintenance = async (
   if (error) throw error;
 };
 
-export const getMaintenanceForDateAndCourt = async (date: string, courtId: string): Promise<any[]> => {
+export const getMaintenanceForDateAndAmenity = async (date: string, amenityId: string): Promise<any[]> => {
   const { data, error } = await supabase
     .from('court_maintenance')
     .select('*')
-    .eq('court_id', courtId)
+    .eq('court_id', amenityId)
     .eq('date', date);
 
   if (error || !data) return [];
   return data;
 };
+
+// Legacy function names for backward compatibility
+export const setCourtMaintenance = setAmenityMaintenance;
+export const getMaintenanceForDateAndCourt = getMaintenanceForDateAndAmenity;
 
 // Email service functions
 interface EmailData {
@@ -401,7 +415,7 @@ interface EmailData {
   bookingId: string;
   userEmail: string;
   userName: string;
-  courtName: string;
+  amenityName: string;
   date: string;
   startTime: string;
   endTime: string;
@@ -444,14 +458,14 @@ export const sendBookingReminders = async (): Promise<void> => {
     try {
       const shouldSend = await shouldSendEmail(booking.user_id, 'booking_reminders');
       if (shouldSend) {
-        const { userName, courtName } = await getUserAndCourtNames(booking.user_id, booking.court_id);
+        const { userName, amenityName } = await getUserAndAmenityNames(booking.user_id, booking.court_id);
         
         await sendBookingEmail({
           type: 'booking_reminder',
           bookingId: booking.id,
           userEmail: '', // Will be populated by edge function from auth
           userName,
-          courtName,
+          amenityName,
           date: booking.date,
           startTime: booking.start_time,
           endTime: booking.end_time,

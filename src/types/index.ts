@@ -12,8 +12,8 @@ export enum UserStatus {
   REJECTED = "rejected"
 }
 
-// Court status
-export enum CourtStatus {
+// Amenity status
+export enum AmenityStatus {
   AVAILABLE = "available",
   BOOKED = "booked",
   MAINTENANCE = "maintenance"
@@ -43,12 +43,12 @@ export interface HOA {
   createdAt: string;
 }
 
-// Court type matching Supabase courts table
-export interface Court {
+// Amenity type matching Supabase amenities table (renamed from courts)
+export interface Amenity {
   id: string;
   name: string;
   hoaId: string;
-  courtType: "tennis" | "pickleball";
+  amenityType: "tennis" | "pickleball" | "barbecue" | "jacuzzi" | "pool" | "gym" | "clubhouse";
   createdAt: string;
 }
 
@@ -57,7 +57,7 @@ export interface TimeSlot {
   id: string;
   start: string; // ISO string
   end: string; // ISO string
-  status: CourtStatus;
+  status: AmenityStatus;
 }
 
 // Booking type matching Supabase bookings table
@@ -65,12 +65,12 @@ export interface Booking {
   id: string;
   userId: string;
   userName: string;
-  courtId: string;
-  courtName: string;
+  amenityId: string;
+  amenityName: string;
   date: string; // YYYY-MM-DD
   startTime: string; // HH:MM format
   endTime: string; // HH:MM format
-  playType?: 'singles' | 'doubles';
+  playType?: 'singles' | 'doubles' | 'family' | 'group';
   status: 'confirmed' | 'cancelled';
   createdAt: string;
 }
@@ -98,10 +98,10 @@ export interface HOARow {
   created_at: string;
 }
 
-export interface CourtRow {
+export interface AmenityRow {
   id: string;
   name: string;
-  court_type: string;
+  amenity_type: string;
   hoa_id: string;
   created_at: string;
 }
@@ -109,7 +109,7 @@ export interface CourtRow {
 export interface BookingRow {
   id: string;
   user_id: string;
-  court_id: string;
+  amenity_id: string;
   date: string;
   start_time: string;
   end_time: string;
@@ -117,3 +117,8 @@ export interface BookingRow {
   status: string;
   created_at: string;
 }
+
+// Legacy types for backward compatibility
+export type Court = Amenity;
+export type CourtRow = AmenityRow;
+export const CourtStatus = AmenityStatus;

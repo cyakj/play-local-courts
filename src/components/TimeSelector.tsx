@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useCallback } from 'react';
 import { format } from 'date-fns';
 
@@ -6,6 +5,7 @@ interface TimeSelectorProps {
   selectedDate: Date;
   onTimeSelect: (startTime: string, endTime: string) => void;
   isDoubles: boolean;
+  isExtended?: boolean; // For amenities that allow longer bookings
   bookedSlots: Array<{ start: string; end: string }>;
   maintenanceSlots: Array<{ start: string; end: string }>;
   selectedStartTime?: string;
@@ -16,6 +16,7 @@ const TimeSelector: React.FC<TimeSelectorProps> = ({
   selectedDate,
   onTimeSelect,
   isDoubles,
+  isExtended = false,
   bookedSlots,
   maintenanceSlots,
   selectedStartTime,
@@ -32,7 +33,7 @@ const TimeSelector: React.FC<TimeSelectorProps> = ({
   const totalHours = endHour - startHour;
   
   // Duration limits based on play type
-  const maxDuration = isDoubles ? 1.5 : 1; // 1.5 hours for doubles, 1 hour for singles
+  const maxDuration = isExtended ? 2 : isDoubles ? 1.5 : 1; // 2 hours for extended, 1.5 hours for doubles, 1 hour for singles
 
   const getTimeFromPosition = useCallback((position: number): number => {
     if (!timelineRef.current) return startHour;
@@ -182,7 +183,7 @@ const TimeSelector: React.FC<TimeSelectorProps> = ({
   return (
     <div className="space-y-4">
       <div className="text-sm font-medium">
-        Select your time slot by clicking and dragging (maximum {maxDuration} hour{maxDuration > 1 ? 's' : ''} for {isDoubles ? 'doubles' : 'singles'})
+        Select your time slot by clicking and dragging (maximum {maxDuration} hour{maxDuration > 1 ? 's' : ''} for {isExtended ? 'extended use' : isDoubles ? 'doubles' : 'singles'})
       </div>
       
       <div className="relative flex">

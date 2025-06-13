@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
@@ -11,19 +12,19 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from '@/components/ui/label';
 import TimeSelector from '../components/TimeSelector';
 import CourtPoliciesDialog from '../components/CourtPoliciesDialog';
-import { CourtStatus } from '../types';
+import { AmenityStatus } from '../types';
 
 const ReserveCourt = () => {
   const { currentUser } = useAuth();
   const { 
-    courts, 
-    bookCourt,
+    amenities, 
+    bookAmenity,
     hasBookingForDate 
   } = useData();
   
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [selectedCourt, setSelectedCourt] = useState<string>('');
-  const [playType, setPlayType] = useState<'singles' | 'doubles'>('singles');
+  const [selectedAmenity, setSelectedAmenity] = useState<string>('');
+  const [playType, setPlayType] = useState<'singles' | 'doubles' | 'family' | 'group'>('singles');
   const [selectedStartTime, setSelectedStartTime] = useState<string>('');
   const [selectedEndTime, setSelectedEndTime] = useState<string>('');
   const [showPoliciesDialog, setShowPoliciesDialog] = useState(false);
@@ -45,8 +46,56 @@ const ReserveCourt = () => {
     }
   ];
   
+  // Group amenities by type
+  const groupedAmenities = amenities.reduce((acc, amenity) => {
+    if (!acc[amenity.amenityType]) {
+      acc[amenity.amenityType] = [];
+    }
+    acc[amenity.amenityType].push(amenity);
+    return acc;
+  }, {} as Record<string, typeof amenities>);
+
+  // Amenity type configurations
+  const amenityTypeConfig = {
+    tennis: { 
+      label: 'Tennis Courts', 
+      playTypes: ['singles', 'doubles'],
+      description: 'Book a tennis court for singles or doubles play'
+    },
+    pickleball: { 
+      label: 'Pickleball Courts', 
+      playTypes: ['singles', 'doubles'],
+      description: 'Book a pickleball court for singles or doubles play'
+    },
+    barbecue: { 
+      label: 'Barbecue Areas', 
+      playTypes: ['family', 'group'],
+      description: 'Reserve a barbecue area for family gatherings or group events'
+    },
+    jacuzzi: { 
+      label: 'Jacuzzi', 
+      playTypes: ['family', 'group'],
+      description: 'Book the jacuzzi for relaxation'
+    },
+    pool: { 
+      label: 'Pool', 
+      playTypes: ['family', 'group'],
+      description: 'Reserve pool time for swimming and recreation'
+    },
+    gym: { 
+      label: 'Gym', 
+      playTypes: ['singles', 'group'],
+      description: 'Book gym time for personal or group workouts'
+    },
+    clubhouse: { 
+      label: 'Clubhouse', 
+      playTypes: ['family', 'group'],
+      description: 'Reserve the clubhouse for events and gatherings'
+    }
+  };
+  
   // Mock data for booked and maintenance slots - in real app this would come from the data context
-  const getBookedSlots = (courtId: string, date: string) => {
+  const getBookedSlots = (amenityId: string, date: string) => {
     // This should be replaced with actual data from your booking system
     return [
       { start: '08:00', end: '09:00' },
@@ -55,7 +104,7 @@ const ReserveCourt = () => {
     ];
   };
   
-  const getMaintenanceSlots = (courtId: string, date: string) => {
+  const getMaintenanceSlots = (amenityId: string, date: string) => {
     // This should be replaced with actual maintenance data
     return [
       { start: '12:00', end: '13:00' }
@@ -67,9 +116,9 @@ const ReserveCourt = () => {
     setSelectedEndTime(endTime);
   };
   
-  const handleBookCourt = () => {
-    if (!currentUser || !selectedCourt || !selectedStartTime || !selectedEndTime) {
-      toast.error("Please select a court and time slot");
+  const handleBookAmenity = () => {
+    if (!currentUser || !selectedAmenity || !selectedStartTime || !selectedEndTime) {
+      toast.error("Please select an amenity and time slot");
       return;
     }
     
@@ -86,25 +135,25 @@ const ReserveCourt = () => {
   };
   
   const handlePoliciesAgreed = async () => {
-    if (!currentUser || !selectedCourt) return;
+    if (!currentUser || !selectedAmenity) return;
     
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
-    const court = courts.find(court => court.id === selectedCourt);
+    const amenity = amenities.find(a => a.id === selectedAmenity);
     
-    if (court) {
+    if (amenity) {
       // Create a time slot object for the booking
       const timeSlot = {
-        id: `${selectedCourt}-${dateStr}-${selectedStartTime}`,
+        id: `${selectedAmenity}-${dateStr}-${selectedStartTime}`,
         start: new Date(`${dateStr}T${selectedStartTime}:00`).toISOString(),
         end: new Date(`${dateStr}T${selectedEndTime}:00`).toISOString(),
-        status: CourtStatus.AVAILABLE
+        status: AmenityStatus.AVAILABLE
       };
       
-      await bookCourt(
+      await bookAmenity(
         currentUser.id,
         currentUser.fullName,
-        court.id,
-        court.name,
+        amenity.id,
+        amenity.name,
         dateStr,
         timeSlot,
         playType
@@ -116,17 +165,87 @@ const ReserveCourt = () => {
       setShowPoliciesDialog(false);
     }
   };
-  
-  // Filter courts by type
-  const tennisCourts = courts.filter(court => court.courtType === 'tennis');
-  const pickleballCourts = courts.filter(court => court.courtType === 'pickleball');
+
+  const getPlayTypeOptions = (amenityType: string) => {
+    const config = amenityTypeConfig[amenityType as keyof typeof amenityTypeConfig];
+    return config?.playTypes || ['singles'];
+  };
+
+  const renderAmenityTab = (amenityType: string, amenityList: typeof amenities) => {
+    const config = amenityTypeConfig[amenityType as keyof typeof amenityTypeConfig];
+    const playTypeOptions = getPlayTypeOptions(amenityType);
+    
+    return (
+      <div className="grid grid-cols-1 gap-4">
+        {amenityList.map(amenity => (
+          <Card key={amenity.id} className={selectedAmenity === amenity.id ? "border-primary" : ""}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">{amenity.name}</CardTitle>
+              <CardDescription>{config?.description}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                onClick={() => setSelectedAmenity(amenity.id)}
+                variant={selectedAmenity === amenity.id ? "default" : "outline"}
+                className="w-full mb-4"
+              >
+                {selectedAmenity === amenity.id ? "Selected" : "Select"}
+              </Button>
+              
+              {selectedAmenity === amenity.id && (
+                <div className="mt-4 space-y-4">
+                  {playTypeOptions.length > 1 && (
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium mb-1">Type of Use</label>
+                      <RadioGroup value={playType} onValueChange={(value) => setPlayType(value as typeof playType)}>
+                        {playTypeOptions.map(option => (
+                          <div key={option} className="flex items-center space-x-2">
+                            <RadioGroupItem value={option} id={option} />
+                            <Label htmlFor={option} className="capitalize">
+                              {option} {option === 'singles' ? '(up to 1 hour)' : option === 'doubles' ? '(up to 1.5 hours)' : '(up to 2 hours)'}
+                            </Label>
+                          </div>
+                        ))}
+                      </RadioGroup>
+                    </div>
+                  )}
+                  
+                  <TimeSelector
+                    selectedDate={selectedDate}
+                    onTimeSelect={handleTimeSelect}
+                    isDoubles={playType === 'doubles'}
+                    isExtended={playType === 'family' || playType === 'group'}
+                    bookedSlots={getBookedSlots(amenity.id, format(selectedDate, 'yyyy-MM-dd'))}
+                    maintenanceSlots={getMaintenanceSlots(amenity.id, format(selectedDate, 'yyyy-MM-dd'))}
+                    selectedStartTime={selectedStartTime}
+                    selectedEndTime={selectedEndTime}
+                  />
+                  
+                  {selectedStartTime && selectedEndTime && (
+                    <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                      <p className="text-sm font-medium text-green-800">
+                        Selected Time: {selectedStartTime} - {selectedEndTime}
+                      </p>
+                      <Button onClick={handleBookAmenity} className="mt-2 w-full">
+                        Book {amenity.name}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Reserve a Court</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Reserve an Amenity</h1>
         <p className="text-muted-foreground">
-          Book a tennis or pickleball court at your community
+          Book amenities at your community
         </p>
       </div>
       
@@ -134,7 +253,7 @@ const ReserveCourt = () => {
         <Card>
           <CardHeader>
             <CardTitle>Select Date & Type</CardTitle>
-            <CardDescription>Choose when you want to play and how</CardDescription>
+            <CardDescription>Choose when you want to use the amenity</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
@@ -159,134 +278,40 @@ const ReserveCourt = () => {
                   </SelectContent>
                 </Select>
               </div>
-              
-              <div className="space-y-2">
-                <label className="block text-sm font-medium mb-1">Type of Play</label>
-                <RadioGroup value={playType} onValueChange={(value) => setPlayType(value as 'singles' | 'doubles')}>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="singles" id="singles" />
-                    <Label htmlFor="singles">Singles (up to 1 hour)</Label>
-                  </div>
-                  <div className="flex items-center space-x-2 mt-2">
-                    <RadioGroupItem value="doubles" id="doubles" />
-                    <Label htmlFor="doubles">Doubles (up to 1.5 hours)</Label>
-                  </div>
-                </RadioGroup>
-              </div>
             </div>
           </CardContent>
         </Card>
         
-        <Tabs defaultValue="tennis">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="tennis">Tennis Courts</TabsTrigger>
-            <TabsTrigger value="pickleball">Pickleball Courts</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="tennis" className="mt-4">
-            {tennisCourts.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">No tennis courts available in your community</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-4">
-                {tennisCourts.map(court => (
-                  <Card key={court.id} className={selectedCourt === court.id ? "border-primary" : ""}>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg">{court.name}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <Button 
-                        onClick={() => setSelectedCourt(court.id)}
-                        variant={selectedCourt === court.id ? "default" : "outline"}
-                        className="w-full mb-4"
-                      >
-                        {selectedCourt === court.id ? "Selected" : "Select Court"}
-                      </Button>
-                      
-                      {selectedCourt === court.id && (
-                        <div className="mt-4 space-y-4">
-                          <TimeSelector
-                            selectedDate={selectedDate}
-                            onTimeSelect={handleTimeSelect}
-                            isDoubles={playType === 'doubles'}
-                            bookedSlots={getBookedSlots(court.id, format(selectedDate, 'yyyy-MM-dd'))}
-                            maintenanceSlots={getMaintenanceSlots(court.id, format(selectedDate, 'yyyy-MM-dd'))}
-                            selectedStartTime={selectedStartTime}
-                            selectedEndTime={selectedEndTime}
-                          />
-                          
-                          {selectedStartTime && selectedEndTime && (
-                            <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                              <p className="text-sm font-medium text-green-800">
-                                Selected Time: {selectedStartTime} - {selectedEndTime}
-                              </p>
-                              <Button onClick={handleBookCourt} className="mt-2 w-full">
-                                Book Court
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-          
-          <TabsContent value="pickleball" className="mt-4">
-            {pickleballCourts.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">No pickleball courts available in your community</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-4">
-                {pickleballCourts.map(court => (
-                  <Card key={court.id} className={selectedCourt === court.id ? "border-primary" : ""}>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg">{court.name}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <Button 
-                        onClick={() => setSelectedCourt(court.id)}
-                        variant={selectedCourt === court.id ? "default" : "outline"}
-                        className="w-full mb-4"
-                      >
-                        {selectedCourt === court.id ? "Selected" : "Select Court"}
-                      </Button>
-                      
-                      {selectedCourt === court.id && (
-                        <div className="mt-4 space-y-4">
-                          <TimeSelector
-                            selectedDate={selectedDate}
-                            onTimeSelect={handleTimeSelect}
-                            isDoubles={playType === 'doubles'}
-                            bookedSlots={getBookedSlots(court.id, format(selectedDate, 'yyyy-MM-dd'))}
-                            maintenanceSlots={getMaintenanceSlots(court.id, format(selectedDate, 'yyyy-MM-dd'))}
-                            selectedStartTime={selectedStartTime}
-                            selectedEndTime={selectedEndTime}
-                          />
-                          
-                          {selectedStartTime && selectedEndTime && (
-                            <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                              <p className="text-sm font-medium text-green-800">
-                                Selected Time: {selectedStartTime} - {selectedEndTime}
-                              </p>
-                              <Button onClick={handleBookCourt} className="mt-2 w-full">
-                                Book Court
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
+        {Object.keys(groupedAmenities).length > 0 ? (
+          <Tabs defaultValue={Object.keys(groupedAmenities)[0]}>
+            <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${Object.keys(groupedAmenities).length}, 1fr)` }}>
+              {Object.entries(groupedAmenities).map(([type, _]) => {
+                const config = amenityTypeConfig[type as keyof typeof amenityTypeConfig];
+                return (
+                  <TabsTrigger key={type} value={type}>
+                    {config?.label || type}
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+            
+            {Object.entries(groupedAmenities).map(([type, amenityList]) => (
+              <TabsContent key={type} value={type} className="mt-4">
+                {amenityList.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">No {type} amenities available in your community</p>
+                  </div>
+                ) : (
+                  renderAmenityTab(type, amenityList)
+                )}
+              </TabsContent>
+            ))}
+          </Tabs>
+        ) : (
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">No amenities available in your community</p>
+          </div>
+        )}
       </div>
       
       <CourtPoliciesDialog
