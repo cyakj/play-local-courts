@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,7 +25,10 @@ const RuleEditor = ({ amenity, onBack }: RuleEditorProps) => {
   const [formData, setFormData] = useState({
     booking_start_time: '07:00',
     booking_end_time: '21:00',
-    max_duration_minutes: 60,
+    singles_duration_minutes: 60,
+    doubles_duration_minutes: 90,
+    family_duration_minutes: 120,
+    group_duration_minutes: 120,
     max_reservations_per_day: 1,
     max_reservations_per_week: 3,
     min_time_between_reservations: 0,
@@ -39,7 +41,10 @@ const RuleEditor = ({ amenity, onBack }: RuleEditorProps) => {
     enable_peak_hours: false,
     peak_start_time: '17:00',
     peak_end_time: '19:00',
-    peak_max_duration_minutes: 30,
+    peak_singles_duration_minutes: 30,
+    peak_doubles_duration_minutes: 45,
+    peak_family_duration_minutes: 60,
+    peak_group_duration_minutes: 60,
     requires_admin_approval: false,
     security_deposit_required: false,
     security_deposit_amount: 0,
@@ -58,7 +63,10 @@ const RuleEditor = ({ amenity, onBack }: RuleEditorProps) => {
       setFormData({
         booking_start_time: rules.booking_start_time || '07:00',
         booking_end_time: rules.booking_end_time || '21:00',
-        max_duration_minutes: rules.max_duration_minutes || 60,
+        singles_duration_minutes: rules.singles_duration_minutes || 60,
+        doubles_duration_minutes: rules.doubles_duration_minutes || 90,
+        family_duration_minutes: rules.family_duration_minutes || 120,
+        group_duration_minutes: rules.group_duration_minutes || 120,
         max_reservations_per_day: rules.max_reservations_per_day || 1,
         max_reservations_per_week: rules.max_reservations_per_week || 3,
         min_time_between_reservations: rules.min_time_between_reservations || 0,
@@ -71,7 +79,10 @@ const RuleEditor = ({ amenity, onBack }: RuleEditorProps) => {
         enable_peak_hours: rules.enable_peak_hours ?? false,
         peak_start_time: rules.peak_start_time || '17:00',
         peak_end_time: rules.peak_end_time || '19:00',
-        peak_max_duration_minutes: rules.peak_max_duration_minutes || 30,
+        peak_singles_duration_minutes: rules.peak_singles_duration_minutes || 30,
+        peak_doubles_duration_minutes: rules.peak_doubles_duration_minutes || 45,
+        peak_family_duration_minutes: rules.peak_family_duration_minutes || 60,
+        peak_group_duration_minutes: rules.peak_group_duration_minutes || 60,
         requires_admin_approval: rules.requires_admin_approval ?? false,
         security_deposit_required: rules.security_deposit_required ?? false,
         security_deposit_amount: rules.security_deposit_amount || 0,
@@ -157,18 +168,95 @@ const RuleEditor = ({ amenity, onBack }: RuleEditorProps) => {
                   />
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Duration Limits by Play Type */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Duration Limits by Play Type</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {(amenity.amenityType === 'tennis' || amenity.amenityType === 'pickleball') && (
+                <>
+                  <div>
+                    <Label>Singles Duration (minutes): {formData.singles_duration_minutes}</Label>
+                    <Slider
+                      value={[formData.singles_duration_minutes]}
+                      onValueChange={([value]) => updateField('singles_duration_minutes', value)}
+                      max={240}
+                      min={15}
+                      step={15}
+                      className="mt-2"
+                    />
+                  </div>
+                  <div>
+                    <Label>Doubles Duration (minutes): {formData.doubles_duration_minutes}</Label>
+                    <Slider
+                      value={[formData.doubles_duration_minutes]}
+                      onValueChange={([value]) => updateField('doubles_duration_minutes', value)}
+                      max={240}
+                      min={15}
+                      step={15}
+                      className="mt-2"
+                    />
+                  </div>
+                </>
+              )}
               
-              <div>
-                <Label>Maximum Duration (minutes): {formData.max_duration_minutes}</Label>
-                <Slider
-                  value={[formData.max_duration_minutes]}
-                  onValueChange={([value]) => updateField('max_duration_minutes', value)}
-                  max={240}
-                  min={15}
-                  step={15}
-                  className="mt-2"
-                />
-              </div>
+              {(amenity.amenityType === 'pool' || amenity.amenityType === 'barbecue' || amenity.amenityType === 'jacuzzi' || amenity.amenityType === 'clubhouse') && (
+                <>
+                  <div>
+                    <Label>Family Duration (minutes): {formData.family_duration_minutes}</Label>
+                    <Slider
+                      value={[formData.family_duration_minutes]}
+                      onValueChange={([value]) => updateField('family_duration_minutes', value)}
+                      max={480}
+                      min={15}
+                      step={15}
+                      className="mt-2"
+                    />
+                  </div>
+                  <div>
+                    <Label>Group Duration (minutes): {formData.group_duration_minutes}</Label>
+                    <Slider
+                      value={[formData.group_duration_minutes]}
+                      onValueChange={([value]) => updateField('group_duration_minutes', value)}
+                      max={480}
+                      min={15}
+                      step={15}
+                      className="mt-2"
+                    />
+                  </div>
+                </>
+              )}
+              
+              {amenity.amenityType === 'gym' && (
+                <>
+                  <div>
+                    <Label>Singles Duration (minutes): {formData.singles_duration_minutes}</Label>
+                    <Slider
+                      value={[formData.singles_duration_minutes]}
+                      onValueChange={([value]) => updateField('singles_duration_minutes', value)}
+                      max={240}
+                      min={15}
+                      step={15}
+                      className="mt-2"
+                    />
+                  </div>
+                  <div>
+                    <Label>Group Duration (minutes): {formData.group_duration_minutes}</Label>
+                    <Slider
+                      value={[formData.group_duration_minutes]}
+                      onValueChange={([value]) => updateField('group_duration_minutes', value)}
+                      max={240}
+                      min={15}
+                      step={15}
+                      className="mt-2"
+                    />
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
 
@@ -294,17 +382,87 @@ const RuleEditor = ({ amenity, onBack }: RuleEditorProps) => {
                       />
                     </div>
                   </div>
-                  <div>
-                    <Label>Peak Duration Limit (minutes): {formData.peak_max_duration_minutes}</Label>
-                    <Slider
-                      value={[formData.peak_max_duration_minutes]}
-                      onValueChange={([value]) => updateField('peak_max_duration_minutes', value)}
-                      max={120}
-                      min={15}
-                      step={15}
-                      className="mt-2"
-                    />
-                  </div>
+                  
+                  {(amenity.amenityType === 'tennis' || amenity.amenityType === 'pickleball') && (
+                    <>
+                      <div>
+                        <Label>Peak Singles Duration (minutes): {formData.peak_singles_duration_minutes}</Label>
+                        <Slider
+                          value={[formData.peak_singles_duration_minutes]}
+                          onValueChange={([value]) => updateField('peak_singles_duration_minutes', value)}
+                          max={120}
+                          min={15}
+                          step={15}
+                          className="mt-2"
+                        />
+                      </div>
+                      <div>
+                        <Label>Peak Doubles Duration (minutes): {formData.peak_doubles_duration_minutes}</Label>
+                        <Slider
+                          value={[formData.peak_doubles_duration_minutes]}
+                          onValueChange={([value]) => updateField('peak_doubles_duration_minutes', value)}
+                          max={120}
+                          min={15}
+                          step={15}
+                          className="mt-2"
+                        />
+                      </div>
+                    </>
+                  )}
+                  
+                  {(amenity.amenityType === 'pool' || amenity.amenityType === 'barbecue' || amenity.amenityType === 'jacuzzi' || amenity.amenityType === 'clubhouse') && (
+                    <>
+                      <div>
+                        <Label>Peak Family Duration (minutes): {formData.peak_family_duration_minutes}</Label>
+                        <Slider
+                          value={[formData.peak_family_duration_minutes]}
+                          onValueChange={([value]) => updateField('peak_family_duration_minutes', value)}
+                          max={240}
+                          min={15}
+                          step={15}
+                          className="mt-2"
+                        />
+                      </div>
+                      <div>
+                        <Label>Peak Group Duration (minutes): {formData.peak_group_duration_minutes}</Label>
+                        <Slider
+                          value={[formData.peak_group_duration_minutes]}
+                          onValueChange={([value]) => updateField('peak_group_duration_minutes', value)}
+                          max={240}
+                          min={15}
+                          step={15}
+                          className="mt-2"
+                        />
+                      </div>
+                    </>
+                  )}
+                  
+                  {amenity.amenityType === 'gym' && (
+                    <>
+                      <div>
+                        <Label>Peak Singles Duration (minutes): {formData.peak_singles_duration_minutes}</Label>
+                        <Slider
+                          value={[formData.peak_singles_duration_minutes]}
+                          onValueChange={([value]) => updateField('peak_singles_duration_minutes', value)}
+                          max={120}
+                          min={15}
+                          step={15}
+                          className="mt-2"
+                        />
+                      </div>
+                      <div>
+                        <Label>Peak Group Duration (minutes): {formData.peak_group_duration_minutes}</Label>
+                        <Slider
+                          value={[formData.peak_group_duration_minutes]}
+                          onValueChange={([value]) => updateField('peak_group_duration_minutes', value)}
+                          max={120}
+                          min={15}
+                          step={15}
+                          className="mt-2"
+                        />
+                      </div>
+                    </>
+                  )}
                 </>
               )}
             </CardContent>

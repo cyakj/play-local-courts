@@ -9,7 +9,10 @@ interface AmenityRules {
   amenity_id: string;
   booking_start_time?: string;
   booking_end_time?: string;
-  max_duration_minutes?: number;
+  singles_duration_minutes?: number;
+  doubles_duration_minutes?: number;
+  family_duration_minutes?: number;
+  group_duration_minutes?: number;
   max_reservations_per_day?: number;
   max_reservations_per_week?: number;
   min_time_between_reservations?: number;
@@ -22,7 +25,10 @@ interface AmenityRules {
   enable_peak_hours?: boolean;
   peak_start_time?: string;
   peak_end_time?: string;
-  peak_max_duration_minutes?: number;
+  peak_singles_duration_minutes?: number;
+  peak_doubles_duration_minutes?: number;
+  peak_family_duration_minutes?: number;
+  peak_group_duration_minutes?: number;
   requires_admin_approval?: boolean;
   security_deposit_required?: boolean;
   security_deposit_amount?: number;

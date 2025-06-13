@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
@@ -191,17 +192,38 @@ const ReserveCourt = () => {
   };
 
   const getMaxDuration = () => {
-    if (rules?.max_duration_minutes) {
-      return rules.max_duration_minutes;
+    if (!rules) {
+      // Fallback to default durations if no rules configured
+      switch (playType) {
+        case 'singles': return 60;
+        case 'doubles': return 90;
+        case 'family':
+        case 'group': return 120;
+        default: return 60;
+      }
     }
-    
-    // Fallback to default durations if no rules configured
-    switch (playType) {
-      case 'singles': return 60;
-      case 'doubles': return 90;
-      case 'family':
-      case 'group': return 120;
-      default: return 60;
+
+    // Check if we're in peak hours (simplified for now)
+    const now = new Date();
+    const isCurrentlyPeakHours = rules.enable_peak_hours && 
+      rules.peak_start_time && rules.peak_end_time;
+
+    if (isCurrentlyPeakHours) {
+      switch (playType) {
+        case 'singles': return rules.peak_singles_duration_minutes || 30;
+        case 'doubles': return rules.peak_doubles_duration_minutes || 45;
+        case 'family': return rules.peak_family_duration_minutes || 60;
+        case 'group': return rules.peak_group_duration_minutes || 60;
+        default: return 30;
+      }
+    } else {
+      switch (playType) {
+        case 'singles': return rules.singles_duration_minutes || 60;
+        case 'doubles': return rules.doubles_duration_minutes || 90;
+        case 'family': return rules.family_duration_minutes || 120;
+        case 'group': return rules.group_duration_minutes || 120;
+        default: return 60;
+      }
     }
   };
 

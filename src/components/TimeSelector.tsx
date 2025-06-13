@@ -7,10 +7,16 @@ import { X } from 'lucide-react';
 interface AmenityRules {
   booking_start_time?: string;
   booking_end_time?: string;
-  max_duration_minutes?: number;
+  singles_duration_minutes?: number;
+  doubles_duration_minutes?: number;
+  family_duration_minutes?: number;
+  group_duration_minutes?: number;
   peak_start_time?: string;
   peak_end_time?: string;
-  peak_max_duration_minutes?: number;
+  peak_singles_duration_minutes?: number;
+  peak_doubles_duration_minutes?: number;
+  peak_family_duration_minutes?: number;
+  peak_group_duration_minutes?: number;
   enable_peak_hours?: boolean;
 }
 
@@ -51,14 +57,18 @@ const TimeSelector: React.FC<TimeSelectorProps> = ({
     : 22;
   const totalHours = endHour - startHour;
   
-  // Duration in hours
+  // Duration in hours (now supporting 15-minute increments)
   const maxDurationHours = maxDurationMinutes / 60;
 
   const getTimeFromPosition = useCallback((position: number): number => {
     if (!timelineRef.current) return startHour;
     const rect = timelineRef.current.getBoundingClientRect();
     const relativePosition = Math.max(0, Math.min(1, position / rect.height));
-    return startHour + (relativePosition * totalHours);
+    const time = startHour + (relativePosition * totalHours);
+    // Snap to 15-minute increments
+    const minutes = (time % 1) * 60;
+    const snappedMinutes = Math.round(minutes / 15) * 15;
+    return Math.floor(time) + (snappedMinutes / 60);
   }, [startHour, totalHours]);
 
   const getPositionFromTime = useCallback((hour: number): number => {
@@ -129,7 +139,7 @@ const TimeSelector: React.FC<TimeSelectorProps> = ({
     setDragEnd(null);
   };
 
-  // Simple time slot selection (alternative to dragging)
+  // Simple time slot selection (alternative to dragging) - now with 15-minute increments
   const handleTimeSlotClick = (hour: number) => {
     const startTime = hour;
     const endTime = Math.min(hour + maxDurationHours, endHour);
@@ -160,9 +170,10 @@ const TimeSelector: React.FC<TimeSelectorProps> = ({
 
   const renderTimeSlots = () => {
     const slots = [];
-    for (let hour = startHour; hour < endHour; hour += 0.5) {
+    // Create 15-minute increments
+    for (let hour = startHour; hour < endHour; hour += 0.25) {
       const position = getPositionFromTime(hour);
-      const height = (0.5 / totalHours) * 100;
+      const height = (0.25 / totalHours) * 100;
       const endTime = Math.min(hour + maxDurationHours, endHour);
       const available = isTimeSlotAvailable(hour, endTime);
       
@@ -317,7 +328,7 @@ const TimeSelector: React.FC<TimeSelectorProps> = ({
         </div>
         
         <div className="text-xs text-muted-foreground mt-2 ml-4 max-w-48">
-          Click on a time slot or drag to select your preferred time. Red areas are unavailable. Green shows your current selection.
+          Click on a time slot or drag to select your preferred time. Each slot is 15 minutes. Red areas are unavailable. Green shows your current selection.
         </div>
       </div>
     </div>

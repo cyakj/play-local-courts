@@ -1,93 +1,119 @@
 
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 import { useAuth } from '../../contexts/AuthContext';
+import { LogOut, Home, Calendar, Users, Settings } from 'lucide-react';
 
 const Navbar = () => {
-  const { currentUser, logout, isAdmin } = useAuth();
+  const { currentUser, logout } = useAuth();
   const location = useLocation();
-  
+
   const isActive = (path: string) => {
-    return location.pathname === path ? "bg-primary text-white" : "hover:bg-gray-100";
+    return location.pathname === path;
   };
 
-  return (
-    <header className="bg-white shadow-sm border-b sticky top-0 z-50">
-      <div className="container mx-auto px-4">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between py-3">
-          <div className="flex items-center justify-between">
-            <h1 className="text-xl font-bold text-primary">HOA Amenity Reservation</h1>
-            <button className="md:hidden p-2 rounded-md text-gray-500 hover:bg-gray-100">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
-          </div>
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
+  };
 
-          <nav className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-4 mt-4 md:mt-0">
-            <Link 
-              to="/dashboard" 
-              className={`px-3 py-2 rounded-md text-sm font-medium ${isActive('/dashboard')}`}
-            >
-              Dashboard
+  if (!currentUser) {
+    return null;
+  }
+
+  return (
+    <nav className="bg-white shadow-sm border-b">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between h-16">
+          <div className="flex items-center">
+            <Link to="/" className="text-xl font-bold text-primary">
+              HOA Amenities
             </Link>
-            <Link 
-              to="/reserve" 
-              className={`px-3 py-2 rounded-md text-sm font-medium ${isActive('/reserve')}`}
-            >
-              Reserve Amenity
-            </Link>
-            <Link 
-              to="/my-reservations" 
-              className={`px-3 py-2 rounded-md text-sm font-medium ${isActive('/my-reservations')}`}
-            >
-              My Reservations
-            </Link>
-            <Link 
-              to="/email-settings" 
-              className={`px-3 py-2 rounded-md text-sm font-medium ${isActive('/email-settings')}`}
-            >
-              Email Settings
+          </div>
+          
+          <div className="flex items-center space-x-4">
+            <Link to="/">
+              <Button 
+                variant={isActive('/') ? 'default' : 'ghost'} 
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <Home className="h-4 w-4" />
+                Dashboard
+              </Button>
             </Link>
             
-            {isAdmin && (
+            <Link to="/reserve">
+              <Button 
+                variant={isActive('/reserve') ? 'default' : 'ghost'} 
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <Calendar className="h-4 w-4" />
+                Reserve
+              </Button>
+            </Link>
+            
+            <Link to="/my-reservations">
+              <Button 
+                variant={isActive('/my-reservations') ? 'default' : 'ghost'} 
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <Calendar className="h-4 w-4" />
+                My Reservations
+              </Button>
+            </Link>
+
+            {currentUser.role === 'admin' && (
               <>
-                <Link 
-                  to="/pending-requests" 
-                  className={`px-3 py-2 rounded-md text-sm font-medium ${isActive('/pending-requests')}`}
-                >
-                  Pending Requests
+                <Link to="/pending-requests">
+                  <Button 
+                    variant={isActive('/pending-requests') ? 'default' : 'ghost'} 
+                    size="sm"
+                    className="flex items-center gap-2"
+                  >
+                    <Users className="h-4 w-4" />
+                    Pending Requests
+                  </Button>
                 </Link>
-                <Link 
-                  to="/manage-courts" 
-                  className={`px-3 py-2 rounded-md text-sm font-medium ${isActive('/manage-courts')}`}
-                >
-                  Manage Facilities
+                
+                <Link to="/manage-amenities">
+                  <Button 
+                    variant={isActive('/manage-amenities') ? 'default' : 'ghost'} 
+                    size="sm"
+                    className="flex items-center gap-2"
+                  >
+                    <Settings className="h-4 w-4" />
+                    Manage Amenities
+                  </Button>
                 </Link>
-                <Link 
-                  to="/amenity-rules" 
-                  className={`px-3 py-2 rounded-md text-sm font-medium ${isActive('/amenity-rules')}`}
-                >
-                  Amenity Rules
+                
+                <Link to="/amenity-rules">
+                  <Button 
+                    variant={isActive('/amenity-rules') ? 'default' : 'ghost'} 
+                    size="sm"
+                    className="flex items-center gap-2"
+                  >
+                    <Settings className="h-4 w-4" />
+                    Amenity Rules
+                  </Button>
                 </Link>
               </>
             )}
-          </nav>
-
-          <div className="flex items-center mt-4 md:mt-0">
-            <span className="text-sm mr-4">
-              Welcome, <span className="font-medium">{currentUser?.fullName}</span>
-            </span>
-            <button 
-              onClick={logout}
-              className="px-3 py-2 rounded-md text-sm font-medium text-white bg-red-600 hover:bg-red-700"
-            >
+            
+            <Button onClick={handleLogout} variant="outline" size="sm">
+              <LogOut className="h-4 w-4 mr-2" />
               Logout
-            </button>
+            </Button>
           </div>
         </div>
       </div>
-    </header>
+    </nav>
   );
 };
 
