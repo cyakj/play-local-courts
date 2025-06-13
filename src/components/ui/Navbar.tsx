@@ -16,7 +16,7 @@ const Navbar = () => {
       <div className="container mx-auto px-4">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between py-3">
           <div className="flex items-center justify-between">
-            <h1 className="text-xl font-bold text-primary">HOA Court Reservation</h1>
+            <h1 className="text-xl font-bold text-primary">HOA Amenity Reservation</h1>
             <button className="md:hidden p-2 rounded-md text-gray-500 hover:bg-gray-100">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -35,7 +35,7 @@ const Navbar = () => {
               to="/reserve" 
               className={`px-3 py-2 rounded-md text-sm font-medium ${isActive('/reserve')}`}
             >
-              Reserve Court
+              Reserve Amenity
             </Link>
             <Link 
               to="/my-reservations" 
@@ -62,7 +62,13 @@ const Navbar = () => {
                   to="/manage-courts" 
                   className={`px-3 py-2 rounded-md text-sm font-medium ${isActive('/manage-courts')}`}
                 >
-                  Manage Courts
+                  Manage Facilities
+                </Link>
+                <Link 
+                  to="/amenity-rules" 
+                  className={`px-3 py-2 rounded-md text-sm font-medium ${isActive('/amenity-rules')}`}
+                >
+                  Amenity Rules
                 </Link>
               </>
             )}

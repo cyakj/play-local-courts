@@ -68,7 +68,7 @@ const Dashboard = () => {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle>Amenities Available</CardTitle>
-            <CardDescription>Courts and amenities in your community</CardDescription>
+            <CardDescription>Facilities and amenities in your community</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-4xl font-bold">{amenities.length}</div>
@@ -85,7 +85,7 @@ const Dashboard = () => {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle>Upcoming Reservations</CardTitle>
-            <CardDescription>Your next scheduled amenity times</CardDescription>
+            <CardDescription>Your next scheduled amenity bookings</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-4xl font-bold">{upcomingBookings.length}</div>

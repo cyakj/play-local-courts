@@ -9,6 +9,126 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      amenity_rules: {
+        Row: {
+          advance_booking_days: number | null
+          allow_ball_machine: boolean | null
+          allow_guests: boolean | null
+          amenity_id: string
+          booking_end_time: string | null
+          booking_start_time: string | null
+          checkin_required_minutes: number | null
+          created_at: string | null
+          custom_rules: string | null
+          doubles_only: boolean | null
+          enable_peak_hours: boolean | null
+          hoa_id: string
+          id: string
+          max_duration_minutes: number | null
+          max_guest_count: number | null
+          max_no_shows: number | null
+          max_reservations_per_day: number | null
+          max_reservations_per_week: number | null
+          min_cancellation_hours: number | null
+          min_time_between_reservations: number | null
+          no_lifeguard_acknowledgment: boolean | null
+          no_show_restriction_days: number | null
+          peak_end_time: string | null
+          peak_max_duration_minutes: number | null
+          peak_start_time: string | null
+          requires_admin_approval: boolean | null
+          requires_cleanup_agreement: boolean | null
+          requires_power_outlet: boolean | null
+          security_deposit_amount: number | null
+          security_deposit_required: boolean | null
+          singles_only: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          advance_booking_days?: number | null
+          allow_ball_machine?: boolean | null
+          allow_guests?: boolean | null
+          amenity_id: string
+          booking_end_time?: string | null
+          booking_start_time?: string | null
+          checkin_required_minutes?: number | null
+          created_at?: string | null
+          custom_rules?: string | null
+          doubles_only?: boolean | null
+          enable_peak_hours?: boolean | null
+          hoa_id: string
+          id?: string
+          max_duration_minutes?: number | null
+          max_guest_count?: number | null
+          max_no_shows?: number | null
+          max_reservations_per_day?: number | null
+          max_reservations_per_week?: number | null
+          min_cancellation_hours?: number | null
+          min_time_between_reservations?: number | null
+          no_lifeguard_acknowledgment?: boolean | null
+          no_show_restriction_days?: number | null
+          peak_end_time?: string | null
+          peak_max_duration_minutes?: number | null
+          peak_start_time?: string | null
+          requires_admin_approval?: boolean | null
+          requires_cleanup_agreement?: boolean | null
+          requires_power_outlet?: boolean | null
+          security_deposit_amount?: number | null
+          security_deposit_required?: boolean | null
+          singles_only?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          advance_booking_days?: number | null
+          allow_ball_machine?: boolean | null
+          allow_guests?: boolean | null
+          amenity_id?: string
+          booking_end_time?: string | null
+          booking_start_time?: string | null
+          checkin_required_minutes?: number | null
+          created_at?: string | null
+          custom_rules?: string | null
+          doubles_only?: boolean | null
+          enable_peak_hours?: boolean | null
+          hoa_id?: string
+          id?: string
+          max_duration_minutes?: number | null
+          max_guest_count?: number | null
+          max_no_shows?: number | null
+          max_reservations_per_day?: number | null
+          max_reservations_per_week?: number | null
+          min_cancellation_hours?: number | null
+          min_time_between_reservations?: number | null
+          no_lifeguard_acknowledgment?: boolean | null
+          no_show_restriction_days?: number | null
+          peak_end_time?: string | null
+          peak_max_duration_minutes?: number | null
+          peak_start_time?: string | null
+          requires_admin_approval?: boolean | null
+          requires_cleanup_agreement?: boolean | null
+          requires_power_outlet?: boolean | null
+          security_deposit_amount?: number | null
+          security_deposit_required?: boolean | null
+          singles_only?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amenity_rules_amenity_id_fkey"
+            columns: ["amenity_id"]
+            isOneToOne: false
+            referencedRelation: "courts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "amenity_rules_hoa_id_fkey"
+            columns: ["hoa_id"]
+            isOneToOne: false
+            referencedRelation: "hoas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bookings: {
         Row: {
           court_id: string

@@ -21,6 +21,7 @@ import ReserveCourt from "./pages/ReserveCourt";
 import MyReservations from "./pages/MyReservations";
 import PendingRequests from "./pages/PendingRequests";
 import ManageCourts from "./pages/ManageCourts";
+import AmenityRules from "./pages/AmenityRules";
 import EmailSettings from "./pages/EmailSettings";
 import NotFound from "./pages/NotFound";
 
@@ -50,6 +51,7 @@ const App = () => (
                 <Route path="/email-settings" element={<EmailSettings />} />
                 <Route path="/pending-requests" element={<PendingRequests />} />
                 <Route path="/manage-courts" element={<ManageCourts />} />
+                <Route path="/amenity-rules" element={<AmenityRules />} />
               </Route>
               
               {/* Catch-all Route */}
