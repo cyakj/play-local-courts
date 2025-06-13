@@ -8,6 +8,8 @@ interface TimeSelectorProps {
   isDoubles: boolean;
   bookedSlots: Array<{ start: string; end: string }>;
   maintenanceSlots: Array<{ start: string; end: string }>;
+  selectedStartTime?: string;
+  selectedEndTime?: string;
 }
 
 const TimeSelector: React.FC<TimeSelectorProps> = ({
@@ -15,7 +17,9 @@ const TimeSelector: React.FC<TimeSelectorProps> = ({
   onTimeSelect,
   isDoubles,
   bookedSlots,
-  maintenanceSlots
+  maintenanceSlots,
+  selectedStartTime,
+  selectedEndTime
 }) => {
   const [dragStart, setDragStart] = useState<number | null>(null);
   const [dragEnd, setDragEnd] = useState<number | null>(null);
@@ -26,11 +30,14 @@ const TimeSelector: React.FC<TimeSelectorProps> = ({
   const startHour = 6;
   const endHour = 22;
   const totalHours = endHour - startHour;
+  
+  // Duration limits based on play type
+  const maxDuration = isDoubles ? 1.5 : 1; // 1.5 hours for doubles, 1 hour for singles
 
   const getTimeFromPosition = useCallback((position: number): number => {
     if (!timelineRef.current) return startHour;
     const rect = timelineRef.current.getBoundingClientRect();
-    const relativePosition = Math.max(0, Math.min(1, position / rect.width));
+    const relativePosition = Math.max(0, Math.min(1, position / rect.height));
     return startHour + (relativePosition * totalHours);
   }, []);
 
@@ -63,11 +70,11 @@ const TimeSelector: React.FC<TimeSelectorProps> = ({
     const rect = timelineRef.current?.getBoundingClientRect();
     if (!rect) return;
     
-    const x = e.clientX - rect.left;
-    const time = getTimeFromPosition(x);
+    const y = e.clientY - rect.top;
+    const time = getTimeFromPosition(y);
     
     setDragStart(time);
-    setDragEnd(time + 1); // Minimum 1 hour
+    setDragEnd(time + maxDuration);
     setIsDragging(true);
   };
 
@@ -77,13 +84,13 @@ const TimeSelector: React.FC<TimeSelectorProps> = ({
     const rect = timelineRef.current?.getBoundingClientRect();
     if (!rect) return;
     
-    const x = e.clientX - rect.left;
-    const time = getTimeFromPosition(x);
+    const y = e.clientY - rect.top;
+    const time = getTimeFromPosition(y);
     
     if (time > dragStart) {
-      const minDuration = 1; // 1 hour minimum
-      const newEnd = Math.max(time, dragStart + minDuration);
-      setDragEnd(Math.min(newEnd, endHour));
+      // Limit the end time to max duration and operating hours
+      const newEnd = Math.min(time, dragStart + maxDuration, endHour);
+      setDragEnd(newEnd);
     }
   };
 
@@ -109,8 +116,8 @@ const TimeSelector: React.FC<TimeSelectorProps> = ({
       labels.push(
         <div
           key={hour}
-          className="absolute text-xs text-muted-foreground"
-          style={{ left: `${position}%`, transform: 'translateX(-50%)' }}
+          className="absolute text-xs text-muted-foreground flex items-center"
+          style={{ top: `${position}%`, transform: 'translateY(-50%)', left: '-60px', width: '50px' }}
         >
           {hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour} AM`}
         </div>
@@ -125,43 +132,69 @@ const TimeSelector: React.FC<TimeSelectorProps> = ({
       const endHourNum = parseInt(slot.end.split(':')[0]) + parseInt(slot.end.split(':')[1]) / 60;
       
       const startPos = getPositionFromTime(startHourNum);
-      const width = getPositionFromTime(endHourNum) - startPos;
+      const height = getPositionFromTime(endHourNum) - startPos;
       
       return (
         <div
           key={`booked-${index}`}
-          className="absolute h-6 bg-red-200 border border-red-300 rounded"
+          className="absolute w-16 bg-red-200 border border-red-300 rounded flex items-center justify-center"
           style={{
-            left: `${startPos}%`,
-            width: `${width}%`,
-            top: '50%',
-            transform: 'translateY(-50%)'
+            top: `${startPos}%`,
+            height: `${height}%`,
+            left: '50%',
+            transform: 'translateX(-50%)'
           }}
         >
-          <span className="text-xs text-red-700 px-1">
-            {maintenanceSlots.includes(slot) ? 'Maintenance' : 'Booked'}
+          <span className="text-xs text-red-700 px-1 text-center">
+            {maintenanceSlots.includes(slot) ? 'Maint.' : 'Booked'}
           </span>
         </div>
       );
     });
   };
 
+  const renderSelectedSlot = () => {
+    if (!selectedStartTime || !selectedEndTime) return null;
+    
+    const startHourNum = parseInt(selectedStartTime.split(':')[0]) + parseInt(selectedStartTime.split(':')[1]) / 60;
+    const endHourNum = parseInt(selectedEndTime.split(':')[0]) + parseInt(selectedEndTime.split(':')[1]) / 60;
+    
+    const startPos = getPositionFromTime(startHourNum);
+    const height = getPositionFromTime(endHourNum) - startPos;
+    
+    return (
+      <div
+        className="absolute w-20 bg-green-200 border-2 border-green-500 rounded flex items-center justify-center"
+        style={{
+          top: `${startPos}%`,
+          height: `${height}%`,
+          left: '50%',
+          transform: 'translateX(-50%)'
+        }}
+      >
+        <span className="text-xs text-green-700 px-1 text-center font-medium">
+          {selectedStartTime} - {selectedEndTime}
+        </span>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-4">
       <div className="text-sm font-medium">
-        Select your time slot by clicking and dragging (minimum 1 hour)
+        Select your time slot by clicking and dragging (maximum {maxDuration} hour{maxDuration > 1 ? 's' : ''} for {isDoubles ? 'doubles' : 'singles'})
       </div>
       
-      <div className="relative">
+      <div className="relative flex">
         {/* Time labels */}
-        <div className="relative h-6 mb-2">
+        <div className="relative w-16 h-96">
           {renderTimeLabels()}
         </div>
         
         {/* Timeline */}
         <div
           ref={timelineRef}
-          className="relative h-12 bg-gray-100 border rounded cursor-crosshair"
+          className="relative w-24 h-96 bg-gray-100 border rounded cursor-crosshair ml-4"
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
@@ -170,30 +203,33 @@ const TimeSelector: React.FC<TimeSelectorProps> = ({
           {/* Booked slots */}
           {renderBookedSlots()}
           
-          {/* Current selection */}
+          {/* Selected slot (persistent) */}
+          {renderSelectedSlot()}
+          
+          {/* Current selection (while dragging) */}
           {isDragging && dragStart !== null && dragEnd !== null && (
             <div
-              className={`absolute h-8 border-2 rounded ${
+              className={`absolute w-20 border-2 rounded flex items-center justify-center ${
                 isTimeSlotAvailable(dragStart, dragEnd) 
                   ? 'bg-green-200 border-green-500' 
                   : 'bg-red-200 border-red-500'
               }`}
               style={{
-                left: `${getPositionFromTime(dragStart)}%`,
-                width: `${getPositionFromTime(dragEnd) - getPositionFromTime(dragStart)}%`,
-                top: '50%',
-                transform: 'translateY(-50%)'
+                top: `${getPositionFromTime(dragStart)}%`,
+                height: `${getPositionFromTime(dragEnd) - getPositionFromTime(dragStart)}%`,
+                left: '50%',
+                transform: 'translateX(-50%)'
               }}
             >
-              <span className="text-xs px-1">
+              <span className="text-xs px-1 text-center">
                 {`${Math.floor(dragStart).toString().padStart(2, '0')}:${Math.round((dragStart % 1) * 60).toString().padStart(2, '0')} - ${Math.floor(dragEnd).toString().padStart(2, '0')}:${Math.round((dragEnd % 1) * 60).toString().padStart(2, '0')}`}
               </span>
             </div>
           )}
         </div>
         
-        <div className="text-xs text-muted-foreground mt-2">
-          Click and drag to select your preferred time slot. Red areas are unavailable.
+        <div className="text-xs text-muted-foreground mt-2 ml-4 max-w-48">
+          Click and drag to select your preferred time slot. Red areas are unavailable. Green shows your current selection.
         </div>
       </div>
     </div>

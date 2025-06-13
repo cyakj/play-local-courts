@@ -169,7 +169,7 @@ const ReserveCourt = () => {
                   </div>
                   <div className="flex items-center space-x-2 mt-2">
                     <RadioGroupItem value="doubles" id="doubles" />
-                    <Label htmlFor="doubles">Doubles (up to 1 hour)</Label>
+                    <Label htmlFor="doubles">Doubles (up to 1.5 hours)</Label>
                   </div>
                 </RadioGroup>
               </div>
@@ -212,6 +212,8 @@ const ReserveCourt = () => {
                             isDoubles={playType === 'doubles'}
                             bookedSlots={getBookedSlots(court.id, format(selectedDate, 'yyyy-MM-dd'))}
                             maintenanceSlots={getMaintenanceSlots(court.id, format(selectedDate, 'yyyy-MM-dd'))}
+                            selectedStartTime={selectedStartTime}
+                            selectedEndTime={selectedEndTime}
                           />
                           
                           {selectedStartTime && selectedEndTime && (
@@ -262,6 +264,8 @@ const ReserveCourt = () => {
                             isDoubles={playType === 'doubles'}
                             bookedSlots={getBookedSlots(court.id, format(selectedDate, 'yyyy-MM-dd'))}
                             maintenanceSlots={getMaintenanceSlots(court.id, format(selectedDate, 'yyyy-MM-dd'))}
+                            selectedStartTime={selectedStartTime}
+                            selectedEndTime={selectedEndTime}
                           />
                           
                           {selectedStartTime && selectedEndTime && (
