@@ -38,7 +38,7 @@ const MyReservations = () => {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">My Reservations</h1>
         <p className="text-muted-foreground">
-          View and manage your court reservations
+          View and manage your amenity reservations
         </p>
       </div>
       
@@ -46,14 +46,14 @@ const MyReservations = () => {
         <Card>
           <CardHeader>
             <CardTitle>Upcoming Reservations</CardTitle>
-            <CardDescription>Court times you have scheduled</CardDescription>
+            <CardDescription>Amenity times you have scheduled</CardDescription>
           </CardHeader>
           <CardContent>
             {upcomingBookings.length === 0 ? (
               <div className="text-center py-8">
                 <p className="text-muted-foreground">You don't have any upcoming reservations</p>
                 <Button className="mt-4" asChild>
-                  <a href="/reserve">Book a Court</a>
+                  <a href="/reserve">Book an Amenity</a>
                 </Button>
               </div>
             ) : (
@@ -74,7 +74,7 @@ const MyReservations = () => {
                           </div>
                         </div>
                         <div className="p-4 flex-1">
-                          <div className="font-semibold">{booking.courtName}</div>
+                          <div className="font-semibold">{booking.amenityName}</div>
                           <div className="text-sm text-muted-foreground">
                             {startTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                             {' • '}
@@ -104,7 +104,7 @@ const MyReservations = () => {
           <Card>
             <CardHeader>
               <CardTitle>Past Reservations</CardTitle>
-              <CardDescription>Your court booking history</CardDescription>
+              <CardDescription>Your amenity booking history</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -124,7 +124,7 @@ const MyReservations = () => {
                           </div>
                         </div>
                         <div className="p-4 flex-1">
-                          <div className="font-semibold">{booking.courtName}</div>
+                          <div className="font-semibold">{booking.amenityName}</div>
                           <div className="text-sm text-muted-foreground">
                             {startTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                             {' • '}

@@ -11,7 +11,7 @@ const Dashboard = () => {
   const { currentUser, isAdmin, isPending } = useAuth();
   const { 
     bookings, 
-    courts, 
+    amenities, 
     pendingUsers,
     currentHOA,
     loading
@@ -59,7 +59,7 @@ const Dashboard = () => {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground">
-            Welcome to {currentHOA?.name || 'your HOA'} court reservation system.
+            Welcome to {currentHOA?.name || 'your HOA'} amenity reservation system.
           </p>
         </div>
       </div>
@@ -67,15 +67,15 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle>Courts Available</CardTitle>
-            <CardDescription>Tennis and pickleball courts in your community</CardDescription>
+            <CardTitle>Amenities Available</CardTitle>
+            <CardDescription>Courts and amenities in your community</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-bold">{courts.length}</div>
+            <div className="text-4xl font-bold">{amenities.length}</div>
             <div className="mt-4 space-y-2">
-              {courts.length > 0 && (
+              {amenities.length > 0 && (
                 <Button asChild variant="outline" className="w-full">
-                  <Link to="/reserve">Book a Court</Link>
+                  <Link to="/reserve">Book an Amenity</Link>
                 </Button>
               )}
             </div>
@@ -85,7 +85,7 @@ const Dashboard = () => {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle>Upcoming Reservations</CardTitle>
-            <CardDescription>Your next scheduled court times</CardDescription>
+            <CardDescription>Your next scheduled amenity times</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-4xl font-bold">{upcomingBookings.length}</div>
@@ -145,7 +145,7 @@ const Dashboard = () => {
                       </div>
                     </div>
                     <div className="p-4 flex-1">
-                      <div className="font-semibold">{booking.courtName}</div>
+                      <div className="font-semibold">{booking.amenityName}</div>
                       <div className="text-sm text-muted-foreground">
                         {bookingDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} - 
                         {endTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}

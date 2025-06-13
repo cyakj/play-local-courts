@@ -11,23 +11,23 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Navigate } from 'react-router-dom';
 import { format, addDays } from 'date-fns';
-import { CourtStatus } from '../types';
+import { AmenityStatus } from '../types';
 
 const ManageCourts = () => {
   const { currentUser, isAdmin } = useAuth();
   const { 
-    courts, 
-    addCourt, 
-    removeCourt, 
+    amenities, 
+    addAmenity, 
+    removeAmenity, 
     getTimeSlots,
-    setCourtMaintenance
+    setAmenityMaintenance
   } = useData();
   
-  const [newCourtName, setNewCourtName] = useState('');
-  const [newCourtType, setNewCourtType] = useState<"tennis" | "pickleball">("tennis");
+  const [newAmenityName, setNewAmenityName] = useState('');
+  const [newAmenityType, setNewAmenityType] = useState<"tennis" | "pickleball" | "barbecue" | "jacuzzi" | "pool" | "gym" | "clubhouse">("tennis");
   
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [selectedCourt, setSelectedCourt] = useState<string>('');
+  const [selectedAmenity, setSelectedAmenity] = useState<string>('');
   
   // Redirect if not an admin
   if (!isAdmin) {
@@ -44,32 +44,32 @@ const ManageCourts = () => {
     };
   });
   
-  // Get time slots for the selected date and court
-  const timeSlots = selectedCourt && selectedDate 
-    ? getTimeSlots(format(selectedDate, 'yyyy-MM-dd'), selectedCourt) 
+  // Get time slots for the selected date and amenity
+  const timeSlots = selectedAmenity && selectedDate 
+    ? getTimeSlots(format(selectedDate, 'yyyy-MM-dd'), selectedAmenity) 
     : [];
   
-  const handleAddCourt = () => {
-    if (!currentUser || !newCourtName.trim()) return;
+  const handleAddAmenity = () => {
+    if (!currentUser || !newAmenityName.trim()) return;
     
-    addCourt(newCourtName, currentUser.hoaId, newCourtType);
-    setNewCourtName('');
+    addAmenity(newAmenityName, currentUser.hoaId, newAmenityType);
+    setNewAmenityName('');
   };
   
-  const handleRemoveCourt = (courtId: string) => {
-    if (window.confirm('Are you sure you want to remove this court? All bookings for this court will also be removed.')) {
-      removeCourt(courtId);
+  const handleRemoveAmenity = (amenityId: string) => {
+    if (window.confirm('Are you sure you want to remove this amenity? All bookings for this amenity will also be removed.')) {
+      removeAmenity(amenityId);
     }
   };
   
   const handleMaintenanceToggle = (slotId: string, isMaintenance: boolean) => {
-    if (!selectedCourt || !selectedDate) return;
+    if (!selectedAmenity || !selectedDate) return;
     
     const slot = timeSlots.find(s => s.id === slotId);
     if (slot) {
       const hour = new Date(slot.start).getHours();
-      setCourtMaintenance(
-        selectedCourt,
+      setAmenityMaintenance(
+        selectedAmenity,
         format(selectedDate, 'yyyy-MM-dd'),
         hour,
         isMaintenance
@@ -80,35 +80,35 @@ const ManageCourts = () => {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Manage Courts</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Manage Amenities</h1>
         <p className="text-muted-foreground">
-          Add, remove, and manage courts for your HOA
+          Add, remove, and manage amenities for your HOA
         </p>
       </div>
       
       <Card>
         <CardHeader>
-          <CardTitle>Add New Court</CardTitle>
-          <CardDescription>Create a new tennis or pickleball court for your community</CardDescription>
+          <CardTitle>Add New Amenity</CardTitle>
+          <CardDescription>Create a new amenity for your community</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="courtName">Court Name</Label>
+              <Label htmlFor="amenityName">Amenity Name</Label>
               <Input
-                id="courtName"
-                placeholder="e.g., Tennis Court 3"
-                value={newCourtName}
-                onChange={(e) => setNewCourtName(e.target.value)}
+                id="amenityName"
+                placeholder="e.g., Tennis Court 3, Pool Area"
+                value={newAmenityName}
+                onChange={(e) => setNewAmenityName(e.target.value)}
               />
             </div>
             
             <div className="space-y-2">
-              <Label>Court Type</Label>
+              <Label>Amenity Type</Label>
               <RadioGroup 
-                value={newCourtType} 
-                onValueChange={(value) => setNewCourtType(value as "tennis" | "pickleball")}
-                className="flex space-x-4"
+                value={newAmenityType} 
+                onValueChange={(value) => setNewAmenityType(value as typeof newAmenityType)}
+                className="grid grid-cols-2 gap-4"
               >
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="tennis" id="tennis" />
@@ -118,26 +118,46 @@ const ManageCourts = () => {
                   <RadioGroupItem value="pickleball" id="pickleball" />
                   <Label htmlFor="pickleball">Pickleball</Label>
                 </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="barbecue" id="barbecue" />
+                  <Label htmlFor="barbecue">Barbecue</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="jacuzzi" id="jacuzzi" />
+                  <Label htmlFor="jacuzzi">Jacuzzi</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="pool" id="pool" />
+                  <Label htmlFor="pool">Pool</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="gym" id="gym" />
+                  <Label htmlFor="gym">Gym</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="clubhouse" id="clubhouse" />
+                  <Label htmlFor="clubhouse">Clubhouse</Label>
+                </div>
               </RadioGroup>
             </div>
           </div>
         </CardContent>
         <CardFooter>
-          <Button onClick={handleAddCourt} disabled={!newCourtName.trim()}>
-            Add Court
+          <Button onClick={handleAddAmenity} disabled={!newAmenityName.trim()}>
+            Add Amenity
           </Button>
         </CardFooter>
       </Card>
       
       <Card>
         <CardHeader>
-          <CardTitle>Manage Existing Courts</CardTitle>
-          <CardDescription>Schedule maintenance or remove courts</CardDescription>
+          <CardTitle>Manage Existing Amenities</CardTitle>
+          <CardDescription>Schedule maintenance or remove amenities</CardDescription>
         </CardHeader>
         <CardContent>
-          {courts.length === 0 ? (
+          {amenities.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-muted-foreground">No courts available</p>
+              <p className="text-muted-foreground">No amenities available</p>
             </div>
           ) : (
             <div className="space-y-6">
@@ -164,40 +184,40 @@ const ManageCourts = () => {
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {courts.map(court => (
-                  <Card key={court.id} className={selectedCourt === court.id ? "border-primary" : ""}>
+                {amenities.map(amenity => (
+                  <Card key={amenity.id} className={selectedAmenity === amenity.id ? "border-primary" : ""}>
                     <CardHeader className="pb-2">
                       <CardTitle className="text-lg flex justify-between items-center">
-                        <span>{court.name}</span>
-                        <Badge variant="outline">{court.courtType}</Badge>
+                        <span>{amenity.name}</span>
+                        <Badge variant="outline">{amenity.amenityType}</Badge>
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="flex space-x-2 mb-4">
                         <Button 
-                          onClick={() => setSelectedCourt(court.id)}
-                          variant={selectedCourt === court.id ? "default" : "outline"}
+                          onClick={() => setSelectedAmenity(amenity.id)}
+                          variant={selectedAmenity === amenity.id ? "default" : "outline"}
                           size="sm"
                         >
-                          {selectedCourt === court.id ? "Selected" : "Select"}
+                          {selectedAmenity === amenity.id ? "Selected" : "Select"}
                         </Button>
                         <Button 
                           variant="destructive" 
                           size="sm"
-                          onClick={() => handleRemoveCourt(court.id)}
+                          onClick={() => handleRemoveAmenity(amenity.id)}
                         >
-                          Remove Court
+                          Remove Amenity
                         </Button>
                       </div>
                       
-                      {selectedCourt === court.id && (
+                      {selectedAmenity === amenity.id && (
                         <div className="mt-4">
                           <h4 className="font-medium mb-2">Manage Time Slots</h4>
                           <div className="grid grid-cols-2 gap-2">
                             {timeSlots.map(slot => {
                               const startTime = new Date(slot.start);
                               const endTime = new Date(slot.end);
-                              const isMaintenance = slot.status === CourtStatus.MAINTENANCE;
+                              const isMaintenance = slot.status === AmenityStatus.MAINTENANCE;
                               
                               return (
                                 <div 
@@ -205,20 +225,20 @@ const ManageCourts = () => {
                                   className={`
                                     p-2 border rounded flex justify-between items-center
                                     ${isMaintenance ? 'bg-yellow-50 border-yellow-200' : ''}
-                                    ${slot.status === CourtStatus.BOOKED ? 'bg-red-50 border-red-200' : ''}
+                                    ${slot.status === AmenityStatus.BOOKED ? 'bg-red-50 border-red-200' : ''}
                                   `}
                                 >
                                   <div className="text-xs">
                                     {startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} - 
                                     {endTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                                     <div className="text-[10px]">
-                                      {slot.status === CourtStatus.AVAILABLE && 'Available'}
-                                      {slot.status === CourtStatus.BOOKED && 'Booked'}
-                                      {slot.status === CourtStatus.MAINTENANCE && 'Maintenance'}
+                                      {slot.status === AmenityStatus.AVAILABLE && 'Available'}
+                                      {slot.status === AmenityStatus.BOOKED && 'Booked'}
+                                      {slot.status === AmenityStatus.MAINTENANCE && 'Maintenance'}
                                     </div>
                                   </div>
                                   
-                                  {slot.status !== CourtStatus.BOOKED && (
+                                  {slot.status !== AmenityStatus.BOOKED && (
                                     <Button
                                       size="sm"
                                       variant="ghost"
