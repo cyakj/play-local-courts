@@ -1,7 +1,7 @@
 
+import React from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
@@ -29,38 +29,36 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <BrowserRouter>
-        <Toaster />
-        <Sonner />
-        <AuthProvider>
-          <DataProvider>
-            <Routes>
-              {/* Auth Routes */}
-              <Route element={<AuthLayout />}>
-                <Route path="/" element={<Login />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
-              </Route>
-              
-              {/* Protected Routes */}
-              <Route element={<MainLayout />}>
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/reserve" element={<ReserveCourt />} />
-                <Route path="/my-reservations" element={<MyReservations />} />
-                <Route path="/my-locker" element={<MyLocker />} />
-                <Route path="/pending-requests" element={<PendingRequests />} />
-                <Route path="/manage-amenities" element={<ManageCourts />} />
-                <Route path="/amenity-rules" element={<AmenityRules />} />
-              </Route>
-              
-              {/* Catch-all Route */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </DataProvider>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
+    <BrowserRouter>
+      <Toaster />
+      <Sonner />
+      <AuthProvider>
+        <DataProvider>
+          <Routes>
+            {/* Auth Routes */}
+            <Route element={<AuthLayout />}>
+              <Route path="/" element={<Login />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+            </Route>
+            
+            {/* Protected Routes */}
+            <Route element={<MainLayout />}>
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/reserve" element={<ReserveCourt />} />
+              <Route path="/my-reservations" element={<MyReservations />} />
+              <Route path="/my-locker" element={<MyLocker />} />
+              <Route path="/pending-requests" element={<PendingRequests />} />
+              <Route path="/manage-amenities" element={<ManageCourts />} />
+              <Route path="/amenity-rules" element={<AmenityRules />} />
+            </Route>
+            
+            {/* Catch-all Route */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </DataProvider>
+      </AuthProvider>
+    </BrowserRouter>
   </QueryClientProvider>
 );
 
