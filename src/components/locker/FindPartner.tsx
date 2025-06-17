@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, MessageCircle, ExternalLink } from 'lucide-react';
+import { ArrowLeft, MessageCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
@@ -45,15 +45,32 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
   });
 
   useEffect(() => {
-    searchPlayers();
+    console.log('FindPartner component mounted, currentUser:', currentUser?.id);
+    if (currentUser) {
+      searchPlayers();
+    }
   }, [currentUser]);
 
   const searchPlayers = async () => {
-    if (!currentUser) return;
+    if (!currentUser) {
+      console.log('No current user, skipping search');
+      return;
+    }
 
+    console.log('Starting player search...');
     setLoading(true);
     try {
-      let query = supabase
+      // First, let's test basic query to match_preferences
+      const { data: testData, error: testError } = await supabase
+        .from('match_preferences')
+        .select('*')
+        .eq('looking_to_play', true)
+        .limit(5);
+
+      console.log('Test query result:', { testData, testError });
+
+      // Now try the full query with profile join
+      const { data, error } = await supabase
         .from('match_preferences')
         .select(`
           user_id,
@@ -75,31 +92,35 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
         .eq('looking_to_play', true)
         .neq('user_id', currentUser.id);
 
-      const { data, error } = await query;
+      console.log('Full query result:', { data, error });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Query error:', error);
+        throw error;
+      }
 
       const formattedPlayers = data?.map((item: any) => ({
         id: item.profiles.id,
-        full_name: item.profiles.full_name,
-        avatar_url: item.profiles.avatar_url,
-        bio: item.profiles.bio,
-        utr_rating: item.profiles.utr_rating,
-        wtn_rating: item.profiles.wtn_rating,
-        usta_ranking: item.profiles.usta_ranking,
+        full_name: item.profiles.full_name || 'Unknown Player',
+        avatar_url: item.profiles.avatar_url || '',
+        bio: item.profiles.bio || '',
+        utr_rating: item.profiles.utr_rating || 0,
+        wtn_rating: item.profiles.wtn_rating || 0,
+        usta_ranking: item.profiles.usta_ranking || '',
         hoa_name: item.profiles.hoas?.name || 'Unknown HOA',
-        match_types: item.match_types,
-        preferred_times: item.preferred_times,
-        preferred_days: item.preferred_days,
-        notes: item.notes
+        match_types: item.match_types || [],
+        preferred_times: item.preferred_times || [],
+        preferred_days: item.preferred_days || [],
+        notes: item.notes || ''
       })) || [];
 
+      console.log('Formatted players:', formattedPlayers);
       setPlayers(formattedPlayers);
     } catch (error) {
       console.error('Error searching players:', error);
       toast({
         title: "Error",
-        description: "Failed to search for players",
+        description: "Failed to search for players. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -147,6 +168,8 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
   const formatDays = (days: string[]) => {
     return days.map(day => day.charAt(0).toUpperCase() + day.slice(1)).join(', ');
   };
+
+  console.log('Rendering FindPartner, players count:', players.length, 'filtered:', filteredPlayers.length);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -250,7 +273,7 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
       {/* Results */}
       <div className="space-y-4">
         <h2 className="text-xl font-semibold">
-          {filteredPlayers.length} player{filteredPlayers.length !== 1 ? 's' : ''} found
+          {loading ? 'Searching...' : `${filteredPlayers.length} player${filteredPlayers.length !== 1 ? 's' : ''} found`}
         </h2>
 
         {filteredPlayers.map((player) => (
@@ -323,7 +346,10 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
           <Card>
             <CardContent className="p-8 text-center">
               <p className="text-muted-foreground">
-                No players found matching your criteria. Try adjusting your filters.
+                {players.length === 0 
+                  ? "No players are currently looking to play. Be the first to set your preferences!"
+                  : "No players found matching your criteria. Try adjusting your filters."
+                }
               </p>
             </CardContent>
           </Card>

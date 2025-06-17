@@ -91,7 +91,11 @@ const PlayerProfile = () => {
 
     try {
       const amenityList = await getAmenitiesByHOAId(currentUser.hoaId);
-      setAmenities(amenityList);
+      // Filter to only show tennis and pickleball courts
+      const tennisAmenities = amenityList.filter(amenity => 
+        amenity.amenityType === 'tennis' || amenity.amenityType === 'pickleball'
+      );
+      setAmenities(tennisAmenities);
     } catch (error) {
       console.error('Error loading amenities:', error);
     }
@@ -191,9 +195,9 @@ const PlayerProfile = () => {
       case 'utr':
         return `https://app.universaltennis.com/search?q=${encodedName}`;
       case 'wtn':
-        return `https://worldtennisnumber.com/search?q=${encodedName}`;
+        return `https://www.itftennis.com/en/players/?searchKey=${encodedName}`;
       case 'usta':
-        return `https://playtennis.usta.com/PlayerSearch?searchText=${encodedName}`;
+        return `https://tennislink.usta.com/Tournaments/Common/Profile.aspx?playerSearchText=${encodedName}`;
       default:
         return '#';
     }
@@ -288,7 +292,7 @@ const PlayerProfile = () => {
                 <SelectContent>
                   {amenities.map((amenity) => (
                     <SelectItem key={amenity.id} value={amenity.id}>
-                      {amenity.name}
+                      {amenity.name} ({amenity.amenityType})
                     </SelectItem>
                   ))}
                 </SelectContent>
