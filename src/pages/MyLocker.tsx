@@ -11,6 +11,8 @@ import FindPartner from '../components/locker/FindPartner';
 const MyLocker = () => {
   const [showFindPartner, setShowFindPartner] = useState(false);
 
+  console.log('MyLocker component loaded'); // Debug log
+
   if (showFindPartner) {
     return <FindPartner onBack={() => setShowFindPartner(false)} />;
   }

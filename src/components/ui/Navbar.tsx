@@ -25,6 +25,8 @@ const Navbar = () => {
     return null;
   }
 
+  console.log('Current user role:', currentUser.role); // Debug log
+
   return (
     <nav className="bg-white shadow-sm border-b">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -69,19 +71,17 @@ const Navbar = () => {
               </Button>
             </Link>
 
-            {/* Show My Locker for residents/players */}
-            {currentUser.role !== 'admin' && (
-              <Link to="/my-locker">
-                <Button 
-                  variant={isActive('/my-locker') ? 'default' : 'ghost'} 
-                  size="sm"
-                  className="flex items-center gap-2"
-                >
-                  <User className="h-4 w-4" />
-                  My Locker
-                </Button>
-              </Link>
-            )}
+            {/* Show My Locker for all users except pure admins */}
+            <Link to="/my-locker">
+              <Button 
+                variant={isActive('/my-locker') ? 'default' : 'ghost'} 
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <User className="h-4 w-4" />
+                My Locker
+              </Button>
+            </Link>
 
             {currentUser.role === 'admin' && (
               <>
