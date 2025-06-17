@@ -22,6 +22,7 @@ import MyReservations from "./pages/MyReservations";
 import PendingRequests from "./pages/PendingRequests";
 import ManageCourts from "./pages/ManageCourts";
 import AmenityRules from "./pages/AmenityRules";
+import MyLocker from "./pages/MyLocker";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -47,6 +48,7 @@ const App = () => (
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/reserve" element={<ReserveCourt />} />
                 <Route path="/my-reservations" element={<MyReservations />} />
+                <Route path="/my-locker" element={<MyLocker />} />
                 <Route path="/pending-requests" element={<PendingRequests />} />
                 <Route path="/manage-amenities" element={<ManageCourts />} />
                 <Route path="/amenity-rules" element={<AmenityRules />} />

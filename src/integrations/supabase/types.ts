@@ -455,6 +455,42 @@ export type Database = {
           },
         ]
       }
+      match_preferences: {
+        Row: {
+          created_at: string
+          id: string
+          looking_to_play: boolean
+          match_types: string[]
+          notes: string | null
+          preferred_days: string[]
+          preferred_times: string[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          looking_to_play?: boolean
+          match_types?: string[]
+          notes?: string | null
+          preferred_days?: string[]
+          preferred_times?: string[]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          looking_to_play?: boolean
+          match_types?: string[]
+          notes?: string | null
+          preferred_days?: string[]
+          preferred_times?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       match_requests: {
         Row: {
           challenger_id: string
@@ -723,6 +759,7 @@ export type Database = {
           hoa_id: string | null
           hoa_role: string | null
           hoa_status: string | null
+          home_court_id: string | null
           id: string
           is_verified: boolean | null
           location: string | null
@@ -731,7 +768,9 @@ export type Database = {
           role: Database["public"]["Enums"]["user_role"] | null
           updated_at: string | null
           username: string | null
+          usta_ranking: string | null
           utr_rating: number | null
+          wtn_rating: number | null
         }
         Insert: {
           avatar_url?: string | null
@@ -743,6 +782,7 @@ export type Database = {
           hoa_id?: string | null
           hoa_role?: string | null
           hoa_status?: string | null
+          home_court_id?: string | null
           id: string
           is_verified?: boolean | null
           location?: string | null
@@ -751,7 +791,9 @@ export type Database = {
           role?: Database["public"]["Enums"]["user_role"] | null
           updated_at?: string | null
           username?: string | null
+          usta_ranking?: string | null
           utr_rating?: number | null
+          wtn_rating?: number | null
         }
         Update: {
           avatar_url?: string | null
@@ -763,6 +805,7 @@ export type Database = {
           hoa_id?: string | null
           hoa_role?: string | null
           hoa_status?: string | null
+          home_court_id?: string | null
           id?: string
           is_verified?: boolean | null
           location?: string | null
@@ -771,7 +814,9 @@ export type Database = {
           role?: Database["public"]["Enums"]["user_role"] | null
           updated_at?: string | null
           username?: string | null
+          usta_ranking?: string | null
           utr_rating?: number | null
+          wtn_rating?: number | null
         }
         Relationships: [
           {
@@ -779,6 +824,13 @@ export type Database = {
             columns: ["hoa_id"]
             isOneToOne: false
             referencedRelation: "hoas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_home_court_id_fkey"
+            columns: ["home_court_id"]
+            isOneToOne: false
+            referencedRelation: "courts"
             referencedColumns: ["id"]
           },
           {

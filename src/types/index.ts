@@ -75,6 +75,19 @@ export interface Booking {
   createdAt: string;
 }
 
+// Match preferences type for player discovery
+export interface MatchPreferences {
+  id: string;
+  userId: string;
+  lookingToPlay: boolean;
+  matchTypes: string[];
+  preferredTimes: string[];
+  preferredDays: string[];
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Database row types for Supabase operations
 export interface ProfileRow {
   id: string;

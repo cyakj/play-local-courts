@@ -3,7 +3,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '../../contexts/AuthContext';
-import { LogOut, Home, Calendar, Users, Settings } from 'lucide-react';
+import { LogOut, Home, Calendar, Users, Settings, User } from 'lucide-react';
 
 const Navbar = () => {
   const { currentUser, logout } = useAuth();
@@ -30,15 +30,15 @@ const Navbar = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex items-center">
-            <Link to="/" className="text-xl font-bold text-primary">
+            <Link to="/dashboard" className="text-xl font-bold text-primary">
               HOA Amenities
             </Link>
           </div>
           
           <div className="flex items-center space-x-4">
-            <Link to="/">
+            <Link to="/dashboard">
               <Button 
-                variant={isActive('/') ? 'default' : 'ghost'} 
+                variant={isActive('/dashboard') ? 'default' : 'ghost'} 
                 size="sm"
                 className="flex items-center gap-2"
               >
@@ -68,6 +68,20 @@ const Navbar = () => {
                 My Reservations
               </Button>
             </Link>
+
+            {/* Show My Locker for residents/players */}
+            {currentUser.role !== 'admin' && (
+              <Link to="/my-locker">
+                <Button 
+                  variant={isActive('/my-locker') ? 'default' : 'ghost'} 
+                  size="sm"
+                  className="flex items-center gap-2"
+                >
+                  <User className="h-4 w-4" />
+                  My Locker
+                </Button>
+              </Link>
+            )}
 
             {currentUser.role === 'admin' && (
               <>
