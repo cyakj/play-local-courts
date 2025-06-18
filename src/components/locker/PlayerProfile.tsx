@@ -6,7 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ExternalLink, Upload, Calendar } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { ExternalLink, Upload, Calendar, HelpCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
@@ -73,7 +74,7 @@ const PlayerProfile = () => {
           bio: data.bio || '',
           homeCourtId: data.home_court_id || '',
           utrRating: data.utr_rating,
-          ntrpRating: data.ntrp_rating,
+          ntrpRating: (data as any).ntrp_rating, // Safe access to ntrp_rating
           wtnRating: data.wtn_rating,
           ustaRanking: data.usta_ranking || ''
         });
@@ -207,248 +208,250 @@ const PlayerProfile = () => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Profile Overview Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Player Profile Overview</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Avatar Section */}
-          <div className="flex items-center space-x-4">
-            <Avatar className="h-20 w-20">
-              <AvatarImage src={profile.avatarUrl} alt={profile.fullName} />
-              <AvatarFallback>
-                {profile.fullName.split(' ').map(n => n[0]).join('').toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <Label htmlFor="avatar-upload" className="cursor-pointer">
-                <Button variant="outline" size="sm" disabled={uploading} asChild>
-                  <span>
-                    <Upload className="h-4 w-4 mr-2" />
-                    {uploading ? 'Uploading...' : 'Upload Photo'}
-                  </span>
-                </Button>
-              </Label>
-              <input
-                id="avatar-upload"
-                type="file"
-                accept="image/*"
-                onChange={uploadAvatar}
-                className="hidden"
-              />
-            </div>
-          </div>
-
-          {/* Basic Info */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="fullName">Full Name *</Label>
-              <Input
-                id="fullName"
-                value={profile.fullName}
-                onChange={(e) => setProfile(prev => ({ ...prev, fullName: e.target.value }))}
-                placeholder="Enter your full name"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="dateOfBirth">Date of Birth</Label>
-              <div className="flex items-center space-x-2">
-                <Input
-                  id="dateOfBirth"
-                  type="date"
-                  value={profile.dateOfBirth}
-                  onChange={(e) => setProfile(prev => ({ ...prev, dateOfBirth: e.target.value }))}
+    <TooltipProvider>
+      <div className="space-y-6">
+        {/* Profile Overview Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Player Profile Overview</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Avatar Section */}
+            <div className="flex items-center space-x-4">
+              <Avatar className="h-20 w-20">
+                <AvatarImage src={profile.avatarUrl} alt={profile.fullName} />
+                <AvatarFallback>
+                  {profile.fullName.split(' ').map(n => n[0]).join('').toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <Label htmlFor="avatar-upload" className="cursor-pointer">
+                  <Button variant="outline" size="sm" disabled={uploading} asChild>
+                    <span>
+                      <Upload className="h-4 w-4 mr-2" />
+                      {uploading ? 'Uploading...' : 'Upload Photo'}
+                    </span>
+                  </Button>
+                </Label>
+                <input
+                  id="avatar-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={uploadAvatar}
+                  className="hidden"
                 />
-                {getAge() && (
-                  <span className="flex items-center text-sm text-muted-foreground">
-                    <Calendar className="h-4 w-4 mr-1" />
-                    Age {getAge()}
-                  </span>
-                )}
               </div>
             </div>
 
-            <div>
-              <Label htmlFor="gender">Gender</Label>
-              <Select value={profile.gender} onValueChange={(value) => setProfile(prev => ({ ...prev, gender: value }))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select gender" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="male">Male</SelectItem>
-                  <SelectItem value="female">Female</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                  <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="homeCourt">Home Court Preference</Label>
-              <Select value={profile.homeCourtId} onValueChange={(value) => setProfile(prev => ({ ...prev, homeCourtId: value }))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select home court" />
-                </SelectTrigger>
-                <SelectContent>
-                  {amenities.map((amenity) => (
-                    <SelectItem key={amenity.id} value={amenity.id}>
-                      {amenity.name} ({amenity.amenityType})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="bio">Bio</Label>
-            <Textarea
-              id="bio"
-              value={profile.bio}
-              onChange={(e) => setProfile(prev => ({ ...prev, bio: e.target.value }))}
-              placeholder="Tell us about yourself..."
-              rows={3}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Rankings Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Tennis Rankings</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1">
-                  <Label htmlFor="utrRating">UTR Rating</Label>
-                  <Tooltip>
-                    <TooltipTrigger>
-                      <HelpCircle className="h-3 w-3 text-muted-foreground" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Used in high school, college, and global junior competition</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-                {profile.fullName && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => window.open(generateSearchUrl('utr', profile.fullName), '_blank')}
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </Button>
-                )}
+            {/* Basic Info */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="fullName">Full Name *</Label>
+                <Input
+                  id="fullName"
+                  value={profile.fullName}
+                  onChange={(e) => setProfile(prev => ({ ...prev, fullName: e.target.value }))}
+                  placeholder="Enter your full name"
+                />
               </div>
-              <Input
-                id="utrRating"
-                type="number"
-                step="0.1"
-                min="1"
-                max="16"
-                value={profile.utrRating || ''}
-                onChange={(e) => setProfile(prev => ({ ...prev, utrRating: e.target.value ? parseFloat(e.target.value) : null }))}
-                placeholder="e.g. 4.5"
-              />
-            </div>
 
-            <div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1">
-                  <Label htmlFor="ntrpRating">NTRP Rating</Label>
-                  <Tooltip>
-                    <TooltipTrigger>
-                      <HelpCircle className="h-3 w-3 text-muted-foreground" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Used in USTA leagues and adult tournaments</p>
-                    </TooltipContent>
-                  </Tooltip>
+              <div>
+                <Label htmlFor="dateOfBirth">Date of Birth</Label>
+                <div className="flex items-center space-x-2">
+                  <Input
+                    id="dateOfBirth"
+                    type="date"
+                    value={profile.dateOfBirth}
+                    onChange={(e) => setProfile(prev => ({ ...prev, dateOfBirth: e.target.value }))}
+                  />
+                  {getAge() && (
+                    <span className="flex items-center text-sm text-muted-foreground">
+                      <Calendar className="h-4 w-4 mr-1" />
+                      Age {getAge()}
+                    </span>
+                  )}
                 </div>
               </div>
-              <Input
-                id="ntrpRating"
-                type="number"
-                step="0.5"
-                min="1.0"
-                max="7.0"
-                value={profile.ntrpRating || ''}
-                onChange={(e) => setProfile(prev => ({ ...prev, ntrpRating: e.target.value ? parseFloat(e.target.value) : null }))}
-                placeholder="e.g. 4.0"
-              />
+
+              <div>
+                <Label htmlFor="gender">Gender</Label>
+                <Select value={profile.gender} onValueChange={(value) => setProfile(prev => ({ ...prev, gender: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select gender" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="male">Male</SelectItem>
+                    <SelectItem value="female">Female</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                    <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="homeCourt">Home Court Preference</Label>
+                <Select value={profile.homeCourtId} onValueChange={(value) => setProfile(prev => ({ ...prev, homeCourtId: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select home court" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {amenities.map((amenity) => (
+                      <SelectItem key={amenity.id} value={amenity.id}>
+                        {amenity.name} ({amenity.amenityType})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1">
-                  <Label htmlFor="wtnRating">WTN Number</Label>
-                  <Tooltip>
-                    <TooltipTrigger>
-                      <HelpCircle className="h-3 w-3 text-muted-foreground" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>World Tennis Number - global rating system</p>
-                    </TooltipContent>
-                  </Tooltip>
+              <Label htmlFor="bio">Bio</Label>
+              <Textarea
+                id="bio"
+                value={profile.bio}
+                onChange={(e) => setProfile(prev => ({ ...prev, bio: e.target.value }))}
+                placeholder="Tell us about yourself..."
+                rows={3}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Rankings Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Tennis Rankings</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1">
+                    <Label htmlFor="utrRating">UTR Rating</Label>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Used in high school, college, and global junior competition</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  {profile.fullName && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => window.open(generateSearchUrl('utr', profile.fullName), '_blank')}
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
-                {profile.fullName && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => window.open(generateSearchUrl('wtn', profile.fullName), '_blank')}
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </Button>
-                )}
+                <Input
+                  id="utrRating"
+                  type="number"
+                  step="0.1"
+                  min="1"
+                  max="16"
+                  value={profile.utrRating || ''}
+                  onChange={(e) => setProfile(prev => ({ ...prev, utrRating: e.target.value ? parseFloat(e.target.value) : null }))}
+                  placeholder="e.g. 4.5"
+                />
               </div>
-              <Input
-                id="wtnRating"
-                type="number"
-                step="0.1"
-                min="1"
-                max="40"
-                value={profile.wtnRating || ''}
-                onChange={(e) => setProfile(prev => ({ ...prev, wtnRating: e.target.value ? parseFloat(e.target.value) : null }))}
-                placeholder="e.g. 18.5"
-              />
-            </div>
 
-            <div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="ustaRanking">USTA Ranking</Label>
-                {profile.fullName && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => window.open(generateSearchUrl('usta', profile.fullName), '_blank')}
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </Button>
-                )}
+              <div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1">
+                    <Label htmlFor="ntrpRating">NTRP Rating</Label>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Used in USTA leagues and adult tournaments</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                </div>
+                <Input
+                  id="ntrpRating"
+                  type="number"
+                  step="0.5"
+                  min="1.0"
+                  max="7.0"
+                  value={profile.ntrpRating || ''}
+                  onChange={(e) => setProfile(prev => ({ ...prev, ntrpRating: e.target.value ? parseFloat(e.target.value) : null }))}
+                  placeholder="e.g. 4.0"
+                />
               </div>
-              <Input
-                id="ustaRanking"
-                value={profile.ustaRanking}
-                onChange={(e) => setProfile(prev => ({ ...prev, ustaRanking: e.target.value }))}
-                placeholder="e.g. 4.0"
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
-      <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={loading}>
-          {loading ? 'Saving...' : 'Save Profile'}
-        </Button>
+              <div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1">
+                    <Label htmlFor="wtnRating">WTN Number</Label>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>World Tennis Number - global rating system</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  {profile.fullName && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => window.open(generateSearchUrl('wtn', profile.fullName), '_blank')}
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                <Input
+                  id="wtnRating"
+                  type="number"
+                  step="0.1"
+                  min="1"
+                  max="40"
+                  value={profile.wtnRating || ''}
+                  onChange={(e) => setProfile(prev => ({ ...prev, wtnRating: e.target.value ? parseFloat(e.target.value) : null }))}
+                  placeholder="e.g. 18.5"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="ustaRanking">USTA Ranking</Label>
+                  {profile.fullName && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => window.open(generateSearchUrl('usta', profile.fullName), '_blank')}
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                <Input
+                  id="ustaRanking"
+                  value={profile.ustaRanking}
+                  onChange={(e) => setProfile(prev => ({ ...prev, ustaRanking: e.target.value }))}
+                  placeholder="e.g. 4.0"
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="flex justify-end">
+          <Button onClick={handleSave} disabled={loading}>
+            {loading ? 'Saving...' : 'Save Profile'}
+          </Button>
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 };
 

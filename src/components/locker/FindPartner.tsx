@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,8 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, MessageCircle, AlertCircle, Loader2, HelpCircle } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { ArrowLeft, MessageCircle, AlertCircle, Loader2, HelpCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -127,7 +126,7 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
           bio: profile?.bio || '',
           utr_rating: profile?.utr_rating || 0,
           wtn_rating: profile?.wtn_rating || 0,
-          ntrp_rating: profile?.ntrp_rating || 0,
+          ntrp_rating: (profile as any)?.ntrp_rating || 0, // Safe access to ntrp_rating
           usta_ranking: profile?.usta_ranking || '',
           date_of_birth: profile?.date_of_birth || '',
           hoa_name: 'Community Member',
