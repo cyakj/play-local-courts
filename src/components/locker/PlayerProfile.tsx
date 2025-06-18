@@ -73,7 +73,7 @@ const PlayerProfile = () => {
           bio: data.bio || '',
           homeCourtId: data.home_court_id || '',
           utrRating: data.utr_rating,
-          ntrpRating: (data as any).ntrp_rating,
+          ntrpRating: null, // NTRP rating is not stored in database
           wtnRating: data.wtn_rating
         });
       }
@@ -116,8 +116,8 @@ const PlayerProfile = () => {
           bio: profile.bio || null,
           home_court_id: profile.homeCourtId || null,
           utr_rating: profile.utrRating,
-          ntrp_rating: profile.ntrpRating,
           wtn_rating: profile.wtnRating
+          // Note: ntrp_rating is not saved to database as it's not a column
         })
         .eq('id', currentUser.id);
 
@@ -368,7 +368,7 @@ const PlayerProfile = () => {
                         <HelpCircle className="h-3 w-3 text-muted-foreground" />
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>Used in USTA leagues and adult tournaments</p>
+                        <p>Used in USTA leagues and adult tournaments - not stored, search USTA database</p>
                       </TooltipContent>
                     </Tooltip>
                   </div>
@@ -390,7 +390,8 @@ const PlayerProfile = () => {
                   max="7.0"
                   value={profile.ntrpRating || ''}
                   onChange={(e) => setProfile(prev => ({ ...prev, ntrpRating: e.target.value ? parseFloat(e.target.value) : null }))}
-                  placeholder="e.g. 4.0"
+                  placeholder="e.g. 4.0 (search USTA for official rating)"
+                  disabled
                 />
               </div>
 
