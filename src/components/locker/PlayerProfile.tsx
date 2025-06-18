@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,6 +21,7 @@ interface ProfileData {
   bio: string;
   homeCourtId: string;
   utrRating: number | null;
+  ntrpRating: number | null;
   wtnRating: number | null;
   ustaRanking: string;
 }
@@ -40,6 +40,7 @@ const PlayerProfile = () => {
     bio: '',
     homeCourtId: '',
     utrRating: null,
+    ntrpRating: null,
     wtnRating: null,
     ustaRanking: ''
   });
@@ -72,6 +73,7 @@ const PlayerProfile = () => {
           bio: data.bio || '',
           homeCourtId: data.home_court_id || '',
           utrRating: data.utr_rating,
+          ntrpRating: data.ntrp_rating,
           wtnRating: data.wtn_rating,
           ustaRanking: data.usta_ranking || ''
         });
@@ -116,6 +118,7 @@ const PlayerProfile = () => {
           bio: profile.bio || null,
           home_court_id: profile.homeCourtId || null,
           utr_rating: profile.utrRating,
+          ntrp_rating: profile.ntrpRating,
           wtn_rating: profile.wtnRating,
           usta_ranking: profile.ustaRanking || null
         })
@@ -319,10 +322,20 @@ const PlayerProfile = () => {
           <CardTitle>Tennis Rankings</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <div className="flex items-center justify-between">
-                <Label htmlFor="utrRating">UTR Rating</Label>
+                <div className="flex items-center gap-1">
+                  <Label htmlFor="utrRating">UTR Rating</Label>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Used in high school, college, and global junior competition</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
                 {profile.fullName && (
                   <Button
                     variant="ghost"
@@ -347,7 +360,43 @@ const PlayerProfile = () => {
 
             <div>
               <div className="flex items-center justify-between">
-                <Label htmlFor="wtnRating">WTN Number</Label>
+                <div className="flex items-center gap-1">
+                  <Label htmlFor="ntrpRating">NTRP Rating</Label>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Used in USTA leagues and adult tournaments</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
+              <Input
+                id="ntrpRating"
+                type="number"
+                step="0.5"
+                min="1.0"
+                max="7.0"
+                value={profile.ntrpRating || ''}
+                onChange={(e) => setProfile(prev => ({ ...prev, ntrpRating: e.target.value ? parseFloat(e.target.value) : null }))}
+                placeholder="e.g. 4.0"
+              />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1">
+                  <Label htmlFor="wtnRating">WTN Number</Label>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>World Tennis Number - global rating system</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
                 {profile.fullName && (
                   <Button
                     variant="ghost"
