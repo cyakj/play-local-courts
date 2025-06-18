@@ -43,6 +43,12 @@ const MatchRequestDialog: React.FC<MatchRequestDialogProps> = ({ targetPlayer })
       return;
     }
 
+    // Map match types to database enum values
+    const mapMatchType = (type: string): "singles" | "doubles" => {
+      if (type === 'doubles' || type === 'mixed_doubles') return 'doubles';
+      return 'singles'; // Default to singles for hitting_session and singles
+    };
+
     setLoading(true);
     try {
       const { error } = await supabase
@@ -50,7 +56,7 @@ const MatchRequestDialog: React.FC<MatchRequestDialogProps> = ({ targetPlayer })
         .insert({
           challenger_id: currentUser.id,
           opponent_id: targetPlayer.id,
-          match_type: request.matchType,
+          match_type: mapMatchType(request.matchType),
           date: request.date,
           time_start: request.timeStart,
           time_end: request.timeEnd || null,
