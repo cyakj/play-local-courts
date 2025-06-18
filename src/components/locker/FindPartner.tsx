@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -39,11 +38,11 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState({
-    matchType: '',
+    matchType: 'any',
     minRating: '',
     maxRating: '',
-    timeOfDay: '',
-    dayOfWeek: ''
+    timeOfDay: 'any',
+    dayOfWeek: 'any'
   });
 
   console.log('FindPartner component rendering, currentUser:', currentUser?.id);
@@ -153,9 +152,9 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
   };
 
   const filteredPlayers = players.filter(player => {
-    if (filters.matchType && !player.match_types.includes(filters.matchType)) return false;
-    if (filters.timeOfDay && !player.preferred_times.includes(filters.timeOfDay)) return false;
-    if (filters.dayOfWeek && !player.preferred_days.includes(filters.dayOfWeek)) return false;
+    if (filters.matchType !== 'any' && !player.match_types.includes(filters.matchType)) return false;
+    if (filters.timeOfDay !== 'any' && !player.preferred_times.includes(filters.timeOfDay)) return false;
+    if (filters.dayOfWeek !== 'any' && !player.preferred_days.includes(filters.dayOfWeek)) return false;
     
     if (filters.minRating || filters.maxRating) {
       const rating = player.utr_rating || player.wtn_rating;
@@ -261,7 +260,7 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
                   <SelectValue placeholder="Any" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Any</SelectItem>
+                  <SelectItem value="any">Any</SelectItem>
                   <SelectItem value="singles">Singles</SelectItem>
                   <SelectItem value="doubles">Doubles</SelectItem>
                   <SelectItem value="mixed_doubles">Mixed Doubles</SelectItem>
@@ -301,7 +300,7 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
                   <SelectValue placeholder="Any" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Any</SelectItem>
+                  <SelectItem value="any">Any</SelectItem>
                   <SelectItem value="morning">Morning</SelectItem>
                   <SelectItem value="afternoon">Afternoon</SelectItem>
                   <SelectItem value="evening">Evening</SelectItem>
@@ -316,7 +315,7 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
                   <SelectValue placeholder="Any" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Any</SelectItem>
+                  <SelectItem value="any">Any</SelectItem>
                   <SelectItem value="monday">Monday</SelectItem>
                   <SelectItem value="tuesday">Tuesday</SelectItem>
                   <SelectItem value="wednesday">Wednesday</SelectItem>
