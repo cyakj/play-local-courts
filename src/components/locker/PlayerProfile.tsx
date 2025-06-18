@@ -195,9 +195,9 @@ const PlayerProfile = () => {
       case 'utr':
         return `https://app.universaltennis.com/search?q=${encodedName}`;
       case 'wtn':
-        return `https://www.itftennis.com/en/players/?searchKey=${encodedName}`;
+        return `https://worldtennisnumber.com/eng/player-search/?search=${encodedName}`;
       case 'usta':
-        return `https://tennislink.usta.com/Tournaments/Common/Profile.aspx?playerSearchText=${encodedName}`;
+        return `https://www.usta.com/en/home/play/player-search.html?name=${encodedName}`;
       default:
         return '#';
     }

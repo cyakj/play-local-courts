@@ -227,8 +227,57 @@ const ReserveCourt = () => {
     }
   };
 
-  const getDurationLabel = (playType: string) => {
-    const maxDuration = getMaxDuration();
+  const getDurationLabel = (specificPlayType: string) => {
+    if (!rules) {
+      // Fallback to default durations if no rules configured
+      let defaultDuration;
+      switch (specificPlayType) {
+        case 'singles': defaultDuration = 60; break;
+        case 'doubles': defaultDuration = 90; break;
+        case 'family':
+        case 'group': defaultDuration = 120; break;
+        default: defaultDuration = 60;
+      }
+      
+      const hours = Math.floor(defaultDuration / 60);
+      const minutes = defaultDuration % 60;
+      
+      let timeLabel = '';
+      if (hours > 0) {
+        timeLabel += `${hours} hour${hours > 1 ? 's' : ''}`;
+        if (minutes > 0) {
+          timeLabel += ` ${minutes} min`;
+        }
+      } else {
+        timeLabel = `${minutes} min`;
+      }
+      
+      return `${specificPlayType} (up to ${timeLabel})`;
+    }
+
+    // Check if we're in peak hours (simplified for now)
+    const isCurrentlyPeakHours = rules.enable_peak_hours && 
+      rules.peak_start_time && rules.peak_end_time;
+
+    let maxDuration;
+    if (isCurrentlyPeakHours) {
+      switch (specificPlayType) {
+        case 'singles': maxDuration = rules.peak_singles_duration_minutes || 30; break;
+        case 'doubles': maxDuration = rules.peak_doubles_duration_minutes || 45; break;
+        case 'family': maxDuration = rules.peak_family_duration_minutes || 60; break;
+        case 'group': maxDuration = rules.peak_group_duration_minutes || 60; break;
+        default: maxDuration = 30;
+      }
+    } else {
+      switch (specificPlayType) {
+        case 'singles': maxDuration = rules.singles_duration_minutes || 60; break;
+        case 'doubles': maxDuration = rules.doubles_duration_minutes || 90; break;
+        case 'family': maxDuration = rules.family_duration_minutes || 120; break;
+        case 'group': maxDuration = rules.group_duration_minutes || 120; break;
+        default: maxDuration = 60;
+      }
+    }
+    
     const hours = Math.floor(maxDuration / 60);
     const minutes = maxDuration % 60;
     
@@ -242,7 +291,7 @@ const ReserveCourt = () => {
       timeLabel = `${minutes} min`;
     }
     
-    return `${playType} (up to ${timeLabel})`;
+    return `${specificPlayType} (up to ${timeLabel})`;
   };
 
   const renderAmenityTab = (amenityType: string, amenityList: typeof amenities) => {
