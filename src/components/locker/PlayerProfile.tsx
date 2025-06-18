@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,7 +11,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { ExternalLink, Upload, Calendar, HelpCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { getAmenitiesByHOAId } from '../../services/supabaseService';
 import { Amenity } from '../../types';
 
@@ -24,7 +25,6 @@ interface ProfileData {
   utrRating: number | null;
   ntrpRating: number | null;
   wtnRating: number | null;
-  ustaRanking: string;
 }
 
 const PlayerProfile = () => {
@@ -42,8 +42,7 @@ const PlayerProfile = () => {
     homeCourtId: '',
     utrRating: null,
     ntrpRating: null,
-    wtnRating: null,
-    ustaRanking: ''
+    wtnRating: null
   });
 
   useEffect(() => {
@@ -74,9 +73,8 @@ const PlayerProfile = () => {
           bio: data.bio || '',
           homeCourtId: data.home_court_id || '',
           utrRating: data.utr_rating,
-          ntrpRating: (data as any).ntrp_rating, // Safe access to ntrp_rating
-          wtnRating: data.wtn_rating,
-          ustaRanking: data.usta_ranking || ''
+          ntrpRating: (data as any).ntrp_rating,
+          wtnRating: data.wtn_rating
         });
       }
     } catch (error) {
@@ -94,7 +92,6 @@ const PlayerProfile = () => {
 
     try {
       const amenityList = await getAmenitiesByHOAId(currentUser.hoaId);
-      // Filter to only show tennis and pickleball courts
       const tennisAmenities = amenityList.filter(amenity => 
         amenity.amenityType === 'tennis' || amenity.amenityType === 'pickleball'
       );
@@ -120,22 +117,24 @@ const PlayerProfile = () => {
           home_court_id: profile.homeCourtId || null,
           utr_rating: profile.utrRating,
           ntrp_rating: profile.ntrpRating,
-          wtn_rating: profile.wtnRating,
-          usta_ranking: profile.ustaRanking || null
+          wtn_rating: profile.wtnRating
         })
         .eq('id', currentUser.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Save error:', error);
+        throw error;
+      }
 
       toast({
         title: "Success",
         description: "Profile updated successfully"
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving profile:', error);
       toast({
         title: "Error",
-        description: "Failed to save profile",
+        description: error.message || "Failed to save profile",
         variant: "destructive"
       });
     } finally {
@@ -200,8 +199,8 @@ const PlayerProfile = () => {
         return `https://app.universaltennis.com/search?q=${encodedName}`;
       case 'wtn':
         return `https://worldtennisnumber.com/eng/player-search/?search=${encodedName}`;
-      case 'usta':
-        return `https://www.usta.com/en/home/play/player-search.html?name=${encodedName}`;
+      case 'ntrp':
+        return `https://www.usta.com/en/home/play/player-search.html#page=1&search=${encodedName}`;
       default:
         return '#';
     }
@@ -324,7 +323,7 @@ const PlayerProfile = () => {
             <CardTitle>Tennis Rankings</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1">
@@ -373,6 +372,15 @@ const PlayerProfile = () => {
                       </TooltipContent>
                     </Tooltip>
                   </div>
+                  {profile.fullName && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => window.open(generateSearchUrl('ntrp', profile.fullName), '_blank')}
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
                 <Input
                   id="ntrpRating"
@@ -418,27 +426,6 @@ const PlayerProfile = () => {
                   value={profile.wtnRating || ''}
                   onChange={(e) => setProfile(prev => ({ ...prev, wtnRating: e.target.value ? parseFloat(e.target.value) : null }))}
                   placeholder="e.g. 18.5"
-                />
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="ustaRanking">USTA Ranking</Label>
-                  {profile.fullName && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => window.open(generateSearchUrl('usta', profile.fullName), '_blank')}
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-                <Input
-                  id="ustaRanking"
-                  value={profile.ustaRanking}
-                  onChange={(e) => setProfile(prev => ({ ...prev, ustaRanking: e.target.value }))}
-                  placeholder="e.g. 4.0"
                 />
               </div>
             </div>

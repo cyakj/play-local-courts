@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,6 +12,7 @@ import { ArrowLeft, MessageCircle, AlertCircle, Loader2, HelpCircle } from 'luci
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import MatchRequestDialog from './MatchRequestDialog';
 
 interface PlayerResult {
   id: string;
@@ -20,7 +22,6 @@ interface PlayerResult {
   utr_rating: number;
   wtn_rating: number;
   ntrp_rating: number;
-  usta_ranking: string;
   date_of_birth: string;
   hoa_name: string;
   match_types: string[];
@@ -55,10 +56,8 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
   useEffect(() => {
     console.log('FindPartner useEffect triggered');
     
-    // Always render the basic UI first
     setInitialLoading(false);
     
-    // Then attempt to load data if user is available
     if (currentUser) {
       console.log('Current user found, searching for players');
       searchPlayers();
@@ -78,7 +77,6 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
         throw new Error('User not authenticated');
       }
 
-      // Use a simpler approach - fetch match_preferences and profiles separately, then join in code
       console.log('Fetching match preferences...');
       const { data: matchPrefsData, error: matchPrefsError } = await supabase
         .from('match_preferences')
@@ -99,7 +97,6 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
         return;
       }
 
-      // Get user IDs from match preferences
       const userIds = matchPrefsData.map(pref => pref.user_id);
       
       console.log('Fetching profiles for user IDs:', userIds);
@@ -115,7 +112,6 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
 
       console.log('Profiles data:', profilesData);
 
-      // Join the data manually
       const formattedPlayers = matchPrefsData.map((matchPref: any) => {
         const profile = profilesData?.find(p => p.id === matchPref.user_id);
         
@@ -126,8 +122,7 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
           bio: profile?.bio || '',
           utr_rating: profile?.utr_rating || 0,
           wtn_rating: profile?.wtn_rating || 0,
-          ntrp_rating: (profile as any)?.ntrp_rating || 0, // Safe access to ntrp_rating
-          usta_ranking: profile?.usta_ranking || '',
+          ntrp_rating: (profile as any)?.ntrp_rating || 0,
           date_of_birth: profile?.date_of_birth || '',
           hoa_name: 'Community Member',
           match_types: matchPref.match_types || [],
@@ -135,7 +130,7 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
           preferred_days: matchPref.preferred_days || [],
           notes: matchPref.notes || ''
         };
-      }).filter(player => player.full_name !== 'Unknown Player'); // Filter out players without profiles
+      }).filter(player => player.full_name !== 'Unknown Player');
 
       console.log('Formatted players:', formattedPlayers);
       setPlayers(formattedPlayers);
@@ -168,7 +163,6 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
   const getPrimaryRating = (player: PlayerResult): { rating: number; type: string } | null => {
     const age = getPlayerAge(player.date_of_birth);
     
-    // If age < 30, prioritize UTR; if age >= 30, prioritize NTRP
     if (age !== null && age < 30) {
       if (player.utr_rating) return { rating: player.utr_rating, type: 'UTR' };
       if (player.ntrp_rating) return { rating: player.ntrp_rating, type: 'NTRP' };
@@ -177,7 +171,6 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
       if (player.utr_rating) return { rating: player.utr_rating, type: 'UTR' };
     }
     
-    // Fallback: show whatever is available
     if (player.utr_rating) return { rating: player.utr_rating, type: 'UTR' };
     if (player.ntrp_rating) return { rating: player.ntrp_rating, type: 'NTRP' };
     if (player.wtn_rating) return { rating: player.wtn_rating, type: 'WTN' };
@@ -190,14 +183,12 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
     if (filters.timeOfDay !== 'any' && !player.preferred_times.includes(filters.timeOfDay)) return false;
     if (filters.dayOfWeek !== 'any' && !player.preferred_days.includes(filters.dayOfWeek)) return false;
     
-    // UTR Rating filters
     if (filters.minUtrRating || filters.maxUtrRating) {
       if (!player.utr_rating) return false;
       if (filters.minUtrRating && player.utr_rating < parseFloat(filters.minUtrRating)) return false;
       if (filters.maxUtrRating && player.utr_rating > parseFloat(filters.maxUtrRating)) return false;
     }
     
-    // NTRP Rating filters
     if (filters.minNtrpRating || filters.maxNtrpRating) {
       if (!player.ntrp_rating) return false;
       if (filters.minNtrpRating && player.ntrp_rating < parseFloat(filters.minNtrpRating)) return false;
@@ -234,7 +225,13 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
     return days.map(day => day.charAt(0).toUpperCase() + day.slice(1)).join(', ');
   };
 
-  // Show loading spinner only for initial load
+  const handleMessage = (playerId: string, playerName: string) => {
+    toast({
+      title: "Feature Coming Soon",
+      description: `Messaging with ${playerName} will be available soon!`
+    });
+  };
+
   if (initialLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -261,7 +258,6 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
           <h1 className="text-3xl font-bold">Find a Partner</h1>
         </div>
 
-        {/* Show error message if there's an error */}
         {error && (
           <Card className="mb-6 border-destructive">
             <CardContent className="p-6">
@@ -475,10 +471,23 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
                           <h3 className="text-lg font-semibold">{player.full_name}</h3>
                           <p className="text-sm text-muted-foreground">{player.hoa_name}</p>
                         </div>
-                        <Button variant="outline" size="sm">
-                          <MessageCircle className="h-4 w-4 mr-2" />
-                          Message
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleMessage(player.id, player.full_name)}
+                          >
+                            <MessageCircle className="h-4 w-4 mr-2" />
+                            Message
+                          </Button>
+                          <MatchRequestDialog 
+                            targetPlayer={{
+                              id: player.id,
+                              full_name: player.full_name,
+                              match_types: player.match_types
+                            }}
+                          />
+                        </div>
                       </div>
 
                       {player.bio && (
@@ -498,9 +507,6 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
                         )}
                         {player.wtn_rating && (
                           <Badge variant="secondary">WTN: {player.wtn_rating}</Badge>
-                        )}
-                        {player.usta_ranking && (
-                          <Badge variant="secondary">USTA: {player.usta_ranking}</Badge>
                         )}
                       </div>
 
