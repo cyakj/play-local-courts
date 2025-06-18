@@ -33,7 +33,8 @@ const MatchPreferences = () => {
   const matchTypeOptions = [
     { value: 'singles', label: 'Singles' },
     { value: 'doubles', label: 'Doubles' },
-    { value: 'mixed_doubles', label: 'Mixed Doubles' }
+    { value: 'mixed_doubles', label: 'Mixed Doubles' },
+    { value: 'hitting_session', label: 'Hitting Session' }
   ];
 
   const timeOptions = [
@@ -61,12 +62,15 @@ const MatchPreferences = () => {
   const loadPreferences = async () => {
     if (!currentUser) return;
 
+    console.log('Loading preferences for user:', currentUser.id);
     try {
       const { data, error } = await supabase
         .from('match_preferences')
         .select('*')
         .eq('user_id', currentUser.id)
         .maybeSingle();
+
+      console.log('Load preferences result:', { data, error });
 
       if (error && error.code !== 'PGRST116') throw error;
 
@@ -90,8 +94,12 @@ const MatchPreferences = () => {
   };
 
   const handleSave = async () => {
-    if (!currentUser) return;
+    if (!currentUser) {
+      console.error('No current user');
+      return;
+    }
 
+    console.log('Saving preferences for user:', currentUser.id, preferences);
     setLoading(true);
     try {
       const { error } = await supabase
@@ -103,9 +111,16 @@ const MatchPreferences = () => {
           preferred_times: preferences.preferredTimes,
           preferred_days: preferences.preferredDays,
           notes: preferences.notes
+        }, {
+          onConflict: 'user_id'
         });
 
-      if (error) throw error;
+      console.log('Save result:', { error });
+
+      if (error) {
+        console.error('Save error details:', error);
+        throw error;
+      }
 
       toast({
         title: "Success",
@@ -115,7 +130,7 @@ const MatchPreferences = () => {
       console.error('Error saving preferences:', error);
       toast({
         title: "Error",
-        description: "Failed to save preferences",
+        description: `Failed to save preferences: ${error.message}`,
         variant: "destructive"
       });
     } finally {
@@ -135,7 +150,7 @@ const MatchPreferences = () => {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Match Preferences</CardTitle>
+          <CardTitle>Match Finder</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Looking to Play Toggle */}
@@ -162,7 +177,7 @@ const MatchPreferences = () => {
               {/* Match Types */}
               <div>
                 <Label className="text-base font-medium mb-3 block">Match Types</Label>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {matchTypeOptions.map((option) => (
                     <div key={option.value} className="flex items-center space-x-2">
                       <Checkbox

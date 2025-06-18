@@ -33,7 +33,7 @@ const MyLocker = () => {
       <Tabs defaultValue="profile" className="space-y-6">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="profile">Player Profile</TabsTrigger>
-          <TabsTrigger value="preferences">Match Preferences</TabsTrigger>
+          <TabsTrigger value="preferences">Match Finder</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile">

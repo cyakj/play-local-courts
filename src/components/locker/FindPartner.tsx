@@ -60,16 +60,23 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
     console.log('Starting player search...');
     setLoading(true);
     try {
-      // First, let's test basic query to match_preferences
+      // First, test a simple query to match_preferences
+      console.log('Testing simple match_preferences query...');
       const { data: testData, error: testError } = await supabase
         .from('match_preferences')
-        .select('*')
+        .select('user_id, looking_to_play')
         .eq('looking_to_play', true)
         .limit(5);
 
-      console.log('Test query result:', { testData, testError });
+      console.log('Simple test query result:', { testData, testError });
+
+      if (testError) {
+        console.error('Simple test query failed:', testError);
+        throw new Error(`Database query failed: ${testError.message}`);
+      }
 
       // Now try the full query with profile join
+      console.log('Attempting full query with profile join...');
       const { data, error } = await supabase
         .from('match_preferences')
         .select(`
@@ -86,6 +93,7 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
             utr_rating,
             wtn_rating,
             usta_ranking,
+            hoa_id,
             hoas (name)
           )
         `)
@@ -95,8 +103,55 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
       console.log('Full query result:', { data, error });
 
       if (error) {
-        console.error('Query error:', error);
-        throw error;
+        console.error('Full query error:', error);
+        // Try a simpler approach if the join fails
+        console.log('Trying simpler approach without HOA join...');
+        const { data: simpleData, error: simpleError } = await supabase
+          .from('match_preferences')
+          .select(`
+            user_id,
+            match_types,
+            preferred_times,
+            preferred_days,
+            notes,
+            profiles!inner (
+              id,
+              full_name,
+              avatar_url,
+              bio,
+              utr_rating,
+              wtn_rating,
+              usta_ranking
+            )
+          `)
+          .eq('looking_to_play', true)
+          .neq('user_id', currentUser.id);
+
+        if (simpleError) {
+          console.error('Simple query also failed:', simpleError);
+          throw new Error(`All queries failed: ${simpleError.message}`);
+        }
+
+        console.log('Simple query succeeded:', simpleData);
+        
+        const formattedPlayers = simpleData?.map((item: any) => ({
+          id: item.profiles.id,
+          full_name: item.profiles.full_name || 'Unknown Player',
+          avatar_url: item.profiles.avatar_url || '',
+          bio: item.profiles.bio || '',
+          utr_rating: item.profiles.utr_rating || 0,
+          wtn_rating: item.profiles.wtn_rating || 0,
+          usta_ranking: item.profiles.usta_ranking || '',
+          hoa_name: 'Unknown HOA',
+          match_types: item.match_types || [],
+          preferred_times: item.preferred_times || [],
+          preferred_days: item.preferred_days || [],
+          notes: item.notes || ''
+        })) || [];
+
+        console.log('Formatted players (simple):', formattedPlayers);
+        setPlayers(formattedPlayers);
+        return;
       }
 
       const formattedPlayers = data?.map((item: any) => ({
@@ -120,7 +175,7 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
       console.error('Error searching players:', error);
       toast({
         title: "Error",
-        description: "Failed to search for players. Please try again.",
+        description: `Failed to search for players: ${error.message}`,
         variant: "destructive"
       });
     } finally {
@@ -149,6 +204,7 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
         case 'singles': return 'Singles';
         case 'doubles': return 'Doubles';
         case 'mixed_doubles': return 'Mixed Doubles';
+        case 'hitting_session': return 'Hitting Session';
         default: return type;
       }
     }).join(', ');
@@ -199,6 +255,7 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
                   <SelectItem value="singles">Singles</SelectItem>
                   <SelectItem value="doubles">Doubles</SelectItem>
                   <SelectItem value="mixed_doubles">Mixed Doubles</SelectItem>
+                  <SelectItem value="hitting_session">Hitting Session</SelectItem>
                 </SelectContent>
               </Select>
             </div>
