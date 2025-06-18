@@ -7,14 +7,19 @@ import { Search } from 'lucide-react';
 import PlayerProfile from '../components/locker/PlayerProfile';
 import MatchPreferences from '../components/locker/MatchPreferences';
 import FindPartner from '../components/locker/FindPartner';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 const MyLocker = () => {
   const [showFindPartner, setShowFindPartner] = useState(false);
 
-  console.log('MyLocker component loaded'); // Debug log
+  console.log('MyLocker component loaded, showFindPartner:', showFindPartner);
 
   if (showFindPartner) {
-    return <FindPartner onBack={() => setShowFindPartner(false)} />;
+    return (
+      <ErrorBoundary>
+        <FindPartner onBack={() => setShowFindPartner(false)} />
+      </ErrorBoundary>
+    );
   }
 
   return (
@@ -22,7 +27,10 @@ const MyLocker = () => {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">My Locker</h1>
         <Button 
-          onClick={() => setShowFindPartner(true)}
+          onClick={() => {
+            console.log('Find a Partner button clicked');
+            setShowFindPartner(true);
+          }}
           className="flex items-center gap-2"
         >
           <Search className="h-4 w-4" />

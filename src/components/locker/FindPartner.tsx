@@ -7,10 +7,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, MessageCircle } from 'lucide-react';
+import { ArrowLeft, MessageCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 
 interface PlayerResult {
   id: string;
@@ -36,6 +36,8 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
   const { toast } = useToast();
   const [players, setPlayers] = useState<PlayerResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState({
     matchType: '',
     minRating: '',
@@ -44,39 +46,49 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
     dayOfWeek: ''
   });
 
+  console.log('FindPartner component rendering, currentUser:', currentUser?.id);
+
   useEffect(() => {
-    console.log('FindPartner component mounted, currentUser:', currentUser?.id);
+    console.log('FindPartner useEffect triggered');
+    
+    // Always render the basic UI first
+    setInitialLoading(false);
+    
+    // Then attempt to load data if user is available
     if (currentUser) {
+      console.log('Current user found, searching for players');
       searchPlayers();
+    } else {
+      console.log('No current user found');
+      setError('Please log in to find tennis partners');
     }
   }, [currentUser]);
 
   const searchPlayers = async () => {
-    if (!currentUser) {
-      console.log('No current user, skipping search');
-      return;
-    }
-
-    console.log('Starting player search...');
+    console.log('Starting searchPlayers function');
     setLoading(true);
+    setError(null);
+
     try {
-      // First, test a simple query to match_preferences
-      console.log('Testing simple match_preferences query...');
-      const { data: testData, error: testError } = await supabase
-        .from('match_preferences')
-        .select('user_id, looking_to_play')
-        .eq('looking_to_play', true)
-        .limit(5);
-
-      console.log('Simple test query result:', { testData, testError });
-
-      if (testError) {
-        console.error('Simple test query failed:', testError);
-        throw new Error(`Database query failed: ${testError.message}`);
+      if (!currentUser) {
+        throw new Error('User not authenticated');
       }
 
-      // Now try the full query with profile join
-      console.log('Attempting full query with profile join...');
+      // Test basic connectivity first
+      console.log('Testing Supabase connection...');
+      const { data: testConnection, error: connectionError } = await supabase
+        .from('match_preferences')
+        .select('count')
+        .limit(1);
+
+      if (connectionError) {
+        console.error('Connection test failed:', connectionError);
+        throw new Error(`Database connection failed: ${connectionError.message}`);
+      }
+      console.log('Connection test successful');
+
+      // Try to fetch match preferences with profile data
+      console.log('Fetching match preferences...');
       const { data, error } = await supabase
         .from('match_preferences')
         .select(`
@@ -92,66 +104,17 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
             bio,
             utr_rating,
             wtn_rating,
-            usta_ranking,
-            hoa_id,
-            hoas (name)
+            usta_ranking
           )
         `)
         .eq('looking_to_play', true)
         .neq('user_id', currentUser.id);
 
-      console.log('Full query result:', { data, error });
+      console.log('Query result:', { data, error });
 
       if (error) {
-        console.error('Full query error:', error);
-        // Try a simpler approach if the join fails
-        console.log('Trying simpler approach without HOA join...');
-        const { data: simpleData, error: simpleError } = await supabase
-          .from('match_preferences')
-          .select(`
-            user_id,
-            match_types,
-            preferred_times,
-            preferred_days,
-            notes,
-            profiles!inner (
-              id,
-              full_name,
-              avatar_url,
-              bio,
-              utr_rating,
-              wtn_rating,
-              usta_ranking
-            )
-          `)
-          .eq('looking_to_play', true)
-          .neq('user_id', currentUser.id);
-
-        if (simpleError) {
-          console.error('Simple query also failed:', simpleError);
-          throw new Error(`All queries failed: ${simpleError.message}`);
-        }
-
-        console.log('Simple query succeeded:', simpleData);
-        
-        const formattedPlayers = simpleData?.map((item: any) => ({
-          id: item.profiles.id,
-          full_name: item.profiles.full_name || 'Unknown Player',
-          avatar_url: item.profiles.avatar_url || '',
-          bio: item.profiles.bio || '',
-          utr_rating: item.profiles.utr_rating || 0,
-          wtn_rating: item.profiles.wtn_rating || 0,
-          usta_ranking: item.profiles.usta_ranking || '',
-          hoa_name: 'Unknown HOA',
-          match_types: item.match_types || [],
-          preferred_times: item.preferred_times || [],
-          preferred_days: item.preferred_days || [],
-          notes: item.notes || ''
-        })) || [];
-
-        console.log('Formatted players (simple):', formattedPlayers);
-        setPlayers(formattedPlayers);
-        return;
+        console.error('Query error:', error);
+        throw new Error(`Failed to fetch players: ${error.message}`);
       }
 
       const formattedPlayers = data?.map((item: any) => ({
@@ -162,7 +125,7 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
         utr_rating: item.profiles.utr_rating || 0,
         wtn_rating: item.profiles.wtn_rating || 0,
         usta_ranking: item.profiles.usta_ranking || '',
-        hoa_name: item.profiles.hoas?.name || 'Unknown HOA',
+        hoa_name: 'Community Member',
         match_types: item.match_types || [],
         preferred_times: item.preferred_times || [],
         preferred_days: item.preferred_days || [],
@@ -171,11 +134,17 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
 
       console.log('Formatted players:', formattedPlayers);
       setPlayers(formattedPlayers);
-    } catch (error) {
-      console.error('Error searching players:', error);
+      
+      if (formattedPlayers.length === 0) {
+        console.log('No players found');
+      }
+
+    } catch (error: any) {
+      console.error('Error in searchPlayers:', error);
+      setError(error.message || 'Failed to search for players');
       toast({
         title: "Error",
-        description: `Failed to search for players: ${error.message}`,
+        description: error.message || 'Failed to search for players',
         variant: "destructive"
       });
     } finally {
@@ -225,7 +194,21 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
     return days.map(day => day.charAt(0).toUpperCase() + day.slice(1)).join(', ');
   };
 
-  console.log('Rendering FindPartner, players count:', players.length, 'filtered:', filteredPlayers.length);
+  // Show loading spinner only for initial load
+  if (initialLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="flex items-center gap-2">
+            <Loader2 className="h-6 w-6 animate-spin" />
+            <span>Loading Find Partner...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  console.log('Rendering FindPartner UI, players count:', players.length, 'filtered:', filteredPlayers.length, 'error:', error);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -236,6 +219,33 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
         </Button>
         <h1 className="text-3xl font-bold">Find a Partner</h1>
       </div>
+
+      {/* Show error message if there's an error */}
+      {error && (
+        <Card className="mb-6 border-destructive">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2 text-destructive">
+              <AlertCircle className="h-5 w-5" />
+              <span className="font-medium">Error: {error}</span>
+            </div>
+            <Button 
+              onClick={searchPlayers} 
+              className="mt-4"
+              variant="outline"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Retrying...
+                </>
+              ) : (
+                'Try Again'
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Filters */}
       <Card className="mb-6">
@@ -321,7 +331,14 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
           
           <div className="mt-4">
             <Button onClick={searchPlayers} disabled={loading}>
-              {loading ? 'Searching...' : 'Search Players'}
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Searching...
+                </>
+              ) : (
+                'Search Players'
+              )}
             </Button>
           </div>
         </CardContent>
@@ -399,12 +416,12 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
           </Card>
         ))}
 
-        {filteredPlayers.length === 0 && !loading && (
+        {filteredPlayers.length === 0 && !loading && !error && (
           <Card>
             <CardContent className="p-8 text-center">
               <p className="text-muted-foreground">
                 {players.length === 0 
-                  ? "No players are currently looking to play. Be the first to set your preferences!"
+                  ? "No players are currently looking to play. Be the first to set your preferences in the Match Finder tab!"
                   : "No players found matching your criteria. Try adjusting your filters."
                 }
               </p>
