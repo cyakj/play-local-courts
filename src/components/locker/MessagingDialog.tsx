@@ -81,17 +81,32 @@ const MessagingDialog = ({ open, onOpenChange }: MessagingDialogProps) => {
     if (!selectedPlayer || !currentUser) return;
 
     try {
-      const { data, error } = await supabase
+      // First get the messages
+      const { data: messagesData, error: messagesError } = await supabase
         .from('messages')
-        .select(`
-          *,
-          sender:profiles!messages_sender_id_fkey(full_name, avatar_url)
-        `)
+        .select('*')
         .or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${selectedPlayer.id}),and(sender_id.eq.${selectedPlayer.id},receiver_id.eq.${currentUser.id})`)
         .order('created_at', { ascending: true });
 
-      if (error) throw error;
-      setMessages(data || []);
+      if (messagesError) throw messagesError;
+
+      // Then get sender profiles for each message
+      const messagesWithSender = await Promise.all(
+        (messagesData || []).map(async (message) => {
+          const { data: senderProfile } = await supabase
+            .from('profiles')
+            .select('full_name, avatar_url')
+            .eq('id', message.sender_id)
+            .single();
+
+          return {
+            ...message,
+            sender: senderProfile || { full_name: 'Unknown User', avatar_url: null }
+          };
+        })
+      );
+
+      setMessages(messagesWithSender);
     } catch (error) {
       console.error('Error loading messages:', error);
       toast({
