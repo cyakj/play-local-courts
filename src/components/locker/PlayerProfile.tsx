@@ -8,12 +8,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ExternalLink, Upload, Calendar, HelpCircle } from 'lucide-react';
+import { ExternalLink, Upload, Calendar, HelpCircle, MessageSquare } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getAmenitiesByHOAId } from '../../services/supabaseService';
 import { Amenity } from '../../types';
+import MessagingDialog from './MessagingDialog';
 
 interface ProfileData {
   fullName: string;
@@ -33,6 +34,7 @@ const PlayerProfile = () => {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [amenities, setAmenities] = useState<Amenity[]>([]);
+  const [showMessaging, setShowMessaging] = useState(false);
   const [profile, setProfile] = useState<ProfileData>({
     fullName: '',
     avatarUrl: '',
@@ -73,7 +75,7 @@ const PlayerProfile = () => {
           bio: data.bio || '',
           homeCourtId: data.home_court_id || '',
           utrRating: data.utr_rating,
-          ntrpRating: null, // NTRP rating is not stored in database
+          ntrpRating: null, // Will be handled separately as it's not stored
           wtnRating: data.wtn_rating
         });
       }
@@ -117,7 +119,6 @@ const PlayerProfile = () => {
           home_court_id: profile.homeCourtId || null,
           utr_rating: profile.utrRating,
           wtn_rating: profile.wtnRating
-          // Note: ntrp_rating is not saved to database as it's not a column
         })
         .eq('id', currentUser.id);
 
@@ -211,8 +212,17 @@ const PlayerProfile = () => {
       <div className="space-y-6">
         {/* Profile Overview Card */}
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Player Profile Overview</CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowMessaging(true)}
+              className="flex items-center gap-2"
+            >
+              <MessageSquare className="h-4 w-4" />
+              Messages
+            </Button>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Avatar Section */}
@@ -332,8 +342,8 @@ const PlayerProfile = () => {
                       <TooltipTrigger>
                         <HelpCircle className="h-3 w-3 text-muted-foreground" />
                       </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Used in high school, college, and global junior competition</p>
+                      <TooltipContent className="max-w-xs">
+                        <p><strong>Universal Tennis Rating (UTR):</strong> A global rating from 1.00 to 16.50+ based on your match scores and opponent levels. Commonly used by schools, colleges, and competitive juniors.</p>
                       </TooltipContent>
                     </Tooltip>
                   </div>
@@ -367,8 +377,8 @@ const PlayerProfile = () => {
                       <TooltipTrigger>
                         <HelpCircle className="h-3 w-3 text-muted-foreground" />
                       </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Used in USTA leagues and adult tournaments - not stored, search USTA database</p>
+                      <TooltipContent className="max-w-xs">
+                        <p><strong>NTRP (National Tennis Rating Program):</strong> USTA's official rating from 1.0 to 7.0, mostly used in U.S. adult leagues and tournaments. Based on match play or self-assessment.</p>
                       </TooltipContent>
                     </Tooltip>
                   </div>
@@ -390,8 +400,7 @@ const PlayerProfile = () => {
                   max="7.0"
                   value={profile.ntrpRating || ''}
                   onChange={(e) => setProfile(prev => ({ ...prev, ntrpRating: e.target.value ? parseFloat(e.target.value) : null }))}
-                  placeholder="e.g. 4.0 (search USTA for official rating)"
-                  disabled
+                  placeholder="e.g. 4.0"
                 />
               </div>
 
@@ -403,8 +412,8 @@ const PlayerProfile = () => {
                       <TooltipTrigger>
                         <HelpCircle className="h-3 w-3 text-muted-foreground" />
                       </TooltipTrigger>
-                      <TooltipContent>
-                        <p>World Tennis Number - global rating system</p>
+                      <TooltipContent className="max-w-xs">
+                        <p><strong>World Tennis Number (WTN):</strong> A global rating created by the ITF, ranging from 40 (beginner) to 1 (elite). Used across junior and adult competitions worldwide.</p>
                       </TooltipContent>
                     </Tooltip>
                   </div>
@@ -438,6 +447,13 @@ const PlayerProfile = () => {
             {loading ? 'Saving...' : 'Save Profile'}
           </Button>
         </div>
+
+        {showMessaging && (
+          <MessagingDialog 
+            open={showMessaging} 
+            onOpenChange={setShowMessaging}
+          />
+        )}
       </div>
     </TooltipProvider>
   );
