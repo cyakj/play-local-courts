@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { supabase } from '@/integrations/supabase/client';
+import { AmenityStatus } from '../types';
 
 interface UpcomingEvent {
   id: string;
@@ -153,7 +154,7 @@ const Upcoming = () => {
       id: `${selectedAmenity}-${selectedDate.toISOString().split('T')[0]}-${selectedTime}`,
       start: `${selectedDate.toISOString().split('T')[0]}T${selectedTime}:00`,
       end: `${selectedDate.toISOString().split('T')[0]}T${endTime.toTimeString().slice(0, 5)}:00`,
-      status: 'available' as const
+      status: AmenityStatus.AVAILABLE
     };
 
     await bookAmenity(
