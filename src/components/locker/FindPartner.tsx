@@ -18,9 +18,8 @@ interface Player {
   full_name: string;
   avatar_url?: string;
   utr_rating?: number;
-  play_style?: string;
-  availability?: string;
-  location_preference?: string;
+  location?: string;
+  bio?: string;
 }
 
 interface FindPartnerProps {
@@ -37,8 +36,7 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
   
   // Filter states
   const [utrRange, setUtrRange] = useState([1, 15]);
-  const [playStyle, setPlayStyle] = useState<string>('');
-  const [availability, setAvailability] = useState<string>('');
+  const [ntrpRange, setNtrpRange] = useState([1, 7]);
   const [location, setLocation] = useState<string>('');
 
   useEffect(() => {
@@ -47,7 +45,7 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
 
   useEffect(() => {
     filterPlayers();
-  }, [players, utrRange, playStyle, availability, location]);
+  }, [players, utrRange, ntrpRange, location]);
 
   const loadPlayers = async () => {
     if (!currentUser) return;
@@ -55,7 +53,7 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, avatar_url, utr_rating, play_style, availability, location_preference')
+        .select('id, full_name, avatar_url, utr_rating, location, bio')
         .neq('id', currentUser.id)
         .not('full_name', 'is', null);
 
@@ -80,20 +78,10 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
       return utr >= utrRange[0] && utr <= utrRange[1];
     });
 
-    // Filter by play style
-    if (playStyle) {
-      filtered = filtered.filter(player => player.play_style === playStyle);
-    }
-
-    // Filter by availability
-    if (availability) {
-      filtered = filtered.filter(player => player.availability === availability);
-    }
-
     // Filter by location
     if (location) {
       filtered = filtered.filter(player => 
-        player.location_preference?.toLowerCase().includes(location.toLowerCase())
+        player.location?.toLowerCase().includes(location.toLowerCase())
       );
     }
 
@@ -133,46 +121,24 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
                     max={15}
                     min={1}
                     step={0.5}
-                    className="w-full"
+                    className="w-full [&_.slider-range]:bg-green-500 [&_.slider-thumb]:bg-white [&_.slider-thumb]:border-green-500 [&_.slider-track]:bg-gray-200"
                   />
                 </div>
               </div>
 
-              {/* Play Style */}
+              {/* NTRP Range */}
               <div className="space-y-2">
-                <Label>Play Style</Label>
-                <Select value={playStyle} onValueChange={setPlayStyle}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Any style" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">Any style</SelectItem>
-                    <SelectItem value="aggressive">Aggressive</SelectItem>
-                    <SelectItem value="defensive">Defensive</SelectItem>
-                    <SelectItem value="all_court">All Court</SelectItem>
-                    <SelectItem value="baseline">Baseline</SelectItem>
-                    <SelectItem value="serve_volley">Serve & Volley</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Availability */}
-              <div className="space-y-2">
-                <Label>Availability</Label>
-                <Select value={availability} onValueChange={setAvailability}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Any time" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">Any time</SelectItem>
-                    <SelectItem value="weekday_mornings">Weekday Mornings</SelectItem>
-                    <SelectItem value="weekday_afternoons">Weekday Afternoons</SelectItem>
-                    <SelectItem value="weekday_evenings">Weekday Evenings</SelectItem>
-                    <SelectItem value="weekend_mornings">Weekend Mornings</SelectItem>
-                    <SelectItem value="weekend_afternoons">Weekend Afternoons</SelectItem>
-                    <SelectItem value="weekend_evenings">Weekend Evenings</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>NTRP Range: {ntrpRange[0]} - {ntrpRange[1]}</Label>
+                <div className="px-2">
+                  <Slider
+                    value={ntrpRange}
+                    onValueChange={setNtrpRange}
+                    max={7}
+                    min={1}
+                    step={0.5}
+                    className="w-full [&_.slider-range]:bg-green-500 [&_.slider-thumb]:bg-white [&_.slider-thumb]:border-green-500 [&_.slider-track]:bg-gray-200"
+                  />
+                </div>
               </div>
 
               {/* Location */}
@@ -209,15 +175,15 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
                     </div>
                   </div>
                   
-                  {player.play_style && (
+                  {player.location && (
                     <p className="text-sm text-muted-foreground mb-2">
-                      Style: {player.play_style.replace('_', ' ')}
+                      Location: {player.location}
                     </p>
                   )}
                   
-                  {player.availability && (
-                    <p className="text-sm text-muted-foreground mb-3">
-                      Available: {player.availability.replace(/_/g, ' ')}
+                  {player.bio && (
+                    <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                      {player.bio}
                     </p>
                   )}
 
@@ -253,6 +219,8 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
             full_name: selectedPlayer.full_name,
             match_types: ['singles', 'doubles', 'hitting_session']
           }}
+          open={showMatchRequest}
+          onOpenChange={setShowMatchRequest}
         />
       )}
     </div>
