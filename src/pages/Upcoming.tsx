@@ -20,7 +20,7 @@ interface UpcomingEvent {
 
 const Upcoming = () => {
   const { currentUser } = useAuth();
-  const { bookings, amenities, createBooking, cancelBooking } = useData();
+  const { bookings, amenities, bookAmenity, cancelBooking } = useData();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
@@ -140,21 +140,30 @@ const Upcoming = () => {
   };
 
   const handleBookAmenity = async () => {
-    if (!selectedDate || !selectedAmenity || !selectedTime) return;
+    if (!selectedDate || !selectedAmenity || !selectedTime || !currentUser) return;
 
     const amenity = amenities.find(a => a.id === selectedAmenity);
     if (!amenity) return;
 
-    const endTime = new Date(`2000-01-01T${selectedTime}`);
+    const startTime = new Date(`2000-01-01T${selectedTime}`);
+    const endTime = new Date(startTime);
     endTime.setHours(endTime.getHours() + 1);
 
-    await createBooking({
-      amenityId: selectedAmenity,
-      amenityName: amenity.name,
-      date: selectedDate.toISOString().split('T')[0],
-      startTime: selectedTime,
-      endTime: endTime.toTimeString().slice(0, 5)
-    });
+    const timeSlot = {
+      id: `${selectedAmenity}-${selectedDate.toISOString().split('T')[0]}-${selectedTime}`,
+      start: `${selectedDate.toISOString().split('T')[0]}T${selectedTime}:00`,
+      end: `${selectedDate.toISOString().split('T')[0]}T${endTime.toTimeString().slice(0, 5)}:00`,
+      status: 'available' as const
+    };
+
+    await bookAmenity(
+      currentUser.id,
+      currentUser.fullName,
+      selectedAmenity,
+      amenity.name,
+      selectedDate.toISOString().split('T')[0],
+      timeSlot
+    );
 
     setShowBookingForm(false);
     setSelectedAmenity('');
