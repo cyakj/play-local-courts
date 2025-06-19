@@ -1,14 +1,29 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 import PendingApprovalMessage from '../components/PendingApprovalMessage';
+
+interface MatchRequest {
+  id: string;
+  challenger_id: string;
+  match_type: string;
+  date: string;
+  time_start: string;
+  location: string;
+  challenger: {
+    full_name: string;
+  };
+}
 
 const Dashboard = () => {
   const { currentUser, isAdmin, isPending } = useAuth();
+  const { toast } = useToast();
   const { 
     bookings, 
     amenities, 
@@ -16,6 +31,64 @@ const Dashboard = () => {
     currentHOA,
     loading
   } = useData();
+  
+  const [matchRequests, setMatchRequests] = useState<MatchRequest[]>([]);
+
+  useEffect(() => {
+    if (currentUser) {
+      loadMatchRequests();
+    }
+  }, [currentUser]);
+
+  const loadMatchRequests = async () => {
+    if (!currentUser) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('match_requests')
+        .select(`
+          id,
+          challenger_id,
+          match_type,
+          date,
+          time_start,
+          location,
+          challenger:profiles!match_requests_challenger_id_fkey(full_name)
+        `)
+        .eq('opponent_id', currentUser.id)
+        .eq('status', 'pending');
+
+      if (error) throw error;
+      setMatchRequests(data || []);
+    } catch (error) {
+      console.error('Error loading match requests:', error);
+    }
+  };
+
+  const handleMatchRequestAction = async (requestId: string, action: 'accept' | 'decline') => {
+    try {
+      const { error } = await supabase
+        .from('match_requests')
+        .update({ status: action === 'accept' ? 'accepted' : 'declined' })
+        .eq('id', requestId);
+
+      if (error) throw error;
+
+      toast({
+        title: action === 'accept' ? "Match Accepted" : "Match Declined",
+        description: `You have ${action}ed the match request.`
+      });
+
+      loadMatchRequests();
+    } catch (error) {
+      console.error('Error updating match request:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update match request",
+        variant: "destructive"
+      });
+    }
+  };
 
   if (loading) {
     return (
@@ -52,6 +125,8 @@ const Dashboard = () => {
     const dateB = new Date(`${b.date}T${b.startTime}`);
     return dateA.getTime() - dateB.getTime();
   }).slice(0, 3); // Show only next 3 upcoming bookings
+
+  const nextReservation = upcomingBookings[0];
   
   return (
     <div className="space-y-8">
@@ -65,39 +140,93 @@ const Dashboard = () => {
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Merged Amenity Access Card */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle>Amenities Available</CardTitle>
-            <CardDescription>Facilities and amenities in your community</CardDescription>
+            <CardTitle>Amenity Access</CardTitle>
+            <CardDescription>View, book, or manage your reservations and amenities</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-bold">{amenities.length}</div>
-            <div className="mt-4 space-y-2">
-              {amenities.length > 0 && (
-                <Button asChild variant="outline" className="w-full">
-                  <Link to="/reserve">Book an Amenity</Link>
-                </Button>
-              )}
+            <div className="space-y-3">
+              <div className="text-sm">
+                {amenities.length > 0 ? (
+                  <span>You have <span className="font-semibold">{amenities.length}</span> amenities available in your community.</span>
+                ) : (
+                  <span className="text-muted-foreground">No amenities currently active.</span>
+                )}
+              </div>
+              
+              <div className="text-sm">
+                {nextReservation ? (
+                  <span>Next reservation: <span className="font-semibold">{nextReservation.amenityName}</span> at {new Date(`${nextReservation.date}T${nextReservation.startTime}`).toLocaleString('en-US', { 
+                    weekday: 'short',
+                    month: 'short', 
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}</span>
+                ) : (
+                  <span className="text-muted-foreground">No reservations scheduled.</span>
+                )}
+              </div>
+
+              <Button asChild variant="outline" className="w-full">
+                <Link to="/reserve">Open Amenity Portal</Link>
+              </Button>
             </div>
           </CardContent>
         </Card>
-        
+
+        {/* Match Play Requests Card */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle>Upcoming Reservations</CardTitle>
-            <CardDescription>Your next scheduled amenity bookings</CardDescription>
+            <CardTitle>Match Play Requests</CardTitle>
+            <CardDescription>Invitations to play from other members</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-bold">{upcomingBookings.length}</div>
+            <div className="text-4xl font-bold">{matchRequests.length}</div>
             <div className="mt-4 space-y-2">
-              {upcomingBookings.length > 0 ? (
-                <Button asChild variant="outline" className="w-full">
-                  <Link to="/my-reservations">View All</Link>
-                </Button>
+              {matchRequests.length > 0 ? (
+                <div className="space-y-3">
+                  {matchRequests.slice(0, 2).map((request) => (
+                    <Card key={request.id} className="p-3">
+                      <div className="text-sm">
+                        <div className="font-medium">🎾 {request.challenger?.full_name} has invited you to a {request.match_type?.replace('_', ' ')} for {new Date(request.date).toLocaleDateString('en-US', { weekday: 'long' })} {request.time_start} at {request.location}.</div>
+                        <div className="flex gap-2 mt-2">
+                          <Button 
+                            size="sm" 
+                            onClick={() => handleMatchRequestAction(request.id, 'accept')}
+                            className="text-xs"
+                          >
+                            Accept
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleMatchRequestAction(request.id, 'decline')}
+                            className="text-xs"
+                          >
+                            Decline
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="ghost"
+                            className="text-xs"
+                          >
+                            Message
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                  {matchRequests.length > 2 && (
+                    <div className="text-xs text-muted-foreground">
+                      +{matchRequests.length - 2} more requests
+                    </div>
+                  )}
+                </div>
               ) : (
-                <Button asChild variant="outline" className="w-full">
-                  <Link to="/reserve">Make a Reservation</Link>
-                </Button>
+                <div className="text-sm text-muted-foreground">No pending requests</div>
               )}
             </div>
           </CardContent>

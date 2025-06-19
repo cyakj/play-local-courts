@@ -33,9 +33,11 @@ interface Message {
 interface MessagingDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  hasUnreadMessages?: boolean;
+  onMarkAsRead?: () => void;
 }
 
-const MessagingDialog = ({ open, onOpenChange }: MessagingDialogProps) => {
+const MessagingDialog = ({ open, onOpenChange, hasUnreadMessages, onMarkAsRead }: MessagingDialogProps) => {
   const { currentUser } = useAuth();
   const { toast } = useToast();
   const [players, setPlayers] = useState<Player[]>([]);
@@ -48,8 +50,11 @@ const MessagingDialog = ({ open, onOpenChange }: MessagingDialogProps) => {
   useEffect(() => {
     if (open) {
       loadPlayers();
+      if (onMarkAsRead) {
+        onMarkAsRead();
+      }
     }
-  }, [open]);
+  }, [open, onMarkAsRead]);
 
   useEffect(() => {
     if (selectedPlayer) {
@@ -151,6 +156,15 @@ const MessagingDialog = ({ open, onOpenChange }: MessagingDialogProps) => {
     }
   };
 
+  const formatMessageTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: true 
+    });
+  };
+
   const filteredPlayers = players.filter(player =>
     player.full_name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -228,7 +242,7 @@ const MessagingDialog = ({ open, onOpenChange }: MessagingDialogProps) => {
                       }`}>
                         <p className="text-sm">{message.content}</p>
                         <p className="text-xs opacity-70 mt-1">
-                          {new Date(message.created_at).toLocaleTimeString()}
+                          {formatMessageTime(message.created_at)}
                         </p>
                       </div>
                     </div>

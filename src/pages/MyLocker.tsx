@@ -1,9 +1,11 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Search, MessageCircle } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import PlayerProfile from '../components/locker/PlayerProfile';
 import MatchPreferences from '../components/locker/MatchPreferences';
 import FindPartner from '../components/locker/FindPartner';
@@ -11,10 +13,39 @@ import MessagingDialog from '../components/locker/MessagingDialog';
 import ErrorBoundary from '../components/ErrorBoundary';
 
 const MyLocker = () => {
+  const { currentUser } = useAuth();
   const [showFindPartner, setShowFindPartner] = useState(false);
   const [showMessaging, setShowMessaging] = useState(false);
+  const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
 
   console.log('MyLocker component loaded, showFindPartner:', showFindPartner);
+
+  useEffect(() => {
+    if (currentUser) {
+      checkForUnreadMessages();
+    }
+  }, [currentUser]);
+
+  const checkForUnreadMessages = async () => {
+    if (!currentUser) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('id')
+        .eq('receiver_id', currentUser.id)
+        .limit(1);
+
+      if (error) throw error;
+      setHasUnreadMessages((data?.length || 0) > 0);
+    } catch (error) {
+      console.error('Error checking for unread messages:', error);
+    }
+  };
+
+  const handleMarkAsRead = () => {
+    setHasUnreadMessages(false);
+  };
 
   if (showFindPartner) {
     return (
@@ -32,10 +63,13 @@ const MyLocker = () => {
           <Button 
             onClick={() => setShowMessaging(true)}
             variant="outline"
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 relative"
           >
             <MessageCircle className="h-4 w-4" />
             Messages
+            {hasUnreadMessages && (
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full"></div>
+            )}
           </Button>
           <Button 
             onClick={() => {
@@ -67,7 +101,9 @@ const MyLocker = () => {
 
       <MessagingDialog 
         open={showMessaging} 
-        onOpenChange={setShowMessaging} 
+        onOpenChange={setShowMessaging}
+        hasUnreadMessages={hasUnreadMessages}
+        onMarkAsRead={handleMarkAsRead}
       />
     </div>
   );

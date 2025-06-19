@@ -1,13 +1,12 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Slider } from '@/components/ui/slider';
 import { ArrowLeft, MessageCircle, AlertCircle, Loader2, HelpCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -43,10 +42,8 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState({
     matchType: 'any',
-    minUtrRating: '',
-    maxUtrRating: '',
-    minNtrpRating: '',
-    maxNtrpRating: '',
+    utrRange: [1.0, 16.0],
+    ntrpRange: [1.0, 7.0],
     timeOfDay: 'any',
     dayOfWeek: 'any'
   });
@@ -183,16 +180,14 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
     if (filters.timeOfDay !== 'any' && !player.preferred_times.includes(filters.timeOfDay)) return false;
     if (filters.dayOfWeek !== 'any' && !player.preferred_days.includes(filters.dayOfWeek)) return false;
     
-    if (filters.minUtrRating || filters.maxUtrRating) {
-      if (!player.utr_rating) return false;
-      if (filters.minUtrRating && player.utr_rating < parseFloat(filters.minUtrRating)) return false;
-      if (filters.maxUtrRating && player.utr_rating > parseFloat(filters.maxUtrRating)) return false;
+    // UTR Range filter
+    if (player.utr_rating && (player.utr_rating < filters.utrRange[0] || player.utr_rating > filters.utrRange[1])) {
+      return false;
     }
     
-    if (filters.minNtrpRating || filters.maxNtrpRating) {
-      if (!player.ntrp_rating) return false;
-      if (filters.minNtrpRating && player.ntrp_rating < parseFloat(filters.minNtrpRating)) return false;
-      if (filters.maxNtrpRating && player.ntrp_rating > parseFloat(filters.maxNtrpRating)) return false;
+    // NTRP Range filter
+    if (player.ntrp_rating && (player.ntrp_rating < filters.ntrpRange[0] || player.ntrp_rating > filters.ntrpRange[1])) {
+      return false;
     }
     
     return true;
@@ -290,7 +285,7 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
             <CardTitle>Search Filters</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
               <div>
                 <Label htmlFor="matchType">Match Type</Label>
                 <Select value={filters.matchType} onValueChange={(value) => setFilters(prev => ({ ...prev, matchType: value }))}>
@@ -308,8 +303,8 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
               </div>
 
               <div>
-                <div className="flex items-center gap-1">
-                  <Label htmlFor="minUtrRating">Min UTR</Label>
+                <div className="flex items-center gap-1 mb-2">
+                  <Label>UTR Rating</Label>
                   <Tooltip>
                     <TooltipTrigger>
                       <HelpCircle className="h-3 w-3 text-muted-foreground" />
@@ -319,41 +314,25 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
                     </TooltipContent>
                   </Tooltip>
                 </div>
-                <Input
-                  id="minUtrRating"
-                  type="number"
-                  step="0.1"
-                  value={filters.minUtrRating}
-                  onChange={(e) => setFilters(prev => ({ ...prev, minUtrRating: e.target.value }))}
-                  placeholder="Any"
-                />
-              </div>
-
-              <div>
-                <div className="flex items-center gap-1">
-                  <Label htmlFor="maxUtrRating">Max UTR</Label>
-                  <Tooltip>
-                    <TooltipTrigger>
-                      <HelpCircle className="h-3 w-3 text-muted-foreground" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Used in high school, college, and global tennis events</p>
-                    </TooltipContent>
-                  </Tooltip>
+                <div className="px-2">
+                  <Slider
+                    value={filters.utrRange}
+                    onValueChange={(value) => setFilters(prev => ({ ...prev, utrRange: value }))}
+                    max={16}
+                    min={1}
+                    step={0.1}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                    <span>{filters.utrRange[0]}</span>
+                    <span>{filters.utrRange[1]}</span>
+                  </div>
                 </div>
-                <Input
-                  id="maxUtrRating"
-                  type="number"
-                  step="0.1"
-                  value={filters.maxUtrRating}
-                  onChange={(e) => setFilters(prev => ({ ...prev, maxUtrRating: e.target.value }))}
-                  placeholder="Any"
-                />
               </div>
 
               <div>
-                <div className="flex items-center gap-1">
-                  <Label htmlFor="minNtrpRating">Min NTRP</Label>
+                <div className="flex items-center gap-1 mb-2">
+                  <Label>NTRP Rating</Label>
                   <Tooltip>
                     <TooltipTrigger>
                       <HelpCircle className="h-3 w-3 text-muted-foreground" />
@@ -363,36 +342,20 @@ const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
                     </TooltipContent>
                   </Tooltip>
                 </div>
-                <Input
-                  id="minNtrpRating"
-                  type="number"
-                  step="0.5"
-                  value={filters.minNtrpRating}
-                  onChange={(e) => setFilters(prev => ({ ...prev, minNtrpRating: e.target.value }))}
-                  placeholder="Any"
-                />
-              </div>
-
-              <div>
-                <div className="flex items-center gap-1">
-                  <Label htmlFor="maxNtrpRating">Max NTRP</Label>
-                  <Tooltip>
-                    <TooltipTrigger>
-                      <HelpCircle className="h-3 w-3 text-muted-foreground" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Used by USTA for adult league and recreational play</p>
-                    </TooltipContent>
-                  </Tooltip>
+                <div className="px-2">
+                  <Slider
+                    value={filters.ntrpRange}
+                    onValueChange={(value) => setFilters(prev => ({ ...prev, ntrpRange: value }))}
+                    max={7}
+                    min={1}
+                    step={0.5}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                    <span>{filters.ntrpRange[0]}</span>
+                    <span>{filters.ntrpRange[1]}</span>
+                  </div>
                 </div>
-                <Input
-                  id="maxNtrpRating"
-                  type="number"
-                  step="0.5"
-                  value={filters.maxNtrpRating}
-                  onChange={(e) => setFilters(prev => ({ ...prev, maxNtrpRating: e.target.value }))}
-                  placeholder="Any"
-                />
               </div>
 
               <div>
