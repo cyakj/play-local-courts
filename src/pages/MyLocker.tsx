@@ -3,13 +3,14 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, MessageCircle } from 'lucide-react';
+import { Search, MessageCircle, User } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import PlayerProfile from '../components/locker/PlayerProfile';
 import MatchPreferences from '../components/locker/MatchPreferences';
 import FindPartner from '../components/locker/FindPartner';
 import MessagingDialog from '../components/locker/MessagingDialog';
+import UpcomingTab from '../components/locker/UpcomingTab';
 import ErrorBoundary from '../components/ErrorBoundary';
 
 const MyLocker = () => {
@@ -58,7 +59,12 @@ const MyLocker = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">My Locker</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-3xl font-bold">My Locker</h1>
+          {hasUnreadMessages && (
+            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+          )}
+        </div>
         <div className="flex gap-2">
           <Button 
             onClick={() => setShowMessaging(true)}
@@ -68,7 +74,7 @@ const MyLocker = () => {
             <MessageCircle className="h-4 w-4" />
             Messages
             {hasUnreadMessages && (
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full"></div>
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full"></div>
             )}
           </Button>
           <Button 
@@ -85,9 +91,10 @@ const MyLocker = () => {
       </div>
 
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="profile">Player Profile</TabsTrigger>
           <TabsTrigger value="preferences">Match Finder</TabsTrigger>
+          <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile">
@@ -96,6 +103,10 @@ const MyLocker = () => {
 
         <TabsContent value="preferences">
           <MatchPreferences />
+        </TabsContent>
+
+        <TabsContent value="upcoming">
+          <UpcomingTab />
         </TabsContent>
       </Tabs>
 

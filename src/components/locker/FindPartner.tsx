@@ -1,521 +1,283 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Slider } from '@/components/ui/slider';
-import { ArrowLeft, MessageCircle, AlertCircle, Loader2, HelpCircle } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { ArrowLeft, MessageCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import MatchRequestDialog from './MatchRequestDialog';
 
-interface PlayerResult {
+interface Player {
   id: string;
   full_name: string;
-  avatar_url: string;
-  bio: string;
-  utr_rating: number;
-  wtn_rating: number;
-  ntrp_rating: number;
-  date_of_birth: string;
-  hoa_name: string;
-  match_types: string[];
-  preferred_times: string[];
-  preferred_days: string[];
-  notes: string;
+  avatar_url?: string;
+  ntrp_rating?: number;
+  utr_rating?: number;
+  play_style?: string;
+  availability?: string;
+  location_preference?: string;
 }
 
 interface FindPartnerProps {
   onBack: () => void;
 }
 
-const FindPartner: React.FC<FindPartnerProps> = ({ onBack }) => {
+const FindPartner = ({ onBack }: FindPartnerProps) => {
   const { currentUser } = useAuth();
   const { toast } = useToast();
-  const [players, setPlayers] = useState<PlayerResult[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [initialLoading, setInitialLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [filters, setFilters] = useState({
-    matchType: 'any',
-    utrRange: [1.0, 16.0],
-    ntrpRange: [1.0, 7.0],
-    timeOfDay: 'any',
-    dayOfWeek: 'any'
-  });
-
-  console.log('FindPartner component rendering, currentUser:', currentUser?.id);
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [filteredPlayers, setFilteredPlayers] = useState<Player[]>([]);
+  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+  const [showMatchRequest, setShowMatchRequest] = useState(false);
+  
+  // Filter states
+  const [utrRange, setUtrRange] = useState([1, 15]);
+  const [ntrpRange, setNtrpRange] = useState([1.0, 7.0]);
+  const [playStyle, setPlayStyle] = useState<string>('');
+  const [availability, setAvailability] = useState<string>('');
+  const [location, setLocation] = useState<string>('');
 
   useEffect(() => {
-    console.log('FindPartner useEffect triggered');
-    
-    setInitialLoading(false);
-    
-    if (currentUser) {
-      console.log('Current user found, searching for players');
-      searchPlayers();
-    } else {
-      console.log('No current user found');
-      setError('Please log in to find tennis partners');
-    }
+    loadPlayers();
   }, [currentUser]);
 
-  const searchPlayers = async () => {
-    console.log('Starting searchPlayers function');
-    setLoading(true);
-    setError(null);
+  useEffect(() => {
+    filterPlayers();
+  }, [players, utrRange, ntrpRange, playStyle, availability, location]);
+
+  const loadPlayers = async () => {
+    if (!currentUser) return;
 
     try {
-      if (!currentUser) {
-        throw new Error('User not authenticated');
-      }
-
-      console.log('Fetching match preferences...');
-      const { data: matchPrefsData, error: matchPrefsError } = await supabase
-        .from('match_preferences')
-        .select('*')
-        .eq('looking_to_play', true)
-        .neq('user_id', currentUser.id);
-
-      if (matchPrefsError) {
-        console.error('Match preferences query error:', matchPrefsError);
-        throw new Error(`Failed to fetch match preferences: ${matchPrefsError.message}`);
-      }
-
-      console.log('Match preferences data:', matchPrefsData);
-
-      if (!matchPrefsData || matchPrefsData.length === 0) {
-        console.log('No match preferences found');
-        setPlayers([]);
-        return;
-      }
-
-      const userIds = matchPrefsData.map(pref => pref.user_id);
-      
-      console.log('Fetching profiles for user IDs:', userIds);
-      const { data: profilesData, error: profilesError } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
-        .select('*')
-        .in('id', userIds);
+        .select('id, full_name, avatar_url, ntrp_rating, utr_rating, play_style, availability, location_preference')
+        .neq('id', currentUser.id)
+        .not('full_name', 'is', null);
 
-      if (profilesError) {
-        console.error('Profiles query error:', profilesError);
-        throw new Error(`Failed to fetch player profiles: ${profilesError.message}`);
-      }
-
-      console.log('Profiles data:', profilesData);
-
-      const formattedPlayers = matchPrefsData.map((matchPref: any) => {
-        const profile = profilesData?.find(p => p.id === matchPref.user_id);
-        
-        return {
-          id: matchPref.user_id,
-          full_name: profile?.full_name || 'Unknown Player',
-          avatar_url: profile?.avatar_url || '',
-          bio: profile?.bio || '',
-          utr_rating: profile?.utr_rating || 0,
-          wtn_rating: profile?.wtn_rating || 0,
-          ntrp_rating: (profile as any)?.ntrp_rating || 0,
-          date_of_birth: profile?.date_of_birth || '',
-          hoa_name: 'Community Member',
-          match_types: matchPref.match_types || [],
-          preferred_times: matchPref.preferred_times || [],
-          preferred_days: matchPref.preferred_days || [],
-          notes: matchPref.notes || ''
-        };
-      }).filter(player => player.full_name !== 'Unknown Player');
-
-      console.log('Formatted players:', formattedPlayers);
-      setPlayers(formattedPlayers);
-
-    } catch (error: any) {
-      console.error('Error in searchPlayers:', error);
-      setError(error.message || 'Failed to search for players');
+      if (error) throw error;
+      setPlayers(data || []);
+    } catch (error) {
+      console.error('Error loading players:', error);
       toast({
         title: "Error",
-        description: error.message || 'Failed to search for players',
+        description: "Failed to load players",
         variant: "destructive"
       });
-    } finally {
-      setLoading(false);
     }
   };
 
-  const getPlayerAge = (dateOfBirth: string): number | null => {
-    if (!dateOfBirth) return null;
-    const today = new Date();
-    const birthDate = new Date(dateOfBirth);
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    return age;
-  };
+  const filterPlayers = () => {
+    let filtered = players;
 
-  const getPrimaryRating = (player: PlayerResult): { rating: number; type: string } | null => {
-    const age = getPlayerAge(player.date_of_birth);
-    
-    if (age !== null && age < 30) {
-      if (player.utr_rating) return { rating: player.utr_rating, type: 'UTR' };
-      if (player.ntrp_rating) return { rating: player.ntrp_rating, type: 'NTRP' };
-    } else if (age !== null && age >= 30) {
-      if (player.ntrp_rating) return { rating: player.ntrp_rating, type: 'NTRP' };
-      if (player.utr_rating) return { rating: player.utr_rating, type: 'UTR' };
-    }
-    
-    if (player.utr_rating) return { rating: player.utr_rating, type: 'UTR' };
-    if (player.ntrp_rating) return { rating: player.ntrp_rating, type: 'NTRP' };
-    if (player.wtn_rating) return { rating: player.wtn_rating, type: 'WTN' };
-    
-    return null;
-  };
-
-  const filteredPlayers = players.filter(player => {
-    if (filters.matchType !== 'any' && !player.match_types.includes(filters.matchType)) return false;
-    if (filters.timeOfDay !== 'any' && !player.preferred_times.includes(filters.timeOfDay)) return false;
-    if (filters.dayOfWeek !== 'any' && !player.preferred_days.includes(filters.dayOfWeek)) return false;
-    
-    // UTR Range filter
-    if (player.utr_rating && (player.utr_rating < filters.utrRange[0] || player.utr_rating > filters.utrRange[1])) {
-      return false;
-    }
-    
-    // NTRP Range filter
-    if (player.ntrp_rating && (player.ntrp_rating < filters.ntrpRange[0] || player.ntrp_rating > filters.ntrpRange[1])) {
-      return false;
-    }
-    
-    return true;
-  });
-
-  const formatMatchTypes = (types: string[]) => {
-    return types.map(type => {
-      switch (type) {
-        case 'singles': return 'Singles';
-        case 'doubles': return 'Doubles';
-        case 'mixed_doubles': return 'Mixed Doubles';
-        case 'hitting_session': return 'Hitting Session';
-        default: return type;
-      }
-    }).join(', ');
-  };
-
-  const formatTimes = (times: string[]) => {
-    return times.map(time => {
-      switch (time) {
-        case 'morning': return 'Morning';
-        case 'afternoon': return 'Afternoon';
-        case 'evening': return 'Evening';
-        default: return time;
-      }
-    }).join(', ');
-  };
-
-  const formatDays = (days: string[]) => {
-    return days.map(day => day.charAt(0).toUpperCase() + day.slice(1)).join(', ');
-  };
-
-  const handleMessage = (playerId: string, playerName: string) => {
-    toast({
-      title: "Feature Coming Soon",
-      description: `Messaging with ${playerName} will be available soon!`
+    // Filter by UTR range
+    filtered = filtered.filter(player => {
+      const utr = player.utr_rating || 0;
+      return utr >= utrRange[0] && utr <= utrRange[1];
     });
+
+    // Filter by NTRP range
+    filtered = filtered.filter(player => {
+      const ntrp = player.ntrp_rating || 0;
+      return ntrp >= ntrpRange[0] && ntrp <= ntrpRange[1];
+    });
+
+    // Filter by play style
+    if (playStyle) {
+      filtered = filtered.filter(player => player.play_style === playStyle);
+    }
+
+    // Filter by availability
+    if (availability) {
+      filtered = filtered.filter(player => player.availability === availability);
+    }
+
+    // Filter by location
+    if (location) {
+      filtered = filtered.filter(player => 
+        player.location_preference?.toLowerCase().includes(location.toLowerCase())
+      );
+    }
+
+    setFilteredPlayers(filtered);
   };
 
-  if (initialLoading) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="flex items-center gap-2">
-            <Loader2 className="h-6 w-6 animate-spin" />
-            <span>Loading Find Partner...</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  console.log('Rendering FindPartner UI, players count:', players.length, 'filtered:', filteredPlayers.length, 'error:', error);
+  const handleSendMatchRequest = (player: Player) => {
+    setSelectedPlayer(player);
+    setShowMatchRequest(true);
+  };
 
   return (
-    <TooltipProvider>
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center mb-6">
-          <Button variant="ghost" onClick={onBack} className="mr-4">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to My Locker
-          </Button>
-          <h1 className="text-3xl font-bold">Find a Partner</h1>
-        </div>
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex items-center gap-4 mb-6">
+        <Button onClick={onBack} variant="ghost" size="sm">
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Locker
+        </Button>
+        <h1 className="text-3xl font-bold">Find a Partner</h1>
+      </div>
 
-        {error && (
-          <Card className="mb-6 border-destructive">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-2 text-destructive">
-                <AlertCircle className="h-5 w-5" />
-                <span className="font-medium">Error: {error}</span>
-              </div>
-              <Button 
-                onClick={searchPlayers} 
-                className="mt-4"
-                variant="outline"
-                disabled={loading}
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Retrying...
-                  </>
-                ) : (
-                  'Try Again'
-                )}
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Filters */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Search Filters</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-              <div>
-                <Label htmlFor="matchType">Match Type</Label>
-                <Select value={filters.matchType} onValueChange={(value) => setFilters(prev => ({ ...prev, matchType: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Any" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="any">Any</SelectItem>
-                    <SelectItem value="singles">Singles</SelectItem>
-                    <SelectItem value="doubles">Doubles</SelectItem>
-                    <SelectItem value="mixed_doubles">Mixed Doubles</SelectItem>
-                    <SelectItem value="hitting_session">Hitting Session</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <div className="flex items-center gap-1 mb-2">
-                  <Label>UTR Rating</Label>
-                  <Tooltip>
-                    <TooltipTrigger>
-                      <HelpCircle className="h-3 w-3 text-muted-foreground" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Used in high school, college, and global tennis events</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Filters Sidebar */}
+        <div className="lg:col-span-1">
+          <Card>
+            <CardHeader>
+              <CardTitle>Filters</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* UTR Range */}
+              <div className="space-y-2">
+                <Label>UTR Range: {utrRange[0]} - {utrRange[1]}</Label>
                 <div className="px-2">
                   <Slider
-                    value={filters.utrRange}
-                    onValueChange={(value) => setFilters(prev => ({ ...prev, utrRange: value }))}
-                    max={16}
-                    min={1}
-                    step={0.1}
-                    className="w-full"
-                  />
-                  <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                    <span>{filters.utrRange[0]}</span>
-                    <span>{filters.utrRange[1]}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <div className="flex items-center gap-1 mb-2">
-                  <Label>NTRP Rating</Label>
-                  <Tooltip>
-                    <TooltipTrigger>
-                      <HelpCircle className="h-3 w-3 text-muted-foreground" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Used by USTA for adult league and recreational play</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-                <div className="px-2">
-                  <Slider
-                    value={filters.ntrpRange}
-                    onValueChange={(value) => setFilters(prev => ({ ...prev, ntrpRange: value }))}
-                    max={7}
+                    value={utrRange}
+                    onValueChange={setUtrRange}
+                    max={15}
                     min={1}
                     step={0.5}
-                    className="w-full"
+                    className="w-full [&>.relative]:h-2 [&>.relative]:bg-gray-200 [&>.relative]:rounded-full [&_[role=slider]]:h-4 [&_[role=slider]]:w-4 [&_[role=slider]]:border-2 [&_[role=slider]]:border-green-500 [&_[role=slider]]:bg-white [&_[role=slider]]:shadow-md [&>.relative>.bg-primary]:bg-green-500"
                   />
-                  <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                    <span>{filters.ntrpRange[0]}</span>
-                    <span>{filters.ntrpRange[1]}</span>
-                  </div>
                 </div>
               </div>
 
-              <div>
-                <Label htmlFor="timeOfDay">Time of Day</Label>
-                <Select value={filters.timeOfDay} onValueChange={(value) => setFilters(prev => ({ ...prev, timeOfDay: value }))}>
+              {/* NTRP Range */}
+              <div className="space-y-2">
+                <Label>NTRP Range: {ntrpRange[0]} - {ntrpRange[1]}</Label>
+                <div className="px-2">
+                  <Slider
+                    value={ntrpRange}
+                    onValueChange={setNtrpRange}
+                    max={7.0}
+                    min={1.0}
+                    step={0.5}
+                    className="w-full [&>.relative]:h-2 [&>.relative]:bg-gray-200 [&>.relative]:rounded-full [&_[role=slider]]:h-4 [&_[role=slider]]:w-4 [&_[role=slider]]:border-2 [&_[role=slider]]:border-green-500 [&_[role=slider]]:bg-white [&_[role=slider]]:shadow-md [&>.relative>.bg-primary]:bg-green-500"
+                  />
+                </div>
+              </div>
+
+              {/* Play Style */}
+              <div className="space-y-2">
+                <Label>Play Style</Label>
+                <Select value={playStyle} onValueChange={setPlayStyle}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Any" />
+                    <SelectValue placeholder="Any style" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="any">Any</SelectItem>
-                    <SelectItem value="morning">Morning</SelectItem>
-                    <SelectItem value="afternoon">Afternoon</SelectItem>
-                    <SelectItem value="evening">Evening</SelectItem>
+                    <SelectItem value="">Any style</SelectItem>
+                    <SelectItem value="aggressive">Aggressive</SelectItem>
+                    <SelectItem value="defensive">Defensive</SelectItem>
+                    <SelectItem value="all_court">All Court</SelectItem>
+                    <SelectItem value="baseline">Baseline</SelectItem>
+                    <SelectItem value="serve_volley">Serve & Volley</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              <div>
-                <Label htmlFor="dayOfWeek">Day of Week</Label>
-                <Select value={filters.dayOfWeek} onValueChange={(value) => setFilters(prev => ({ ...prev, dayOfWeek: value }))}>
+              {/* Availability */}
+              <div className="space-y-2">
+                <Label>Availability</Label>
+                <Select value={availability} onValueChange={setAvailability}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Any" />
+                    <SelectValue placeholder="Any time" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="any">Any</SelectItem>
-                    <SelectItem value="monday">Monday</SelectItem>
-                    <SelectItem value="tuesday">Tuesday</SelectItem>
-                    <SelectItem value="wednesday">Wednesday</SelectItem>
-                    <SelectItem value="thursday">Thursday</SelectItem>
-                    <SelectItem value="friday">Friday</SelectItem>
-                    <SelectItem value="saturday">Saturday</SelectItem>
-                    <SelectItem value="sunday">Sunday</SelectItem>
+                    <SelectItem value="">Any time</SelectItem>
+                    <SelectItem value="weekday_mornings">Weekday Mornings</SelectItem>
+                    <SelectItem value="weekday_afternoons">Weekday Afternoons</SelectItem>
+                    <SelectItem value="weekday_evenings">Weekday Evenings</SelectItem>
+                    <SelectItem value="weekend_mornings">Weekend Mornings</SelectItem>
+                    <SelectItem value="weekend_afternoons">Weekend Afternoons</SelectItem>
+                    <SelectItem value="weekend_evenings">Weekend Evenings</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-            
-            <div className="mt-4">
-              <Button onClick={searchPlayers} disabled={loading}>
-                {loading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Searching...
-                  </>
-                ) : (
-                  'Search Players'
-                )}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
 
-        {/* Results */}
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">
-            {loading ? 'Searching...' : `${filteredPlayers.length} player${filteredPlayers.length !== 1 ? 's' : ''} found`}
-          </h2>
+              {/* Location */}
+              <div className="space-y-2">
+                <Label>Location</Label>
+                <Input
+                  placeholder="Enter location..."
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
-          {filteredPlayers.map((player) => {
-            const primaryRating = getPrimaryRating(player);
-            
-            return (
-              <Card key={player.id}>
-                <CardContent className="p-6">
-                  <div className="flex items-start space-x-4">
-                    <Avatar className="h-16 w-16">
-                      <AvatarImage src={player.avatar_url} alt={player.full_name} />
+        {/* Players Grid */}
+        <div className="lg:col-span-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {filteredPlayers.map((player) => (
+              <Card key={player.id} className="hover:shadow-md transition-shadow">
+                <CardContent className="p-4">
+                  <div className="flex items-center space-x-3 mb-3">
+                    <Avatar className="h-12 w-12">
+                      <AvatarImage src={player.avatar_url} />
                       <AvatarFallback>
-                        {player.full_name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                        {player.full_name?.split(' ').map(n => n[0]).join('').toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
-
-                    <div className="flex-1 space-y-3">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="text-lg font-semibold">{player.full_name}</h3>
-                          <p className="text-sm text-muted-foreground">{player.hoa_name}</p>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => handleMessage(player.id, player.full_name)}
-                          >
-                            <MessageCircle className="h-4 w-4 mr-2" />
-                            Message
-                          </Button>
-                          <MatchRequestDialog 
-                            targetPlayer={{
-                              id: player.id,
-                              full_name: player.full_name,
-                              match_types: player.match_types
-                            }}
-                          />
-                        </div>
+                    <div>
+                      <h3 className="font-semibold">{player.full_name}</h3>
+                      <div className="flex gap-2 text-sm text-muted-foreground">
+                        <span>UTR: {player.utr_rating || 'N/A'}</span>
+                        <span>NTRP: {player.ntrp_rating || 'N/A'}</span>
                       </div>
-
-                      {player.bio && (
-                        <p className="text-sm">{player.bio}</p>
-                      )}
-
-                      <div className="flex flex-wrap gap-2">
-                        {player.utr_rating && (
-                          <Badge variant={primaryRating?.type === 'UTR' ? 'default' : 'secondary'}>
-                            UTR: {player.utr_rating}
-                          </Badge>
-                        )}
-                        {player.ntrp_rating && (
-                          <Badge variant={primaryRating?.type === 'NTRP' ? 'default' : 'secondary'}>
-                            NTRP: {player.ntrp_rating}
-                          </Badge>
-                        )}
-                        {player.wtn_rating && (
-                          <Badge variant="secondary">WTN: {player.wtn_rating}</Badge>
-                        )}
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
-                        <div>
-                          <span className="font-medium">Match Types: </span>
-                          <span className="text-muted-foreground">{formatMatchTypes(player.match_types)}</span>
-                        </div>
-                        <div>
-                          <span className="font-medium">Times: </span>
-                          <span className="text-muted-foreground">{formatTimes(player.preferred_times)}</span>
-                        </div>
-                        <div>
-                          <span className="font-medium">Days: </span>
-                          <span className="text-muted-foreground">{formatDays(player.preferred_days)}</span>
-                        </div>
-                      </div>
-
-                      {player.notes && (
-                        <div className="text-sm">
-                          <span className="font-medium">Notes: </span>
-                          <span className="text-muted-foreground">{player.notes}</span>
-                        </div>
-                      )}
                     </div>
+                  </div>
+                  
+                  {player.play_style && (
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Style: {player.play_style.replace('_', ' ')}
+                    </p>
+                  )}
+                  
+                  {player.availability && (
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Available: {player.availability.replace(/_/g, ' ')}
+                    </p>
+                  )}
+
+                  <div className="flex gap-2">
+                    <Button 
+                      size="sm" 
+                      className="flex-1"
+                      onClick={() => handleSendMatchRequest(player)}
+                    >
+                      Send Match Request
+                    </Button>
+                    <Button size="sm" variant="outline">
+                      <MessageCircle className="h-4 w-4" />
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
-            );
-          })}
+            ))}
+          </div>
 
-          {filteredPlayers.length === 0 && !loading && !error && (
-            <Card>
-              <CardContent className="p-8 text-center">
-                <p className="text-muted-foreground">
-                  {players.length === 0 
-                    ? "No players are currently looking to play. Be the first to set your preferences in the Match Finder tab!"
-                    : "No players found matching your criteria. Try adjusting your filters."
-                  }
-                </p>
-              </CardContent>
-            </Card>
+          {filteredPlayers.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">No players match your current filters.</p>
+            </div>
           )}
         </div>
       </div>
-    </TooltipProvider>
+
+      {selectedPlayer && (
+        <MatchRequestDialog
+          open={showMatchRequest}
+          onOpenChange={setShowMatchRequest}
+          player={selectedPlayer}
+        />
+      )}
+    </div>
   );
 };
 

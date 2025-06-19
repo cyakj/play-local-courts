@@ -16,6 +16,7 @@ interface Player {
   id: string;
   full_name: string;
   avatar_url?: string;
+  hasUnreadMessages?: boolean;
 }
 
 interface Message {
@@ -64,14 +65,32 @@ const MessagingDialog = ({ open, onOpenChange, hasUnreadMessages, onMarkAsRead }
 
   const loadPlayers = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('id, full_name, avatar_url')
         .neq('id', currentUser?.id)
         .not('full_name', 'is', null);
 
-      if (error) throw error;
-      setPlayers(data || []);
+      if (profilesError) throw profilesError;
+
+      // Check for unread messages from each player
+      const playersWithMessageStatus = await Promise.all(
+        (profilesData || []).map(async (player) => {
+          const { data: messageData } = await supabase
+            .from('messages')
+            .select('id')
+            .eq('sender_id', player.id)
+            .eq('receiver_id', currentUser?.id)
+            .limit(1);
+
+          return {
+            ...player,
+            hasUnreadMessages: (messageData?.length || 0) > 0
+          };
+        })
+      );
+
+      setPlayers(playersWithMessageStatus);
     } catch (error) {
       console.error('Error loading players:', error);
       toast({
@@ -86,7 +105,6 @@ const MessagingDialog = ({ open, onOpenChange, hasUnreadMessages, onMarkAsRead }
     if (!selectedPlayer || !currentUser) return;
 
     try {
-      // First get the messages
       const { data: messagesData, error: messagesError } = await supabase
         .from('messages')
         .select('*')
@@ -95,7 +113,6 @@ const MessagingDialog = ({ open, onOpenChange, hasUnreadMessages, onMarkAsRead }
 
       if (messagesError) throw messagesError;
 
-      // Then get sender profiles for each message
       const messagesWithSender = await Promise.all(
         (messagesData || []).map(async (message) => {
           const { data: senderProfile } = await supabase
@@ -211,7 +228,7 @@ const MessagingDialog = ({ open, onOpenChange, hasUnreadMessages, onMarkAsRead }
                       className="cursor-pointer hover:bg-accent transition-colors"
                       onClick={() => setSelectedPlayer(player)}
                     >
-                      <CardContent className="flex items-center p-4">
+                      <CardContent className="flex items-center p-4 relative">
                         <Avatar className="h-10 w-10 mr-3">
                           <AvatarImage src={player.avatar_url} />
                           <AvatarFallback>
@@ -219,6 +236,9 @@ const MessagingDialog = ({ open, onOpenChange, hasUnreadMessages, onMarkAsRead }
                           </AvatarFallback>
                         </Avatar>
                         <span className="font-medium">{player.full_name}</span>
+                        {player.hasUnreadMessages && (
+                          <div className="w-3 h-3 bg-green-500 rounded-full ml-auto"></div>
+                        )}
                       </CardContent>
                     </Card>
                   ))}
