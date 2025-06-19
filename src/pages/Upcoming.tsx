@@ -401,7 +401,7 @@ const Upcoming = () => {
                 <div className="flex items-center justify-between">
                   <CardTitle>Upcoming Reservations</CardTitle>
                   <Button asChild>
-                    <Link to="/reserve">Reserve Court</Link>
+                    <Link to="/reserve-court">Reserve Court</Link>
                   </Button>
                 </div>
               </CardHeader>
