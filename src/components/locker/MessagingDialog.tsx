@@ -60,8 +60,34 @@ const MessagingDialog = ({ open, onOpenChange, hasUnreadMessages, onMarkAsRead }
   useEffect(() => {
     if (selectedPlayer) {
       loadMessages();
+      markMessagesAsRead();
     }
   }, [selectedPlayer]);
+
+  const markMessagesAsRead = async () => {
+    if (!selectedPlayer || !currentUser) return;
+
+    try {
+      await supabase
+        .from('messages')
+        .delete()
+        .eq('sender_id', selectedPlayer.id)
+        .eq('receiver_id', currentUser.id);
+      
+      // Update the player's unread status
+      setPlayers(prev => prev.map(player => 
+        player.id === selectedPlayer.id 
+          ? { ...player, hasUnreadMessages: false }
+          : player
+      ));
+      
+      if (onMarkAsRead) {
+        onMarkAsRead();
+      }
+    } catch (error) {
+      console.error('Error marking messages as read:', error);
+    }
+  };
 
   const loadPlayers = async () => {
     try {

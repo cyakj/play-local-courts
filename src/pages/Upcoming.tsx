@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { supabase } from '@/integrations/supabase/client';
 import { AmenityStatus } from '../types';
+import { Link } from 'react-router-dom';
 
 interface UpcomingEvent {
   id: string;
@@ -17,6 +17,15 @@ interface UpcomingEvent {
   title: string;
   location?: string;
   opponent?: string;
+}
+
+interface MatchSession {
+  id: string;
+  date: string;
+  time_start: string;
+  location: string;
+  match_type: string;
+  opponent: string;
 }
 
 const Upcoming = () => {
@@ -29,6 +38,7 @@ const Upcoming = () => {
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [selectedAmenity, setSelectedAmenity] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
+  const [matchSessions, setMatchSessions] = useState<MatchSession[]>([]);
 
   useEffect(() => {
     if (currentUser) {
@@ -73,7 +83,19 @@ const Upcoming = () => {
           : match.challenger?.full_name
       }));
 
+      const sessions: MatchSession[] = (data || []).map(match => ({
+        id: match.id,
+        date: match.date,
+        time_start: match.time_start,
+        location: match.location,
+        match_type: match.match_type,
+        opponent: match.challenger?.full_name === currentUser.fullName 
+          ? match.opponent?.full_name 
+          : match.challenger?.full_name
+      }));
+
       setUpcomingEvents(matchEvents);
+      setMatchSessions(sessions);
     } catch (error) {
       console.error('Error loading upcoming matches:', error);
     }
@@ -208,9 +230,10 @@ const Upcoming = () => {
       </div>
 
       <Tabs defaultValue="calendar" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="calendar">Calendar</TabsTrigger>
-          <TabsTrigger value="reservations">My Reservations</TabsTrigger>
+          <TabsTrigger value="reservations">Reservations</TabsTrigger>
+          <TabsTrigger value="matchplay">Match Play</TabsTrigger>
         </TabsList>
 
         <TabsContent value="calendar">
@@ -375,7 +398,12 @@ const Upcoming = () => {
           <div className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Upcoming Reservations</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Upcoming Reservations</CardTitle>
+                  <Button asChild>
+                    <Link to="/reserve">Reserve Court</Link>
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 {upcomingBookings.length === 0 ? (
@@ -469,6 +497,55 @@ const Upcoming = () => {
                 </CardContent>
               </Card>
             )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="matchplay">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Upcoming Match Play Sessions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {matchSessions.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">No upcoming match play sessions scheduled.</p>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Visit My Locker to find a partner and schedule matches.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {matchSessions.map(session => {
+                      const sessionDate = new Date(session.date);
+                      
+                      return (
+                        <Card key={session.id} className="overflow-hidden">
+                          <div className="flex flex-col sm:flex-row">
+                            <div className="bg-blue-500 p-4 text-white sm:w-32 flex flex-row sm:flex-col justify-between sm:justify-center items-center">
+                              <div className="text-lg font-medium">
+                                {sessionDate.toLocaleDateString('en-US', { weekday: 'short' })}
+                              </div>
+                              <div className="text-2xl font-bold">
+                                {sessionDate.getDate()}
+                              </div>
+                            </div>
+                            <div className="p-4 flex-1">
+                              <div className="font-semibold">
+                                {session.match_type?.replace('_', ' ')} Match
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                vs {session.opponent} • {session.time_start} • {session.location}
+                              </div>
+                            </div>
+                          </div>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
       </Tabs>

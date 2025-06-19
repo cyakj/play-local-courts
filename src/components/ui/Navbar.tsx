@@ -4,38 +4,13 @@ import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '../../contexts/AuthContext';
 import { LogOut, Home, Calendar, Users, Settings, User } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 
 const Navbar = () => {
   const { currentUser, logout } = useAuth();
   const location = useLocation();
-  const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
 
   const isActive = (path: string) => {
     return location.pathname === path;
-  };
-
-  useEffect(() => {
-    if (currentUser) {
-      checkForUnreadMessages();
-    }
-  }, [currentUser]);
-
-  const checkForUnreadMessages = async () => {
-    if (!currentUser) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('id')
-        .eq('receiver_id', currentUser.id)
-        .limit(1);
-
-      if (error) throw error;
-      setHasUnreadMessages((data?.length || 0) > 0);
-    } catch (error) {
-      console.error('Error checking for unread messages:', error);
-    }
   };
 
   const handleLogout = async () => {
@@ -90,13 +65,10 @@ const Navbar = () => {
               <Button 
                 variant={isActive('/my-locker') ? 'default' : 'ghost'} 
                 size="sm"
-                className="flex items-center gap-2 relative"
+                className="flex items-center gap-2"
               >
                 <User className="h-4 w-4" />
                 My Locker
-                {hasUnreadMessages && (
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full"></div>
-                )}
               </Button>
             </Link>
 

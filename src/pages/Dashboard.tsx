@@ -25,8 +25,7 @@ const Dashboard = () => {
   const { currentUser, isAdmin, isPending } = useAuth();
   const { toast } = useToast();
   const { 
-    bookings, 
-    amenities, 
+    bookings,
     pendingUsers,
     currentHOA,
     loading
@@ -125,8 +124,6 @@ const Dashboard = () => {
     const dateB = new Date(`${b.date}T${b.startTime}`);
     return dateA.getTime() - dateB.getTime();
   }).slice(0, 3); // Show only next 3 upcoming bookings
-
-  const nextReservation = upcomingBookings[0];
   
   return (
     <div className="space-y-8">
@@ -139,44 +136,7 @@ const Dashboard = () => {
         </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {/* Merged Amenity Access Card */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle>Amenity Access</CardTitle>
-            <CardDescription>View, book, or manage your reservations and amenities</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="text-sm">
-                {amenities.length > 0 ? (
-                  <span>You have <span className="font-semibold">{amenities.length}</span> amenities available in your community.</span>
-                ) : (
-                  <span className="text-muted-foreground">No amenities currently active.</span>
-                )}
-              </div>
-              
-              <div className="text-sm">
-                {nextReservation ? (
-                  <span>Next reservation: <span className="font-semibold">{nextReservation.amenityName}</span> at {new Date(`${nextReservation.date}T${nextReservation.startTime}`).toLocaleString('en-US', { 
-                    weekday: 'short',
-                    month: 'short', 
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}</span>
-                ) : (
-                  <span className="text-muted-foreground">No reservations scheduled.</span>
-                )}
-              </div>
-
-              <Button asChild variant="outline" className="w-full">
-                <Link to="/reserve">Open Amenity Portal</Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Match Play Requests Card */}
         <Card>
           <CardHeader className="pb-2">
