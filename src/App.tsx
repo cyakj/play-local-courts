@@ -17,8 +17,7 @@ import Register from "./pages/Register";
 
 // App Pages
 import Dashboard from "./pages/Dashboard";
-import ReserveCourt from "./pages/ReserveCourt";
-import MyReservations from "./pages/MyReservations";
+import Upcoming from "./pages/Upcoming";
 import PendingRequests from "./pages/PendingRequests";
 import ManageCourts from "./pages/ManageCourts";
 import AmenityRules from "./pages/AmenityRules";
@@ -45,8 +44,7 @@ const App = () => (
             {/* Protected Routes */}
             <Route element={<MainLayout />}>
               <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/reserve" element={<ReserveCourt />} />
-              <Route path="/my-reservations" element={<MyReservations />} />
+              <Route path="/upcoming" element={<Upcoming />} />
               <Route path="/my-locker" element={<MyLocker />} />
               <Route path="/pending-requests" element={<PendingRequests />} />
               <Route path="/manage-amenities" element={<ManageCourts />} />
