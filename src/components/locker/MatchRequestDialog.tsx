@@ -1,12 +1,11 @@
 
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Calendar, MessageCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -22,7 +21,7 @@ interface MatchRequestDialogProps {
 const MatchRequestDialog: React.FC<MatchRequestDialogProps> = ({ targetPlayer }) => {
   const { currentUser } = useAuth();
   const { toast } = useToast();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const [loading, setLoading] = useState(false);
   const [request, setRequest] = useState({
     matchType: '',
@@ -104,12 +103,6 @@ const MatchRequestDialog: React.FC<MatchRequestDialogProps> = ({ targetPlayer })
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="default" size="sm">
-          <Calendar className="h-4 w-4 mr-2" />
-          Request to Play
-        </Button>
-      </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Request Match with {targetPlayer.full_name}</DialogTitle>

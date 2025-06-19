@@ -64,7 +64,7 @@ const UpcomingTab = () => {
         time: match.time_start,
         title: `${match.match_type?.replace('_', ' ')} Match`,
         location: match.location,
-        opponent: match.challenger?.full_name === currentUser.full_name 
+        opponent: match.challenger?.full_name === currentUser.fullName 
           ? match.opponent?.full_name 
           : match.challenger?.full_name
       }));
@@ -97,7 +97,7 @@ const UpcomingTab = () => {
     const month = date.getMonth();
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
-    const daysInMonth = last/Day.getDate();
+    const daysInMonth = lastDay.getDate();
     const startingDayOfWeek = firstDay.getDay();
 
     const days = [];

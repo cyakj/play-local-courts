@@ -17,7 +17,6 @@ interface Player {
   id: string;
   full_name: string;
   avatar_url?: string;
-  ntrp_rating?: number;
   utr_rating?: number;
   play_style?: string;
   availability?: string;
@@ -38,7 +37,6 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
   
   // Filter states
   const [utrRange, setUtrRange] = useState([1, 15]);
-  const [ntrpRange, setNtrpRange] = useState([1.0, 7.0]);
   const [playStyle, setPlayStyle] = useState<string>('');
   const [availability, setAvailability] = useState<string>('');
   const [location, setLocation] = useState<string>('');
@@ -49,7 +47,7 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
 
   useEffect(() => {
     filterPlayers();
-  }, [players, utrRange, ntrpRange, playStyle, availability, location]);
+  }, [players, utrRange, playStyle, availability, location]);
 
   const loadPlayers = async () => {
     if (!currentUser) return;
@@ -57,7 +55,7 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, avatar_url, ntrp_rating, utr_rating, play_style, availability, location_preference')
+        .select('id, full_name, avatar_url, utr_rating, play_style, availability, location_preference')
         .neq('id', currentUser.id)
         .not('full_name', 'is', null);
 
@@ -80,12 +78,6 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
     filtered = filtered.filter(player => {
       const utr = player.utr_rating || 0;
       return utr >= utrRange[0] && utr <= utrRange[1];
-    });
-
-    // Filter by NTRP range
-    filtered = filtered.filter(player => {
-      const ntrp = player.ntrp_rating || 0;
-      return ntrp >= ntrpRange[0] && ntrp <= ntrpRange[1];
     });
 
     // Filter by play style
@@ -141,22 +133,7 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
                     max={15}
                     min={1}
                     step={0.5}
-                    className="w-full [&>.relative]:h-2 [&>.relative]:bg-gray-200 [&>.relative]:rounded-full [&_[role=slider]]:h-4 [&_[role=slider]]:w-4 [&_[role=slider]]:border-2 [&_[role=slider]]:border-green-500 [&_[role=slider]]:bg-white [&_[role=slider]]:shadow-md [&>.relative>.bg-primary]:bg-green-500"
-                  />
-                </div>
-              </div>
-
-              {/* NTRP Range */}
-              <div className="space-y-2">
-                <Label>NTRP Range: {ntrpRange[0]} - {ntrpRange[1]}</Label>
-                <div className="px-2">
-                  <Slider
-                    value={ntrpRange}
-                    onValueChange={setNtrpRange}
-                    max={7.0}
-                    min={1.0}
-                    step={0.5}
-                    className="w-full [&>.relative]:h-2 [&>.relative]:bg-gray-200 [&>.relative]:rounded-full [&_[role=slider]]:h-4 [&_[role=slider]]:w-4 [&_[role=slider]]:border-2 [&_[role=slider]]:border-green-500 [&_[role=slider]]:bg-white [&_[role=slider]]:shadow-md [&>.relative>.bg-primary]:bg-green-500"
+                    className="w-full"
                   />
                 </div>
               </div>
@@ -228,7 +205,6 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
                       <h3 className="font-semibold">{player.full_name}</h3>
                       <div className="flex gap-2 text-sm text-muted-foreground">
                         <span>UTR: {player.utr_rating || 'N/A'}</span>
-                        <span>NTRP: {player.ntrp_rating || 'N/A'}</span>
                       </div>
                     </div>
                   </div>
@@ -270,11 +246,13 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
         </div>
       </div>
 
-      {selectedPlayer && (
+      {selectedPlayer && showMatchRequest && (
         <MatchRequestDialog
-          open={showMatchRequest}
-          onOpenChange={setShowMatchRequest}
-          player={selectedPlayer}
+          targetPlayer={{
+            id: selectedPlayer.id,
+            full_name: selectedPlayer.full_name,
+            match_types: ['singles', 'doubles', 'hitting_session']
+          }}
         />
       )}
     </div>
