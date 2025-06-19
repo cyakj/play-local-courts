@@ -16,12 +16,17 @@ interface MatchRequestDialogProps {
     full_name: string;
     match_types: string[];
   };
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
-const MatchRequestDialog: React.FC<MatchRequestDialogProps> = ({ targetPlayer }) => {
+const MatchRequestDialog: React.FC<MatchRequestDialogProps> = ({ 
+  targetPlayer, 
+  open, 
+  onOpenChange 
+}) => {
   const { currentUser } = useAuth();
   const { toast } = useToast();
-  const [open, setOpen] = useState(true);
   const [loading, setLoading] = useState(false);
   const [request, setRequest] = useState({
     matchType: '',
@@ -70,7 +75,7 @@ const MatchRequestDialog: React.FC<MatchRequestDialogProps> = ({ targetPlayer })
         description: `Match request sent to ${targetPlayer.full_name}!`
       });
 
-      setOpen(false);
+      onOpenChange(false);
       setRequest({
         matchType: '',
         date: '',
@@ -102,7 +107,7 @@ const MatchRequestDialog: React.FC<MatchRequestDialogProps> = ({ targetPlayer })
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Request Match with {targetPlayer.full_name}</DialogTitle>
@@ -178,7 +183,7 @@ const MatchRequestDialog: React.FC<MatchRequestDialogProps> = ({ targetPlayer })
           </div>
 
           <div className="flex justify-end space-x-2">
-            <Button variant="outline" onClick={() => setOpen(false)}>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button onClick={handleSubmit} disabled={loading}>
