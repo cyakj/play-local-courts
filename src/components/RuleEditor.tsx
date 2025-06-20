@@ -1,17 +1,19 @@
+
 import React, { useState, useEffect } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Slider } from '@/components/ui/slider';
-import { Textarea } from '@/components/ui/textarea';
-import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, Save, Clock, Users, Calendar, Shield } from 'lucide-react';
+import { ArrowLeft, Save } from 'lucide-react';
 import { Amenity } from '../types';
 import { useAmenityRules } from '../hooks/useAmenityRules';
 import { useToast } from '@/hooks/use-toast';
 import RuleSummary from './RuleSummary';
+import BookingHoursSection from './rules/BookingHoursSection';
+import DurationLimitsSection from './rules/DurationLimitsSection';
+import BookingLimitsSection from './rules/BookingLimitsSection';
+import GuestPoliciesSection from './rules/GuestPoliciesSection';
+import PeakHoursSection from './rules/PeakHoursSection';
+import AmenitySpecificSection from './rules/AmenitySpecificSection';
+import AdminControlsSection from './rules/AdminControlsSection';
+import CustomRulesSection from './rules/CustomRulesSection';
 
 interface RuleEditorProps {
   amenity: Amenity;
@@ -141,476 +143,56 @@ const RuleEditor = ({ amenity, onBack }: RuleEditorProps) => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          {/* Booking Time Windows */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                Booking Hours
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Start Time</Label>
-                  <Input
-                    type="time"
-                    value={formData.booking_start_time}
-                    onChange={(e) => updateField('booking_start_time', e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label>End Time</Label>
-                  <Input
-                    type="time"
-                    value={formData.booking_end_time}
-                    onChange={(e) => updateField('booking_end_time', e.target.value)}
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <BookingHoursSection
+            bookingStartTime={formData.booking_start_time}
+            bookingEndTime={formData.booking_end_time}
+            onUpdate={updateField}
+          />
 
-          {/* Duration Limits by Play Type */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Duration Limits by Play Type</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {(amenity.amenityType === 'tennis' || amenity.amenityType === 'pickleball') && (
-                <>
-                  <div>
-                    <Label>Singles Duration (minutes): {formData.singles_duration_minutes}</Label>
-                    <Slider
-                      value={[formData.singles_duration_minutes]}
-                      onValueChange={([value]) => updateField('singles_duration_minutes', value)}
-                      max={240}
-                      min={15}
-                      step={15}
-                      className="mt-2"
-                    />
-                  </div>
-                  <div>
-                    <Label>Doubles Duration (minutes): {formData.doubles_duration_minutes}</Label>
-                    <Slider
-                      value={[formData.doubles_duration_minutes]}
-                      onValueChange={([value]) => updateField('doubles_duration_minutes', value)}
-                      max={240}
-                      min={15}
-                      step={15}
-                      className="mt-2"
-                    />
-                  </div>
-                </>
-              )}
-              
-              {(amenity.amenityType === 'pool' || amenity.amenityType === 'barbecue' || amenity.amenityType === 'jacuzzi' || amenity.amenityType === 'clubhouse') && (
-                <>
-                  <div>
-                    <Label>Family Duration (minutes): {formData.family_duration_minutes}</Label>
-                    <Slider
-                      value={[formData.family_duration_minutes]}
-                      onValueChange={([value]) => updateField('family_duration_minutes', value)}
-                      max={480}
-                      min={15}
-                      step={15}
-                      className="mt-2"
-                    />
-                  </div>
-                  <div>
-                    <Label>Group Duration (minutes): {formData.group_duration_minutes}</Label>
-                    <Slider
-                      value={[formData.group_duration_minutes]}
-                      onValueChange={([value]) => updateField('group_duration_minutes', value)}
-                      max={480}
-                      min={15}
-                      step={15}
-                      className="mt-2"
-                    />
-                  </div>
-                </>
-              )}
-              
-              {amenity.amenityType === 'gym' && (
-                <>
-                  <div>
-                    <Label>Singles Duration (minutes): {formData.singles_duration_minutes}</Label>
-                    <Slider
-                      value={[formData.singles_duration_minutes]}
-                      onValueChange={([value]) => updateField('singles_duration_minutes', value)}
-                      max={240}
-                      min={15}
-                      step={15}
-                      className="mt-2"
-                    />
-                  </div>
-                  <div>
-                    <Label>Group Duration (minutes): {formData.group_duration_minutes}</Label>
-                    <Slider
-                      value={[formData.group_duration_minutes]}
-                      onValueChange={([value]) => updateField('group_duration_minutes', value)}
-                      max={240}
-                      min={15}
-                      step={15}
-                      className="mt-2"
-                    />
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
+          <DurationLimitsSection
+            amenity={amenity}
+            formData={formData}
+            onUpdate={updateField}
+          />
 
-          {/* Frequency Limits */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                Booking Limits
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Max per Day</Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    max="10"
-                    value={formData.max_reservations_per_day}
-                    onChange={(e) => updateField('max_reservations_per_day', parseInt(e.target.value))}
-                  />
-                </div>
-                <div>
-                  <Label>Max per Week</Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    max="14"
-                    value={formData.max_reservations_per_week}
-                    onChange={(e) => updateField('max_reservations_per_week', parseInt(e.target.value))}
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <Label>Advance Booking (days)</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  max="30"
-                  value={formData.advance_booking_days}
-                  onChange={(e) => updateField('advance_booking_days', parseInt(e.target.value))}
-                />
-              </div>
-            </CardContent>
-          </Card>
+          <BookingLimitsSection
+            maxReservationsPerDay={formData.max_reservations_per_day}
+            maxReservationsPerWeek={formData.max_reservations_per_week}
+            advanceBookingDays={formData.advance_booking_days}
+            onUpdate={updateField}
+          />
 
-          {/* Guest Policies */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Guest & Check-in Policies
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label>Allow Guests</Label>
-                <Switch
-                  checked={formData.allow_guests}
-                  onCheckedChange={(checked) => updateField('allow_guests', checked)}
-                />
-              </div>
-              
-              {formData.allow_guests && (
-                <div>
-                  <Label>Maximum Guest Count</Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    max="20"
-                    value={formData.max_guest_count}
-                    onChange={(e) => updateField('max_guest_count', parseInt(e.target.value))}
-                  />
-                </div>
-              )}
-              
-              <div>
-                <Label>Check-in Required (minutes after start time)</Label>
-                <Input
-                  type="number"
-                  min="5"
-                  max="60"
-                  value={formData.checkin_required_minutes}
-                  onChange={(e) => updateField('checkin_required_minutes', parseInt(e.target.value))}
-                />
-              </div>
-            </CardContent>
-          </Card>
+          <GuestPoliciesSection
+            allowGuests={formData.allow_guests}
+            maxGuestCount={formData.max_guest_count}
+            checkinRequiredMinutes={formData.checkin_required_minutes}
+            on={updateField}
+          />
 
-          {/* Peak Hours */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Peak Hour Restrictions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label>Enable Peak Hour Restrictions</Label>
-                <Switch
-                  checked={formData.enable_peak_hours}
-                  onCheckedChange={(checked) => updateField('enable_peak_hours', checked)}
-                />
-              </div>
-              
-              {formData.enable_peak_hours && (
-                <>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Peak Start Time</Label>
-                      <Input
-                        type="time"
-                        value={formData.peak_start_time}
-                        onChange={(e) => updateField('peak_start_time', e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <Label>Peak End Time</Label>
-                      <Input
-                        type="time"
-                        value={formData.peak_end_time}
-                        onChange={(e) => updateField('peak_end_time', e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  
-                  {(amenity.amenityType === 'tennis' || amenity.amenityType === 'pickleball') && (
-                    <>
-                      <div>
-                        <Label>Peak Singles Duration (minutes): {formData.peak_singles_duration_minutes}</Label>
-                        <Slider
-                          value={[formData.peak_singles_duration_minutes]}
-                          onValueChange={([value]) => updateField('peak_singles_duration_minutes', value)}
-                          max={120}
-                          min={15}
-                          step={15}
-                          className="mt-2"
-                        />
-                      </div>
-                      <div>
-                        <Label>Peak Doubles Duration (minutes): {formData.peak_doubles_duration_minutes}</Label>
-                        <Slider
-                          value={[formData.peak_doubles_duration_minutes]}
-                          onValueChange={([value]) => updateField('peak_doubles_duration_minutes', value)}
-                          max={120}
-                          min={15}
-                          step={15}
-                          className="mt-2"
-                        />
-                      </div>
-                    </>
-                  )}
-                  
-                  {(amenity.amenityType === 'pool' || amenity.amenityType === 'barbecue' || amenity.amenityType === 'jacuzzi' || amenity.amenityType === 'clubhouse') && (
-                    <>
-                      <div>
-                        <Label>Peak Family Duration (minutes): {formData.peak_family_duration_minutes}</Label>
-                        <Slider
-                          value={[formData.peak_family_duration_minutes]}
-                          onValueChange={([value]) => updateField('peak_family_duration_minutes', value)}
-                          max={240}
-                          min={15}
-                          step={15}
-                          className="mt-2"
-                        />
-                      </div>
-                      <div>
-                        <Label>Peak Group Duration (minutes): {formData.peak_group_duration_minutes}</Label>
-                        <Slider
-                          value={[formData.peak_group_duration_minutes]}
-                          onValueChange={([value]) => updateField('peak_group_duration_minutes', value)}
-                          max={240}
-                          min={15}
-                          step={15}
-                          className="mt-2"
-                        />
-                      </div>
-                    </>
-                  )}
-                  
-                  {amenity.amenityType === 'gym' && (
-                    <>
-                      <div>
-                        <Label>Peak Singles Duration (minutes): {formData.peak_singles_duration_minutes}</Label>
-                        <Slider
-                          value={[formData.peak_singles_duration_minutes]}
-                          onValueChange={([value]) => updateField('peak_singles_duration_minutes', value)}
-                          max={120}
-                          min={15}
-                          step={15}
-                          className="mt-2"
-                        />
-                      </div>
-                      <div>
-                        <Label>Peak Group Duration (minutes): {formData.peak_group_duration_minutes}</Label>
-                        <Slider
-                          value={[formData.peak_group_duration_minutes]}
-                          onValueChange={([value]) => updateField('peak_group_duration_minutes', value)}
-                          max={120}
-                          min={15}
-                          step={15}
-                          className="mt-2"
-                        />
-                      </div>
-                    </>
-                  )}
-                </>
-              )}
-            </CardContent>
-          </Card>
+          <PeakHoursSection
+            amenity={amenity}
+            formData={formData}
+            onUpdate={updateField}
+          />
 
-          {/* Amenity-Specific Rules */}
-          {(amenity.amenityType === 'tennis' || amenity.amenityType === 'pickleball') && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Court-Specific Settings</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label>Allow Ball Machine</Label>
-                  <Switch
-                    checked={formData.allow_ball_machine}
-                    onCheckedChange={(checked) => updateField('allow_ball_machine', checked)}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label>Singles Only</Label>
-                  <Switch
-                    checked={formData.singles_only}
-                    onCheckedChange={(checked) => updateField('singles_only', checked)}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label>Doubles Only</Label>
-                  <Switch
-                    checked={formData.doubles_only}
-                    onCheckedChange={(checked) => updateField('doubles_only', checked)}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          <AmenitySpecificSection
+            amenity={amenity}
+            formData={formData}
+            onUpdate={updateField}
+          />
 
-          {amenity.amenityType === 'clubhouse' && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Clubhouse Settings</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label>Security Deposit Required</Label>
-                  <Switch
-                    checked={formData.security_deposit_required}
-                    onCheckedChange={(checked) => updateField('security_deposit_required', checked)}
-                  />
-                </div>
-                {formData.security_deposit_required && (
-                  <div>
-                    <Label>Security Deposit Amount ($)</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={formData.security_deposit_amount}
-                      onChange={(e) => updateField('security_deposit_amount', parseFloat(e.target.value))}
-                    />
-                  </div>
-                )}
-                <div className="flex items-center justify-between">
-                  <Label>Power Outlet Access</Label>
-                  <Switch
-                    checked={formData.requires_power_outlet}
-                    onCheckedChange={(checked) => updateField('requires_power_outlet', checked)}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          <AdminControlsSection
+            requiresAdminApproval={formData.requires_admin_approval}
+            minCancellationHours={formData.min_cancellation_hours}
+            onUpdate={updateField}
+          />
 
-          {(amenity.amenityType === 'pool' || amenity.amenityType === 'barbecue') && (
-            <Card>
-              <CardHeader>
-                <CardTitle>{amenity.amenityType === 'pool' ? 'Pool' : 'BBQ'} Area Settings</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label>Cleanup Agreement Required</Label>
-                  <Switch
-                    checked={formData.requires_cleanup_agreement}
-                    onCheckedChange={(checked) => updateField('requires_cleanup_agreement', checked)}
-                  />
-                </div>
-                {amenity.amenityType === 'pool' && (
-                  <div className="flex items-center justify-between">
-                    <Label>No Lifeguard Acknowledgment</Label>
-                    <Switch
-                      checked={formData.no_lifeguard_acknowledgment}
-                      onCheckedChange={(checked) => updateField('no_lifeguard_acknowledgment', checked)}
-                    />
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Admin Controls */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5" />
-                Administrative Controls
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label>Require Admin Approval</Label>
-                <Switch
-                  checked={formData.requires_admin_approval}
-                  onCheckedChange={(checked) => updateField('requires_admin_approval', checked)}
-                />
-              </div>
-              
-              <div>
-                <Label>Minimum Cancellation Hours</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  max="168"
-                  value={formData.min_cancellation_hours}
-                  onChange={(e) => updateField('min_cancellation_hours', parseInt(e.target.value))}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Custom Rules */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Custom Rules</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Label>Additional Rules & Notes</Label>
-              <Textarea
-                placeholder="Enter any additional rules or special instructions for this amenity..."
-                value={formData.custom_rules}
-                onChange={(e) => updateField('custom_rules', e.target.value)}
-                className="mt-2"
-                rows={4}
-              />
-            </CardContent>
-          </Card>
+          <CustomRulesSection
+            customRules={formData.custom_rules}
+            onUpdate={updateField}
+          />
         </div>
 
-        {/* Rule Summary Sidebar */}
         <div className="lg:col-span-1">
           <RuleSummary amenity={amenity} rules={formData} />
         </div>
