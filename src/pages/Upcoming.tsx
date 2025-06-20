@@ -48,13 +48,13 @@ const Upcoming = () => {
 
   useEffect(() => {
     combineEvents();
-  }, [bookings]);
+  }, [bookings, matchSessions]);
 
   const loadUpcomingMatches = async () => {
     if (!currentUser) return;
 
     try {
-      const today = new Date().toISOString().split('T')[0];
+      // Load ALL matches (not just future ones) for calendar display
       const { data, error } = await supabase
         .from('match_requests')
         .select(`
@@ -67,8 +67,7 @@ const Upcoming = () => {
           opponent:profiles!match_requests_opponent_id_fkey(full_name)
         `)
         .or(`challenger_id.eq.${currentUser.id},opponent_id.eq.${currentUser.id}`)
-        .eq('status', 'accepted')
-        .gte('date', today);
+        .eq('status', 'accepted');
 
       if (error) throw error;
 
@@ -103,8 +102,8 @@ const Upcoming = () => {
   };
 
   const combineEvents = () => {
+    // Include ALL bookings for calendar display (past and future)
     const reservationEvents: UpcomingEvent[] = bookings
-      .filter(booking => new Date(`${booking.date}T${booking.startTime}`) > new Date())
       .map(booking => ({
         id: booking.id,
         type: 'reservation',
@@ -224,7 +223,7 @@ const Upcoming = () => {
     return bookingDateTime <= now;
   });
 
-  // Filter match sessions for future events only
+  // Filter match sessions for future events only - fix the filtering logic
   const upcomingMatchSessions = matchSessions.filter(session => {
     const sessionDateTime = new Date(`${session.date}T${session.time_start}`);
     return sessionDateTime > now;
@@ -408,7 +407,7 @@ const Upcoming = () => {
                 <div className="flex items-center justify-between">
                   <CardTitle>Upcoming Reservations</CardTitle>
                   <Button asChild>
-                    <Link to="/reserve-court">Reserve Court</Link>
+                    <Link to="/reserve-court">Reserve Amenity</Link>
                   </Button>
                 </div>
               </CardHeader>

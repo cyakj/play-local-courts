@@ -26,6 +26,7 @@ const ReserveCourt = () => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedAmenity, setSelectedAmenity] = useState<string>('');
   const [playType, setPlayType] = useState<'singles' | 'doubles' | 'family' | 'group'>('singles');
+  const [selectedDuration, setSelectedDuration] = useState<number>(60); // Duration in minutes
   const [selectedStartTime, setSelectedStartTime] = useState<string>('');
   const [selectedEndTime, setSelectedEndTime] = useState<string>('');
   const [showPoliciesDialog, setShowPoliciesDialog] = useState(false);
@@ -294,6 +295,34 @@ const ReserveCourt = () => {
     return `${specificPlayType} (up to ${timeLabel})`;
   };
 
+  // Generate duration options from 30 minutes to max duration
+  const getDurationOptions = () => {
+    const maxDuration = getMaxDuration();
+    const options = [];
+    
+    for (let duration = 30; duration <= maxDuration; duration += 30) {
+      const hours = Math.floor(duration / 60);
+      const minutes = duration % 60;
+      
+      let label = '';
+      if (hours > 0) {
+        label += `${hours} hour${hours > 1 ? 's' : ''}`;
+        if (minutes > 0) {
+          label += ` ${minutes} min`;
+        }
+      } else {
+        label = `${minutes} min`;
+      }
+      
+      options.push({
+        value: duration,
+        label: label
+      });
+    }
+    
+    return options;
+  };
+
   const renderAmenityTab = (amenityType: string, amenityList: typeof amenities) => {
     const config = amenityTypeConfig[amenityType as keyof typeof amenityTypeConfig];
     
@@ -336,6 +365,7 @@ const ReserveCourt = () => {
                           setPlayType(value as typeof playType);
                           setSelectedStartTime('');
                           setSelectedEndTime('');
+                          setSelectedDuration(60); // Reset duration
                         }}>
                           {playTypeOptions.map(option => (
                             <div key={option} className="flex items-center space-x-2">
@@ -349,17 +379,43 @@ const ReserveCourt = () => {
                       </div>
                     )}
                     
-                    <TimeSelector
-                      selectedDate={selectedDate}
-                      onTimeSelect={handleTimeSelect}
-                      onClearSelection={handleClearSelection}
-                      maxDurationMinutes={getMaxDuration()}
-                      amenityRules={rules}
-                      bookedSlots={getBookedSlots(amenity.id, format(selectedDate, 'yyyy-MM-dd'))}
-                      maintenanceSlots={getMaintenanceSlots(amenity.id, format(selectedDate, 'yyyy-MM-dd'))}
-                      selectedStartTime={selectedStartTime}
-                      selectedEndTime={selectedEndTime}
-                    />
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium mb-1">Duration</label>
+                      <Select value={selectedDuration.toString()} onValueChange={(value) => {
+                        setSelectedDuration(parseInt(value));
+                        setSelectedStartTime('');
+                        setSelectedEndTime('');
+                      }}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select duration" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {getDurationOptions().map(option => (
+                            <SelectItem key={option.value} value={option.value.toString()}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium mb-1">Select Time</label>
+                      <div className="text-xs text-muted-foreground mb-2">
+                        Click on a time slot to select your preferred time. Each slot is 15 minutes. Red areas are unavailable. Green shows your current selection.
+                      </div>
+                      <TimeSelector
+                        selectedDate={selectedDate}
+                        onTimeSelect={handleTimeSelect}
+                        onClearSelection={handleClearSelection}
+                        maxDurationMinutes={selectedDuration}
+                        amenityRules={rules}
+                        bookedSlots={getBookedSlots(amenity.id, format(selectedDate, 'yyyy-MM-dd'))}
+                        maintenanceSlots={getMaintenanceSlots(amenity.id, format(selectedDate, 'yyyy-MM-dd'))}
+                        selectedStartTime={selectedStartTime}
+                        selectedEndTime={selectedEndTime}
+                      />
+                    </div>
                     
                     {selectedStartTime && selectedEndTime && (
                       <div className="bg-green-50 p-4 rounded-lg border border-green-200">
