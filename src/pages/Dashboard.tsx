@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
@@ -192,6 +191,24 @@ const Dashboard = () => {
           </CardContent>
         </Card>
         
+        {/* Reserve an Amenity Card */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle>Reserve an Amenity</CardTitle>
+            <CardDescription>Book courts and amenities at your community</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="mt-4 space-y-2">
+              <Button asChild className="w-full">
+                <Link to="/reserve-court">Reserve Court</Link>
+              </Button>
+              <div className="text-sm text-muted-foreground text-center">
+                Book tennis courts, pickleball courts, and other amenities
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {isAdmin && (
           <Card>
             <CardHeader className="pb-2">

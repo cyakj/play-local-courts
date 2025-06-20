@@ -54,6 +54,7 @@ const Upcoming = () => {
     if (!currentUser) return;
 
     try {
+      const today = new Date().toISOString().split('T')[0];
       const { data, error } = await supabase
         .from('match_requests')
         .select(`
@@ -67,7 +68,7 @@ const Upcoming = () => {
         `)
         .or(`challenger_id.eq.${currentUser.id},opponent_id.eq.${currentUser.id}`)
         .eq('status', 'accepted')
-        .gte('date', new Date().toISOString().split('T')[0]);
+        .gte('date', today);
 
       if (error) throw error;
 
@@ -212,7 +213,7 @@ const Upcoming = () => {
   ];
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  // Separate upcoming and past bookings for reservations tab
+  // Separate upcoming and past bookings for reservations tab - filter for future events only
   const now = new Date();
   const upcomingBookings = bookings.filter(booking => {
     const bookingDateTime = new Date(`${booking.date}T${booking.startTime}`);
@@ -221,6 +222,12 @@ const Upcoming = () => {
   const pastBookings = bookings.filter(booking => {
     const bookingDateTime = new Date(`${booking.date}T${booking.startTime}`);
     return bookingDateTime <= now;
+  });
+
+  // Filter match sessions for future events only
+  const upcomingMatchSessions = matchSessions.filter(session => {
+    const sessionDateTime = new Date(`${session.date}T${session.time_start}`);
+    return sessionDateTime > now;
   });
 
   return (
@@ -507,7 +514,7 @@ const Upcoming = () => {
                 <CardTitle>Upcoming Match Play Sessions</CardTitle>
               </CardHeader>
               <CardContent>
-                {matchSessions.length === 0 ? (
+                {upcomingMatchSessions.length === 0 ? (
                   <div className="text-center py-8">
                     <p className="text-muted-foreground">No upcoming match play sessions scheduled.</p>
                     <p className="text-sm text-muted-foreground mt-2">
@@ -516,7 +523,7 @@ const Upcoming = () => {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {matchSessions.map(session => {
+                    {upcomingMatchSessions.map(session => {
                       const sessionDate = new Date(session.date);
                       
                       return (
