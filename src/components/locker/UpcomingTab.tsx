@@ -81,7 +81,8 @@ const UpcomingTab = () => {
         location: 'Community Amenity'
       }));
 
-    const allEvents = [...upcomingEvents, ...reservationEvents];
+    // Only use actual match events from database, no mock data
+    const allEvents = [...upcomingEvents.filter(e => e.type === 'match'), ...reservationEvents];
     
     // Sort events by date
     allEvents.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());

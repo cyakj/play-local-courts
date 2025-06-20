@@ -15,26 +15,6 @@ const Upcoming = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
-  // Mock match sessions data - replace with actual data fetching
-  const matchSessions = [
-    {
-      id: '1',
-      opponent: 'John Smith',
-      match_type: 'singles',
-      date: '2025-06-19',
-      time_start: '14:00',
-      location: 'Court 1'
-    },
-    {
-      id: '2',
-      opponent: 'Jane Doe',
-      match_type: 'doubles',
-      date: '2025-06-22',
-      time_start: '16:00',
-      location: 'Court 2'
-    }
-  ];
-
   const now = new Date();
 
   // Filter reservations for upcoming events only
@@ -43,18 +23,11 @@ const Upcoming = () => {
     return bookingDateTime > now;
   });
 
-  // Filter match sessions for future and past events
-  const upcomingMatchSessions = matchSessions.filter(session => {
-    const sessionDateTime = new Date(`${session.date}T${session.time_start}`);
-    return sessionDateTime > now;
-  });
+  // No mock match sessions - these will come from actual data
+  const upcomingMatchSessions: any[] = [];
+  const pastMatchSessions: any[] = [];
 
-  const pastMatchSessions = matchSessions.filter(session => {
-    const sessionDateTime = new Date(`${session.date}T${session.time_start}`);
-    return sessionDateTime <= now;
-  });
-
-  // Combine all events for calendar and event details
+  // Combine all events for calendar and event details - only bookings for now
   const allEvents = [
     ...bookings.map(booking => ({
       id: booking.id,
@@ -65,15 +38,6 @@ const Upcoming = () => {
       endTime: booking.endTime,
       playType: booking.playType,
       status: booking.status
-    })),
-    ...matchSessions.map(session => ({
-      id: session.id,
-      type: 'match' as const,
-      title: `${session.match_type?.replace('_', ' ')} Match`,
-      date: session.date,
-      startTime: session.time_start,
-      location: session.location,
-      opponent: session.opponent
     }))
   ];
 
