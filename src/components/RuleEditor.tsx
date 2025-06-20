@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Save } from 'lucide-react';
@@ -166,7 +165,7 @@ const RuleEditor = ({ amenity, onBack }: RuleEditorProps) => {
             allowGuests={formData.allow_guests}
             maxGuestCount={formData.max_guest_count}
             checkinRequiredMinutes={formData.checkin_required_minutes}
-            on={updateField}
+            onUpdate={updateField}
           />
 
           <PeakHoursSection
