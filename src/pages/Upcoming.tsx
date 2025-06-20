@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -143,6 +144,19 @@ const Upcoming = () => {
     return upcomingEvents.some(event => event.date === dateStr);
   };
 
+  // Only show green dot for future events
+  const hasFutureEventsOnDate = (date: Date) => {
+    const dateStr = date.toISOString().split('T')[0];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Only show green dot if the date is today or in the future AND has events
+    if (date >= today && hasEventsOnDate(date)) {
+      return true;
+    }
+    return false;
+  };
+
   const isToday = (date: Date) => {
     const today = new Date();
     return date.toDateString() === today.toDateString();
@@ -223,10 +237,15 @@ const Upcoming = () => {
     return bookingDateTime <= now;
   });
 
-  // Filter match sessions for future events only - fix the filtering logic
+  // Filter match sessions for future and past events
   const upcomingMatchSessions = matchSessions.filter(session => {
     const sessionDateTime = new Date(`${session.date}T${session.time_start}`);
     return sessionDateTime > now;
+  });
+
+  const pastMatchSessions = matchSessions.filter(session => {
+    const sessionDateTime = new Date(`${session.date}T${session.time_start}`);
+    return sessionDateTime <= now;
   });
 
   return (
@@ -293,7 +312,7 @@ const Upcoming = () => {
                           onClick={() => handleDateClick(day)}
                         >
                           <span className="text-sm">{day.getDate()}</span>
-                          {hasEventsOnDate(day) && !isToday(day) && (
+                          {hasFutureEventsOnDate(day) && !isToday(day) && (
                             <div className="absolute top-1 right-1 w-2 h-2 bg-green-500 rounded-full"></div>
                           )}
                         </Button>
@@ -552,6 +571,44 @@ const Upcoming = () => {
                 )}
               </CardContent>
             </Card>
+
+            {pastMatchSessions.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Past Match Play Sessions</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {pastMatchSessions.slice(0, 5).map(session => {
+                      const sessionDate = new Date(session.date);
+                      
+                      return (
+                        <Card key={session.id} className="overflow-hidden bg-gray-50">
+                          <div className="flex flex-col sm:flex-row">
+                            <div className="bg-gray-200 p-4 text-gray-700 sm:w-32 flex flex-row sm:flex-col justify-between sm:justify-center items-center">
+                              <div className="text-lg font-medium">
+                                {sessionDate.toLocaleDateString('en-US', { weekday: 'short' })}
+                              </div>
+                              <div className="text-2xl font-bold">
+                                {sessionDate.getDate()}
+                              </div>
+                            </div>
+                            <div className="p-4 flex-1">
+                              <div className="font-semibold">
+                                {session.match_type?.replace('_', ' ')} Match
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                vs {session.opponent} • {session.time_start} • {session.location}
+                              </div>
+                            </div>
+                          </div>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </TabsContent>
       </Tabs>
