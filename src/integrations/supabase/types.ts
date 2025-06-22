@@ -270,6 +270,44 @@ export type Database = {
           },
         ]
       }
+      community_join_requests: {
+        Row: {
+          created_at: string
+          hoa_id: string
+          id: string
+          message: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          hoa_id: string
+          id?: string
+          message?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          hoa_id?: string
+          id?: string
+          message?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_join_requests_hoa_id_fkey"
+            columns: ["hoa_id"]
+            isOneToOne: false
+            referencedRelation: "hoas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       court_maintenance: {
         Row: {
           court_id: string
@@ -383,9 +421,12 @@ export type Database = {
         Row: {
           address: string | null
           admin_id: string | null
+          community_type: string | null
           created_at: string | null
+          description: string | null
           email: string | null
           id: string
+          logo_url: string | null
           name: string
           phone: string | null
           updated_at: string | null
@@ -393,9 +434,12 @@ export type Database = {
         Insert: {
           address?: string | null
           admin_id?: string | null
+          community_type?: string | null
           created_at?: string | null
+          description?: string | null
           email?: string | null
           id?: string
+          logo_url?: string | null
           name: string
           phone?: string | null
           updated_at?: string | null
@@ -403,9 +447,12 @@ export type Database = {
         Update: {
           address?: string | null
           admin_id?: string | null
+          community_type?: string | null
           created_at?: string | null
+          description?: string | null
           email?: string | null
           id?: string
+          logo_url?: string | null
           name?: string
           phone?: string | null
           updated_at?: string | null
@@ -1023,6 +1070,16 @@ export type Database = {
       }
     }
     Functions: {
+      create_community: {
+        Args: {
+          community_name: string
+          community_type?: string
+          community_address?: string
+          logo_url?: string
+          description?: string
+        }
+        Returns: string
+      }
       create_default_email_preferences: {
         Args: { target_user_id: string }
         Returns: {
@@ -1048,6 +1105,10 @@ export type Database = {
           created_at: string
           updated_at: string
         }[]
+      }
+      request_join_community: {
+        Args: { target_hoa_id: string; join_message?: string }
+        Returns: string
       }
       update_email_preference: {
         Args: {

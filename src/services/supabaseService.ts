@@ -477,3 +477,135 @@ export const sendBookingReminders = async (): Promise<void> => {
     }
   }
 };
+
+// Add these new functions for community management
+
+export const createCommunity = async (
+  name: string,
+  communityType: string = 'hoa',
+  address?: string,
+  logoUrl?: string,
+  description?: string
+): Promise<string> => {
+  const { data, error } = await supabase.rpc('create_community', {
+    community_name: name,
+    community_type: communityType,
+    community_address: address || null,
+    logo_url: logoUrl || null,
+    description: description || null
+  });
+
+  if (error) {
+    console.error('Error creating community:', error);
+    throw error;
+  }
+
+  return data;
+};
+
+export const requestJoinCommunity = async (
+  hoaId: string,
+  message?: string
+): Promise<string> => {
+  const { data, error } = await supabase.rpc('request_join_community', {
+    target_hoa_id: hoaId,
+    join_message: message || null
+  });
+
+  if (error) {
+    console.error('Error requesting to join community:', error);
+    throw error;
+  }
+
+  return data;
+};
+
+export const getCommunityJoinRequests = async (hoaId?: string) => {
+  let query = supabase
+    .from('community_join_requests')
+    .select(`
+      id,
+      user_id,
+      hoa_id,
+      status,
+      message,
+      created_at,
+      updated_at,
+      profiles!community_join_requests_user_id_fkey(
+        id,
+        full_name,
+        email
+      ),
+      hoas!community_join_requests_hoa_id_fkey(
+        id,
+        name
+      )
+    `)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false });
+
+  if (hoaId) {
+    query = query.eq('hoa_id', hoaId);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('Error fetching community join requests:', error);
+    throw error;
+  }
+
+  return data || [];
+};
+
+export const approveJoinRequest = async (requestId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('community_join_requests')
+    .update({ 
+      status: 'approved',
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', requestId);
+
+  if (error) {
+    console.error('Error approving join request:', error);
+    throw error;
+  }
+
+  // Also update the user's profile to link them to the HOA
+  const { data: request } = await supabase
+    .from('community_join_requests')
+    .select('user_id, hoa_id')
+    .eq('id', requestId)
+    .single();
+
+  if (request) {
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({
+        hoa_id: request.hoa_id,
+        hoa_status: 'approved'
+      })
+      .eq('id', request.user_id);
+
+    if (profileError) {
+      console.error('Error updating user profile:', profileError);
+      throw profileError;
+    }
+  }
+};
+
+export const rejectJoinRequest = async (requestId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('community_join_requests')
+    .update({ 
+      status: 'rejected',
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', requestId);
+
+  if (error) {
+    console.error('Error rejecting join request:', error);
+    throw error;
+  }
+};
