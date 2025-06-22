@@ -32,12 +32,20 @@ const CommunitySelection = ({ onJoinExisting, onCreateNew }: CommunitySelectionP
       setIsLoading(true);
       const { data, error } = await supabase
         .from('hoas')
-        .select('id, name, community_type, address')
+        .select('id, name, community_type, address, created_at')
         .order('name');
 
       if (error) throw error;
 
-      setCommunities(data || []);
+      // Map the database response to match the HOA interface
+      const mappedCommunities: HOA[] = (data || []).map(community => ({
+        id: community.id,
+        name: community.name,
+        address: community.address || undefined,
+        createdAt: community.created_at || new Date().toISOString()
+      }));
+
+      setCommunities(mappedCommunities);
     } catch (error) {
       console.error('Error loading communities:', error);
       toast.error('Failed to load communities');
