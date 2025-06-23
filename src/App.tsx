@@ -23,7 +23,6 @@ import ManageCourts from "./pages/ManageCourts";
 import AmenityRules from "./pages/AmenityRules";
 import MyLocker from "./pages/MyLocker";
 import ReserveCourt from "./pages/ReserveCourt";
-import LeaguesLadders from "./pages/LeaguesLadders";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -48,7 +47,6 @@ const App = () => (
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/upcoming" element={<Upcoming />} />
               <Route path="/my-locker" element={<MyLocker />} />
-              <Route path="/leagues-ladders" element={<LeaguesLadders />} />
               <Route path="/pending-requests" element={<PendingRequests />} />
               <Route path="/manage-amenities" element={<ManageCourts />} />
               <Route path="/amenity-rules" element={<AmenityRules />} />

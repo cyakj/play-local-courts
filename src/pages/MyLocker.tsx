@@ -10,6 +10,7 @@ import PlayerProfile from '../components/locker/PlayerProfile';
 import MatchPreferences from '../components/locker/MatchPreferences';
 import FindPartner from '../components/locker/FindPartner';
 import MessagingDialog from '../components/locker/MessagingDialog';
+import LeaguesLadders from './LeaguesLadders';
 import ErrorBoundary from '../components/ErrorBoundary';
 
 const MyLocker = () => {
@@ -87,9 +88,10 @@ const MyLocker = () => {
       </div>
 
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="profile">Player Profile</TabsTrigger>
           <TabsTrigger value="preferences">Match Finder</TabsTrigger>
+          <TabsTrigger value="ladders">Leagues & Ladders</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile">
@@ -98,6 +100,10 @@ const MyLocker = () => {
 
         <TabsContent value="preferences">
           <MatchPreferences />
+        </TabsContent>
+
+        <TabsContent value="ladders">
+          <LeaguesLadders />
         </TabsContent>
       </Tabs>
 
