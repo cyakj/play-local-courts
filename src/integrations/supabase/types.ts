@@ -651,6 +651,8 @@ export type Database = {
           hoa_id: string
           id: string
           is_private: boolean
+          max_ntrp: number | null
+          min_ntrp: number | null
           name: string
           start_date: string | null
           status: Database["public"]["Enums"]["ladder_status"]
@@ -665,6 +667,8 @@ export type Database = {
           hoa_id: string
           id?: string
           is_private?: boolean
+          max_ntrp?: number | null
+          min_ntrp?: number | null
           name: string
           start_date?: string | null
           status?: Database["public"]["Enums"]["ladder_status"]
@@ -679,6 +683,8 @@ export type Database = {
           hoa_id?: string
           id?: string
           is_private?: boolean
+          max_ntrp?: number | null
+          min_ntrp?: number | null
           name?: string
           start_date?: string | null
           status?: Database["public"]["Enums"]["ladder_status"]
