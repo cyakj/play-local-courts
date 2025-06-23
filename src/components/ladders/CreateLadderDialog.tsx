@@ -28,8 +28,8 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
     is_private: false,
     start_date: '',
     weekly_deadline_day: 0, // 0 = Sunday
-    min_ntrp: '',
-    max_ntrp: '',
+    min_ntrp: 'none',
+    max_ntrp: 'none',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -37,7 +37,7 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
     if (!currentUser?.id || !currentUser?.hoaId) return;
 
     // Validate NTRP range if provided
-    if (formData.min_ntrp && formData.max_ntrp) {
+    if (formData.min_ntrp !== 'none' && formData.max_ntrp !== 'none') {
       const minNtrp = parseFloat(formData.min_ntrp);
       const maxNtrp = parseFloat(formData.max_ntrp);
       
@@ -66,8 +66,8 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
           admin_id: currentUser.id,
           hoa_id: currentUser.hoaId,
           status: 'setup',
-          min_ntrp: formData.min_ntrp ? parseFloat(formData.min_ntrp) : null,
-          max_ntrp: formData.max_ntrp ? parseFloat(formData.max_ntrp) : null,
+          min_ntrp: formData.min_ntrp !== 'none' ? parseFloat(formData.min_ntrp) : null,
+          max_ntrp: formData.max_ntrp !== 'none' ? parseFloat(formData.max_ntrp) : null,
         })
         .select()
         .single();
@@ -82,8 +82,8 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
         is_private: false,
         start_date: '',
         weekly_deadline_day: 0,
-        min_ntrp: '',
-        max_ntrp: '',
+        min_ntrp: 'none',
+        max_ntrp: 'none',
       });
     } catch (error) {
       console.error('Error creating ladder:', error);
@@ -155,7 +155,7 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
                   <SelectValue placeholder="Select min" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No minimum</SelectItem>
+                  <SelectItem value="none">No minimum</SelectItem>
                   <SelectItem value="1.0">1.0</SelectItem>
                   <SelectItem value="1.5">1.5</SelectItem>
                   <SelectItem value="2.0">2.0</SelectItem>
@@ -185,7 +185,7 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
                   <SelectValue placeholder="Select max" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No maximum</SelectItem>
+                  <SelectItem value="none">No maximum</SelectItem>
                   <SelectItem value="1.0">1.0</SelectItem>
                   <SelectItem value="1.5">1.5</SelectItem>
                   <SelectItem value="2.0">2.0</SelectItem>
@@ -204,13 +204,13 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
             </div>
           </div>
 
-          {(formData.min_ntrp || formData.max_ntrp) && (
+          {(formData.min_ntrp !== 'none' || formData.max_ntrp !== 'none') && (
             <div className="bg-blue-50 p-3 rounded-lg">
               <p className="text-sm text-blue-800 font-medium">NTRP Requirement:</p>
               <p className="text-xs text-blue-700 mt-1">
-                {formData.min_ntrp && formData.max_ntrp 
+                {formData.min_ntrp !== 'none' && formData.max_ntrp !== 'none' 
                   ? `Players must have NTRP rating between ${formData.min_ntrp} and ${formData.max_ntrp}`
-                  : formData.min_ntrp 
+                  : formData.min_ntrp !== 'none' 
                   ? `Players must have NTRP rating of ${formData.min_ntrp} or higher`
                   : `Players must have NTRP rating of ${formData.max_ntrp} or lower`
                 }
