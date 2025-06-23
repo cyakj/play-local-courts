@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -14,7 +13,7 @@ import LadderDetails from '@/components/ladders/LadderDetails';
 export interface Ladder {
   id: string;
   name: string;
-  format: 'singles' | 'doubles';
+  format: 'singles' | 'doubles' | 'mixed_doubles';
   status: 'setup' | 'active' | 'completed';
   is_private: boolean;
   start_date: string | null;
@@ -24,6 +23,8 @@ export interface Ladder {
   hoa_id: string;
   created_at: string;
   updated_at: string;
+  min_ntrp?: number | null;
+  max_ntrp?: number | null;
 }
 
 const LeaguesLadders = () => {

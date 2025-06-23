@@ -24,15 +24,33 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    format: 'doubles' as 'singles' | 'doubles',
+    format: 'doubles' as 'singles' | 'doubles' | 'mixed_doubles',
     is_private: false,
     start_date: '',
     weekly_deadline_day: 0, // 0 = Sunday
+    min_ntrp: '',
+    max_ntrp: '',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser?.id || !currentUser?.hoaId) return;
+
+    // Validate NTRP range if provided
+    if (formData.min_ntrp && formData.max_ntrp) {
+      const minNtrp = parseFloat(formData.min_ntrp);
+      const maxNtrp = parseFloat(formData.max_ntrp);
+      
+      if (minNtrp > maxNtrp) {
+        toast.error('Minimum NTRP must be less than or equal to maximum NTRP');
+        return;
+      }
+      
+      if (minNtrp < 1.0 || maxNtrp > 7.0) {
+        toast.error('NTRP ratings must be between 1.0 and 7.0');
+        return;
+      }
+    }
 
     setIsSubmitting(true);
     try {
@@ -41,13 +59,15 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
         .insert({
           name: formData.name,
           description: formData.description || null,
-          format: formData.format,
+          format: formData.format as any, // Type assertion to handle the enum
           is_private: formData.is_private,
           start_date: formData.start_date || null,
           weekly_deadline_day: formData.weekly_deadline_day,
           admin_id: currentUser.id,
           hoa_id: currentUser.hoaId,
-          status: 'setup'
+          status: 'setup',
+          min_ntrp: formData.min_ntrp ? parseFloat(formData.min_ntrp) : null,
+          max_ntrp: formData.max_ntrp ? parseFloat(formData.max_ntrp) : null,
         })
         .select()
         .single();
@@ -62,6 +82,8 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
         is_private: false,
         start_date: '',
         weekly_deadline_day: 0,
+        min_ntrp: '',
+        max_ntrp: '',
       });
     } catch (error) {
       console.error('Error creating ladder:', error);
@@ -73,7 +95,7 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create New Ladder</DialogTitle>
         </DialogHeader>
@@ -105,7 +127,7 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
             <Label htmlFor="format">Format</Label>
             <Select 
               value={formData.format} 
-              onValueChange={(value: 'singles' | 'doubles') => 
+              onValueChange={(value: 'singles' | 'doubles' | 'mixed_doubles') => 
                 setFormData(prev => ({ ...prev, format: value }))
               }
             >
@@ -115,9 +137,86 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
               <SelectContent>
                 <SelectItem value="doubles">Doubles</SelectItem>
                 <SelectItem value="singles">Singles</SelectItem>
+                <SelectItem value="mixed_doubles">Mixed Doubles</SelectItem>
               </SelectContent>
             </Select>
           </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="min_ntrp">Min NTRP (Optional)</Label>
+              <Select 
+                value={formData.min_ntrp} 
+                onValueChange={(value) => 
+                  setFormData(prev => ({ ...prev, min_ntrp: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select min" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">No minimum</SelectItem>
+                  <SelectItem value="1.0">1.0</SelectItem>
+                  <SelectItem value="1.5">1.5</SelectItem>
+                  <SelectItem value="2.0">2.0</SelectItem>
+                  <SelectItem value="2.5">2.5</SelectItem>
+                  <SelectItem value="3.0">3.0</SelectItem>
+                  <SelectItem value="3.5">3.5</SelectItem>
+                  <SelectItem value="4.0">4.0</SelectItem>
+                  <SelectItem value="4.5">4.5</SelectItem>
+                  <SelectItem value="5.0">5.0</SelectItem>
+                  <SelectItem value="5.5">5.5</SelectItem>
+                  <SelectItem value="6.0">6.0</SelectItem>
+                  <SelectItem value="6.5">6.5</SelectItem>
+                  <SelectItem value="7.0">7.0</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="max_ntrp">Max NTRP (Optional)</Label>
+              <Select 
+                value={formData.max_ntrp} 
+                onValueChange={(value) => 
+                  setFormData(prev => ({ ...prev, max_ntrp: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select max" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">No maximum</SelectItem>
+                  <SelectItem value="1.0">1.0</SelectItem>
+                  <SelectItem value="1.5">1.5</SelectItem>
+                  <SelectItem value="2.0">2.0</SelectItem>
+                  <SelectItem value="2.5">2.5</SelectItem>
+                  <SelectItem value="3.0">3.0</SelectItem>
+                  <SelectItem value="3.5">3.5</SelectItem>
+                  <SelectItem value="4.0">4.0</SelectItem>
+                  <SelectItem value="4.5">4.5</SelectItem>
+                  <SelectItem value="5.0">5.0</SelectItem>
+                  <SelectItem value="5.5">5.5</SelectItem>
+                  <SelectItem value="6.0">6.0</SelectItem>
+                  <SelectItem value="6.5">6.5</SelectItem>
+                  <SelectItem value="7.0">7.0</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {(formData.min_ntrp || formData.max_ntrp) && (
+            <div className="bg-blue-50 p-3 rounded-lg">
+              <p className="text-sm text-blue-800 font-medium">NTRP Requirement:</p>
+              <p className="text-xs text-blue-700 mt-1">
+                {formData.min_ntrp && formData.max_ntrp 
+                  ? `Players must have NTRP rating between ${formData.min_ntrp} and ${formData.max_ntrp}`
+                  : formData.min_ntrp 
+                  ? `Players must have NTRP rating of ${formData.min_ntrp} or higher`
+                  : `Players must have NTRP rating of ${formData.max_ntrp} or lower`
+                }
+              </p>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="start_date">Start Date (Optional)</Label>
