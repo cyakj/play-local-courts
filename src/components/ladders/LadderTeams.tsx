@@ -43,13 +43,13 @@ const LadderTeams = ({ ladder, teams, onTeamsUpdated, isAdmin }: LadderTeamsProp
   }, []);
 
   const loadProfiles = async () => {
-    if (!currentUser?.hoa_id) return;
+    if (!currentUser?.hoaId) return;
 
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('id, full_name, username')
-        .eq('hoa_id', currentUser.hoa_id)
+        .eq('hoa_id', currentUser.hoaId)
         .eq('hoa_status', 'approved');
 
       if (error) throw error;

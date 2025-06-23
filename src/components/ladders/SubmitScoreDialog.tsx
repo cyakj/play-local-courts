@@ -83,7 +83,7 @@ const SubmitScoreDialog = ({ match, teams, open, onOpenChange, onScoreSubmitted 
           super_tiebreak: formData.super_tiebreak,
           winner_team_id: winnerId,
           points_awarded: pointsAwarded,
-          status: 'submitted' as 'pending' | 'submitted' | 'confirmed' | 'disputed',
+          status: 'submitted',
           submitted_by: currentUser.id,
           submitted_at: new Date().toISOString()
         })

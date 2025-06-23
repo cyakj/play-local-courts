@@ -33,21 +33,21 @@ const LeaguesLadders = () => {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  const isAdmin = currentUser?.hoa_role === 'admin';
+  const isAdmin = currentUser?.role === 'admin';
 
   useEffect(() => {
     loadLadders();
-  }, [currentUser?.hoa_id]);
+  }, [currentUser?.hoaId]);
 
   const loadLadders = async () => {
-    if (!currentUser?.hoa_id) return;
+    if (!currentUser?.hoaId) return;
 
     try {
       setIsLoading(true);
       const { data, error } = await supabase
         .from('ladders')
         .select('*')
-        .eq('hoa_id', currentUser.hoa_id)
+        .eq('hoa_id', currentUser.hoaId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
