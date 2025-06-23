@@ -20,7 +20,7 @@ interface SubmitScoreDialogProps {
 }
 
 const SubmitScoreDialog = ({ match, teams, open, onOpenChange, onScoreSubmitted }: SubmitScoreDialogProps) => {
-  const { user } = useAuth();
+  const { currentUser } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     team1_score: '',
@@ -33,7 +33,7 @@ const SubmitScoreDialog = ({ match, teams, open, onOpenChange, onScoreSubmitted 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!currentUser) return;
 
     const team1Score = parseInt(formData.team1_score);
     const team2Score = parseInt(formData.team2_score);
@@ -83,8 +83,8 @@ const SubmitScoreDialog = ({ match, teams, open, onOpenChange, onScoreSubmitted 
           super_tiebreak: formData.super_tiebreak,
           winner_team_id: winnerId,
           points_awarded: pointsAwarded,
-          status: 'submitted',
-          submitted_by: user.id,
+          status: 'submitted' as 'pending' | 'submitted' | 'confirmed' | 'disputed',
+          submitted_by: currentUser.id,
           submitted_at: new Date().toISOString()
         })
         .eq('id', match.id);

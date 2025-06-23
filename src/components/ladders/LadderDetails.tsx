@@ -34,11 +34,11 @@ export interface LadderTeam {
 }
 
 const LadderDetails = ({ ladder, onBack, onLadderUpdated }: LadderDetailsProps) => {
-  const { user } = useAuth();
+  const { currentUser } = useAuth();
   const [teams, setTeams] = useState<LadderTeam[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const isAdmin = ladder.admin_id === user?.id;
+  const isAdmin = ladder.admin_id === currentUser?.id;
 
   useEffect(() => {
     loadTeams();

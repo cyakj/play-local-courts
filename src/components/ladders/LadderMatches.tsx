@@ -43,7 +43,7 @@ export interface LadderMatch {
 }
 
 const LadderMatches = ({ ladderId, isAdmin, teams }: LadderMatchesProps) => {
-  const { user } = useAuth();
+  const { currentUser } = useAuth();
   const [matches, setMatches] = useState<LadderMatch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedMatch, setSelectedMatch] = useState<LadderMatch | null>(null);
@@ -63,7 +63,12 @@ const LadderMatches = ({ ladderId, isAdmin, teams }: LadderMatchesProps) => {
         .order('scheduled_date', { ascending: true });
 
       if (error) throw error;
-      setMatches(data || []);
+      // Map the data to ensure status field has correct type
+      const mappedData = (data || []).map(match => ({
+        ...match,
+        status: match.status as 'pending' | 'submitted' | 'confirmed' | 'disputed'
+      }));
+      setMatches(mappedData);
     } catch (error) {
       console.error('Error loading matches:', error);
       toast.error('Failed to load matches');
@@ -78,14 +83,14 @@ const LadderMatches = ({ ladderId, isAdmin, teams }: LadderMatchesProps) => {
   };
 
   const canSubmitScore = (match: LadderMatch) => {
-    if (!user) return false;
+    if (!currentUser) return false;
     if (match.status !== 'pending') return false;
     
     const team1 = teams.find(t => t.id === match.team1_id);
     const team2 = teams.find(t => t.id === match.team2_id);
     
-    const isInTeam1 = team1?.player1_id === user.id || team1?.player2_id === user.id;
-    const isInTeam2 = team2?.player1_id === user.id || team2?.player2_id === user.id;
+    const isInTeam1 = team1?.player1_id === currentUser.id || team1?.player2_id === currentUser.id;
+    const isInTeam2 = team2?.player1_id === currentUser.id || team2?.player2_id === currentUser.id;
     
     return isInTeam1 || isInTeam2;
   };
@@ -181,7 +186,7 @@ const LadderMatches = ({ ladderId, isAdmin, teams }: LadderMatchesProps) => {
               </Button>
             )}
             
-            {match.status === 'submitted' && match.submitted_by !== user?.id && (
+            {match.status === 'submitted' && match.submitted_by !== currentUser?.id && (
               <div className="text-sm text-muted-foreground">
                 Score submitted - waiting for opponent confirmation
               </div>

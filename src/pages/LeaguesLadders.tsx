@@ -27,27 +27,27 @@ export interface Ladder {
 }
 
 const LeaguesLadders = () => {
-  const { user, profile } = useAuth();
+  const { currentUser } = useAuth();
   const [ladders, setLadders] = useState<Ladder[]>([]);
   const [selectedLadder, setSelectedLadder] = useState<Ladder | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  const isAdmin = profile?.hoa_role === 'admin';
+  const isAdmin = currentUser?.hoa_role === 'admin';
 
   useEffect(() => {
     loadLadders();
-  }, [profile?.hoa_id]);
+  }, [currentUser?.hoa_id]);
 
   const loadLadders = async () => {
-    if (!profile?.hoa_id) return;
+    if (!currentUser?.hoa_id) return;
 
     try {
       setIsLoading(true);
       const { data, error } = await supabase
         .from('ladders')
         .select('*')
-        .eq('hoa_id', profile.hoa_id)
+        .eq('hoa_id', currentUser.hoa_id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;

@@ -28,7 +28,7 @@ interface Profile {
 }
 
 const LadderTeams = ({ ladder, teams, onTeamsUpdated, isAdmin }: LadderTeamsProps) => {
-  const { profile } = useAuth();
+  const { currentUser } = useAuth();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -43,13 +43,13 @@ const LadderTeams = ({ ladder, teams, onTeamsUpdated, isAdmin }: LadderTeamsProp
   }, []);
 
   const loadProfiles = async () => {
-    if (!profile?.hoa_id) return;
+    if (!currentUser?.hoa_id) return;
 
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('id, full_name, username')
-        .eq('hoa_id', profile.hoa_id)
+        .eq('hoa_id', currentUser.hoa_id)
         .eq('hoa_status', 'approved');
 
       if (error) throw error;

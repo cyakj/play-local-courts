@@ -19,7 +19,7 @@ interface CreateLadderDialogProps {
 }
 
 const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadderDialogProps) => {
-  const { user, profile } = useAuth();
+  const { currentUser } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -32,7 +32,7 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !profile?.hoa_id) return;
+    if (!currentUser?.id || !currentUser?.hoa_id) return;
 
     setIsSubmitting(true);
     try {
@@ -45,8 +45,8 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
           is_private: formData.is_private,
           start_date: formData.start_date || null,
           weekly_deadline_day: formData.weekly_deadline_day,
-          admin_id: user.id,
-          hoa_id: profile.hoa_id,
+          admin_id: currentUser.id,
+          hoa_id: currentUser.hoa_id,
           status: 'setup'
         })
         .select()
