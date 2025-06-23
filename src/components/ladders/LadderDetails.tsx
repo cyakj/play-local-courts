@@ -1,0 +1,177 @@
+
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft, Settings, Users, PlayCircle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
+import { Ladder } from '@/pages/LeaguesLadders';
+import LadderTeams from './LadderTeams';
+import LadderMatches from './LadderMatches';
+import LadderLeaderboard from './LadderLeaderboard';
+import LadderRules from './LadderRules';
+
+interface LadderDetailsProps {
+  ladder: Ladder;
+  onBack: () => void;
+  onLadderUpdated: () => void;
+}
+
+export interface LadderTeam {
+  id: string;
+  ladder_id: string;
+  team_name: string;
+  player1_id: string;
+  player2_id: string | null;
+  total_points: number;
+  wins: number;
+  losses: number;
+  games_played: number;
+  created_at: string;
+}
+
+const LadderDetails = ({ ladder, onBack, onLadderUpdated }: LadderDetailsProps) => {
+  const { user } = useAuth();
+  const [teams, setTeams] = useState<LadderTeam[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const isAdmin = ladder.admin_id === user?.id;
+
+  useEffect(() => {
+    loadTeams();
+  }, [ladder.id]);
+
+  const loadTeams = async () => {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('ladder_teams')
+        .select('*')
+        .eq('ladder_id', ladder.id)
+        .order('total_points', { ascending: false });
+
+      if (error) throw error;
+      setTeams(data || []);
+    } catch (error) {
+      console.error('Error loading teams:', error);
+      toast.error('Failed to load teams');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleStartLadder = async () => {
+    if (teams.length < 4) {
+      toast.error('Need at least 4 teams to start the ladder');
+      return;
+    }
+
+    try {
+      // Update ladder status to active
+      const { error: updateError } = await supabase
+        .from('ladders')
+        .update({ status: 'active' })
+        .eq('id', ladder.id);
+
+      if (updateError) throw updateError;
+
+      // Generate round-robin matches
+      const { data, error: matchError } = await supabase.rpc(
+        'generate_round_robin_matches',
+        { ladder_id_param: ladder.id }
+      );
+
+      if (matchError) throw matchError;
+
+      toast.success(`Ladder started! Generated ${data} matches.`);
+      onLadderUpdated();
+    } catch (error) {
+      console.error('Error starting ladder:', error);
+      toast.error('Failed to start ladder');
+    }
+  };
+
+  return (
+    <div className="container mx-auto p-6">
+      <div className="flex items-center gap-4 mb-6">
+        <Button variant="ghost" onClick={onBack}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Ladders
+        </Button>
+      </div>
+
+      <div className="flex justify-between items-start mb-6">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">{ladder.name}</h1>
+          <div className="flex items-center gap-4">
+            <Badge variant={
+              ladder.status === 'active' ? 'default' :
+              ladder.status === 'completed' ? 'secondary' : 'outline'
+            }>
+              {ladder.status}
+            </Badge>
+            <span className="text-sm text-muted-foreground capitalize">
+              {ladder.format} Format
+            </span>
+            {ladder.is_private && (
+              <span className="text-sm text-muted-foreground">Private</span>
+            )}
+          </div>
+          {ladder.description && (
+            <p className="text-muted-foreground mt-2">{ladder.description}</p>
+          )}
+        </div>
+
+        {isAdmin && ladder.status === 'setup' && (
+          <Button onClick={handleStartLadder} disabled={teams.length < 4}>
+            <PlayCircle className="mr-2 h-4 w-4" />
+            Start Ladder
+          </Button>
+        )}
+      </div>
+
+      <Tabs defaultValue="leaderboard" className="w-full">
+        <TabsList>
+          <TabsTrigger value="leaderboard">Leaderboard</TabsTrigger>
+          <TabsTrigger value="matches">Matches</TabsTrigger>
+          <TabsTrigger value="teams">Teams</TabsTrigger>
+          <TabsTrigger value="rules">Rules</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="leaderboard" className="mt-6">
+          <LadderLeaderboard 
+            teams={teams} 
+            isLoading={isLoading}
+            format={ladder.format}
+          />
+        </TabsContent>
+
+        <TabsContent value="matches" className="mt-6">
+          <LadderMatches 
+            ladderId={ladder.id}
+            isAdmin={isAdmin}
+            teams={teams}
+          />
+        </TabsContent>
+
+        <TabsContent value="teams" className="mt-6">
+          <LadderTeams 
+            ladder={ladder}
+            teams={teams}
+            onTeamsUpdated={loadTeams}
+            isAdmin={isAdmin}
+          />
+        </TabsContent>
+
+        <TabsContent value="rules" className="mt-6">
+          <LadderRules />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+};
+
+export default LadderDetails;

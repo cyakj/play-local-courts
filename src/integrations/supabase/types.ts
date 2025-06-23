@@ -459,6 +459,242 @@ export type Database = {
         }
         Relationships: []
       }
+      ladder_invitations: {
+        Row: {
+          created_at: string
+          id: string
+          invited_by: string
+          invited_user_id: string
+          ladder_id: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          invited_by: string
+          invited_user_id: string
+          ladder_id: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          invited_by?: string
+          invited_user_id?: string
+          ladder_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ladder_invitations_ladder_id_fkey"
+            columns: ["ladder_id"]
+            isOneToOne: false
+            referencedRelation: "ladders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ladder_matches: {
+        Row: {
+          created_at: string
+          deadline_date: string | null
+          dispute_reason: string | null
+          id: string
+          ladder_id: string
+          playoff_stage: Database["public"]["Enums"]["playoff_stage"] | null
+          points_awarded: number | null
+          round_number: number | null
+          scheduled_date: string | null
+          status: Database["public"]["Enums"]["match_status"]
+          submitted_at: string | null
+          submitted_by: string | null
+          super_tiebreak: boolean | null
+          team1_id: string
+          team1_score_games: number | null
+          team1_score_sets: number | null
+          team2_id: string
+          team2_score_games: number | null
+          team2_score_sets: number | null
+          updated_at: string
+          winner_team_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          deadline_date?: string | null
+          dispute_reason?: string | null
+          id?: string
+          ladder_id: string
+          playoff_stage?: Database["public"]["Enums"]["playoff_stage"] | null
+          points_awarded?: number | null
+          round_number?: number | null
+          scheduled_date?: string | null
+          status?: Database["public"]["Enums"]["match_status"]
+          submitted_at?: string | null
+          submitted_by?: string | null
+          super_tiebreak?: boolean | null
+          team1_id: string
+          team1_score_games?: number | null
+          team1_score_sets?: number | null
+          team2_id: string
+          team2_score_games?: number | null
+          team2_score_sets?: number | null
+          updated_at?: string
+          winner_team_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          deadline_date?: string | null
+          dispute_reason?: string | null
+          id?: string
+          ladder_id?: string
+          playoff_stage?: Database["public"]["Enums"]["playoff_stage"] | null
+          points_awarded?: number | null
+          round_number?: number | null
+          scheduled_date?: string | null
+          status?: Database["public"]["Enums"]["match_status"]
+          submitted_at?: string | null
+          submitted_by?: string | null
+          super_tiebreak?: boolean | null
+          team1_id?: string
+          team1_score_games?: number | null
+          team1_score_sets?: number | null
+          team2_id?: string
+          team2_score_games?: number | null
+          team2_score_sets?: number | null
+          updated_at?: string
+          winner_team_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ladder_matches_ladder_id_fkey"
+            columns: ["ladder_id"]
+            isOneToOne: false
+            referencedRelation: "ladders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ladder_matches_team1_id_fkey"
+            columns: ["team1_id"]
+            isOneToOne: false
+            referencedRelation: "ladder_teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ladder_matches_team2_id_fkey"
+            columns: ["team2_id"]
+            isOneToOne: false
+            referencedRelation: "ladder_teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ladder_matches_winner_team_id_fkey"
+            columns: ["winner_team_id"]
+            isOneToOne: false
+            referencedRelation: "ladder_teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ladder_teams: {
+        Row: {
+          created_at: string
+          games_played: number
+          id: string
+          ladder_id: string
+          losses: number
+          player1_id: string
+          player2_id: string | null
+          team_name: string
+          total_points: number
+          wins: number
+        }
+        Insert: {
+          created_at?: string
+          games_played?: number
+          id?: string
+          ladder_id: string
+          losses?: number
+          player1_id: string
+          player2_id?: string | null
+          team_name: string
+          total_points?: number
+          wins?: number
+        }
+        Update: {
+          created_at?: string
+          games_played?: number
+          id?: string
+          ladder_id?: string
+          losses?: number
+          player1_id?: string
+          player2_id?: string | null
+          team_name?: string
+          total_points?: number
+          wins?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ladder_teams_ladder_id_fkey"
+            columns: ["ladder_id"]
+            isOneToOne: false
+            referencedRelation: "ladders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ladders: {
+        Row: {
+          admin_id: string
+          created_at: string
+          description: string | null
+          format: Database["public"]["Enums"]["ladder_format"]
+          hoa_id: string
+          id: string
+          is_private: boolean
+          name: string
+          start_date: string | null
+          status: Database["public"]["Enums"]["ladder_status"]
+          updated_at: string
+          weekly_deadline_day: number | null
+        }
+        Insert: {
+          admin_id: string
+          created_at?: string
+          description?: string | null
+          format?: Database["public"]["Enums"]["ladder_format"]
+          hoa_id: string
+          id?: string
+          is_private?: boolean
+          name: string
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["ladder_status"]
+          updated_at?: string
+          weekly_deadline_day?: number | null
+        }
+        Update: {
+          admin_id?: string
+          created_at?: string
+          description?: string | null
+          format?: Database["public"]["Enums"]["ladder_format"]
+          hoa_id?: string
+          id?: string
+          is_private?: boolean
+          name?: string
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["ladder_status"]
+          updated_at?: string
+          weekly_deadline_day?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ladders_hoa_id_fkey"
+            columns: ["hoa_id"]
+            isOneToOne: false
+            referencedRelation: "hoas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       likes: {
         Row: {
           created_at: string | null
@@ -1070,6 +1306,14 @@ export type Database = {
       }
     }
     Functions: {
+      calculate_ladder_points: {
+        Args: {
+          winner_games: number
+          loser_games: number
+          super_tiebreak?: boolean
+        }
+        Returns: number
+      }
       create_community: {
         Args: {
           community_name: string
@@ -1092,6 +1336,10 @@ export type Database = {
           created_at: string
           updated_at: string
         }[]
+      }
+      generate_round_robin_matches: {
+        Args: { ladder_id_param: string }
+        Returns: number
       }
       get_email_preferences: {
         Args: { target_user_id: string }
@@ -1121,8 +1369,11 @@ export type Database = {
     }
     Enums: {
       court_type: "hard" | "clay" | "grass" | "indoor"
+      ladder_format: "singles" | "doubles"
+      ladder_status: "setup" | "active" | "completed"
       match_status: "pending" | "accepted" | "declined" | "cancelled"
       match_type: "singles" | "doubles"
+      playoff_stage: "semifinals" | "final" | "third_place"
       registration_status: "registered" | "confirmed" | "withdrawn"
       user_role: "player" | "coach" | "parent" | "club" | "recruiter"
     }
@@ -1241,8 +1492,11 @@ export const Constants = {
   public: {
     Enums: {
       court_type: ["hard", "clay", "grass", "indoor"],
+      ladder_format: ["singles", "doubles"],
+      ladder_status: ["setup", "active", "completed"],
       match_status: ["pending", "accepted", "declined", "cancelled"],
       match_type: ["singles", "doubles"],
+      playoff_stage: ["semifinals", "final", "third_place"],
       registration_status: ["registered", "confirmed", "withdrawn"],
       user_role: ["player", "coach", "parent", "club", "recruiter"],
     },
