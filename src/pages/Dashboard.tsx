@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
@@ -7,6 +8,20 @@ import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import PendingApprovalMessage from '../components/PendingApprovalMessage';
+import { 
+  Users, 
+  Calendar, 
+  CalendarCheck, 
+  UserCheck, 
+  Trophy, 
+  MapPin, 
+  Clock,
+  CheckCircle2,
+  XCircle,
+  MessageSquare,
+  Sparkles,
+  TrendingUp
+} from 'lucide-react';
 
 interface MatchRequest {
   id: string;
@@ -91,7 +106,11 @@ const Dashboard = () => {
   if (loading) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        <div className="relative">
+          <div className="w-16 h-16 border-4 border-green-200 border-t-green-600 rounded-full animate-spin mx-auto"></div>
+          <div className="absolute inset-0 w-16 h-16 border-4 border-transparent border-r-blue-600 rounded-full animate-spin mx-auto" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
+          <Sparkles className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 h-6 w-6 text-green-600" />
+        </div>
       </div>
     );
   }
@@ -125,53 +144,89 @@ const Dashboard = () => {
   }).slice(0, 3); // Show only next 3 upcoming bookings
   
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 animate-fade-scale">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <div className="animate-slide-up">
+          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
+            Dashboard
+          </h1>
           <p className="text-muted-foreground">
             Welcome to {currentHOA?.name || 'your HOA'} amenity reservation system.
           </p>
         </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Match Play Requests Card */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle>Match Play Requests</CardTitle>
+        <Card className="overflow-hidden group hover:shadow-xl transition-all duration-300 animate-slide-up" style={{ animationDelay: '0.1s' }}>
+          <CardHeader className="pb-4 bg-gradient-to-br from-green-50 to-emerald-50 relative">
+            <div className="absolute top-4 right-4 opacity-20">
+              <Trophy className="h-12 w-12 text-green-600" />
+            </div>
+            <CardTitle className="flex items-center gap-3">
+              <div className="p-2 bg-green-100 rounded-xl">
+                <Users className="h-6 w-6 text-green-600" />
+              </div>
+              Match Play Requests
+            </CardTitle>
             <CardDescription>Invitations to play from other members</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="text-4xl font-bold">{matchRequests.length}</div>
-            <div className="mt-4 space-y-2">
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="text-4xl font-bold text-green-600">{matchRequests.length}</div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <TrendingUp className="h-4 w-4" />
+                <span>Pending invites</span>
+              </div>
+            </div>
+            <div className="space-y-3">
               {matchRequests.length > 0 ? (
                 <div className="space-y-3">
                   {matchRequests.slice(0, 2).map((request) => (
-                    <Card key={request.id} className="p-3">
+                    <Card key={request.id} className="p-3 bg-gradient-to-r from-green-50 to-blue-50 border-l-4 border-l-green-500">
                       <div className="text-sm">
-                        <div className="font-medium">🎾 {request.challenger?.full_name} has invited you to a {request.match_type?.replace('_', ' ')} for {new Date(request.date).toLocaleDateString('en-US', { weekday: 'long' })} {request.time_start} at {request.location}.</div>
-                        <div className="flex gap-2 mt-2">
+                        <div className="font-medium flex items-center gap-2 mb-2">
+                          <Trophy className="h-4 w-4 text-green-600" />
+                          {request.challenger?.full_name} has invited you to a {request.match_type?.replace('_', ' ')}
+                        </div>
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground mb-3">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {new Date(request.date).toLocaleDateString('en-US', { weekday: 'long' })}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {request.time_start}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3" />
+                            {request.location}
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
                           <Button 
                             size="sm" 
                             onClick={() => handleMatchRequestAction(request.id, 'accept')}
-                            className="text-xs"
+                            className="text-xs flex items-center gap-1 hover:scale-105 transition-transform"
                           >
+                            <CheckCircle2 className="h-3 w-3" />
                             Accept
                           </Button>
                           <Button 
                             size="sm" 
                             variant="outline"
                             onClick={() => handleMatchRequestAction(request.id, 'decline')}
-                            className="text-xs"
+                            className="text-xs flex items-center gap-1 hover:scale-105 transition-transform"
                           >
+                            <XCircle className="h-3 w-3" />
                             Decline
                           </Button>
                           <Button 
                             size="sm" 
                             variant="ghost"
-                            className="text-xs"
+                            className="text-xs flex items-center gap-1 hover:scale-105 transition-transform"
                           >
+                            <MessageSquare className="h-3 w-3" />
                             Message
                           </Button>
                         </div>
@@ -185,45 +240,95 @@ const Dashboard = () => {
                   )}
                 </div>
               ) : (
-                <div className="text-sm text-muted-foreground">No pending requests</div>
+                <div className="text-center py-4">
+                  <Trophy className="h-8 w-8 mx-auto text-muted-foreground mb-2 opacity-50" />
+                  <div className="text-sm text-muted-foreground">No pending requests</div>
+                </div>
               )}
             </div>
           </CardContent>
         </Card>
         
         {/* Reserve an Amenity Card */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle>Reserve an Amenity</CardTitle>
+        <Card className="overflow-hidden group hover:shadow-xl transition-all duration-300 animate-slide-up" style={{ animationDelay: '0.2s' }}>
+          <CardHeader className="pb-4 bg-gradient-to-br from-blue-50 to-indigo-50 relative">
+            <div className="absolute top-4 right-4 opacity-20">
+              <CalendarCheck className="h-12 w-12 text-blue-600" />
+            </div>
+            <CardTitle className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 rounded-xl">
+                <Calendar className="h-6 w-6 text-blue-600" />
+              </div>
+              Reserve an Amenity
+            </CardTitle>
             <CardDescription>Book courts and amenities at your community</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="mt-4 space-y-2">
-              <Button asChild className="w-full">
-                <Link to="/reserve-court">Reserve Court</Link>
+          <CardContent className="pt-4">
+            <div className="space-y-4">
+              <Button asChild className="w-full group hover:scale-105 transition-all duration-200">
+                <Link to="/reserve-court" className="flex items-center gap-2">
+                  <CalendarCheck className="h-4 w-4 group-hover:rotate-12 transition-transform" />
+                  Reserve Court
+                </Link>
               </Button>
-              <div className="text-sm text-muted-foreground text-center">
-                Book tennis courts, pickleball courts, and other amenities
+              <div className="text-center p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl">
+                <div className="text-sm text-muted-foreground mb-2">
+                  Book tennis courts, pickleball courts, and other amenities
+                </div>
+                <div className="flex justify-center gap-4 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    Tennis
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    Pool
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                    Clubhouse
+                  </span>
+                </div>
               </div>
             </div>
           </CardContent>
         </Card>
 
         {isAdmin && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle>Pending Requests</CardTitle>
+          <Card className="overflow-hidden group hover:shadow-xl transition-all duration-300 animate-slide-up" style={{ animationDelay: '0.3s' }}>
+            <CardHeader className="pb-4 bg-gradient-to-br from-orange-50 to-red-50 relative">
+              <div className="absolute top-4 right-4 opacity-20">
+                <UserCheck className="h-12 w-12 text-orange-600" />
+              </div>
+              <CardTitle className="flex items-center gap-3">
+                <div className="p-2 bg-orange-100 rounded-xl">
+                  <UserCheck className="h-6 w-6 text-orange-600" />
+                </div>
+                Pending Requests
+              </CardTitle>
               <CardDescription>Users waiting for approval</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="text-4xl font-bold">{pendingUsers.length}</div>
-              <div className="mt-4 space-y-2">
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="text-4xl font-bold text-orange-600">{pendingUsers.length}</div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Users className="h-4 w-4" />
+                  <span>Awaiting review</span>
+                </div>
+              </div>
+              <div className="space-y-2">
                 {pendingUsers.length > 0 ? (
-                  <Button asChild variant="outline" className="w-full">
-                    <Link to="/pending-requests">Review Requests</Link>
+                  <Button asChild variant="outline" className="w-full group hover:scale-105 transition-all duration-200">
+                    <Link to="/pending-requests" className="flex items-center gap-2">
+                      <UserCheck className="h-4 w-4 group-hover:scale-110 transition-transform" />
+                      Review Requests
+                    </Link>
                   </Button>
                 ) : (
-                  <div className="text-sm text-muted-foreground">No pending requests</div>
+                  <div className="text-center py-4">
+                    <UserCheck className="h-8 w-8 mx-auto text-muted-foreground mb-2 opacity-50" />
+                    <div className="text-sm text-muted-foreground">No pending requests</div>
+                  </div>
                 )}
               </div>
             </CardContent>
@@ -232,34 +337,46 @@ const Dashboard = () => {
       </div>
       
       {upcomingBookings.length > 0 && (
-        <div className="mt-8">
-          <h2 className="text-xl font-semibold mb-4">Your Upcoming Reservations</h2>
+        <div className="mt-8 animate-slide-up" style={{ animationDelay: '0.4s' }}>
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <CalendarCheck className="h-5 w-5 text-green-600" />
+            Your Upcoming Reservations
+          </h2>
           <div className="space-y-4">
-            {upcomingBookings.map((booking) => {
+            {upcomingBookings.map((booking, index) => {
               const bookingDate = new Date(`${booking.date}T${booking.startTime}`);
               const endTime = new Date(`${booking.date}T${booking.endTime}`);
               
               return (
-                <Card key={booking.id} className="overflow-hidden">
+                <Card key={booking.id} className="overflow-hidden hover:shadow-lg transition-all duration-300 animate-fade-scale" style={{ animationDelay: `${0.5 + index * 0.1}s` }}>
                   <div className="flex flex-col sm:flex-row">
-                    <div className="bg-primary p-4 text-white sm:w-32 flex flex-row sm:flex-col justify-between sm:justify-center items-center">
-                      <div className="text-lg font-medium">
+                    <div className="bg-gradient-to-br from-green-500 to-blue-500 p-4 text-white sm:w-32 flex flex-row sm:flex-col justify-between sm:justify-center items-center relative overflow-hidden">
+                      <div className="absolute inset-0 bg-white/10 transform -skew-y-12 translate-y-full group-hover:translate-y-0 transition-transform duration-500"></div>
+                      <div className="text-lg font-medium relative z-10">
                         {bookingDate.toLocaleDateString('en-US', { weekday: 'short' })}
                       </div>
-                      <div className="text-2xl font-bold">
+                      <div className="text-2xl font-bold relative z-10">
                         {bookingDate.getDate()}
                       </div>
+                      <Calendar className="absolute bottom-2 right-2 h-4 w-4 opacity-30" />
                     </div>
                     <div className="p-4 flex-1">
-                      <div className="font-semibold">{booking.amenityName}</div>
-                      <div className="text-sm text-muted-foreground">
+                      <div className="font-semibold flex items-center gap-2">
+                        <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                        {booking.amenityName}
+                      </div>
+                      <div className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
+                        <Clock className="h-4 w-4" />
                         {bookingDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} - 
                         {endTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                       </div>
                     </div>
                     <div className="p-4 flex items-center">
-                      <Button variant="ghost" asChild size="sm">
-                        <Link to="/my-reservations">View</Link>
+                      <Button variant="ghost" asChild size="sm" className="hover:scale-105 transition-transform">
+                        <Link to="/my-reservations" className="flex items-center gap-1">
+                          <Calendar className="h-4 w-4" />
+                          View
+                        </Link>
                       </Button>
                     </div>
                   </div>
