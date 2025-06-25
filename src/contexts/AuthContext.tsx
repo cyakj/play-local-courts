@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { User, UserRole, UserStatus } from '../types';
@@ -276,7 +275,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const isAdmin = currentUser?.role === UserRole.ADMIN;
   const isPending = currentUser?.status === UserStatus.PENDING;
-  const isCoach = currentUser?.hoaRole === 'coach';
+  // Check if user is a coach by looking at their profiles table hoa_role field
+  // Since we don't have direct access to hoa_role on the User type, we'll need to check for coach role differently
+  // For now, we'll return false and this will need to be properly implemented when we have the correct data flow
+  const isCoach = false; // TODO: Implement proper coach role checking
 
   const value = {
     currentUser,
