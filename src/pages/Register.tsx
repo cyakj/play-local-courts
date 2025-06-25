@@ -81,7 +81,7 @@ const Register = () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/dashboard`,
+          redirectTo: `${window.location.origin}/complete-profile`,
           queryParams: {
             hoa_id: selectedHOA
           }

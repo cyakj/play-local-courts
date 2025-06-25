@@ -1,65 +1,64 @@
 
-import React from "react";
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
+import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { DataProvider } from "./contexts/DataContext";
-
-// Layouts
 import AuthLayout from "./components/layouts/AuthLayout";
 import MainLayout from "./components/layouts/MainLayout";
-
-// Auth Pages
 import Login from "./pages/Login";
 import Register from "./pages/Register";
-
-// App Pages
+import CompleteProfile from "./pages/CompleteProfile";
 import Dashboard from "./pages/Dashboard";
+import ReserveCourt from "./pages/ReserveCourt";
+import MyReservations from "./pages/MyReservations";
 import Upcoming from "./pages/Upcoming";
-import PendingRequests from "./pages/PendingRequests";
 import ManageCourts from "./pages/ManageCourts";
+import PendingRequests from "./pages/PendingRequests";
 import AmenityRules from "./pages/AmenityRules";
 import MyLocker from "./pages/MyLocker";
-import ReserveCourt from "./pages/ReserveCourt";
+import LeaguesLadders from "./pages/LeaguesLadders";
+import EmailSettings from "./pages/EmailSettings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <BrowserRouter>
-      <Toaster />
-      <Sonner />
-      <AuthProvider>
-        <DataProvider>
-          <Routes>
-            {/* Auth Routes */}
-            <Route element={<AuthLayout />}>
-              <Route path="/" element={<Login />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-            </Route>
-            
-            {/* Protected Routes */}
-            <Route element={<MainLayout />}>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/upcoming" element={<Upcoming />} />
-              <Route path="/my-locker" element={<MyLocker />} />
-              <Route path="/pending-requests" element={<PendingRequests />} />
-              <Route path="/manage-amenities" element={<ManageCourts />} />
-              <Route path="/amenity-rules" element={<AmenityRules />} />
-              <Route path="/reserve-court" element={<ReserveCourt />} />
-            </Route>
-            
-            {/* Catch-all Route */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </DataProvider>
-      </AuthProvider>
-    </BrowserRouter>
-  </QueryClientProvider>
-);
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <BrowserRouter>
+          <AuthProvider>
+            <DataProvider>
+              <Routes>
+                <Route element={<AuthLayout />}>
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/register" element={<Register />} />
+                  <Route path="/complete-profile" element={<CompleteProfile />} />
+                </Route>
+                <Route element={<MainLayout />}>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/reserve" element={<ReserveCourt />} />
+                  <Route path="/my-reservations" element={<MyReservations />} />
+                  <Route path="/upcoming" element={<Upcoming />} />
+                  <Route path="/manage-amenities" element={<ManageCourts />} />
+                  <Route path="/pending-requests" element={<PendingRequests />} />
+                  <Route path="/amenity-rules" element={<AmenityRules />} />
+                  <Route path="/my-locker" element={<MyLocker />} />
+                  <Route path="/leagues-ladders" element={<LeaguesLadders />} />
+                  <Route path="/email-settings" element={<EmailSettings />} />
+                </Route>
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </DataProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+}
 
 export default App;
