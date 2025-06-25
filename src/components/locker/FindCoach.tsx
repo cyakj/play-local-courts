@@ -19,7 +19,7 @@ interface CoachWithProfile extends Coach {
   profiles: {
     full_name: string;
     avatar_url?: string;
-  };
+  } | null;
   averageRating?: number;
   totalReviews?: number;
 }
@@ -43,21 +43,23 @@ const FindCoach: React.FC<FindCoachProps> = ({ onBack }) => {
 
   const loadCoaches = async () => {
     try {
-      const { data, error } = await supabase
+      // First, get all coaches
+      const { data: coachData, error: coachError } = await supabase
         .from('coaches')
-        .select(`
-          *,
-          profiles!coaches_user_id_fkey (
-            full_name,
-            avatar_url
-          )
-        `);
+        .select('*');
 
-      if (error) throw error;
+      if (coachError) throw coachError;
 
-      // Get ratings for each coach
-      const coachesWithRatings = await Promise.all(
-        (data || []).map(async (coach) => {
+      // Then get profiles for each coach
+      const coachesWithProfiles = await Promise.all(
+        (coachData || []).map(async (coach) => {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('full_name, avatar_url')
+            .eq('id', coach.user_id)
+            .single();
+
+          // Get ratings for each coach
           const { data: reviews } = await supabase
             .from('coach_reviews')
             .select('rating')
@@ -69,13 +71,14 @@ const FindCoach: React.FC<FindCoachProps> = ({ onBack }) => {
 
           return {
             ...coach,
+            profiles: profile,
             averageRating,
             totalReviews: reviews?.length || 0
           };
         })
       );
 
-      setCoaches(coachesWithRatings);
+      setCoaches(coachesWithProfiles);
     } catch (error) {
       console.error('Error loading coaches:', error);
       toast.error('Failed to load coaches');
@@ -89,7 +92,7 @@ const FindCoach: React.FC<FindCoachProps> = ({ onBack }) => {
 
     if (selectedSport) {
       filtered = filtered.filter(coach => 
-        coach.sports_offered.includes(selectedSport)
+        coach.sports_offered?.includes(selectedSport)
       );
     }
 
@@ -204,7 +207,7 @@ const FindCoach: React.FC<FindCoachProps> = ({ onBack }) => {
                   {coach.profiles?.avatar_url ? (
                     <img 
                       src={coach.profiles.avatar_url} 
-                      alt={coach.profiles.full_name}
+                      alt={coach.profiles.full_name || 'Coach'}
                       className="w-16 h-16 rounded-full object-cover"
                     />
                   ) : (
@@ -214,7 +217,7 @@ const FindCoach: React.FC<FindCoachProps> = ({ onBack }) => {
                   )}
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-lg">{coach.profiles?.full_name}</h3>
+                  <h3 className="font-semibold text-lg">{coach.profiles?.full_name || 'Coach'}</h3>
                   {coach.business_name && (
                     <p className="text-sm text-gray-600">{coach.business_name}</p>
                   )}
@@ -258,7 +261,7 @@ const FindCoach: React.FC<FindCoachProps> = ({ onBack }) => {
 
               <div className="mb-4">
                 <div className="flex flex-wrap gap-1">
-                  {coach.sports_offered.map((sport) => (
+                  {coach.sports_offered?.map((sport) => (
                     <Badge key={sport} variant="secondary" className="text-xs">
                       {sport}
                     </Badge>
