@@ -31,8 +31,8 @@ const CompleteProfile = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if user already has complete profile
-    if (currentUser?.hoa_id) {
+    // Check if user already has complete profile by checking if they have an HOA assigned
+    if (currentUser?.hoaId) {
       navigate('/dashboard');
       return;
     }
