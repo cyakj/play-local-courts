@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '../../contexts/AuthContext';
-import { LogOut, Home, Calendar, Users, Settings, User, Bell, Menu, X } from 'lucide-react';
+import { LogOut, Home, Calendar, Users, Settings, User, Bell, Menu, X, Shield } from 'lucide-react';
 
 const Navbar = () => {
   const { currentUser, logout } = useAuth();
@@ -99,6 +99,17 @@ const Navbar = () => {
                     Manage
                   </Button>
                 </Link>
+
+                <Link to="/amenity-rules">
+                  <Button 
+                    variant={isActive('/amenity-rules') ? 'default' : 'ghost'} 
+                    size="sm"
+                    className="flex items-center gap-2 transition-all duration-200 hover:scale-105"
+                  >
+                    <Shield className="h-4 w-4" />
+                    Rules
+                  </Button>
+                </Link>
               </>
             )}
 
@@ -180,6 +191,16 @@ const Navbar = () => {
                   >
                     <Settings className="h-4 w-4" />
                     Manage Amenities
+                  </Button>
+                </Link>
+
+                <Link to="/amenity-rules" onClick={() => setIsMobileMenuOpen(false)}>
+                  <Button 
+                    variant={isActive('/amenity-rules') ? 'default' : 'ghost'} 
+                    className="w-full justify-start gap-2"
+                  >
+                    <Shield className="h-4 w-4" />
+                    Amenity Rules
                   </Button>
                 </Link>
               </>
