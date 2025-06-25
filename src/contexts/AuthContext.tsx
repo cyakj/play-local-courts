@@ -106,11 +106,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('Attempting to register user:', email, 'with HOA:', hoaId);
       
-      if (!hoaId) {
-        toast.error("Please select an HOA");
-        throw new Error("HOA selection is required");
-      }
-      
       // Determine if this email should get admin privileges
       const shouldBeAdmin = isAdminEmail(email);
       const userRole = shouldBeAdmin ? UserRole.ADMIN : UserRole.RESIDENT;
@@ -127,7 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             full_name: fullName,
             phone_number: phoneNumber,
             date_of_birth: dateOfBirth,
-            hoa_id: hoaId,
+            hoa_id: hoaId || null, // Allow null HOA ID for non-HOA users
             hoa_role: userRole,
             hoa_status: userStatus,
           }
@@ -159,7 +154,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             id: data.user.id,
             phone_number: phoneNumber,
             date_of_birth: dateOfBirth,
-            hoa_id: hoaId, // Ensure HOA ID is set
+            hoa_id: hoaId || null, // Allow null HOA ID
             full_name: fullName,
             hoa_role: userRole,
             hoa_status: userStatus,
@@ -171,7 +166,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.error('Error updating profile:', updateError);
           // Don't throw - registration was successful
         } else {
-          console.log('Profile updated successfully with HOA:', hoaId, 'role:', userRole);
+          console.log('Profile updated successfully with HOA:', hoaId || 'none', 'role:', userRole);
         }
 
         // Create default email preferences for the new user
@@ -186,8 +181,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (shouldBeAdmin) {
         toast.success("Admin account created successfully! Please check your email to confirm your account.");
-      } else {
+      } else if (hoaId) {
         toast.success("Registration successful! Please check your email to confirm your account, then wait for HOA admin approval.");
+      } else {
+        toast.success("Registration successful! Please check your email to confirm your account.");
       }
     } catch (error: any) {
       console.error('Registration error:', error);

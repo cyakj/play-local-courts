@@ -89,7 +89,8 @@ const Register = () => {
       if (userRole === 'coach') {
         await registerCoach();
       } else {
-        await register(fullName, email, password, phoneNumber, dateOfBirth, selectedHOA);
+        // For players and admins, HOA is optional - pass empty string if not selected
+        await register(fullName, email, password, phoneNumber, dateOfBirth, selectedHOA || '');
       }
     } catch (err: any) {
       setError(err.message || 'Failed to register');
@@ -149,20 +150,23 @@ const Register = () => {
   };
 
   const handleGoogleSignUp = async () => {
-    if (userRole !== 'coach' && !selectedHOA) {
-      setError('Please select an HOA before signing up with Google');
-      return;
-    }
-
     setError('');
     setIsGoogleLoading(true);
     
     try {
+      const queryParams: Record<string, string> = {};
+      
+      if (userRole === 'coach') {
+        queryParams.user_role = 'coach';
+      } else if (selectedHOA) {
+        queryParams.hoa_id = selectedHOA;
+      }
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/complete-profile`,
-          queryParams: userRole === 'coach' ? { user_role: 'coach' } : { hoa_id: selectedHOA }
+          queryParams
         }
       });
       
@@ -212,10 +216,12 @@ const Register = () => {
           {/* HOA Selection for Players and Admins */}
           {(userRole === 'player' || userRole === 'admin') && (
             <div className="space-y-2">
-              <Label htmlFor="hoa">Select Your Community *</Label>
+              <Label htmlFor="hoa">
+                Select Your Community {userRole === 'admin' ? '*' : '(Optional)'}
+              </Label>
               <Select value={selectedHOA} onValueChange={setSelectedHOA} disabled={loadingHOAs || isLoading || isGoogleLoading}>
                 <SelectTrigger>
-                  <SelectValue placeholder={loadingHOAs ? "Loading communities..." : "Choose your HOA"} />
+                  <SelectValue placeholder={loadingHOAs ? "Loading communities..." : "Choose your HOA (or skip if not applicable)"} />
                 </SelectTrigger>
                 <SelectContent>
                   {hoas.map((hoa) => (
@@ -225,6 +231,16 @@ const Register = () => {
                   ))}
                 </SelectContent>
               </Select>
+              {userRole === 'player' && (
+                <p className="text-sm text-gray-500">
+                  You can skip this if you're not part of an HOA or prefer to join one later.
+                </p>
+              )}
+              {userRole === 'admin' && !selectedHOA && (
+                <p className="text-sm text-red-500">
+                  HOA Admins must select a community to manage.
+                </p>
+              )}
             </div>
           )}
 
@@ -235,7 +251,7 @@ const Register = () => {
               variant="outline"
               className="w-full flex items-center gap-3 hover:bg-gray-50"
               onClick={handleGoogleSignUp}
-              disabled={isGoogleLoading || isLoading || (userRole !== 'coach' && !selectedHOA)}
+              disabled={isGoogleLoading || isLoading || (userRole === 'admin' && !selectedHOA)}
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path
@@ -446,7 +462,7 @@ const Register = () => {
             disabled={
               isLoading || 
               isGoogleLoading || 
-              (userRole !== 'coach' && !selectedHOA) ||
+              (userRole === 'admin' && !selectedHOA) ||
               (userRole === 'coach' && (!homeBase || sportsOffered.length === 0))
             }
           >
