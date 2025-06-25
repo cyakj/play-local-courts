@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, MessageCircle, User } from 'lucide-react';
+import { Search, MessageCircle, User, Trophy, Users, Target } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import PlayerProfile from '../components/locker/PlayerProfile';
@@ -51,27 +51,37 @@ const MyLocker = () => {
   if (showFindPartner) {
     return (
       <ErrorBoundary>
-        <FindPartner onBack={() => setShowFindPartner(false)} />
+        <div className="animate-in slide-in-from-right duration-300">
+          <FindPartner onBack={() => setShowFindPartner(false)} />
+        </div>
       </ErrorBoundary>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center gap-2">
-          <h1 className="text-3xl font-bold">My Locker</h1>
+    <div className="container mx-auto px-4 py-8 animate-in fade-in duration-500">
+      <div className="flex justify-between items-center mb-8">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 bg-gradient-to-r from-orange-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg">
+            <User className="h-6 w-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-pink-600 bg-clip-text text-transparent">
+              My Locker
+            </h1>
+            <p className="text-gray-600">Your tennis hub & social center</p>
+          </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-3">
           <Button 
             onClick={() => setShowMessaging(true)}
             variant="outline"
-            className="flex items-center gap-2 relative"
+            className="flex items-center gap-2 relative group hover:scale-105 transition-all duration-200 hover:shadow-lg"
           >
             <MessageCircle className="h-4 w-4" />
             Messages
             {hasUnreadMessages && (
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full"></div>
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
             )}
           </Button>
           <Button 
@@ -79,7 +89,7 @@ const MyLocker = () => {
               console.log('Find a Partner button clicked');
               setShowFindPartner(true);
             }}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 transition-all duration-200 hover:scale-105 hover:shadow-lg"
           >
             <Search className="h-4 w-4" />
             Find a Partner
@@ -88,21 +98,39 @@ const MyLocker = () => {
       </div>
 
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="profile">Player Profile</TabsTrigger>
-          <TabsTrigger value="preferences">Match Finder</TabsTrigger>
-          <TabsTrigger value="ladders">Leagues & Ladders</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3 bg-white/80 backdrop-blur-sm shadow-lg rounded-xl p-1">
+          <TabsTrigger 
+            value="profile" 
+            className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-pink-500 data-[state=active]:text-white transition-all duration-200 rounded-lg"
+          >
+            <User className="h-4 w-4" />
+            Profile
+          </TabsTrigger>
+          <TabsTrigger 
+            value="preferences"
+            className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-blue-500 data-[state=active]:text-white transition-all duration-200 rounded-lg"
+          >
+            <Target className="h-4 w-4" />
+            Match Finder
+          </TabsTrigger>
+          <TabsTrigger 
+            value="ladders"
+            className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-indigo-500 data-[state=active]:text-white transition-all duration-200 rounded-lg"
+          >
+            <Trophy className="h-4 w-4" />
+            Leagues & Ladders
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="profile">
+        <TabsContent value="profile" className="animate-in fade-in duration-300">
           <PlayerProfile />
         </TabsContent>
 
-        <TabsContent value="preferences">
+        <TabsContent value="preferences" className="animate-in fade-in duration-300">
           <MatchPreferences />
         </TabsContent>
 
-        <TabsContent value="ladders">
+        <TabsContent value="ladders" className="animate-in fade-in duration-300">
           <LeaguesLadders />
         </TabsContent>
       </Tabs>

@@ -2,62 +2,39 @@
 import React from 'react';
 import { Outlet, Navigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { UserStatus } from '../../types';
 import Navbar from '../ui/Navbar';
-import PendingApprovalMessage from '../PendingApprovalMessage';
+import BottomNavigation from './BottomNavigation';
 
 const MainLayout = () => {
   const { currentUser, loading } = useAuth();
 
   if (loading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
-  // If not logged in, redirect to login page
-  if (!currentUser) {
-    return <Navigate to="/login" replace />;
-  }
-
-  // If user status is pending or rejected, show appropriate message
-  if (currentUser.status === UserStatus.PENDING) {
-    return <PendingApprovalMessage />;
-  }
-
-  if (currentUser.status === UserStatus.REJECTED) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-red-600 mb-4">Account Rejected</h1>
-          <p className="text-gray-600 mb-4">
-            Your account has been rejected by the HOA admin. Please contact your HOA administrator for more information.
-          </p>
-          <button 
-            onClick={() => {
-              localStorage.removeItem('currentUser');
-              window.location.href = '/login';
-            }}
-            className="bg-primary text-white px-4 py-2 rounded hover:bg-primary/90"
-          >
-            Return to Login
-          </button>
+      <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="relative">
+            <div className="w-16 h-16 border-4 border-green-200 border-t-green-600 rounded-full animate-spin mx-auto"></div>
+            <div className="absolute inset-0 w-16 h-16 border-4 border-transparent border-r-blue-600 rounded-full animate-spin mx-auto" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
+          </div>
+          <p className="text-gray-600 font-medium">Loading your community...</p>
         </div>
       </div>
     );
   }
 
+  if (!currentUser) {
+    return <Navigate to="/login" replace />;
+  }
+
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-green-50/30 via-blue-50/30 to-purple-50/30">
       <Navbar />
-      <main className="flex-grow container mx-auto px-4 py-8">
-        <Outlet />
+      <main className="pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        <div className="py-6">
+          <Outlet />
+        </div>
       </main>
-      <footer className="py-4 text-center bg-white border-t">
-        <p className="text-sm text-gray-500">© 2025 HOA Court Reservation System</p>
-      </footer>
+      <BottomNavigation />
     </div>
   );
 };
