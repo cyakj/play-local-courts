@@ -23,8 +23,8 @@ import { toast } from 'sonner';
 
 const CoachDashboard = () => {
   const { currentUser } = useAuth();
-  const [lessonRequests, setLessonRequests] = useState<LessonRequest[]>([]);
-  const [reviews, setReviews] = useState<CoachReview[]>([]);
+  const [lessonRequests, setLessonRequests] = useState<any[]>([]);
+  const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     pendingRequests: 0,
@@ -208,7 +208,7 @@ const CoachDashboard = () => {
                 <p className="text-center text-gray-500 py-8">No lesson requests yet</p>
               ) : (
                 <div className="space-y-4">
-                  {lessonRequests.map((request: any) => (
+                  {lessonRequests.map((request) => (
                     <div key={request.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
@@ -269,7 +269,7 @@ const CoachDashboard = () => {
                 <p className="text-center text-gray-500 py-8">No reviews yet</p>
               ) : (
                 <div className="space-y-4">
-                  {reviews.map((review: any) => (
+                  {reviews.map((review) => (
                     <div key={review.id} className="p-4 border rounded-lg">
                       <div className="flex items-center justify-between mb-2">
                         <h3 className="font-medium">{review.profiles?.full_name}</h3>

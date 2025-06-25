@@ -75,7 +75,7 @@ const FindCoach: React.FC<FindCoachProps> = ({ onBack }) => {
         })
       );
 
-      setCoaches(coachesWithRatings as CoachWithProfile[]);
+      setCoaches(coachesWithRatings);
     } catch (error) {
       console.error('Error loading coaches:', error);
       toast.error('Failed to load coaches');
@@ -89,18 +89,18 @@ const FindCoach: React.FC<FindCoachProps> = ({ onBack }) => {
 
     if (selectedSport) {
       filtered = filtered.filter(coach => 
-        coach.sportsOffered.includes(selectedSport)
+        coach.sports_offered.includes(selectedSport)
       );
     }
 
     if (travelFilter === 'travel') {
-      filtered = filtered.filter(coach => coach.willingToTravel);
+      filtered = filtered.filter(coach => coach.willing_to_travel);
     }
 
     if (maxRate) {
       const maxRateNum = parseFloat(maxRate);
       filtered = filtered.filter(coach => 
-        !coach.hourlyRate || coach.hourlyRate <= maxRateNum
+        !coach.hourly_rate || coach.hourly_rate <= maxRateNum
       );
     }
 
@@ -215,8 +215,8 @@ const FindCoach: React.FC<FindCoachProps> = ({ onBack }) => {
                 </div>
                 <div className="flex-1">
                   <h3 className="font-semibold text-lg">{coach.profiles?.full_name}</h3>
-                  {coach.businessName && (
-                    <p className="text-sm text-gray-600">{coach.businessName}</p>
+                  {coach.business_name && (
+                    <p className="text-sm text-gray-600">{coach.business_name}</p>
                   )}
                   <div className="flex items-center gap-2 mt-1">
                     {coach.averageRating && (
@@ -233,21 +233,21 @@ const FindCoach: React.FC<FindCoachProps> = ({ onBack }) => {
               <div className="space-y-2 mb-4">
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <MapPin className="h-4 w-4" />
-                  <span>{coach.homeBase}</span>
-                  {coach.willingToTravel && (
+                  <span>{coach.home_base}</span>
+                  {coach.willing_to_travel && (
                     <Badge variant="secondary" className="text-xs">Will Travel</Badge>
                   )}
                 </div>
 
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <Clock className="h-4 w-4" />
-                  <span>{coach.yearsExperience} years experience</span>
+                  <span>{coach.years_experience} years experience</span>
                 </div>
 
-                {coach.hourlyRate && (
+                {coach.hourly_rate && (
                   <div className="flex items-center gap-2 text-sm text-gray-600">
                     <DollarSign className="h-4 w-4" />
-                    <span>${coach.hourlyRate}/hour</span>
+                    <span>${coach.hourly_rate}/hour</span>
                   </div>
                 )}
 
@@ -258,7 +258,7 @@ const FindCoach: React.FC<FindCoachProps> = ({ onBack }) => {
 
               <div className="mb-4">
                 <div className="flex flex-wrap gap-1">
-                  {coach.sportsOffered.map((sport) => (
+                  {coach.sports_offered.map((sport) => (
                     <Badge key={sport} variant="secondary" className="text-xs">
                       {sport}
                     </Badge>
