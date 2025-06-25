@@ -45,7 +45,7 @@ const Register = () => {
   const [hoas, setHOAs] = useState<HOA[]>([]);
   const [loadingHOAs, setLoadingHOAs] = useState(true);
   
-  const { register } = useAuth();
+  const { register, registerCoach } = useAuth();
 
   useEffect(() => {
     if (userRole === 'player' || userRole === 'admin') {
@@ -87,65 +87,25 @@ const Register = () => {
     
     try {
       if (userRole === 'coach') {
-        await registerCoach();
+        // Use the registerCoach method from AuthContext
+        await registerCoach(fullName, email, password, {
+          businessName,
+          credentials,
+          yearsExperience,
+          sportsOffered,
+          homeBase,
+          willingToTravel,
+          hourlyRate,
+          bio
+        });
       } else {
-        // For players and admins, HOA is optional - pass empty string if not selected
+        // For players and admins
         await register(fullName, email, password, phoneNumber, dateOfBirth, selectedHOA || '');
       }
     } catch (err: any) {
       setError(err.message || 'Failed to register');
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const registerCoach = async () => {
-    if (sportsOffered.length === 0) {
-      throw new Error('Please select at least one sport you offer coaching for');
-    }
-
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/dashboard`,
-        data: {
-          full_name: fullName,
-          phone_number: phoneNumber,
-          date_of_birth: dateOfBirth,
-          hoa_role: 'coach',
-          hoa_status: 'approved', // Coaches don't need HOA approval
-        }
-      }
-    });
-
-    if (error) {
-      console.error('Coach registration error:', error);
-      throw error;
-    }
-
-    if (data.user) {
-      // Create coach profile
-      const { error: coachError } = await supabase
-        .from('coaches')
-        .insert({
-          user_id: data.user.id,
-          business_name: businessName || null,
-          credentials,
-          years_experience: yearsExperience,
-          sports_offered: sportsOffered,
-          home_base: homeBase,
-          willing_to_travel: willingToTravel,
-          hourly_rate: hourlyRate || null,
-          bio: bio || null
-        });
-
-      if (coachError) {
-        console.error('Error creating coach profile:', coachError);
-        throw new Error('Failed to create coach profile');
-      }
-
-      toast.success("Coach registration successful! Please check your email to confirm your account.");
     }
   };
 
