@@ -71,10 +71,14 @@ const FindCoach: React.FC<FindCoachProps> = ({ onBack }) => {
 
           return {
             ...coach,
+            // Cast credentials to the expected type, defaulting to 'None' if invalid
+            credentials: (['USPTA', 'PTR', 'None'].includes(coach.credentials)) 
+              ? coach.credentials as 'USPTA' | 'PTR' | 'None'
+              : 'None' as const,
             profiles: profile,
             averageRating,
             totalReviews: reviews?.length || 0
-          };
+          } as CoachWithProfile;
         })
       );
 

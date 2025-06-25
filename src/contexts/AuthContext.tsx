@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { User, UserRole, UserStatus } from '../types';
@@ -275,7 +276,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const isAdmin = currentUser?.role === UserRole.ADMIN;
   const isPending = currentUser?.status === UserStatus.PENDING;
-  const isCoach = currentUser?.role === 'coach';
+  const isCoach = currentUser?.hoaRole === 'coach';
 
   const value = {
     currentUser,
