@@ -176,6 +176,33 @@ export type Database = {
           },
         ]
       }
+      client_notes: {
+        Row: {
+          client_id: string
+          coach_id: string
+          created_at: string | null
+          id: string
+          notes: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          client_id: string
+          coach_id: string
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          client_id?: string
+          coach_id?: string
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       clubs: {
         Row: {
           created_at: string | null
@@ -220,6 +247,125 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      coach_availability: {
+        Row: {
+          coach_id: string
+          created_at: string | null
+          day_of_week: number
+          end_time: string
+          id: string
+          start_time: string
+        }
+        Insert: {
+          coach_id: string
+          created_at?: string | null
+          day_of_week: number
+          end_time: string
+          id?: string
+          start_time: string
+        }
+        Update: {
+          coach_id?: string
+          created_at?: string | null
+          day_of_week?: number
+          end_time?: string
+          id?: string
+          start_time?: string
+        }
+        Relationships: []
+      }
+      coach_reviews: {
+        Row: {
+          coach_id: string
+          coach_response: string | null
+          created_at: string | null
+          id: string
+          lesson_request_id: string | null
+          player_id: string
+          rating: number
+          review_text: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          coach_id: string
+          coach_response?: string | null
+          created_at?: string | null
+          id?: string
+          lesson_request_id?: string | null
+          player_id: string
+          rating: number
+          review_text?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          coach_id?: string
+          coach_response?: string | null
+          created_at?: string | null
+          id?: string
+          lesson_request_id?: string | null
+          player_id?: string
+          rating?: number
+          review_text?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_reviews_lesson_request_id_fkey"
+            columns: ["lesson_request_id"]
+            isOneToOne: true
+            referencedRelation: "lesson_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coaches: {
+        Row: {
+          bio: string | null
+          business_name: string | null
+          created_at: string | null
+          credentials: string | null
+          home_base: string | null
+          hourly_rate: number | null
+          id: string
+          profile_image_url: string | null
+          sports_offered: string[] | null
+          updated_at: string | null
+          user_id: string
+          willing_to_travel: boolean | null
+          years_experience: number | null
+        }
+        Insert: {
+          bio?: string | null
+          business_name?: string | null
+          created_at?: string | null
+          credentials?: string | null
+          home_base?: string | null
+          hourly_rate?: number | null
+          id?: string
+          profile_image_url?: string | null
+          sports_offered?: string[] | null
+          updated_at?: string | null
+          user_id: string
+          willing_to_travel?: boolean | null
+          years_experience?: number | null
+        }
+        Update: {
+          bio?: string | null
+          business_name?: string | null
+          created_at?: string | null
+          credentials?: string | null
+          home_base?: string | null
+          hourly_rate?: number | null
+          id?: string
+          profile_image_url?: string | null
+          sports_offered?: string[] | null
+          updated_at?: string | null
+          user_id?: string
+          willing_to_travel?: boolean | null
+          years_experience?: number | null
+        }
+        Relationships: []
       }
       comments: {
         Row: {
@@ -700,6 +846,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      lesson_requests: {
+        Row: {
+          coach_id: string
+          created_at: string | null
+          id: string
+          lesson_type: string
+          location: string | null
+          notes: string | null
+          player_id: string
+          preferred_date: string
+          preferred_time_end: string
+          preferred_time_start: string
+          skill_level: string
+          sport: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          coach_id: string
+          created_at?: string | null
+          id?: string
+          lesson_type: string
+          location?: string | null
+          notes?: string | null
+          player_id: string
+          preferred_date: string
+          preferred_time_end: string
+          preferred_time_start: string
+          skill_level: string
+          sport: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          coach_id?: string
+          created_at?: string | null
+          id?: string
+          lesson_type?: string
+          location?: string | null
+          notes?: string | null
+          player_id?: string
+          preferred_date?: string
+          preferred_time_end?: string
+          preferred_time_start?: string
+          skill_level?: string
+          sport?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       likes: {
         Row: {

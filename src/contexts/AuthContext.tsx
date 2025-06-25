@@ -13,9 +13,11 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (fullName: string, email: string, password: string, phoneNumber: string | undefined, dateOfBirth: string | undefined, hoaId: string) => Promise<void>;
+  registerCoach: (fullName: string, email: string, password: string, coachData: any) => Promise<void>;
   logout: () => void;
   isAdmin: boolean;
   isPending: boolean;
+  isCoach: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -194,6 +196,71 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const registerCoach = async (
+    fullName: string,
+    email: string,
+    password: string,
+    coachData: any
+  ) => {
+    try {
+      console.log('Attempting to register coach:', email);
+      
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/dashboard`,
+          data: {
+            full_name: fullName,
+            hoa_role: 'coach',
+            hoa_status: 'approved', // Coaches don't need HOA approval
+          }
+        }
+      });
+
+      if (error) {
+        console.error('Coach registration error:', error);
+        throw error;
+      }
+
+      if (data.user) {
+        // Create coach profile
+        const { error: coachError } = await supabase
+          .from('coaches')
+          .insert({
+            user_id: data.user.id,
+            business_name: coachData.businessName || null,
+            credentials: coachData.credentials,
+            years_experience: coachData.yearsExperience,
+            sports_offered: coachData.sportsOffered,
+            home_base: coachData.homeBase,
+            willing_to_travel: coachData.willingToTravel,
+            hourly_rate: coachData.hourlyRate || null,
+            bio: coachData.bio || null
+          });
+
+        if (coachError) {
+          console.error('Error creating coach profile:', coachError);
+          throw new Error('Failed to create coach profile');
+        }
+
+        // Create default email preferences for the new coach
+        try {
+          await createDefaultEmailPreferences(data.user.id);
+          console.log('Default email preferences created for coach');
+        } catch (emailPrefError) {
+          console.error('Error creating email preferences:', emailPrefError);
+          // Don't throw error - registration was successful even if email prefs failed
+        }
+
+        toast.success("Coach registration successful! Please check your email to confirm your account.");
+      }
+    } catch (error: any) {
+      console.error('Coach registration error:', error);
+      throw error;
+    }
+  };
+
   const logout = async () => {
     try {
       console.log('Logging out user...');
@@ -209,15 +276,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const isAdmin = currentUser?.role === UserRole.ADMIN;
   const isPending = currentUser?.status === UserStatus.PENDING;
+  const isCoach = currentUser?.role === 'coach';
 
   const value = {
     currentUser,
     loading,
     login,
     register,
+    registerCoach,
     logout,
     isAdmin,
-    isPending
+    isPending,
+    isCoach
   };
 
   return (

@@ -11,6 +11,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import CompleteProfile from "./pages/CompleteProfile";
 import Dashboard from "./pages/Dashboard";
+import CoachDashboard from "./pages/CoachDashboard";
 import ReserveCourt from "./pages/ReserveCourt";
 import MyReservations from "./pages/MyReservations";
 import Upcoming from "./pages/Upcoming";
@@ -41,6 +42,7 @@ function App() {
                 <Route element={<MainLayout />}>
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/coach-dashboard" element={<CoachDashboard />} />
                   <Route path="/reserve" element={<ReserveCourt />} />
                   <Route path="/my-reservations" element={<MyReservations />} />
                   <Route path="/upcoming" element={<Upcoming />} />

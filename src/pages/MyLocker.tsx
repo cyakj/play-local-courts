@@ -3,12 +3,13 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, MessageCircle, User, Trophy, Users, Target } from 'lucide-react';
+import { Search, MessageCircle, User, Trophy, Users, Target, GraduationCap } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import PlayerProfile from '../components/locker/PlayerProfile';
 import MatchPreferences from '../components/locker/MatchPreferences';
 import FindPartner from '../components/locker/FindPartner';
+import FindCoach from '../components/locker/FindCoach';
 import MessagingDialog from '../components/locker/MessagingDialog';
 import LeaguesLadders from './LeaguesLadders';
 import ErrorBoundary from '../components/ErrorBoundary';
@@ -16,10 +17,11 @@ import ErrorBoundary from '../components/ErrorBoundary';
 const MyLocker = () => {
   const { currentUser } = useAuth();
   const [showFindPartner, setShowFindPartner] = useState(false);
+  const [showFindCoach, setShowFindCoach] = useState(false);
   const [showMessaging, setShowMessaging] = useState(false);
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
 
-  console.log('MyLocker component loaded, showFindPartner:', showFindPartner);
+  console.log('MyLocker component loaded, showFindPartner:', showFindPartner, 'showFindCoach:', showFindCoach);
 
   useEffect(() => {
     if (currentUser) {
@@ -58,6 +60,16 @@ const MyLocker = () => {
     );
   }
 
+  if (showFindCoach) {
+    return (
+      <ErrorBoundary>
+        <div className="animate-in slide-in-from-right duration-300">
+          <FindCoach onBack={() => setShowFindCoach(false)} />
+        </div>
+      </ErrorBoundary>
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 py-8 animate-in fade-in duration-500">
       <div className="flex justify-between items-center mb-8">
@@ -83,6 +95,17 @@ const MyLocker = () => {
             {hasUnreadMessages && (
               <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
             )}
+          </Button>
+          <Button 
+            onClick={() => {
+              console.log('Find a Coach button clicked');
+              setShowFindCoach(true);
+            }}
+            variant="outline"
+            className="flex items-center gap-2 hover:scale-105 transition-all duration-200 hover:shadow-lg"
+          >
+            <GraduationCap className="h-4 w-4" />
+            Find a Coach
           </Button>
           <Button 
             onClick={() => {
