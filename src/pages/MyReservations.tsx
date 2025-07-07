@@ -53,7 +53,7 @@ const MyReservations = () => {
               <div className="text-center py-8">
                 <p className="text-muted-foreground">You don't have any upcoming reservations</p>
                 <Button className="mt-4" asChild>
-                  <a href="/reserve">Book an Amenity</a>
+                  <a href="/reserve-court">Book an Amenity</a>
                 </Button>
               </div>
             ) : (
