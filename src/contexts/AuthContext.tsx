@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { User as SupabaseUser, Session } from '@supabase/supabase-js';
-import { User, UserRole, UserStatus } from '../types';
+import { User, UserRole, UserStatus, UserType } from '../types';
 import { supabase } from '@/integrations/supabase/client';
 import { getCurrentUserProfile } from '../services/supabaseService';
 import { createDefaultEmailPreferences } from '../services/emailService';
@@ -159,6 +159,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             full_name: fullName,
             hoa_role: userRole,
             hoa_status: userStatus,
+            user_type: hoaId ? UserType.HOA : UserType.NON_HOA, // Set user type based on HOA presence
           }, {
             onConflict: 'id'
           });

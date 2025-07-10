@@ -1285,6 +1285,7 @@ export type Database = {
           referred_by: string | null
           role: Database["public"]["Enums"]["user_role"] | null
           updated_at: string | null
+          user_type: string | null
           username: string | null
           usta_ranking: string | null
           utr_rating: number | null
@@ -1308,6 +1309,7 @@ export type Database = {
           referred_by?: string | null
           role?: Database["public"]["Enums"]["user_role"] | null
           updated_at?: string | null
+          user_type?: string | null
           username?: string | null
           usta_ranking?: string | null
           utr_rating?: number | null
@@ -1331,6 +1333,7 @@ export type Database = {
           referred_by?: string | null
           role?: Database["public"]["Enums"]["user_role"] | null
           updated_at?: string | null
+          user_type?: string | null
           username?: string | null
           usta_ranking?: string | null
           utr_rating?: number | null

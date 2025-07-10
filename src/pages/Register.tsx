@@ -28,6 +28,7 @@ const Register = () => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [selectedHOA, setSelectedHOA] = useState('');
+  const [livesInHOA, setLivesInHOA] = useState<boolean | null>(null);
   
   // Coach-specific fields
   const [businessName, setBusinessName] = useState('');
@@ -48,12 +49,12 @@ const Register = () => {
   const { register, registerCoach } = useAuth();
 
   useEffect(() => {
-    if (userRole === 'player' || userRole === 'admin') {
+    if ((userRole === 'player' && livesInHOA) || userRole === 'admin') {
       loadHOAs();
     } else {
       setLoadingHOAs(false);
     }
-  }, [userRole]);
+  }, [userRole, livesInHOA]);
 
   const loadHOAs = async () => {
     try {
@@ -139,15 +140,75 @@ const Register = () => {
             </Select>
           </div>
 
-          {/* HOA Selection for Players and Admins */}
-          {(userRole === 'player' || userRole === 'admin') && (
+          {/* HOA Question for Players */}
+          {userRole === 'player' && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Do you live in an HOA that uses this app? <span className="text-red-500">*</span></Label>
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <input 
+                      type="radio" 
+                      id="livesInHOA-yes" 
+                      name="livesInHOA" 
+                      value="yes"
+                      checked={livesInHOA === true}
+                      onChange={() => setLivesInHOA(true)}
+                      className="text-primary"
+                    />
+                    <Label htmlFor="livesInHOA-yes">Yes, I live in an HOA</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input 
+                      type="radio" 
+                      id="livesInHOA-no" 
+                      name="livesInHOA" 
+                      value="no"
+                      checked={livesInHOA === false}
+                      onChange={() => setLivesInHOA(false)}
+                      className="text-primary"
+                    />
+                    <Label htmlFor="livesInHOA-no">No, I'm not part of an HOA</Label>
+                  </div>
+                </div>
+              </div>
+
+              {/* HOA Selection for Players who live in HOA */}
+              {livesInHOA && (
+                <div className="space-y-2">
+                  <Label htmlFor="hoa">Select Your Community <span className="text-red-500">*</span></Label>
+                  <Select value={selectedHOA} onValueChange={setSelectedHOA} disabled={loadingHOAs || isLoading}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={loadingHOAs ? "Loading communities..." : "Choose your HOA"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {hoas.map((hoa) => (
+                        <SelectItem key={hoa.id} value={hoa.id}>
+                          {hoa.name} {hoa.address && `- ${hoa.address}`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {livesInHOA === false && (
+                <div className="p-4 bg-blue-50 rounded-lg border-l-4 border-blue-500">
+                  <p className="text-sm text-blue-800">
+                    Perfect! You'll have access to tennis networking, coaching, competitive play, and public court discovery features.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* HOA Selection for Admins */}
+          {userRole === 'admin' && (
             <div className="space-y-2">
-              <Label htmlFor="hoa">
-                Select Your Community {userRole === 'admin' ? <span className="text-red-500">*</span> : '(Optional)'}
-              </Label>
+              <Label htmlFor="hoa">Select Your Community <span className="text-red-500">*</span></Label>
               <Select value={selectedHOA} onValueChange={setSelectedHOA} disabled={loadingHOAs || isLoading}>
                 <SelectTrigger>
-                  <SelectValue placeholder={loadingHOAs ? "Loading communities..." : "Choose your HOA (or skip if not applicable)"} />
+                  <SelectValue placeholder={loadingHOAs ? "Loading communities..." : "Choose your HOA"} />
                 </SelectTrigger>
                 <SelectContent>
                   {hoas.map((hoa) => (
@@ -157,12 +218,7 @@ const Register = () => {
                   ))}
                 </SelectContent>
               </Select>
-              {userRole === 'player' && (
-                <p className="text-sm text-gray-500">
-                  You can skip this if you're not part of an HOA or prefer to join one later.
-                </p>
-              )}
-              {userRole === 'admin' && !selectedHOA && (
+              {!selectedHOA && (
                 <p className="text-sm text-red-500">
                   HOA Admins must select a community to manage.
                 </p>
@@ -348,9 +404,11 @@ const Register = () => {
           <Button 
             type="submit" 
             className="w-full" 
-              disabled={
+            disabled={
               isLoading || 
               (userRole === 'admin' && !selectedHOA) ||
+              (userRole === 'player' && livesInHOA === null) ||
+              (userRole === 'player' && livesInHOA === true && !selectedHOA) ||
               (userRole === 'coach' && (!homeBase || sportsOffered.length === 0))
             }
           >

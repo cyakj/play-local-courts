@@ -1,9 +1,10 @@
 
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Calendar, User, Settings, Plus } from 'lucide-react';
+import { Home, Calendar, User, Settings, Plus, Users, GraduationCap, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '../../contexts/AuthContext';
+import { UserType } from '../../types';
 
 const BottomNavigation = () => {
   const { currentUser, isAdmin } = useAuth();
@@ -17,33 +18,75 @@ const BottomNavigation = () => {
     return null;
   }
 
-  const navItems = [
-    {
-      path: '/',
-      icon: Home,
-      label: 'Home',
-      color: 'text-green-600'
-    },
-    {
-      path: '/upcoming',
-      icon: Calendar,
-      label: 'Upcoming',
-      color: 'text-blue-600'
-    },
-    {
-      path: '/reserve-court',
-      icon: Plus,
-      label: 'Reserve',
-      color: 'text-purple-600',
-      isSpecial: true
-    },
-    {
-      path: '/my-locker',
-      icon: User,
-      label: 'My Locker',
-      color: 'text-orange-600'
+  // Different nav items based on user type
+  const getNavItems = () => {
+    if (currentUser?.userType === UserType.NON_HOA) {
+      return [
+        {
+          path: '/',
+          icon: Home,
+          label: 'Home',
+          color: 'text-green-600'
+        },
+        {
+          path: '/my-locker',
+          icon: Users,
+          label: 'Find Match',
+          color: 'text-blue-600'
+        },
+        {
+          path: '/coach-dashboard',
+          icon: GraduationCap,
+          label: 'Find Coach',
+          color: 'text-purple-600',
+          isSpecial: true
+        },
+        {
+          path: '/my-locker',
+          icon: User,
+          label: 'My Locker',
+          color: 'text-orange-600'
+        },
+        {
+          path: '/my-reservations',
+          icon: Calendar,
+          label: 'Schedule',
+          color: 'text-cyan-600'
+        }
+      ];
     }
-  ];
+
+    // HOA user navigation
+    return [
+      {
+        path: '/',
+        icon: Home,
+        label: 'Home',
+        color: 'text-green-600'
+      },
+      {
+        path: '/upcoming',
+        icon: Calendar,
+        label: 'Upcoming',
+        color: 'text-blue-600'
+      },
+      {
+        path: '/reserve-court',
+        icon: Plus,
+        label: 'Reserve',
+        color: 'text-purple-600',
+        isSpecial: true
+      },
+      {
+        path: '/my-locker',
+        icon: User,
+        label: 'My Locker',
+        color: 'text-orange-600'
+      }
+    ];
+  };
+
+  const navItems = getNavItems();
 
   if (isAdmin) {
     navItems.push({

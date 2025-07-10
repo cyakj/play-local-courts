@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { User, HOA, Amenity, Booking, UserRole, UserStatus, ProfileRow, HOARow, AmenityRow, BookingRow } from '../types';
+import { User, HOA, Amenity, Booking, UserRole, UserStatus, UserType, ProfileRow, HOARow, AmenityRow, BookingRow } from '../types';
 import { shouldSendEmail } from './emailService';
 
 // Helper functions to transform database rows to app types
@@ -11,7 +11,9 @@ const transformProfileToUser = (profile: any, userEmail?: string): User => ({
   dateOfBirth: profile.date_of_birth,
   role: profile.hoa_role as UserRole,
   status: profile.hoa_status as UserStatus,
-  hoaId: profile.hoa_id || '',
+  hoaId: profile.hoa_id || undefined,
+  userType: (profile.user_type === 'coach' ? UserType.COACH : 
+           profile.user_type === 'non_hoa' ? UserType.NON_HOA : UserType.HOA),
   createdAt: profile.created_at
 });
 

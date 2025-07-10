@@ -19,6 +19,13 @@ export enum AmenityStatus {
   MAINTENANCE = "maintenance"
 }
 
+// User type for the application
+export enum UserType {
+  HOA = "hoa",
+  NON_HOA = "non_hoa", 
+  COACH = "coach"
+}
+
 // User type matching Supabase profiles table
 export interface User {
   id: string;
@@ -28,7 +35,8 @@ export interface User {
   dateOfBirth?: string;
   role: UserRole; // maps to hoa_role in database
   status: UserStatus; // maps to hoa_status in database
-  hoaId: string;
+  hoaId?: string; // Optional for non-HOA users
+  userType: UserType; // maps to user_type in database
   createdAt: string;
 }
 
@@ -98,6 +106,7 @@ export interface ProfileRow {
   hoa_role: string;
   hoa_status: string;
   hoa_id?: string;
+  user_type: string;
   created_at: string;
 }
 

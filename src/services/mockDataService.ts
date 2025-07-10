@@ -1,5 +1,5 @@
 
-import { User, UserRole, UserStatus, HOA, Amenity, Booking, TimeSlot, AmenityStatus } from '../types';
+import { User, UserRole, UserStatus, UserType, HOA, Amenity, Booking, TimeSlot, AmenityStatus } from '../types';
 
 // Mock HOAs
 export const mockHOAs: HOA[] = [
@@ -16,6 +16,7 @@ export const mockUsers: User[] = [
     role: UserRole.ADMIN,
     status: UserStatus.APPROVED,
     hoaId: "1",
+    userType: UserType.HOA,
     createdAt: "2023-01-01T00:00:00Z"
   },
   {
@@ -25,6 +26,7 @@ export const mockUsers: User[] = [
     role: UserRole.ADMIN,
     status: UserStatus.APPROVED,
     hoaId: "2",
+    userType: UserType.HOA,
     createdAt: "2023-01-01T00:00:00Z"
   },
   {
@@ -35,6 +37,7 @@ export const mockUsers: User[] = [
     role: UserRole.RESIDENT,
     status: UserStatus.APPROVED,
     hoaId: "1",
+    userType: UserType.HOA,
     createdAt: "2023-02-01T00:00:00Z"
   },
   {
@@ -44,6 +47,7 @@ export const mockUsers: User[] = [
     role: UserRole.RESIDENT,
     status: UserStatus.PENDING,
     hoaId: "1",
+    userType: UserType.HOA,
     createdAt: "2023-03-01T00:00:00Z"
   }
 ];

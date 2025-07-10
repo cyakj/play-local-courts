@@ -8,6 +8,8 @@ import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import PendingApprovalMessage from '../components/PendingApprovalMessage';
+import NonHOADashboard from '../components/dashboards/NonHOADashboard';
+import { UserType } from '../types';
 import { 
   Users, 
   Calendar, 
@@ -131,6 +133,11 @@ const Dashboard = () => {
         </div>
       </div>
     );
+  }
+
+  // Show non-HOA dashboard for non-HOA users
+  if (currentUser.userType === UserType.NON_HOA) {
+    return <NonHOADashboard />;
   }
   
   // Filter for upcoming bookings

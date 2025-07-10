@@ -13,6 +13,7 @@ import FindCoach from '../components/locker/FindCoach';
 import MessagingDialog from '../components/locker/MessagingDialog';
 import LeaguesLadders from './LeaguesLadders';
 import ErrorBoundary from '../components/ErrorBoundary';
+import { UserType } from '../types';
 
 const MyLocker = () => {
   const { currentUser } = useAuth();
@@ -70,6 +71,9 @@ const MyLocker = () => {
     );
   }
 
+  // Different header text and functionality for non-HOA users
+  const isNonHOA = currentUser?.userType === UserType.NON_HOA;
+  
   return (
     <div className="container mx-auto px-4 py-8 animate-in fade-in duration-500">
       <div className="flex justify-between items-center mb-8">
@@ -79,9 +83,11 @@ const MyLocker = () => {
           </div>
           <div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-pink-600 bg-clip-text text-transparent">
-              My Locker
+              {isNonHOA ? 'Tennis Network Hub' : 'My Locker'}
             </h1>
-            <p className="text-gray-600">Your tennis hub & social center</p>
+            <p className="text-gray-600">
+              {isNonHOA ? 'Connect with tennis players and improve your game' : 'Your tennis hub & social center'}
+            </p>
           </div>
         </div>
         <div className="flex gap-3">
@@ -115,7 +121,7 @@ const MyLocker = () => {
             className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 transition-all duration-200 hover:scale-105 hover:shadow-lg"
           >
             <Search className="h-4 w-4" />
-            Find a Partner
+            {isNonHOA ? 'Find Tennis Players' : 'Find a Partner'}
           </Button>
         </div>
       </div>
@@ -134,14 +140,14 @@ const MyLocker = () => {
             className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-blue-500 data-[state=active]:text-white transition-all duration-200 rounded-lg"
           >
             <Target className="h-4 w-4" />
-            Match Finder
+            {isNonHOA ? 'Open Play Network' : 'Match Finder'}
           </TabsTrigger>
           <TabsTrigger 
             value="ladders"
             className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-indigo-500 data-[state=active]:text-white transition-all duration-200 rounded-lg"
           >
             <Trophy className="h-4 w-4" />
-            Leagues & Ladders
+            {isNonHOA ? 'Public Ladders' : 'Leagues & Ladders'}
           </TabsTrigger>
         </TabsList>
 
@@ -150,11 +156,56 @@ const MyLocker = () => {
         </TabsContent>
 
         <TabsContent value="preferences" className="animate-in fade-in duration-300">
-          <MatchPreferences />
+          <div className="space-y-6">
+            {isNonHOA && (
+              <Card className="bg-gradient-to-r from-blue-50 to-green-50 border-l-4 border-l-blue-500">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-blue-800">
+                    <Users className="h-5 w-5" />
+                    Open Tennis Network
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-blue-700 mb-4">
+                    Set your preferences to connect with other tennis players who aren't part of an HOA. 
+                    Find players at your skill level for singles, doubles, or group play!
+                  </p>
+                  <div className="text-sm text-blue-600">
+                    ✓ Connect with players nationwide<br/>
+                    ✓ Filter by location, skill level, and availability<br/>
+                    ✓ Join public tournaments and ladders
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            <MatchPreferences />
+          </div>
         </TabsContent>
 
         <TabsContent value="ladders" className="animate-in fade-in duration-300">
-          <LeaguesLadders />
+          <div className="space-y-6">
+            {isNonHOA && (
+              <Card className="bg-gradient-to-r from-purple-50 to-pink-50 border-l-4 border-l-purple-500">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-purple-800">
+                    <Trophy className="h-5 w-5" />
+                    Public Competitive Play
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-purple-700 mb-4">
+                    Join public ladders and leagues open to all players. Compete with players from different communities and track your ranking!
+                  </p>
+                  <div className="text-sm text-purple-600">
+                    ✓ Open to all skill levels<br/>
+                    ✓ Play against diverse competition<br/>
+                    ✓ Track your progress and ranking
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            <LeaguesLadders />
+          </div>
         </TabsContent>
       </Tabs>
 
