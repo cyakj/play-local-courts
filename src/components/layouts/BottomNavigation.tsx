@@ -19,7 +19,7 @@ const BottomNavigation = () => {
 
   const navItems = [
     {
-      path: '/dashboard',
+      path: '/',
       icon: Home,
       label: 'Home',
       color: 'text-green-600'
@@ -27,7 +27,7 @@ const BottomNavigation = () => {
     {
       path: '/upcoming',
       icon: Calendar,
-      label: 'Schedule',
+      label: 'Upcoming',
       color: 'text-blue-600'
     },
     {

@@ -1,18 +1,11 @@
-
-import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import React from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '../../contexts/AuthContext';
-import { LogOut, Home, Calendar, User, Menu, X } from 'lucide-react';
+import { LogOut, Home } from 'lucide-react';
 
 const Navbar = () => {
   const { currentUser, logout } = useAuth();
-  const location = useLocation();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-  const isActive = (path: string) => {
-    return location.pathname === path;
-  };
 
   const handleLogout = async () => {
     try {
@@ -31,7 +24,7 @@ const Navbar = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex items-center space-x-4">
-            <Link to="/dashboard" className="flex items-center space-x-2 group">
+            <Link to="/" className="flex items-center space-x-2 group">
               <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-blue-500 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
                 <Home className="h-4 w-4 text-white" />
               </div>
@@ -41,44 +34,8 @@ const Navbar = () => {
             </Link>
           </div>
           
-          {/* Desktop Menu */}
-          <div className="hidden md:flex items-center space-x-2">
-            <Link to="/dashboard">
-              <Button 
-                variant={isActive('/dashboard') ? 'default' : 'ghost'} 
-                size="sm"
-                className="flex items-center gap-2 transition-all duration-200 hover:scale-105"
-              >
-                <Home className="h-4 w-4" />
-                Dashboard
-              </Button>
-            </Link>
-            
-            <Link to="/upcoming">
-              <Button 
-                variant={isActive('/upcoming') ? 'default' : 'ghost'} 
-                size="sm"
-                className="flex items-center gap-2 transition-all duration-200 hover:scale-105"
-              >
-                <Calendar className="h-4 w-4" />
-                Upcoming
-              </Button>
-            </Link>
-
-            <Link to="/my-locker">
-              <Button 
-                variant={isActive('/my-locker') ? 'default' : 'ghost'} 
-                size="sm"
-                className="flex items-center gap-2 transition-all duration-200 hover:scale-105"
-              >
-                <User className="h-4 w-4" />
-                My Locker
-              </Button>
-            </Link>
-
-
-            <div className="h-4 w-px bg-gray-300 mx-2" />
-            
+          {/* Only Logout Button */}
+          <div className="flex items-center">
             <Button 
               onClick={handleLogout} 
               variant="outline" 
@@ -89,66 +46,7 @@ const Navbar = () => {
               Logout
             </Button>
           </div>
-
-          {/* Mobile Menu Button */}
-          <div className="md:hidden flex items-center">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="transition-all duration-200"
-            >
-              {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </Button>
-          </div>
         </div>
-
-        {/* Mobile Menu */}
-        {isMobileMenuOpen && (
-          <div className="md:hidden py-4 space-y-2 animate-in slide-in-from-top-2 duration-200">
-            <Link to="/dashboard" onClick={() => setIsMobileMenuOpen(false)}>
-              <Button 
-                variant={isActive('/dashboard') ? 'default' : 'ghost'} 
-                className="w-full justify-start gap-2"
-              >
-                <Home className="h-4 w-4" />
-                Dashboard
-              </Button>
-            </Link>
-            
-            <Link to="/upcoming" onClick={() => setIsMobileMenuOpen(false)}>
-              <Button 
-                variant={isActive('/upcoming') ? 'default' : 'ghost'} 
-                className="w-full justify-start gap-2"
-              >
-                <Calendar className="h-4 w-4" />
-                Upcoming
-              </Button>
-            </Link>
-
-            <Link to="/my-locker" onClick={() => setIsMobileMenuOpen(false)}>
-              <Button 
-                variant={isActive('/my-locker') ? 'default' : 'ghost'} 
-                className="w-full justify-start gap-2"
-              >
-                <User className="h-4 w-4" />
-                My Locker
-              </Button>
-            </Link>
-
-
-            <div className="pt-2 border-t border-gray-200">
-              <Button 
-                onClick={handleLogout} 
-                variant="outline" 
-                className="w-full justify-start gap-2 hover:bg-red-50 hover:border-red-200 hover:text-red-600"
-              >
-                <LogOut className="h-4 w-4" />
-                Logout
-              </Button>
-            </div>
-          </div>
-        )}
       </div>
     </nav>
   );
