@@ -1,0 +1,104 @@
+import React from 'react';
+import { Link, Navigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Settings, Shield, Users, ChevronRight } from 'lucide-react';
+
+const AdminHub = () => {
+  const { isAdmin } = useAuth();
+
+  // Redirect if not an admin
+  if (!isAdmin) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  const adminSections = [
+    {
+      title: 'Manage Amenities',
+      description: 'Add, edit, or delete tennis courts, pools, clubhouses, and other HOA facilities.',
+      icon: Settings,
+      path: '/manage-amenities',
+      color: 'text-blue-600 bg-blue-50'
+    },
+    {
+      title: 'Amenity Rules & Policies',
+      description: 'Set booking rules, guest policies, time restrictions, and cancellation rules for each amenity.',
+      icon: Shield,
+      path: '/amenity-rules',
+      color: 'text-green-600 bg-green-50'
+    },
+    {
+      title: 'Pending Member Approvals',
+      description: 'Review and approve or reject requests from users wanting to join this HOA.',
+      icon: Users,
+      path: '/pending-requests',
+      color: 'text-orange-600 bg-orange-50'
+    }
+  ];
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Admin Hub</h1>
+        <p className="text-muted-foreground">
+          Manage your community amenities, configure rules, and handle member requests
+        </p>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {adminSections.map((section) => {
+          const Icon = section.icon;
+          
+          return (
+            <Link key={section.path} to={section.path}>
+              <Card className="hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer group h-full">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div className={`p-3 rounded-lg ${section.color}`}>
+                      <Icon className="h-6 w-6" />
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                  </div>
+                  <CardTitle className="text-xl group-hover:text-primary transition-colors">
+                    {section.title}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription className="text-base leading-relaxed">
+                    {section.description}
+                  </CardDescription>
+                </CardContent>
+              </Card>
+            </Link>
+          );
+        })}
+      </div>
+
+      <div className="mt-12 p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-100">
+        <div className="flex items-center space-x-3 mb-3">
+          <div className="p-2 bg-blue-100 rounded-lg">
+            <Settings className="h-5 w-5 text-blue-600" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900">Admin Resources</h3>
+        </div>
+        <p className="text-gray-600 mb-4">
+          Need help managing your community? Access our admin guides and support resources.
+        </p>
+        <div className="flex flex-wrap gap-3">
+          <Button variant="outline" size="sm" className="hover:bg-white">
+            📚 Admin Guide
+          </Button>
+          <Button variant="outline" size="sm" className="hover:bg-white">
+            🔧 Technical Support
+          </Button>
+          <Button variant="outline" size="sm" className="hover:bg-white">
+            📊 Community Reports
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AdminHub;

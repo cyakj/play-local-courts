@@ -18,6 +18,7 @@ import Upcoming from "./pages/Upcoming";
 import ManageCourts from "./pages/ManageCourts";
 import PendingRequests from "./pages/PendingRequests";
 import AmenityRules from "./pages/AmenityRules";
+import AdminHub from "./pages/AdminHub";
 import MyLocker from "./pages/MyLocker";
 import LeaguesLadders from "./pages/LeaguesLadders";
 import EmailSettings from "./pages/EmailSettings";
@@ -47,6 +48,7 @@ function App() {
                   <Route path="/my-reservations" element={<MyReservations />} />
                   <Route path="/upcoming" element={<Upcoming />} />
                   <Route path="/manage-amenities" element={<ManageCourts />} />
+                  <Route path="/admin" element={<AdminHub />} />
                   <Route path="/pending-requests" element={<PendingRequests />} />
                   <Route path="/amenity-rules" element={<AmenityRules />} />
                   <Route path="/my-locker" element={<MyLocker />} />

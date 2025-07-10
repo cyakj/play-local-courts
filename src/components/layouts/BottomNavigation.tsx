@@ -47,7 +47,7 @@ const BottomNavigation = () => {
 
   if (isAdmin) {
     navItems.push({
-      path: '/pending-requests',
+      path: '/admin',
       icon: Settings,
       label: 'Admin',
       color: 'text-red-600'

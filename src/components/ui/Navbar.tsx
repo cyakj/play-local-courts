@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '../../contexts/AuthContext';
-import { LogOut, Home, Calendar, Users, Settings, User, Bell, Menu, X, Shield } from 'lucide-react';
+import { LogOut, Home, Calendar, User, Menu, X } from 'lucide-react';
 
 const Navbar = () => {
   const { currentUser, logout } = useAuth();
@@ -76,42 +76,6 @@ const Navbar = () => {
               </Button>
             </Link>
 
-            {currentUser.role === 'admin' && (
-              <>
-                <Link to="/pending-requests">
-                  <Button 
-                    variant={isActive('/pending-requests') ? 'default' : 'ghost'} 
-                    size="sm"
-                    className="flex items-center gap-2 transition-all duration-200 hover:scale-105"
-                  >
-                    <Users className="h-4 w-4" />
-                    Pending
-                  </Button>
-                </Link>
-                
-                <Link to="/manage-amenities">
-                  <Button 
-                    variant={isActive('/manage-amenities') ? 'default' : 'ghost'} 
-                    size="sm"
-                    className="flex items-center gap-2 transition-all duration-200 hover:scale-105"
-                  >
-                    <Settings className="h-4 w-4" />
-                    Manage
-                  </Button>
-                </Link>
-
-                <Link to="/amenity-rules">
-                  <Button 
-                    variant={isActive('/amenity-rules') ? 'default' : 'ghost'} 
-                    size="sm"
-                    className="flex items-center gap-2 transition-all duration-200 hover:scale-105"
-                  >
-                    <Shield className="h-4 w-4" />
-                    Rules
-                  </Button>
-                </Link>
-              </>
-            )}
 
             <div className="h-4 w-px bg-gray-300 mx-2" />
             
@@ -172,39 +136,6 @@ const Navbar = () => {
               </Button>
             </Link>
 
-            {currentUser.role === 'admin' && (
-              <>
-                <Link to="/pending-requests" onClick={() => setIsMobileMenuOpen(false)}>
-                  <Button 
-                    variant={isActive('/pending-requests') ? 'default' : 'ghost'} 
-                    className="w-full justify-start gap-2"
-                  >
-                    <Users className="h-4 w-4" />
-                    Pending Requests
-                  </Button>
-                </Link>
-                
-                <Link to="/manage-amenities" onClick={() => setIsMobileMenuOpen(false)}>
-                  <Button 
-                    variant={isActive('/manage-amenities') ? 'default' : 'ghost'} 
-                    className="w-full justify-start gap-2"
-                  >
-                    <Settings className="h-4 w-4" />
-                    Manage Amenities
-                  </Button>
-                </Link>
-
-                <Link to="/amenity-rules" onClick={() => setIsMobileMenuOpen(false)}>
-                  <Button 
-                    variant={isActive('/amenity-rules') ? 'default' : 'ghost'} 
-                    className="w-full justify-start gap-2"
-                  >
-                    <Shield className="h-4 w-4" />
-                    Amenity Rules
-                  </Button>
-                </Link>
-              </>
-            )}
 
             <div className="pt-2 border-t border-gray-200">
               <Button 
