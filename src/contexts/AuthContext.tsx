@@ -109,7 +109,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Determine if this email should get admin privileges
       const shouldBeAdmin = isAdminEmail(email);
       const userRole = shouldBeAdmin ? UserRole.ADMIN : UserRole.RESIDENT;
-      const userStatus = shouldBeAdmin ? UserStatus.APPROVED : UserStatus.PENDING;
+      // Only require approval if user has an HOA and is not an admin
+      const userStatus = shouldBeAdmin ? UserStatus.APPROVED : (hoaId ? UserStatus.PENDING : UserStatus.APPROVED);
       
       console.log('User role assignment:', { email, shouldBeAdmin, userRole, userStatus, hoaId });
       
@@ -184,6 +185,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else if (hoaId) {
         toast.success("Registration successful! Please check your email to confirm your account, then wait for HOA admin approval.");
       } else {
+        // Users without HOA don't need approval - set status to approved
         toast.success("Registration successful! Please check your email to confirm your account.");
       }
     } catch (error: any) {

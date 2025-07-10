@@ -40,7 +40,7 @@ const Register = () => {
   const [bio, setBio] = useState('');
   
   const [isLoading, setIsLoading] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  
   const [error, setError] = useState('');
   const [hoas, setHOAs] = useState<HOA[]>([]);
   const [loadingHOAs, setLoadingHOAs] = useState(true);
@@ -109,40 +109,6 @@ const Register = () => {
     }
   };
 
-  const handleGoogleSignUp = async () => {
-    setError('');
-    setIsGoogleLoading(true);
-    
-    try {
-      const queryParams: Record<string, string> = {};
-      
-      if (userRole === 'coach') {
-        queryParams.user_role = 'coach';
-      } else if (selectedHOA) {
-        queryParams.hoa_id = selectedHOA;
-      }
-
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/complete-profile`,
-          queryParams
-        }
-      });
-      
-      if (error) {
-        console.error('Google signup error:', error);
-        toast.error(error.message || 'Failed to sign up with Google');
-        setError(error.message || 'Failed to sign up with Google');
-      }
-    } catch (err: any) {
-      console.error('Google signup error:', err);
-      toast.error('Failed to sign up with Google');
-      setError('Failed to sign up with Google');
-    } finally {
-      setIsGoogleLoading(false);
-    }
-  };
 
   return (
     <Card className="w-full shadow-lg">
@@ -160,7 +126,7 @@ const Register = () => {
         <form onSubmit={handleRegister} className="space-y-4">
           {/* Role Selection */}
           <div className="space-y-2">
-            <Label htmlFor="userRole">I am a *</Label>
+            <Label htmlFor="userRole">I am a <span className="text-red-500">*</span></Label>
             <Select value={userRole} onValueChange={(value: 'player' | 'coach' | 'admin') => setUserRole(value)}>
               <SelectTrigger>
                 <SelectValue placeholder="Select your role" />
@@ -177,9 +143,9 @@ const Register = () => {
           {(userRole === 'player' || userRole === 'admin') && (
             <div className="space-y-2">
               <Label htmlFor="hoa">
-                Select Your Community {userRole === 'admin' ? '*' : '(Optional)'}
+                Select Your Community {userRole === 'admin' ? <span className="text-red-500">*</span> : '(Optional)'}
               </Label>
-              <Select value={selectedHOA} onValueChange={setSelectedHOA} disabled={loadingHOAs || isLoading || isGoogleLoading}>
+              <Select value={selectedHOA} onValueChange={setSelectedHOA} disabled={loadingHOAs || isLoading}>
                 <SelectTrigger>
                   <SelectValue placeholder={loadingHOAs ? "Loading communities..." : "Choose your HOA (or skip if not applicable)"} />
                 </SelectTrigger>
@@ -204,47 +170,10 @@ const Register = () => {
             </div>
           )}
 
-          {/* Google Sign Up Button */}
-          <div className="space-y-4">
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full flex items-center gap-3 hover:bg-gray-50"
-              onClick={handleGoogleSignUp}
-              disabled={isGoogleLoading || isLoading || (userRole === 'admin' && !selectedHOA)}
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24">
-                <path
-                  fill="currentColor"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                />
-                <path
-                  fill="currentColor"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                />
-                <path
-                  fill="currentColor"
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                />
-                <path
-                  fill="currentColor"
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                />
-              </svg>
-              {isGoogleLoading ? 'Signing up with Google...' : 'Continue with Google'}
-            </Button>
-          </div>
-
-          <div className="relative">
-            <Separator />
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-2 text-sm text-muted-foreground">
-              or
-            </div>
-          </div>
 
           {/* Basic Information */}
           <div className="space-y-2">
-            <Label htmlFor="fullName">Full Name *</Label>
+            <Label htmlFor="fullName">Full Name <span className="text-red-500">*</span></Label>
             <Input
               id="fullName"
               type="text"
@@ -252,12 +181,12 @@ const Register = () => {
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               required
-              disabled={isLoading || isGoogleLoading}
+                  disabled={isLoading}
             />
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="email">Email *</Label>
+            <Label htmlFor="email">Email <span className="text-red-500">*</span></Label>
             <Input
               id="email"
               type="email"
@@ -265,12 +194,12 @@ const Register = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              disabled={isLoading || isGoogleLoading}
+                  disabled={isLoading}
             />
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="password">Password *</Label>
+            <Label htmlFor="password">Password <span className="text-red-500">*</span></Label>
             <Input
               id="password"
               type="password"
@@ -278,7 +207,7 @@ const Register = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              disabled={isLoading || isGoogleLoading}
+                  disabled={isLoading}
             />
           </div>
 
@@ -293,12 +222,12 @@ const Register = () => {
                   placeholder="Elite Tennis Coaching"
                   value={businessName}
                   onChange={(e) => setBusinessName(e.target.value)}
-                  disabled={isLoading || isGoogleLoading}
+                  disabled={isLoading}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="credentials">Coaching Credentials *</Label>
+                <Label htmlFor="credentials">Coaching Credentials <span className="text-red-500">*</span></Label>
                 <Select value={credentials} onValueChange={(value: 'USPTA' | 'PTR' | 'None') => setCredentials(value)}>
                   <SelectTrigger>
                     <SelectValue />
@@ -312,19 +241,19 @@ const Register = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="yearsExperience">Years of Experience *</Label>
+                <Label htmlFor="yearsExperience">Years of Experience <span className="text-red-500">*</span></Label>
                 <Input
                   id="yearsExperience"
                   type="number"
                   min="0"
                   value={yearsExperience}
                   onChange={(e) => setYearsExperience(parseInt(e.target.value) || 0)}
-                  disabled={isLoading || isGoogleLoading}
+                  disabled={isLoading}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label>Sports Offered *</Label>
+                <Label>Sports Offered <span className="text-red-500">*</span></Label>
                 <div className="flex flex-wrap gap-4">
                   {['Tennis', 'Pickleball', 'Padel'].map((sport) => (
                     <div key={sport} className="flex items-center space-x-2">
@@ -340,7 +269,7 @@ const Register = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="homeBase">Home Base (City or Club) *</Label>
+                <Label htmlFor="homeBase">Home Base (City or Club) <span className="text-red-500">*</span></Label>
                 <Input
                   id="homeBase"
                   type="text"
@@ -348,7 +277,7 @@ const Register = () => {
                   value={homeBase}
                   onChange={(e) => setHomeBase(e.target.value)}
                   required
-                  disabled={isLoading || isGoogleLoading}
+                  disabled={isLoading}
                 />
               </div>
 
@@ -371,7 +300,7 @@ const Register = () => {
                   placeholder="75.00"
                   value={hourlyRate || ''}
                   onChange={(e) => setHourlyRate(parseFloat(e.target.value) || undefined)}
-                  disabled={isLoading || isGoogleLoading}
+                  disabled={isLoading}
                 />
               </div>
 
@@ -382,7 +311,7 @@ const Register = () => {
                   placeholder="Tell potential students about your coaching philosophy and experience..."
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
-                  disabled={isLoading || isGoogleLoading}
+                  disabled={isLoading}
                 />
               </div>
             </>
@@ -399,7 +328,7 @@ const Register = () => {
                   placeholder="(555) 123-4567"
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
-                  disabled={isLoading || isGoogleLoading}
+                  disabled={isLoading}
                 />
               </div>
               
@@ -410,7 +339,7 @@ const Register = () => {
                   type="date"
                   value={dateOfBirth}
                   onChange={(e) => setDateOfBirth(e.target.value)}
-                  disabled={isLoading || isGoogleLoading}
+                  disabled={isLoading}
                 />
               </div>
             </>
@@ -419,14 +348,13 @@ const Register = () => {
           <Button 
             type="submit" 
             className="w-full" 
-            disabled={
+              disabled={
               isLoading || 
-              isGoogleLoading || 
               (userRole === 'admin' && !selectedHOA) ||
               (userRole === 'coach' && (!homeBase || sportsOffered.length === 0))
             }
           >
-            {isLoading ? 'Creating Account...' : 'Create Account with Email'}
+            {isLoading ? 'Creating Account...' : 'Create Account'}
           </Button>
         </form>
       </CardContent>
