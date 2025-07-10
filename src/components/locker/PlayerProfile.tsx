@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ExternalLink, Upload, Calendar, HelpCircle, MessageSquare } from 'lucide-react';
+import { ExternalLink, Upload, Calendar, HelpCircle, MessageSquare, LogOut } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -29,7 +29,7 @@ interface ProfileData {
 }
 
 const PlayerProfile = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, logout } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -204,6 +204,19 @@ const PlayerProfile = () => {
         return `https://www.usta.com/en/home/play/player-search.html#page=1&search=${encodedName}`;
       default:
         return '#';
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Error logging out:', error);
+      toast({
+        title: "Error",
+        description: "Failed to logout",
+        variant: "destructive"
+      });
     }
   };
 
@@ -442,9 +455,18 @@ const PlayerProfile = () => {
           </CardContent>
         </Card>
 
-        <div className="flex justify-end">
+        <div className="flex justify-between items-center">
           <Button onClick={handleSave} disabled={loading}>
             {loading ? 'Saving...' : 'Save Profile'}
+          </Button>
+          
+          <Button 
+            onClick={handleLogout} 
+            variant="outline"
+            className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Logout
           </Button>
         </div>
 

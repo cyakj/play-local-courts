@@ -2,18 +2,11 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '../../contexts/AuthContext';
-import { LogOut, Home } from 'lucide-react';
+import { Home } from 'lucide-react';
 
 const Navbar = () => {
-  const { currentUser, logout } = useAuth();
+  const { currentUser } = useAuth();
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-    } catch (error) {
-      console.error('Error logging out:', error);
-    }
-  };
 
   if (!currentUser) {
     return null;
@@ -34,17 +27,9 @@ const Navbar = () => {
             </Link>
           </div>
           
-          {/* Only Logout Button */}
+          {/* Only Logo */}
           <div className="flex items-center">
-            <Button 
-              onClick={handleLogout} 
-              variant="outline" 
-              size="sm"
-              className="transition-all duration-200 hover:scale-105 hover:bg-red-50 hover:border-red-200 hover:text-red-600"
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              Logout
-            </Button>
+            {/* Empty space for balance */}
           </div>
         </div>
       </div>
