@@ -22,6 +22,7 @@ import AdminHub from "./pages/AdminHub";
 import MyLocker from "./pages/MyLocker";
 import LeaguesLadders from "./pages/LeaguesLadders";
 import EmailSettings from "./pages/EmailSettings";
+import MaintenanceReports from "./pages/MaintenanceReports";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -49,6 +50,7 @@ function App() {
                   <Route path="/upcoming" element={<Upcoming />} />
                   <Route path="/manage-amenities" element={<ManageCourts />} />
                   <Route path="/admin" element={<AdminHub />} />
+                  <Route path="/admin/maintenance" element={<MaintenanceReports />} />
                   <Route path="/pending-requests" element={<PendingRequests />} />
                   <Route path="/amenity-rules" element={<AmenityRules />} />
                   <Route path="/my-locker" element={<MyLocker />} />

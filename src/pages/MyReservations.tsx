@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { UserType } from '../types';
 
 const MyReservations = () => {
   const { currentUser } = useAuth();
@@ -36,25 +37,42 @@ const MyReservations = () => {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">My Reservations</h1>
+        <h1 className="text-3xl font-bold tracking-tight">My Schedule</h1>
         <p className="text-muted-foreground">
-          View and manage your amenity reservations
+          {currentUser?.userType === UserType.NON_HOA 
+            ? "View your upcoming matches and lessons"
+            : "View and manage your amenity reservations"
+          }
         </p>
       </div>
       
       <div className="space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>Upcoming Reservations</CardTitle>
-            <CardDescription>Amenity times you have scheduled</CardDescription>
+            <CardTitle>
+              {currentUser?.userType === UserType.NON_HOA ? "Upcoming Matches & Lessons" : "Upcoming Reservations"}
+            </CardTitle>
+            <CardDescription>
+              {currentUser?.userType === UserType.NON_HOA 
+                ? "Your scheduled tennis activities"
+                : "Amenity times you have scheduled"
+              }
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {upcomingBookings.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-muted-foreground">You don't have any upcoming reservations</p>
-                <Button className="mt-4" asChild>
-                  <a href="/reserve-court">Book an Amenity</a>
-                </Button>
+                <p className="text-muted-foreground">
+                  {currentUser?.userType === UserType.NON_HOA 
+                    ? "You don't have any upcoming matches or lessons"
+                    : "You don't have any upcoming reservations"
+                  }
+                </p>
+                {currentUser?.userType !== UserType.NON_HOA && (
+                  <Button className="mt-4" asChild>
+                    <a href="/reserve-court">Book an Amenity</a>
+                  </Button>
+                )}
               </div>
             ) : (
               <div className="space-y-4">
@@ -103,8 +121,15 @@ const MyReservations = () => {
         {pastBookings.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Past Reservations</CardTitle>
-              <CardDescription>Your amenity booking history</CardDescription>
+              <CardTitle>
+                {currentUser?.userType === UserType.NON_HOA ? "Past Activities" : "Past Reservations"}
+              </CardTitle>
+              <CardDescription>
+                {currentUser?.userType === UserType.NON_HOA 
+                  ? "Your tennis activity history"
+                  : "Your amenity booking history"
+                }
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">

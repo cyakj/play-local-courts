@@ -10,8 +10,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from '@/components/ui/label';
+import { Wrench } from 'lucide-react';
 import TimeSelector from '../components/TimeSelector';
 import CourtPoliciesDialog from '../components/CourtPoliciesDialog';
+import { ReportIssueDialog } from '../components/maintenance/ReportIssueDialog';
 import { useAmenityRules } from '../hooks/useAmenityRules';
 import { AmenityStatus } from '../types';
 
@@ -30,6 +32,8 @@ const ReserveCourt = () => {
   const [selectedStartTime, setSelectedStartTime] = useState<string>('');
   const [selectedEndTime, setSelectedEndTime] = useState<string>('');
   const [showPoliciesDialog, setShowPoliciesDialog] = useState(false);
+  const [showReportDialog, setShowReportDialog] = useState(false);
+  const [reportAmenityId, setReportAmenityId] = useState('');
   
   // Fetch amenity rules for the selected amenity
   const { rules, loading: rulesLoading } = useAmenityRules(selectedAmenity);
