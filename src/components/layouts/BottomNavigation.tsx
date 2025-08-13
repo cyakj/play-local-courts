@@ -35,16 +35,15 @@ const BottomNavigation = () => {
           color: 'text-blue-600'
         },
         {
-          path: '/coach-dashboard',
+          path: '/my-locker',
           icon: GraduationCap,
           label: 'Find Coach',
-          color: 'text-purple-600',
-          isSpecial: true
+          color: 'text-purple-600'
         },
         {
           path: '/my-locker',
           icon: User,
-          label: 'My Locker',
+          label: 'Profile',
           color: 'text-orange-600'
         },
         {

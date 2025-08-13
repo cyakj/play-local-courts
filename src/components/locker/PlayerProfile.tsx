@@ -225,17 +225,8 @@ const PlayerProfile = () => {
       <div className="space-y-6">
         {/* Profile Overview Card */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader>
             <CardTitle>Player Profile Overview</CardTitle>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowMessaging(true)}
-              className="flex items-center gap-2"
-            >
-              <MessageSquare className="h-4 w-4" />
-              Messages
-            </Button>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Avatar Section */}
@@ -310,21 +301,23 @@ const PlayerProfile = () => {
                 </Select>
               </div>
 
-              <div>
-                <Label htmlFor="homeCourt">Home Court Preference</Label>
-                <Select value={profile.homeCourtId} onValueChange={(value) => setProfile(prev => ({ ...prev, homeCourtId: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select home court" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {amenities.map((amenity) => (
-                      <SelectItem key={amenity.id} value={amenity.id}>
-                        {amenity.name} ({amenity.amenityType})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {currentUser?.hoaId && (
+                <div>
+                  <Label htmlFor="homeCourt">Home Court Preference</Label>
+                  <Select value={profile.homeCourtId} onValueChange={(value) => setProfile(prev => ({ ...prev, homeCourtId: value }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select home court" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {amenities.map((amenity) => (
+                        <SelectItem key={amenity.id} value={amenity.id}>
+                          {amenity.name} ({amenity.amenityType})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
 
             <div>

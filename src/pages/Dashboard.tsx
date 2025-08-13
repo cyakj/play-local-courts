@@ -117,8 +117,8 @@ const Dashboard = () => {
     );
   }
 
-  // Show pending approval message if user is pending
-  if (isPending) {
+  // Show pending approval message if user is pending (but only for HOA users)
+  if (isPending && currentUser?.userType !== UserType.NON_HOA) {
     return <PendingApprovalMessage />;
   }
 
