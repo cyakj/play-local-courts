@@ -8,7 +8,6 @@ import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import PendingApprovalMessage from '../components/PendingApprovalMessage';
-import NonHOADashboard from '../components/dashboards/NonHOADashboard';
 import { UserType } from '../types';
 import { 
   Users, 
@@ -135,10 +134,8 @@ const Dashboard = () => {
     );
   }
 
-  // Show non-HOA dashboard for non-HOA users
-  if (currentUser.userType === UserType.NON_HOA) {
-    return <NonHOADashboard />;
-  }
+  // Determine if this is a community user or individual user
+  const isCommunityUser = currentUser.userType !== UserType.NON_HOA;
   
   // Filter for upcoming bookings
   const upcomingBookings = bookings.filter(booking => {
@@ -155,15 +152,18 @@ const Dashboard = () => {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between">
         <div className="animate-slide-up">
           <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
-            Dashboard
+            {isCommunityUser ? 'Dashboard' : 'Tennis Network'}
           </h1>
           <p className="text-muted-foreground">
-            Welcome to {currentHOA?.name || 'your HOA'} amenity reservation system.
+            {isCommunityUser 
+              ? `Welcome to ${currentHOA?.name || 'your HOA'} amenity reservation system.`
+              : 'Connect, play, and improve your tennis game.'
+            }
           </p>
         </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Match Play Requests Card */}
         <Card className="overflow-hidden group hover:shadow-xl transition-all duration-300 animate-slide-up" style={{ animationDelay: '0.1s' }}>
           <CardHeader className="pb-4 bg-gradient-to-br from-green-50 to-emerald-50 relative">
@@ -174,9 +174,11 @@ const Dashboard = () => {
               <div className="p-2 bg-green-100 rounded-xl">
                 <Users className="h-6 w-6 text-green-600" />
               </div>
-              Match Play Requests
+              {isCommunityUser ? 'Match Play Requests' : 'Match Invites'}
             </CardTitle>
-            <CardDescription>Invitations to play from other members</CardDescription>
+            <CardDescription>
+              {isCommunityUser ? 'Invitations to play from other members' : 'Play requests from other tennis players'}
+            </CardDescription>
           </CardHeader>
           <CardContent className="pt-4">
             <div className="flex items-center gap-4 mb-4">
@@ -194,7 +196,7 @@ const Dashboard = () => {
                       <div className="text-sm">
                         <div className="font-medium flex items-center gap-2 mb-2">
                           <Trophy className="h-4 w-4 text-green-600" />
-                          {request.challenger?.full_name} has invited you to a {request.match_type?.replace('_', ' ')}
+                          {request.challenger?.full_name} {isCommunityUser ? 'has invited you to a' : 'wants to play'} {request.match_type?.replace('_', ' ')}
                         </div>
                         <div className="flex items-center gap-4 text-xs text-muted-foreground mb-3">
                           <div className="flex items-center gap-1">
@@ -228,14 +230,6 @@ const Dashboard = () => {
                             <XCircle className="h-3 w-3" />
                             Decline
                           </Button>
-                          <Button 
-                            size="sm" 
-                            variant="ghost"
-                            className="text-xs flex items-center gap-1 hover:scale-105 transition-transform"
-                          >
-                            <MessageSquare className="h-3 w-3" />
-                            Message
-                          </Button>
                         </div>
                       </div>
                     </Card>
@@ -253,47 +247,131 @@ const Dashboard = () => {
                 </div>
               )}
             </div>
+            <Button asChild className="w-full mt-4" variant="outline">
+              <Link to="/my-locker" className="flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Find Players
+              </Link>
+            </Button>
           </CardContent>
         </Card>
         
-        {/* Reserve an Amenity Card */}
+        {/* Second Card - Reserve Amenity / Find Coach */}
         <Card className="overflow-hidden group hover:shadow-xl transition-all duration-300 animate-slide-up" style={{ animationDelay: '0.2s' }}>
           <CardHeader className="pb-4 bg-gradient-to-br from-blue-50 to-indigo-50 relative">
             <div className="absolute top-4 right-4 opacity-20">
-              <CalendarCheck className="h-12 w-12 text-blue-600" />
+              {isCommunityUser ? (
+                <CalendarCheck className="h-12 w-12 text-blue-600" />
+              ) : (
+                <Users className="h-12 w-12 text-blue-600" />
+              )}
             </div>
             <CardTitle className="flex items-center gap-3">
               <div className="p-2 bg-blue-100 rounded-xl">
-                <Calendar className="h-6 w-6 text-blue-600" />
+                {isCommunityUser ? (
+                  <Calendar className="h-6 w-6 text-blue-600" />
+                ) : (
+                  <Users className="h-6 w-6 text-blue-600" />
+                )}
               </div>
-              Reserve an Amenity
+              {isCommunityUser ? 'Reserve an Amenity' : 'Find a Coach'}
             </CardTitle>
-            <CardDescription>Book courts and amenities at your community</CardDescription>
+            <CardDescription>
+              {isCommunityUser 
+                ? 'Book courts and amenities at your community' 
+                : 'Find certified tennis coaches in your area'
+              }
+            </CardDescription>
           </CardHeader>
           <CardContent className="pt-4">
             <div className="space-y-4">
               <Button asChild className="w-full group hover:scale-105 transition-all duration-200">
-                <Link to="/reserve-court" className="flex items-center gap-2">
-                  <CalendarCheck className="h-4 w-4 group-hover:rotate-12 transition-transform" />
-                  Reserve Court
+                <Link to={isCommunityUser ? "/reserve-court" : "/coach-dashboard"} className="flex items-center gap-2">
+                  {isCommunityUser ? (
+                    <CalendarCheck className="h-4 w-4 group-hover:rotate-12 transition-transform" />
+                  ) : (
+                    <Users className="h-4 w-4 group-hover:scale-110 transition-transform" />
+                  )}
+                  {isCommunityUser ? 'Reserve Court' : 'Find a Coach'}
                 </Link>
               </Button>
-              <div className="text-center p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl">
+              <div className="text-center p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl">
                 <div className="text-sm text-muted-foreground mb-2">
-                  Book tennis courts, pickleball courts, and other amenities
+                  {isCommunityUser 
+                    ? 'Book tennis courts, pickleball courts, and other amenities'
+                    : 'Browse certified coaches, read reviews, and book lessons'
+                  }
+                </div>
+                <div className="flex justify-center gap-4 text-xs text-muted-foreground">
+                  {isCommunityUser ? (
+                    <>
+                      <span className="flex items-center gap-1">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        Tennis
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        Pool
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                        Clubhouse
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="flex items-center gap-1">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        USPTA Certified
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <div className="w-2 h-2 bg-indigo-500 rounded-full"></div>
+                        PTR Certified
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Third Card - Competitive Play */}
+        <Card className="overflow-hidden group hover:shadow-xl transition-all duration-300 animate-slide-up" style={{ animationDelay: '0.3s' }}>
+          <CardHeader className="pb-4 bg-gradient-to-br from-purple-50 to-pink-50 relative">
+            <div className="absolute top-4 right-4 opacity-20">
+              <Trophy className="h-12 w-12 text-purple-600" />
+            </div>
+            <CardTitle className="flex items-center gap-3">
+              <div className="p-2 bg-purple-100 rounded-xl">
+                <Trophy className="h-6 w-6 text-purple-600" />
+              </div>
+              Competitive Play
+            </CardTitle>
+            <CardDescription>
+              {isCommunityUser ? 'Join community ladders and leagues' : 'Join public ladders and leagues'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-4">
+            <div className="space-y-4">
+              <Button asChild className="w-full group hover:scale-105 transition-all duration-200" variant="outline">
+                <Link to="/leagues-ladders" className="flex items-center gap-2">
+                  <Trophy className="h-4 w-4 group-hover:scale-110 transition-transform" />
+                  View Ladders
+                </Link>
+              </Button>
+              <div className="text-center p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl">
+                <div className="text-sm text-muted-foreground mb-2">
+                  Compete in {isCommunityUser ? 'community' : 'public'} ladders and track your progress
                 </div>
                 <div className="flex justify-center gap-4 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    Tennis
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                    Pool
-                  </span>
-                  <span className="flex items-center gap-1">
                     <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                    Clubhouse
+                    Singles
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <div className="w-2 h-2 bg-pink-500 rounded-full"></div>
+                    Doubles
                   </span>
                 </div>
               </div>
@@ -301,8 +379,9 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {isAdmin && (
-          <Card className="overflow-hidden group hover:shadow-xl transition-all duration-300 animate-slide-up" style={{ animationDelay: '0.3s' }}>
+        {/* Admin Panel Card - Only for HOA admins */}
+        {isAdmin && isCommunityUser && (
+          <Card className="overflow-hidden group hover:shadow-xl transition-all duration-300 animate-slide-up" style={{ animationDelay: '0.4s' }}>
             <CardHeader className="pb-4 bg-gradient-to-br from-orange-50 to-red-50 relative">
               <div className="absolute top-4 right-4 opacity-20">
                 <UserCheck className="h-12 w-12 text-orange-600" />
@@ -343,7 +422,7 @@ const Dashboard = () => {
         )}
       </div>
       
-      {upcomingBookings.length > 0 && (
+      {isCommunityUser && upcomingBookings.length > 0 && (
         <div className="mt-8 animate-slide-up" style={{ animationDelay: '0.4s' }}>
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
             <CalendarCheck className="h-5 w-5 text-green-600" />

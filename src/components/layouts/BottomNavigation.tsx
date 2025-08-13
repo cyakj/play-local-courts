@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Calendar, User, Settings, Plus, Users, GraduationCap, Search } from 'lucide-react';
+import { Home, Calendar, User, Settings, Plus, Users, GraduationCap, Search, Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '../../contexts/AuthContext';
 import { UserType } from '../../types';
@@ -35,9 +35,9 @@ const BottomNavigation = () => {
           color: 'text-blue-600'
         },
         {
-          path: '/coach-dashboard',
-          icon: GraduationCap,
-          label: 'Find Coach',
+          path: '/leagues-ladders',
+          icon: Trophy,
+          label: 'Compete',
           color: 'text-purple-600'
         },
         {
@@ -45,12 +45,6 @@ const BottomNavigation = () => {
           icon: User,
           label: 'Profile',
           color: 'text-orange-600'
-        },
-        {
-          path: '/my-reservations',
-          icon: Calendar,
-          label: 'Schedule',
-          color: 'text-cyan-600'
         }
       ];
     }
