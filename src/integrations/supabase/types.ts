@@ -946,6 +946,51 @@ export type Database = {
           },
         ]
       }
+      maintenance_reports: {
+        Row: {
+          admin_notes: string | null
+          amenity_id: string
+          assignee: string | null
+          category: string
+          created_at: string
+          description: string
+          hoa_id: string
+          id: string
+          photo_url: string | null
+          reporter_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          amenity_id: string
+          assignee?: string | null
+          category: string
+          created_at?: string
+          description: string
+          hoa_id: string
+          id?: string
+          photo_url?: string | null
+          reporter_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          admin_notes?: string | null
+          amenity_id?: string
+          assignee?: string | null
+          category?: string
+          created_at?: string
+          description?: string
+          hoa_id?: string
+          id?: string
+          photo_url?: string | null
+          reporter_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       match_preferences: {
         Row: {
           created_at: string
