@@ -36,8 +36,8 @@ const Login = () => {
   };
 
   const handleResetPassword = async () => {
-    if (!email) {
-      setError('Please enter your email address first');
+    if (!email.trim()) {
+      setError('Please enter your email address to reset your password');
       return;
     }
     
@@ -102,7 +102,7 @@ const Login = () => {
           <button
             type="button"
             onClick={handleResetPassword}
-            disabled={isResetting || !email}
+            disabled={isResetting}
             className="text-sm text-primary hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isResetting ? 'Sending reset email...' : 'Forgot password?'}
