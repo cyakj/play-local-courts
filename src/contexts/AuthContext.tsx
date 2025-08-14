@@ -13,6 +13,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (fullName: string, email: string, password: string, phoneNumber: string | undefined, dateOfBirth: string | undefined, hoaId: string) => Promise<void>;
   registerCoach: (fullName: string, email: string, password: string, coachData: any) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
   logout: () => void;
   isAdmin: boolean;
   isPending: boolean;
@@ -260,6 +261,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const resetPassword = async (email: string) => {
+    try {
+      console.log('Sending password reset email to:', email);
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/dashboard`,
+      });
+
+      if (error) {
+        console.error('Password reset error:', error);
+        toast.error(error.message);
+        throw error;
+      }
+
+      toast.success("Password reset email sent! Check your inbox.");
+    } catch (error: any) {
+      console.error('Password reset error:', error);
+      throw error;
+    }
+  };
+
   const logout = async () => {
     try {
       console.log('Logging out user...');
@@ -286,6 +307,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     login,
     register,
     registerCoach,
+    resetPassword,
     logout,
     isAdmin,
     isPending,

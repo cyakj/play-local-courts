@@ -14,10 +14,11 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   
   const [error, setError] = useState('');
   
-  const { login } = useAuth();
+  const { login, resetPassword } = useAuth();
   
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,6 +32,24 @@ const Login = () => {
       setError(err.message || 'Failed to login');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!email) {
+      setError('Please enter your email address first');
+      return;
+    }
+    
+    setError('');
+    setIsResetting(true);
+    
+    try {
+      await resetPassword(email);
+    } catch (err: any) {
+      setError(err.message || 'Failed to send reset email');
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -78,6 +97,17 @@ const Login = () => {
             {isLoading ? 'Logging in...' : 'Log in'}
           </Button>
         </form>
+
+        <div className="mt-4 text-center">
+          <button
+            type="button"
+            onClick={handleResetPassword}
+            disabled={isResetting || !email}
+            className="text-sm text-primary hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isResetting ? 'Sending reset email...' : 'Forgot password?'}
+          </button>
+        </div>
 
         <div className="mt-6 text-center">
           <p className="text-sm text-muted-foreground mb-4">
