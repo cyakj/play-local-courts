@@ -35,9 +35,16 @@ const BottomNavigation = () => {
           color: 'text-blue-600'
         },
         {
+          path: '/reserve-facilities',
+          icon: Plus,
+          label: 'Reserve',
+          color: 'text-teal-600',
+          isSpecial: true
+        },
+        {
           path: '/my-locker',
           icon: Users,
-          label: 'Find Match',
+          label: 'My Locker',
           color: 'text-indigo-600'
         },
         {
@@ -45,13 +52,6 @@ const BottomNavigation = () => {
           icon: Trophy,
           label: 'Compete',
           color: 'text-purple-600'
-        },
-        {
-          path: '/reserve-facilities',
-          icon: Plus,
-          label: 'Reserve',
-          color: 'text-teal-600',
-          isSpecial: true
         }
       ];
     }
@@ -71,9 +71,16 @@ const BottomNavigation = () => {
         color: 'text-blue-600'
       },
       {
+        path: '/reserve-court',
+        icon: Plus,
+        label: 'Reserve',
+        color: 'text-teal-600',
+        isSpecial: true
+      },
+      {
         path: '/my-locker',
         icon: Users,
-        label: 'Find Match',
+        label: 'My Locker',
         color: 'text-indigo-600'
       },
       {
@@ -81,13 +88,6 @@ const BottomNavigation = () => {
         icon: Trophy,
         label: 'Compete',
         color: 'text-purple-600'
-      },
-      {
-        path: '/reserve-court',
-        icon: Plus,
-        label: 'Reserve',
-        color: 'text-teal-600',
-        isSpecial: true
       }
     ];
   };

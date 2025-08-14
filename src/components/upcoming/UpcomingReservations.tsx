@@ -28,13 +28,6 @@ const UpcomingReservations = ({ upcomingReservations }: UpcomingReservationsProp
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <span>Upcoming Reservations</span>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => navigate('/reserve-court')}
-          >
-            Reserve Amenity
-          </Button>
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -46,7 +39,7 @@ const UpcomingReservations = ({ upcomingReservations }: UpcomingReservationsProp
               variant="outline"
               onClick={() => navigate('/reserve-court')}
             >
-              Make a Reservation
+              Reserve Amenity
             </Button>
           </div>
         ) : (

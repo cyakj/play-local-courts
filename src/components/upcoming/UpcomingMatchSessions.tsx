@@ -26,13 +26,6 @@ const UpcomingMatchSessions = ({ upcomingMatchSessions }: UpcomingMatchSessionsP
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <span>Upcoming Match Play Sessions</span>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => navigate('/my-locker')}
-          >
-            Find Match
-          </Button>
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -42,9 +35,9 @@ const UpcomingMatchSessions = ({ upcomingMatchSessions }: UpcomingMatchSessionsP
             <p className="text-muted-foreground mb-4">No upcoming match sessions</p>
             <Button 
               variant="outline"
-              onClick={() => navigate('/my-locker')}
+              onClick={() => navigate('/my-locker?tab=find-partner')}
             >
-              Find a Match Partner
+              Find Match
             </Button>
           </div>
         ) : (
