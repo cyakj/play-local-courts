@@ -7,7 +7,7 @@ import { Clock, MapPin, Users, Calendar } from 'lucide-react';
 
 interface Event {
   id: string;
-  type: 'booking' | 'match';
+  type: 'booking' | 'match' | 'lesson' | 'ladder';
   title: string;
   date: string;
   startTime: string;
@@ -16,6 +16,8 @@ interface Event {
   playType?: string;
   status?: string;
   opponent?: string;
+  coach?: string;
+  sport?: string;
 }
 
 interface EventDetailsProps {
@@ -98,6 +100,20 @@ const EventDetails = ({ selectedDate, events }: EventDetailsProps) => {
                       <div className="flex items-center gap-2">
                         <Users className="h-4 w-4" />
                         vs {event.opponent}
+                      </div>
+                    )}
+                    
+                    {event.coach && (
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        Coach: {event.coach}
+                      </div>
+                    )}
+                    
+                    {event.sport && (
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        Sport: {event.sport}
                       </div>
                     )}
                   </div>

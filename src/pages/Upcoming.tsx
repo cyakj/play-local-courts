@@ -3,33 +3,169 @@ import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
+import { supabase } from '../integrations/supabase/client';
 import CalendarSection from '../components/upcoming/CalendarSection';
 import UpcomingReservations from '../components/upcoming/UpcomingReservations';
 import UpcomingMatchSessions from '../components/upcoming/UpcomingMatchSessions';
 import PastMatchSessions from '../components/upcoming/PastMatchSessions';
 import EventDetails from '../components/upcoming/EventDetails';
+import { UserType } from '../types';
 
 const Upcoming = () => {
   const { currentUser } = useAuth();
   const { bookings } = useData();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [upcomingLessons, setUpcomingLessons] = useState<any[]>([]);
+  const [upcomingMatches, setUpcomingMatches] = useState<any[]>([]);
+  const [upcomingLadderMatches, setUpcomingLadderMatches] = useState<any[]>([]);
 
   const now = new Date();
+  const isNonHOA = currentUser?.userType === UserType.NON_HOA;
 
-  // Filter reservations for upcoming events only
-  const upcomingReservations = bookings.filter(booking => {
+  // Filter reservations for upcoming events only (only for HOA users)
+  const upcomingReservations = isNonHOA ? [] : bookings.filter(booking => {
     const bookingDateTime = new Date(`${booking.date}T${booking.startTime}`);
     return bookingDateTime > now;
   });
 
-  // No mock match sessions - these will come from actual data
-  const upcomingMatchSessions: any[] = [];
+  // Load lessons for non-HOA users
+  useEffect(() => {
+    const loadUpcomingLessons = async () => {
+      if (!currentUser?.id || !isNonHOA) return;
+
+      try {
+        const { data: lessons } = await supabase
+          .from('lesson_requests')
+          .select(`
+            *,
+            coach:coaches(
+              user_id,
+              business_name,
+              profiles:profiles(full_name)
+            )
+          `)
+          .eq('player_id', currentUser.id)
+          .eq('status', 'confirmed')
+          .gte('preferred_date', new Date().toISOString().split('T')[0])
+          .order('preferred_date', { ascending: true });
+
+        setUpcomingLessons(lessons || []);
+      } catch (error) {
+        console.error('Error loading lessons:', error);
+      }
+    };
+
+    loadUpcomingLessons();
+  }, [currentUser?.id, isNonHOA]);
+
+  // Load upcoming matches
+  useEffect(() => {
+    const loadUpcomingMatches = async () => {
+      if (!currentUser?.id) return;
+
+      try {
+        const { data: matches } = await supabase
+          .from('matches')
+          .select(`
+            *,
+            player1:profiles!matches_player1_id_fkey(full_name),
+            player2:profiles!matches_player2_id_fkey(full_name),
+            player3:profiles!matches_player3_id_fkey(full_name),
+            player4:profiles!matches_player4_id_fkey(full_name)
+          `)
+          .or(`player1_id.eq.${currentUser.id},player2_id.eq.${currentUser.id},player3_id.eq.${currentUser.id},player4_id.eq.${currentUser.id}`)
+          .gte('date', new Date().toISOString().split('T')[0])
+          .order('date', { ascending: true });
+
+        setUpcomingMatches(matches || []);
+      } catch (error) {
+        console.error('Error loading matches:', error);
+      }
+    };
+
+    loadUpcomingMatches();
+  }, [currentUser?.id]);
+
+  // Load upcoming ladder matches
+  useEffect(() => {
+    const loadUpcomingLadderMatches = async () => {
+      if (!currentUser?.id) return;
+
+      try {
+        const { data: ladderMatches } = await supabase
+          .from('ladder_matches')
+          .select(`
+            *,
+            ladder:ladders(name),
+            team1:ladder_teams!ladder_matches_team1_id_fkey(
+              team_name,
+              player1:profiles!ladder_teams_player1_id_fkey(full_name),
+              player2:profiles!ladder_teams_player2_id_fkey(full_name)
+            ),
+            team2:ladder_teams!ladder_matches_team2_id_fkey(
+              team_name,
+              player1:profiles!ladder_teams_player1_id_fkey(full_name),
+              player2:profiles!ladder_teams_player2_id_fkey(full_name)
+            )
+          `)
+          .or(`team1.player1_id.eq.${currentUser.id},team1.player2_id.eq.${currentUser.id},team2.player1_id.eq.${currentUser.id},team2.player2_id.eq.${currentUser.id}`)
+          .eq('status', 'pending')
+          .gte('scheduled_date', new Date().toISOString().split('T')[0])
+          .order('scheduled_date', { ascending: true });
+
+        setUpcomingLadderMatches(ladderMatches || []);
+      } catch (error) {
+        console.error('Error loading ladder matches:', error);
+      }
+    };
+
+    loadUpcomingLadderMatches();
+  }, [currentUser?.id]);
+
+  // Combine all match sessions for display
+  const upcomingMatchSessions = [
+    ...upcomingMatches.map(match => ({
+      id: match.id,
+      type: 'match',
+      opponent: getOpponentName(match),
+      match_type: match.match_type,
+      date: match.date,
+      time_start: match.time_start,
+      location: match.location
+    })),
+    ...upcomingLadderMatches.map(match => ({
+      id: match.id,
+      type: 'ladder',
+      opponent: getOpponentTeamName(match),
+      match_type: 'Ladder Match',
+      date: match.scheduled_date,
+      time_start: match.scheduled_time || '12:00',
+      location: match.ladder?.name || 'TBD'
+    }))
+  ];
+
   const pastMatchSessions: any[] = [];
 
-  // Combine all events for calendar and event details - only bookings for now
+  // Helper function to get opponent name
+  function getOpponentName(match: any) {
+    const players = [match.player1, match.player2, match.player3, match.player4].filter(Boolean);
+    const currentPlayerName = currentUser?.fullName;
+    return players.find(p => p?.full_name !== currentPlayerName)?.full_name || 'Unknown';
+  }
+
+  // Helper function to get opponent team name
+  function getOpponentTeamName(match: any) {
+    // Determine which team the current user is on
+    const isOnTeam1 = match.team1?.player1?.id === currentUser?.id || match.team1?.player2?.id === currentUser?.id;
+    const opponentTeam = isOnTeam1 ? match.team2 : match.team1;
+    return opponentTeam?.team_name || 'Unknown Team';
+  }
+
+  // Combine all events for calendar and event details
   const allEvents = [
-    ...bookings.map(booking => ({
+    // Bookings (only for HOA users)
+    ...(isNonHOA ? [] : bookings.map(booking => ({
       id: booking.id,
       type: 'booking' as const,
       title: booking.amenityName,
@@ -38,6 +174,40 @@ const Upcoming = () => {
       endTime: booking.endTime,
       playType: booking.playType,
       status: booking.status
+    }))),
+    // Lessons (for non-HOA users)
+    ...upcomingLessons.map(lesson => ({
+      id: lesson.id,
+      type: 'lesson' as const,
+      title: `${lesson.lesson_type} Lesson`,
+      date: lesson.preferred_date,
+      startTime: lesson.preferred_time_start,
+      endTime: lesson.preferred_time_end,
+      coach: lesson.coach?.business_name || lesson.coach?.profiles?.full_name,
+      sport: lesson.sport,
+      location: lesson.location
+    })),
+    // Matches
+    ...upcomingMatches.map(match => ({
+      id: match.id,
+      type: 'match' as const,
+      title: `${match.match_type} Match`,
+      date: match.date,
+      startTime: match.time_start,
+      endTime: match.time_end,
+      opponent: getOpponentName(match),
+      location: match.location
+    })),
+    // Ladder matches
+    ...upcomingLadderMatches.map(match => ({
+      id: match.id,
+      type: 'ladder' as const,
+      title: `Ladder Match`,
+      date: match.scheduled_date,
+      startTime: match.scheduled_time || '12:00',
+      endTime: null,
+      opponent: getOpponentTeamName(match),
+      location: match.ladder?.name
     }))
   ];
 
@@ -91,9 +261,34 @@ const Upcoming = () => {
 
         <TabsContent value="overview" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <UpcomingReservations upcomingReservations={upcomingReservations} />
+            {!isNonHOA && <UpcomingReservations upcomingReservations={upcomingReservations} />}
             <UpcomingMatchSessions upcomingMatchSessions={upcomingMatchSessions} />
           </div>
+          {isNonHOA && upcomingLessons.length > 0 && (
+            <div className="bg-card rounded-lg p-6">
+              <h3 className="text-lg font-semibold mb-4">Upcoming Lessons</h3>
+              <div className="space-y-3">
+                {upcomingLessons.slice(0, 5).map((lesson) => (
+                  <div key={lesson.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                    <div>
+                      <div className="font-medium">{lesson.lesson_type} Lesson</div>
+                      <div className="text-sm text-muted-foreground">
+                        {lesson.sport} • {lesson.preferred_date} at {lesson.preferred_time_start}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Coach: {lesson.coach?.business_name || lesson.coach?.profiles?.full_name}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {upcomingLessons.length > 5 && (
+                  <div className="text-center text-sm text-muted-foreground">
+                    +{upcomingLessons.length - 5} more lessons
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           <PastMatchSessions pastMatchSessions={pastMatchSessions} />
         </TabsContent>
 

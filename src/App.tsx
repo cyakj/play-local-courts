@@ -13,6 +13,7 @@ import CompleteProfile from "./pages/CompleteProfile";
 import Dashboard from "./pages/Dashboard";
 import CoachDashboard from "./pages/CoachDashboard";
 import ReserveCourt from "./pages/ReserveCourt";
+import ReserveFacilities from "./pages/ReserveFacilities";
 import MyReservations from "./pages/MyReservations";
 import Upcoming from "./pages/Upcoming";
 import ManageCourts from "./pages/ManageCourts";
@@ -46,6 +47,7 @@ function App() {
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/coach-dashboard" element={<CoachDashboard />} />
                   <Route path="/reserve-court" element={<ReserveCourt />} />
+                  <Route path="/reserve-facilities" element={<ReserveFacilities />} />
                   <Route path="/my-reservations" element={<MyReservations />} />
                   <Route path="/upcoming" element={<Upcoming />} />
                   <Route path="/manage-amenities" element={<ManageCourts />} />

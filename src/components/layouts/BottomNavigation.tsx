@@ -29,10 +29,16 @@ const BottomNavigation = () => {
           color: 'text-green-600'
         },
         {
+          path: '/upcoming',
+          icon: Calendar,
+          label: 'Upcoming',
+          color: 'text-blue-600'
+        },
+        {
           path: '/my-locker',
           icon: Users,
           label: 'Find Match',
-          color: 'text-blue-600'
+          color: 'text-indigo-600'
         },
         {
           path: '/leagues-ladders',
@@ -41,10 +47,11 @@ const BottomNavigation = () => {
           color: 'text-purple-600'
         },
         {
-          path: '/my-locker',
-          icon: User,
-          label: 'Profile',
-          color: 'text-orange-600'
+          path: '/reserve-facilities',
+          icon: Plus,
+          label: 'Reserve',
+          color: 'text-teal-600',
+          isSpecial: true
         }
       ];
     }
@@ -64,17 +71,23 @@ const BottomNavigation = () => {
         color: 'text-blue-600'
       },
       {
+        path: '/my-locker',
+        icon: Users,
+        label: 'Find Match',
+        color: 'text-indigo-600'
+      },
+      {
+        path: '/leagues-ladders',
+        icon: Trophy,
+        label: 'Compete',
+        color: 'text-purple-600'
+      },
+      {
         path: '/reserve-court',
         icon: Plus,
         label: 'Reserve',
-        color: 'text-purple-600',
+        color: 'text-teal-600',
         isSpecial: true
-      },
-      {
-        path: '/my-locker',
-        icon: User,
-        label: 'My Locker',
-        color: 'text-orange-600'
       }
     ];
   };
