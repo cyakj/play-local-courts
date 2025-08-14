@@ -65,7 +65,7 @@ export const getCurrentUserProfile = async (): Promise<User | null> => {
     .from('profiles')
     .select('*')
     .eq('id', user.id)
-    .single();
+    .maybeSingle();
 
   if (error) {
     console.error('Error fetching profile:', error);
