@@ -248,7 +248,7 @@ const Dashboard = () => {
               )}
             </div>
             <Button asChild className="w-full mt-4" variant="outline">
-              <Link to="/my-locker" className="flex items-center gap-2">
+              <Link to="/my-locker?tab=find-partner" className="flex items-center gap-2">
                 <Users className="h-4 w-4" />
                 Find Players
               </Link>
