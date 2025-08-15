@@ -36,7 +36,9 @@ const MyLocker = () => {
   useEffect(() => {
     const tab = searchParams.get('tab');
     if (tab === 'find-partner') {
-      setShowFindPartner(true);
+      setTimeout(() => {
+        setShowFindPartner(true);
+      }, 100); // Small delay to ensure the page loads first
     }
   }, [searchParams]);
 
