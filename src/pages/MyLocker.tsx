@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Search, MessageCircle, User, Trophy, Users, Target, GraduationCap } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { useSearchParams } from 'react-router-dom';
 import PlayerProfile from '../components/locker/PlayerProfile';
 import MatchPreferences from '../components/locker/MatchPreferences';
 import FindPartner from '../components/locker/FindPartner';
@@ -17,6 +18,7 @@ import { UserType } from '../types';
 
 const MyLocker = () => {
   const { currentUser } = useAuth();
+  const [searchParams] = useSearchParams();
   const [showFindPartner, setShowFindPartner] = useState(false);
   const [showFindCoach, setShowFindCoach] = useState(false);
   const [showMessaging, setShowMessaging] = useState(false);
@@ -29,6 +31,14 @@ const MyLocker = () => {
       checkForUnreadMessages();
     }
   }, [currentUser]);
+
+  // Check for tab parameter and auto-show find partner
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'find-partner') {
+      setShowFindPartner(true);
+    }
+  }, [searchParams]);
 
   const checkForUnreadMessages = async () => {
     if (!currentUser) return;
