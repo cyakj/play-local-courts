@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -1550,6 +1550,30 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       referral_leaderboard: {
@@ -1564,33 +1588,33 @@ export type Database = {
     Functions: {
       calculate_ladder_points: {
         Args: {
-          winner_games: number
           loser_games: number
           super_tiebreak?: boolean
+          winner_games: number
         }
         Returns: number
       }
       create_community: {
         Args: {
+          community_address?: string
           community_name: string
           community_type?: string
-          community_address?: string
-          logo_url?: string
           description?: string
+          logo_url?: string
         }
         Returns: string
       }
       create_default_email_preferences: {
         Args: { target_user_id: string }
         Returns: {
-          id: string
-          user_id: string
+          admin_announcements: boolean
           booking_confirmations: boolean
           booking_reminders: boolean
           cancellation_notifications: boolean
-          admin_announcements: boolean
           created_at: string
+          id: string
           updated_at: string
+          user_id: string
         }[]
       }
       generate_round_robin_matches: {
@@ -1600,30 +1624,42 @@ export type Database = {
       get_email_preferences: {
         Args: { target_user_id: string }
         Returns: {
-          id: string
-          user_id: string
+          admin_announcements: boolean
           booking_confirmations: boolean
           booking_reminders: boolean
           cancellation_notifications: boolean
-          admin_announcements: boolean
           created_at: string
+          id: string
           updated_at: string
+          user_id: string
         }[]
       }
+      grant_admin_role: {
+        Args: { target_user_id: string }
+        Returns: boolean
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       request_join_community: {
-        Args: { target_hoa_id: string; join_message?: string }
+        Args: { join_message?: string; target_hoa_id: string }
         Returns: string
       }
       update_email_preference: {
         Args: {
-          target_user_id: string
           preference_key: string
           preference_value: boolean
+          target_user_id: string
         }
         Returns: boolean
       }
     }
     Enums: {
+      app_role: "admin" | "resident" | "coach"
       court_type: "hard" | "clay" | "grass" | "indoor"
       ladder_format: "singles" | "doubles"
       ladder_status: "setup" | "active" | "completed"
@@ -1759,6 +1795,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "resident", "coach"],
       court_type: ["hard", "clay", "grass", "indoor"],
       ladder_format: ["singles", "doubles"],
       ladder_status: ["setup", "active", "completed"],

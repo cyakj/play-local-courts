@@ -4,7 +4,6 @@ import { User, UserRole, UserStatus, UserType } from '../types';
 import { supabase } from '@/integrations/supabase/client';
 import { getCurrentUserProfile } from '../services/supabaseService';
 import { createDefaultEmailPreferences } from '../services/emailService';
-import { isAdminEmail } from '../config/adminEmails';
 import { toast } from 'sonner';
 
 interface AuthContextType {
@@ -26,6 +25,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [userRoles, setUserRoles] = useState<string[]>([]);
 
   useEffect(() => {
     console.log('Setting up auth state listener...');
@@ -44,9 +44,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               const userProfile = await getCurrentUserProfile();
               console.log('User profile fetched:', userProfile);
               setCurrentUser(userProfile);
+              
+              // Fetch user roles from user_roles table
+              const { data: rolesData } = await supabase
+                .from('user_roles')
+                .select('role')
+                .eq('user_id', session.user.id);
+              
+              setUserRoles(rolesData?.map(r => r.role) || []);
             } catch (error) {
               console.error('Error fetching user profile:', error);
               setCurrentUser(null);
+              setUserRoles([]);
             } finally {
               setLoading(false);
             }
@@ -54,6 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else {
           console.log('No user session found');
           setCurrentUser(null);
+          setUserRoles([]);
           setLoading(false);
         }
       }
@@ -107,13 +117,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('Attempting to register user:', email, 'with HOA:', hoaId);
       
-      // Determine if this email should get admin privileges
-      const shouldBeAdmin = isAdminEmail(email);
-      const userRole = shouldBeAdmin ? UserRole.ADMIN : UserRole.RESIDENT;
-      // Only require approval if user has an HOA and is not an admin
-      const userStatus = shouldBeAdmin ? UserStatus.APPROVED : (hoaId ? UserStatus.PENDING : UserStatus.APPROVED);
+      // All new users are residents by default - admins must be granted via grant_admin_role()
+      const userRole = UserRole.RESIDENT;
+      // Only require approval if user has an HOA
+      const userStatus = hoaId ? UserStatus.PENDING : UserStatus.APPROVED;
       
-      console.log('User role assignment:', { email, shouldBeAdmin, userRole, userStatus, hoaId });
+      console.log('User role assignment:', { email, userRole, userStatus, hoaId });
       
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -182,9 +191,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      if (shouldBeAdmin) {
-        toast.success("Admin account created successfully! Please check your email to confirm your account.");
-      } else if (hoaId) {
+      if (hoaId) {
         toast.success("Registration successful! Please check your email to confirm your account, then wait for HOA admin approval.");
       } else {
         // Users without HOA don't need approval - set status to approved
@@ -287,6 +294,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await supabase.auth.signOut();
       setCurrentUser(null);
       setSession(null);
+      setUserRoles([]);
       toast.success("Logged out successfully");
     } catch (error) {
       console.error('Logout error:', error);
@@ -294,12 +302,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const isAdmin = currentUser?.role === UserRole.ADMIN;
+  // Check roles from user_roles table instead of profiles
+  const isAdmin = userRoles.includes('admin');
+  const isCoach = userRoles.includes('coach');
   const isPending = currentUser?.status === UserStatus.PENDING;
-  // Check if user is a coach by looking at their profiles table hoa_role field
-  // Since we don't have direct access to hoa_role on the User type, we'll need to check for coach role differently
-  // For now, we'll return false and this will need to be properly implemented when we have the correct data flow
-  const isCoach = false; // TODO: Implement proper coach role checking
 
   const value = {
     currentUser,
