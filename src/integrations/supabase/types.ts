@@ -1645,6 +1645,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_admin_in_same_hoa: {
+        Args: { _target_user_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_in_same_hoa: {
+        Args: { _target_user_id: string; _user_id: string }
+        Returns: boolean
+      }
       request_join_community: {
         Args: { join_message?: string; target_hoa_id: string }
         Returns: string
