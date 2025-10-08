@@ -52,6 +52,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 .eq('user_id', session.user.id);
               
               setUserRoles(rolesData?.map(r => r.role) || []);
+
+              // Ensure minimal coach profile exists after login if user signed up as coach
+              const userMeta = (session.user as any)?.user_metadata;
+              if (userMeta?.hoa_role === 'coach') {
+                const { data: existingCoach } = await supabase
+                  .from('coaches')
+                  .select('id')
+                  .eq('user_id', session.user.id)
+                  .maybeSingle();
+                if (!existingCoach) {
+                  const { error: ensureCoachError } = await supabase
+                    .from('coaches')
+                    .insert({ user_id: session.user.id });
+                  if (ensureCoachError) {
+                    console.error('Error ensuring coach profile:', ensureCoachError);
+                  }
+                }
+              }
             } catch (error) {
               console.error('Error fetching user profile:', error);
               setCurrentUser(null);
@@ -231,25 +249,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (data.user) {
-        // Wait for auth user to be created, then create profile and coach record
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
+        // Try to ensure we have a session before inserting (RLS requires auth)
+        await new Promise((resolve) => setTimeout(resolve, 800));
+        let { data: sessionData } = await supabase.auth.getSession();
+        if (!sessionData?.session) {
+          // Attempt sign-in to establish session (works if email confirmation is disabled)
+          const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+          if (signInError) {
+            console.warn('Sign-in after signup failed (likely email confirmation required):', signInError.message);
+          }
+          ({ data: sessionData } = await supabase.auth.getSession());
+        }
+
+        if (!sessionData?.session) {
+          // Can't insert due to RLS without a session
+          toast.success('Account created! Please confirm your email, then log in to finish coach setup.');
+          return;
+        }
+
         // Create/update the user's profile first
         const { error: profileError } = await supabase
           .from('profiles')
-          .upsert({
-            id: data.user.id,
-            full_name: fullName,
-            hoa_status: 'approved', // Coaches don't need approval
-          }, {
-            onConflict: 'id'
-          });
-
+          .upsert(
+            {
+              id: data.user.id,
+              full_name: fullName,
+              hoa_status: 'approved',
+            },
+            { onConflict: 'id' }
+          );
         if (profileError) {
           console.error('Error creating profile:', profileError);
         }
 
-        // Create coach profile
+        // Create full coach profile
         const { error: coachError } = await supabase
           .from('coaches')
           .insert({
@@ -261,7 +294,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             home_base: coachData.homeBase,
             willing_to_travel: coachData.willingToTravel,
             hourly_rate: coachData.hourlyRate || null,
-            bio: coachData.bio || null
+            bio: coachData.bio || null,
           });
 
         if (coachError) {
@@ -275,10 +308,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.log('Default email preferences created for coach');
         } catch (emailPrefError) {
           console.error('Error creating email preferences:', emailPrefError);
-          // Don't throw error - registration was successful even if email prefs failed
         }
 
-        toast.success("Coach registration successful! Please check your email to confirm your account.");
+        toast.success('Coach registration successful!');
       }
     } catch (error: any) {
       console.error('Coach registration error:', error);
