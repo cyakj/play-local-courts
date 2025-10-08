@@ -28,9 +28,9 @@ const FindCoach: React.FC<FindCoachProps> = ({ onBack }) => {
   const [coaches, setCoaches] = useState<CoachWithProfile[]>([]);
   const [filteredCoaches, setFilteredCoaches] = useState<CoachWithProfile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedSport, setSelectedSport] = useState<string>('');
-  const [selectedSkillLevel, setSelectedSkillLevel] = useState<string>('');
-  const [travelFilter, setTravelFilter] = useState<string>('');
+  const [selectedSport, setSelectedSport] = useState<string>('all');
+  const [selectedSkillLevel, setSelectedSkillLevel] = useState<string>('all');
+  const [travelFilter, setTravelFilter] = useState<string>('all');
   const [maxRate, setMaxRate] = useState<string>('');
 
   useEffect(() => {
@@ -94,7 +94,7 @@ const FindCoach: React.FC<FindCoachProps> = ({ onBack }) => {
   const filterCoaches = () => {
     let filtered = [...coaches];
 
-    if (selectedSport) {
+    if (selectedSport && selectedSport !== 'all') {
       filtered = filtered.filter(coach => 
         coach.sports_offered?.includes(selectedSport)
       );
@@ -151,7 +151,7 @@ const FindCoach: React.FC<FindCoachProps> = ({ onBack }) => {
                   <SelectValue placeholder="All sports" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All sports</SelectItem>
+                  <SelectItem value="all">All sports</SelectItem>
                   <SelectItem value="Tennis">Tennis</SelectItem>
                   <SelectItem value="Pickleball">Pickleball</SelectItem>
                   <SelectItem value="Padel">Padel</SelectItem>
@@ -166,7 +166,7 @@ const FindCoach: React.FC<FindCoachProps> = ({ onBack }) => {
                   <SelectValue placeholder="Select level" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Any level</SelectItem>
+                  <SelectItem value="all">Any level</SelectItem>
                   <SelectItem value="beginner">Beginner</SelectItem>
                   <SelectItem value="intermediate">Intermediate</SelectItem>
                   <SelectItem value="advanced">Advanced</SelectItem>
@@ -181,7 +181,7 @@ const FindCoach: React.FC<FindCoachProps> = ({ onBack }) => {
                   <SelectValue placeholder="Any location" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Any location</SelectItem>
+                  <SelectItem value="all">Any location</SelectItem>
                   <SelectItem value="travel">Can travel to my HOA</SelectItem>
                 </SelectContent>
               </Select>

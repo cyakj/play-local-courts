@@ -231,6 +231,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (data.user) {
+        // Wait for auth user to be created, then create profile and coach record
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Create/update the user's profile first
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .upsert({
+            id: data.user.id,
+            full_name: fullName,
+            hoa_status: 'approved', // Coaches don't need approval
+          }, {
+            onConflict: 'id'
+          });
+
+        if (profileError) {
+          console.error('Error creating profile:', profileError);
+        }
+
         // Create coach profile
         const { error: coachError } = await supabase
           .from('coaches')
