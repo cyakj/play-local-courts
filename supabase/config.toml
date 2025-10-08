@@ -16,5 +16,16 @@ additional_redirect_urls = ["https://localhost:3000"]
 jwt_expiry = 3600
 jwt_secret = "super-secret-jwt-token-with-at-least-32-characters-long"
 
+[auth.email]
+enable_signup = true
+enable_confirmations = true
+
+[auth.hook.send_email]
+enabled = true
+uri = "http://localhost:54321/functions/v1/send-auth-email"
+
 [functions.send-booking-email]
 verify_jwt = true
+
+[functions.send-auth-email]
+verify_jwt = false
