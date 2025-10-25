@@ -24,6 +24,7 @@ import MyLocker from "./pages/MyLocker";
 import LeaguesLadders from "./pages/LeaguesLadders";
 import EmailSettings from "./pages/EmailSettings";
 import MaintenanceReports from "./pages/MaintenanceReports";
+import UpgradeToCoach from "./pages/UpgradeToCoach";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -58,6 +59,7 @@ function App() {
                   <Route path="/my-locker" element={<MyLocker />} />
                   <Route path="/leagues-ladders" element={<LeaguesLadders />} />
                   <Route path="/email-settings" element={<EmailSettings />} />
+                  <Route path="/upgrade-to-coach" element={<UpgradeToCoach />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>
