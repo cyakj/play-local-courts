@@ -10,6 +10,7 @@ import { Star, MapPin, Clock, DollarSign, ArrowLeft } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Coach } from '../../types/coach';
 import { toast } from 'sonner';
+import LessonRequestDialog from './LessonRequestDialog';
 
 interface FindCoachProps {
   onBack: () => void;
@@ -32,6 +33,8 @@ const FindCoach: React.FC<FindCoachProps> = ({ onBack }) => {
   const [selectedSkillLevel, setSelectedSkillLevel] = useState<string>('all');
   const [travelFilter, setTravelFilter] = useState<string>('all');
   const [maxRate, setMaxRate] = useState<string>('');
+  const [lessonDialogOpen, setLessonDialogOpen] = useState(false);
+  const [selectedCoach, setSelectedCoach] = useState<CoachWithProfile | null>(null);
 
   useEffect(() => {
     loadCoaches();
@@ -115,8 +118,8 @@ const FindCoach: React.FC<FindCoachProps> = ({ onBack }) => {
   };
 
   const handleRequestLesson = (coach: CoachWithProfile) => {
-    // This will open a lesson request dialog
-    toast.info('Lesson request feature coming soon!');
+    setSelectedCoach(coach);
+    setLessonDialogOpen(true);
   };
 
   if (loading) {
@@ -297,6 +300,16 @@ const FindCoach: React.FC<FindCoachProps> = ({ onBack }) => {
             <p className="text-sm text-gray-400 mt-2">Try adjusting your filters to see more results.</p>
           </CardContent>
         </Card>
+      )}
+
+      {selectedCoach && (
+        <LessonRequestDialog
+          open={lessonDialogOpen}
+          onOpenChange={setLessonDialogOpen}
+          coachId={selectedCoach.user_id}
+          coachName={selectedCoach.profiles?.full_name || 'Coach'}
+          sportsOffered={selectedCoach.sports_offered || []}
+        />
       )}
     </div>
   );
