@@ -2,16 +2,21 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { LessonPaymentButton } from "./LessonPaymentButton";
+import { LeaveReviewDialog } from "./LeaveReviewDialog";
 import { toast } from "sonner";
 import { useSearchParams } from "react-router-dom";
+import { Star } from "lucide-react";
 
 export const LessonsTab = () => {
   const { currentUser } = useAuth();
   const [lessonRequests, setLessonRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchParams, setSearchParams] = useSearchParams();
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [selectedLesson, setSelectedLesson] = useState<any>(null);
 
   useEffect(() => {
     if (currentUser) {
@@ -74,6 +79,23 @@ export const LessonsTab = () => {
 
       if (error) throw error;
 
+      // Check if lessons have been reviewed
+      if (requests && requests.length > 0) {
+        const lessonIds = requests.map((r) => r.id);
+        const { data: reviews } = await supabase
+          .from("coach_reviews")
+          .select("lesson_request_id")
+          .in("lesson_request_id", lessonIds);
+
+        const reviewedLessonIds = new Set(
+          reviews?.map((r) => r.lesson_request_id) || []
+        );
+
+        requests.forEach((request: any) => {
+          request.hasReview = reviewedLessonIds.has(request.id);
+        });
+      }
+
       setLessonRequests(requests || []);
     } catch (error) {
       console.error("Error loading lesson requests:", error);
@@ -81,6 +103,11 @@ export const LessonsTab = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleLeaveReview = (lesson: any) => {
+    setSelectedLesson(lesson);
+    setReviewDialogOpen(true);
   };
 
   if (loading) {
@@ -157,15 +184,30 @@ export const LessonsTab = () => {
                           )}
                         </div>
                       </div>
-                      {request.status === "accepted" &&
-                        request.coaches?.hourly_rate && (
-                          <LessonPaymentButton
-                            lessonRequestId={request.id}
-                            coachId={request.coach_id}
-                            amount={request.coaches.hourly_rate}
-                            status={request.status}
-                          />
+                      <div className="flex flex-col gap-2">
+                        {request.status === "accepted" &&
+                          request.coaches?.hourly_rate && (
+                            <LessonPaymentButton
+                              lessonRequestId={request.id}
+                              coachId={request.coach_id}
+                              amount={request.coaches.hourly_rate}
+                              status={request.status}
+                            />
+                          )}
+                        {request.status === "accepted" && !request.hasReview && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleLeaveReview(request)}
+                          >
+                            <Star className="h-4 w-4 mr-2" />
+                            Leave Review
+                          </Button>
                         )}
+                        {request.hasReview && (
+                          <Badge variant="secondary">Reviewed</Badge>
+                        )}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -174,6 +216,15 @@ export const LessonsTab = () => {
           </div>
         </CardContent>
       </Card>
+
+      {selectedLesson && (
+        <LeaveReviewDialog
+          open={reviewDialogOpen}
+          onOpenChange={setReviewDialogOpen}
+          lessonRequest={selectedLesson}
+          onReviewSubmitted={loadLessonRequests}
+        />
+      )}
     </div>
   );
 };

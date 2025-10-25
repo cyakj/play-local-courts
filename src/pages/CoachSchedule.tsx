@@ -24,10 +24,7 @@ export default function CoachSchedule() {
     try {
       const { data, error } = await supabase
         .from('lesson_requests')
-        .select(`
-          *,
-          player:profiles!lesson_requests_player_id_fkey (full_name, avatar_url)
-        `)
+        .select('*')
         .eq('coach_id', currentUser.id)
         .eq('status', 'accepted')
         .gte('preferred_date', new Date().toISOString().split('T')[0])
@@ -35,6 +32,21 @@ export default function CoachSchedule() {
         .order('preferred_time_start', { ascending: true });
 
       if (error) throw error;
+
+      // Manually fetch player profiles
+      if (data && data.length > 0) {
+        const playerIds = [...new Set(data.map(r => r.player_id))];
+        const { data: playersData } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url')
+          .in('id', playerIds);
+
+        // Attach player data to lessons
+        data.forEach((lesson: any) => {
+          lesson.player = playersData?.find(p => p.id === lesson.player_id);
+        });
+      }
+
       setUpcomingLessons(data || []);
     } catch (error) {
       console.error('Error loading lessons:', error);
