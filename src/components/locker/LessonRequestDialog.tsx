@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import LessonTimeSelector from './LessonTimeSelector';
 
 interface LessonRequestDialogProps {
   open: boolean;
@@ -39,6 +40,36 @@ const LessonRequestDialog: React.FC<LessonRequestDialogProps> = ({
   const [location, setLocation] = useState('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [coachAvailability, setCoachAvailability] = useState<any[]>([]);
+  const [loadingAvailability, setLoadingAvailability] = useState(false);
+
+  useEffect(() => {
+    if (open && coachId) {
+      loadCoachAvailability();
+    }
+  }, [open, coachId]);
+
+  const loadCoachAvailability = async () => {
+    setLoadingAvailability(true);
+    try {
+      const { data, error } = await supabase
+        .from('coach_availability')
+        .select('*')
+        .eq('coach_id', coachId);
+
+      if (error) throw error;
+      setCoachAvailability(data || []);
+    } catch (error) {
+      console.error('Error loading coach availability:', error);
+    } finally {
+      setLoadingAvailability(false);
+    }
+  };
+
+  const handleTimeSelect = (start: string, end: string) => {
+    setStartTime(start);
+    setEndTime(end);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -204,28 +235,20 @@ const LessonRequestDialog: React.FC<LessonRequestDialogProps> = ({
               </Popover>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="startTime">Start Time *</Label>
-              <Input
-                id="startTime"
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="endTime">End Time *</Label>
-              <Input
-                id="endTime"
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                required
-              />
-            </div>
           </div>
+
+          {date && (
+            <div className="space-y-2">
+              <Label>Select Time Slot(s) *</Label>
+              <LessonTimeSelector
+                selectedDate={date}
+                coachAvailability={coachAvailability}
+                onTimeSelect={handleTimeSelect}
+                selectedStartTime={startTime}
+                selectedEndTime={endTime}
+              />
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="location">Preferred Location</Label>
