@@ -53,21 +53,63 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               
               setUserRoles(rolesData?.map(r => r.role) || []);
 
-              // Ensure minimal coach profile exists after login if user signed up as coach
+              // Complete coach setup after first authenticated session
               const userMeta = (session.user as any)?.user_metadata;
               if (userMeta?.hoa_role === 'coach') {
-                const { data: existingCoach } = await supabase
-                  .from('coaches')
-                  .select('id')
-                  .eq('user_id', session.user.id)
-                  .maybeSingle();
-                if (!existingCoach) {
-                  const { error: ensureCoachError } = await supabase
-                    .from('coaches')
-                    .insert({ user_id: session.user.id });
-                  if (ensureCoachError) {
-                    console.error('Error ensuring coach profile:', ensureCoachError);
+                try {
+                  // Ensure profile exists with minimal data
+                  const { error: profileUpsertError } = await supabase
+                    .from('profiles')
+                    .upsert(
+                      {
+                        id: session.user.id,
+                        full_name: userMeta?.full_name || null,
+                        hoa_status: 'approved',
+                      },
+                      { onConflict: 'id' }
+                    );
+                  if (profileUpsertError) {
+                    console.error('Error upserting coach user profile:', profileUpsertError);
                   }
+
+                  // Ensure coach profile exists with metadata-provided details
+                  const { data: existingCoach } = await supabase
+                    .from('coaches')
+                    .select('id')
+                    .eq('user_id', session.user.id)
+                    .maybeSingle();
+
+                  if (!existingCoach) {
+                    const coachPayload: any = {
+                      user_id: session.user.id,
+                      business_name: userMeta?.business_name ?? null,
+                      credentials: userMeta?.credentials ?? null,
+                      years_experience: userMeta?.years_experience ?? null,
+                      sports_offered: userMeta?.sports_offered ?? [],
+                      home_base: userMeta?.home_base ?? null,
+                      willing_to_travel: userMeta?.willing_to_travel ?? false,
+                      hourly_rate: userMeta?.hourly_rate ?? null,
+                      bio: userMeta?.bio ?? null,
+                    };
+
+                    const { error: coachInsertError } = await supabase
+                      .from('coaches')
+                      .insert(coachPayload);
+                    if (coachInsertError) {
+                      console.error('Error creating coach profile from metadata:', coachInsertError);
+                    } else {
+                      console.log('Coach profile created from metadata for user:', session.user.id);
+                    }
+                  }
+
+                  // Ensure default email preferences exist
+                  try {
+                    await createDefaultEmailPreferences(session.user.id);
+                  } catch (emailPrefError) {
+                    console.error('Error ensuring email preferences for coach:', emailPrefError);
+                  }
+                } catch (coachSetupError) {
+                  console.error('Error during coach setup after login:', coachSetupError);
                 }
               }
             } catch (error) {
@@ -229,7 +271,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   ) => {
     try {
       console.log('Attempting to register coach:', email);
-      
+
+      // Store coach details in user metadata; we'll create DB rows after first login
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -238,7 +281,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           data: {
             full_name: fullName,
             hoa_role: 'coach',
-            hoa_status: 'approved', // Coaches don't need HOA approval
+            hoa_status: 'approved',
+            // Coach profile metadata to be applied after email confirmation
+            business_name: coachData?.businessName ?? null,
+            credentials: coachData?.credentials ?? null,
+            years_experience: coachData?.yearsExperience ?? null,
+            sports_offered: coachData?.sportsOffered ?? [],
+            home_base: coachData?.homeBase ?? null,
+            willing_to_travel: coachData?.willingToTravel ?? false,
+            hourly_rate: coachData?.hourlyRate ?? null,
+            bio: coachData?.bio ?? null,
           }
         }
       });
@@ -249,68 +301,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (data.user) {
-        // Try to ensure we have a session before inserting (RLS requires auth)
-        await new Promise((resolve) => setTimeout(resolve, 800));
-        let { data: sessionData } = await supabase.auth.getSession();
-        if (!sessionData?.session) {
-          // Attempt sign-in to establish session (works if email confirmation is disabled)
-          const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-          if (signInError) {
-            console.warn('Sign-in after signup failed (likely email confirmation required):', signInError.message);
-          }
-          ({ data: sessionData } = await supabase.auth.getSession());
-        }
-
-        if (!sessionData?.session) {
-          // Can't insert due to RLS without a session
-          toast.success('Account created! Please confirm your email, then log in to finish coach setup.');
-          return;
-        }
-
-        // Create/update the user's profile first
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .upsert(
-            {
-              id: data.user.id,
-              full_name: fullName,
-              hoa_status: 'approved',
-            },
-            { onConflict: 'id' }
-          );
-        if (profileError) {
-          console.error('Error creating profile:', profileError);
-        }
-
-        // Create full coach profile
-        const { error: coachError } = await supabase
-          .from('coaches')
-          .insert({
-            user_id: data.user.id,
-            business_name: coachData.businessName || null,
-            credentials: coachData.credentials,
-            years_experience: coachData.yearsExperience,
-            sports_offered: coachData.sportsOffered,
-            home_base: coachData.homeBase,
-            willing_to_travel: coachData.willingToTravel,
-            hourly_rate: coachData.hourlyRate || null,
-            bio: coachData.bio || null,
-          });
-
-        if (coachError) {
-          console.error('Error creating coach profile:', coachError);
-          throw new Error('Failed to create coach profile');
-        }
-
-        // Create default email preferences for the new coach
-        try {
-          await createDefaultEmailPreferences(data.user.id);
-          console.log('Default email preferences created for coach');
-        } catch (emailPrefError) {
-          console.error('Error creating email preferences:', emailPrefError);
-        }
-
-        toast.success('Coach registration successful!');
+        // Do not attempt DB inserts here (no session yet). Finish after confirmation/login.
+        toast.success('Account created! Please confirm your email, then log in to finish coach setup.');
       }
     } catch (error: any) {
       console.error('Coach registration error:', error);
