@@ -48,6 +48,12 @@ const LessonRequestDialog: React.FC<LessonRequestDialogProps> = ({
       return;
     }
 
+    if (!currentUser.id) {
+      console.error('Current user ID is missing:', currentUser);
+      toast.error('Unable to identify user. Please try logging in again.');
+      return;
+    }
+
     if (!date || !startTime || !endTime || !sport || !lessonType || !skillLevel) {
       toast.error('Please fill in all required fields');
       return;
@@ -56,23 +62,35 @@ const LessonRequestDialog: React.FC<LessonRequestDialogProps> = ({
     setSubmitting(true);
 
     try {
-      const { error } = await supabase
-        .from('lesson_requests')
-        .insert({
-          player_id: currentUser.id,
-          coach_id: coachId,
-          preferred_date: format(date, 'yyyy-MM-dd'),
-          preferred_time_start: startTime,
-          preferred_time_end: endTime,
-          sport,
-          lesson_type: lessonType,
-          skill_level: skillLevel,
-          location: location || null,
-          notes: notes || null,
-          status: 'pending',
-        });
+      console.log('Submitting lesson request with player_id:', currentUser.id);
+      
+      const lessonRequest = {
+        player_id: currentUser.id,
+        coach_id: coachId,
+        preferred_date: format(date, 'yyyy-MM-dd'),
+        preferred_time_start: startTime,
+        preferred_time_end: endTime,
+        sport,
+        lesson_type: lessonType,
+        skill_level: skillLevel,
+        location: location || null,
+        notes: notes || null,
+        status: 'pending',
+      };
 
-      if (error) throw error;
+      console.log('Lesson request data:', lessonRequest);
+
+      const { data, error } = await supabase
+        .from('lesson_requests')
+        .insert(lessonRequest)
+        .select();
+
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+
+      console.log('Lesson request created successfully:', data);
 
       toast.success(`Lesson request sent to ${coachName}!`);
       onOpenChange(false);
