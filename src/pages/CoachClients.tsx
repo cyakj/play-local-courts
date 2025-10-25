@@ -30,7 +30,7 @@ export default function CoachClients() {
         .from('lesson_requests')
         .select(`
           player_id,
-          profiles:player_id (
+          player:profiles!lesson_requests_player_id_fkey (
             id,
             full_name,
             avatar_url,
@@ -45,7 +45,7 @@ export default function CoachClients() {
       // Deduplicate clients
       const uniqueClients = Array.from(
         new Map(
-          lessonData?.map((item) => [item.player_id, item.profiles])
+          lessonData?.map((item) => [item.player_id, item.player])
         ).values()
       );
 

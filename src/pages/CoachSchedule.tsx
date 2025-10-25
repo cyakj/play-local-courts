@@ -26,7 +26,7 @@ export default function CoachSchedule() {
         .from('lesson_requests')
         .select(`
           *,
-          profiles:player_id (full_name, avatar_url)
+          player:profiles!lesson_requests_player_id_fkey (full_name, avatar_url)
         `)
         .eq('coach_id', currentUser.id)
         .eq('status', 'accepted')
@@ -95,7 +95,7 @@ export default function CoachSchedule() {
                     <div className="space-y-2 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold">
-                          {lesson.profiles?.full_name || 'Student'}
+                          {lesson.player?.full_name || 'Student'}
                         </span>
                         <Badge variant="outline">{lesson.lesson_type}</Badge>
                       </div>

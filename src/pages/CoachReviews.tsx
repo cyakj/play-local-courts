@@ -26,7 +26,7 @@ export default function CoachReviews() {
         .from('coach_reviews')
         .select(`
           *,
-          profiles:player_id (full_name, avatar_url)
+          player:profiles!coach_reviews_player_id_fkey (full_name, avatar_url)
         `)
         .eq('coach_id', currentUser.id)
         .order('created_at', { ascending: false });
@@ -141,13 +141,13 @@ export default function CoachReviews() {
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     <Avatar>
-                      <AvatarImage src={review.profiles?.avatar_url} />
+                      <AvatarImage src={review.player?.avatar_url} />
                       <AvatarFallback>
-                        {review.profiles?.full_name?.split(' ').map((n: string) => n[0]).join('')}
+                        {review.player?.full_name?.split(' ').map((n: string) => n[0]).join('')}
                       </AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="font-semibold">{review.profiles?.full_name}</p>
+                      <p className="font-semibold">{review.player?.full_name || 'Student'}</p>
                       <p className="text-sm text-muted-foreground">
                         {new Date(review.created_at).toLocaleDateString()}
                       </p>

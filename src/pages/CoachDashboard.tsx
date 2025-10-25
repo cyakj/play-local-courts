@@ -20,6 +20,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { LessonRequest, CoachReview } from '../types/coach';
 import { toast } from 'sonner';
+import AvailabilityManager from '../components/coach/AvailabilityManager';
 
 const CoachDashboard = () => {
   const { currentUser } = useAuth();
@@ -48,12 +49,14 @@ const CoachDashboard = () => {
         .from('lesson_requests')
         .select(`
           *,
-          profiles!lesson_requests_player_id_fkey (
-            full_name
+          player:profiles!lesson_requests_player_id_fkey (
+            full_name,
+            avatar_url
           )
         `)
         .eq('coach_id', currentUser.id)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(10);
 
       if (requestsError) throw requestsError;
 
@@ -62,8 +65,9 @@ const CoachDashboard = () => {
         .from('coach_reviews')
         .select(`
           *,
-          profiles!coach_reviews_player_id_fkey (
-            full_name
+          player:profiles!coach_reviews_player_id_fkey (
+            full_name,
+            avatar_url
           )
         `)
         .eq('coach_id', currentUser.id)
@@ -212,7 +216,7 @@ const CoachDashboard = () => {
                     <div key={request.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
-                          <h3 className="font-medium">{request.profiles?.full_name}</h3>
+                          <h3 className="font-medium">{request.player?.full_name || 'Student'}</h3>
                           <Badge variant={
                             request.status === 'pending' ? 'default' :
                             request.status === 'accepted' ? 'secondary' :
@@ -272,7 +276,7 @@ const CoachDashboard = () => {
                   {reviews.map((review) => (
                     <div key={review.id} className="p-4 border rounded-lg">
                       <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-medium">{review.profiles?.full_name}</h3>
+                        <h3 className="font-medium">{review.player?.full_name || 'Student'}</h3>
                         <div className="flex items-center gap-1">
                           {[...Array(5)].map((_, i) => (
                             <Star
@@ -305,16 +309,7 @@ const CoachDashboard = () => {
         </TabsContent>
 
         <TabsContent value="availability" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Manage Availability</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-center text-gray-500 py-8">
-                Availability management feature coming soon!
-              </p>
-            </CardContent>
-          </Card>
+          <AvailabilityManager />
         </TabsContent>
       </Tabs>
     </div>
