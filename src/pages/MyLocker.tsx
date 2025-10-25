@@ -15,6 +15,7 @@ import MessagingDialog from '../components/locker/MessagingDialog';
 import LeaguesLadders from './LeaguesLadders';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { UserType } from '../types';
+import { LessonsTab } from '../components/locker/LessonsTab';
 
 const MyLocker = () => {
   const { currentUser } = useAuth();
@@ -139,7 +140,7 @@ const MyLocker = () => {
       </div>
 
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 bg-white/80 backdrop-blur-sm shadow-lg rounded-xl p-1">
+        <TabsList className="grid w-full grid-cols-4 bg-white/80 backdrop-blur-sm shadow-lg rounded-xl p-1">
           <TabsTrigger 
             value="profile" 
             className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-pink-500 data-[state=active]:text-white transition-all duration-200 rounded-lg"
@@ -153,6 +154,13 @@ const MyLocker = () => {
           >
             <Target className="h-4 w-4" />
             {isNonHOA ? 'Open Play Network' : 'Match Finder'}
+          </TabsTrigger>
+          <TabsTrigger 
+            value="lessons"
+            className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white transition-all duration-200 rounded-lg"
+          >
+            <GraduationCap className="h-4 w-4" />
+            Lessons
           </TabsTrigger>
           <TabsTrigger 
             value="ladders"
@@ -192,6 +200,10 @@ const MyLocker = () => {
             )}
             <MatchPreferences />
           </div>
+        </TabsContent>
+
+        <TabsContent value="lessons" className="animate-in fade-in duration-300">
+          <LessonsTab />
         </TabsContent>
 
         <TabsContent value="ladders" className="animate-in fade-in duration-300">

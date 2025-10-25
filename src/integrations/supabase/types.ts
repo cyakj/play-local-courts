@@ -1263,6 +1263,47 @@ export type Database = {
         }
         Relationships: []
       }
+      payouts: {
+        Row: {
+          amount: number
+          arrival_date: string | null
+          created_at: string
+          currency: string
+          id: string
+          status: string
+          stripe_account_id: string
+          stripe_payout_id: string
+        }
+        Insert: {
+          amount: number
+          arrival_date?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          status: string
+          stripe_account_id: string
+          stripe_payout_id: string
+        }
+        Update: {
+          amount?: number
+          arrival_date?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          status?: string
+          stripe_account_id?: string
+          stripe_payout_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payouts_stripe_account_id_fkey"
+            columns: ["stripe_account_id"]
+            isOneToOne: false
+            referencedRelation: "stripe_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       posts: {
         Row: {
           content: string
@@ -1468,6 +1509,47 @@ export type Database = {
           },
         ]
       }
+      stripe_accounts: {
+        Row: {
+          charges_enabled: boolean | null
+          coach_id: string
+          created_at: string
+          details_submitted: boolean | null
+          id: string
+          payouts_enabled: boolean | null
+          stripe_account_id: string
+          updated_at: string
+        }
+        Insert: {
+          charges_enabled?: boolean | null
+          coach_id: string
+          created_at?: string
+          details_submitted?: boolean | null
+          id?: string
+          payouts_enabled?: boolean | null
+          stripe_account_id: string
+          updated_at?: string
+        }
+        Update: {
+          charges_enabled?: boolean | null
+          coach_id?: string
+          created_at?: string
+          details_submitted?: boolean | null
+          id?: string
+          payouts_enabled?: boolean | null
+          stripe_account_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stripe_accounts_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       tournament_registrations: {
         Row: {
           id: string
@@ -1549,6 +1631,56 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      transactions: {
+        Row: {
+          amount: number
+          coach_id: string
+          created_at: string
+          currency: string
+          id: string
+          lesson_request_id: string
+          player_id: string
+          status: string
+          stripe_checkout_session_id: string | null
+          stripe_payment_intent_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          coach_id: string
+          created_at?: string
+          currency?: string
+          id?: string
+          lesson_request_id: string
+          player_id: string
+          status?: string
+          stripe_checkout_session_id?: string | null
+          stripe_payment_intent_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          coach_id?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          lesson_request_id?: string
+          player_id?: string
+          status?: string
+          stripe_checkout_session_id?: string | null
+          stripe_payment_intent_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_lesson_request_id_fkey"
+            columns: ["lesson_request_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_requests"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {

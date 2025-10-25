@@ -21,8 +21,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { LessonRequest, CoachReview } from '../types/coach';
 import { toast } from 'sonner';
 import AvailabilityManager from '../components/coach/AvailabilityManager';
+import { PaymentsTab } from '../components/coach/PaymentsTab';
 
 const CoachDashboard = () => {
+  const searchParams = new URLSearchParams(window.location.search);
+  const tabParam = searchParams.get("tab");
+  const [activeTab, setActiveTab] = useState(tabParam || "requests");
   const { currentUser } = useAuth();
   const [lessonRequests, setLessonRequests] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
@@ -195,11 +199,12 @@ const CoachDashboard = () => {
         </Card>
       </div>
 
-      <Tabs defaultValue="requests" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="requests">Lesson Requests</TabsTrigger>
           <TabsTrigger value="reviews">Reviews</TabsTrigger>
           <TabsTrigger value="availability">Availability</TabsTrigger>
+          <TabsTrigger value="payments">Payments</TabsTrigger>
         </TabsList>
 
         <TabsContent value="requests" className="space-y-4">
@@ -310,6 +315,10 @@ const CoachDashboard = () => {
 
         <TabsContent value="availability" className="space-y-4">
           <AvailabilityManager />
+        </TabsContent>
+
+        <TabsContent value="payments" className="space-y-4">
+          <PaymentsTab />
         </TabsContent>
       </Tabs>
     </div>
