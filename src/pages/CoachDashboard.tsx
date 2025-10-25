@@ -51,31 +51,47 @@ const CoachDashboard = () => {
       // Load lesson requests
       const { data: requestsData, error: requestsError } = await supabase
         .from('lesson_requests')
-        .select(`
-          *,
-          player:profiles!lesson_requests_player_id_fkey (
-            full_name,
-            avatar_url
-          )
-        `)
+        .select('*')
         .eq('coach_id', currentUser.id)
         .order('created_at', { ascending: false })
         .limit(10);
+
+      // Manually fetch player profiles
+      if (requestsData && requestsData.length > 0) {
+        const playerIds = [...new Set(requestsData.map(r => r.player_id))];
+        const { data: playersData } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url')
+          .in('id', playerIds);
+
+        // Attach player data to requests
+        requestsData.forEach((request: any) => {
+          request.player = playersData?.find(p => p.id === request.player_id);
+        });
+      }
 
       if (requestsError) throw requestsError;
 
       // Load reviews
       const { data: reviewsData, error: reviewsError } = await supabase
         .from('coach_reviews')
-        .select(`
-          *,
-          player:profiles!coach_reviews_player_id_fkey (
-            full_name,
-            avatar_url
-          )
-        `)
+        .select('*')
         .eq('coach_id', currentUser.id)
         .order('created_at', { ascending: false });
+
+      // Manually fetch player profiles for reviews
+      if (reviewsData && reviewsData.length > 0) {
+        const playerIds = [...new Set(reviewsData.map(r => r.player_id))];
+        const { data: playersData } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url')
+          .in('id', playerIds);
+
+        // Attach player data to reviews
+        reviewsData.forEach((review: any) => {
+          review.player = playersData?.find(p => p.id === review.player_id);
+        });
+      }
 
       if (reviewsError) throw reviewsError;
 
