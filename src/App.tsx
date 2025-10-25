@@ -12,6 +12,9 @@ import Register from "./pages/Register";
 import CompleteProfile from "./pages/CompleteProfile";
 import Dashboard from "./pages/Dashboard";
 import CoachDashboard from "./pages/CoachDashboard";
+import CoachSchedule from "./pages/CoachSchedule";
+import CoachClients from "./pages/CoachClients";
+import CoachReviews from "./pages/CoachReviews";
 import ReserveCourt from "./pages/ReserveCourt";
 import ReserveFacilities from "./pages/ReserveFacilities";
 import MyReservations from "./pages/MyReservations";
@@ -47,6 +50,9 @@ function App() {
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/coach-dashboard" element={<CoachDashboard />} />
+                  <Route path="/coach-schedule" element={<CoachSchedule />} />
+                  <Route path="/coach-clients" element={<CoachClients />} />
+                  <Route path="/coach-reviews" element={<CoachReviews />} />
                   <Route path="/reserve-court" element={<ReserveCourt />} />
                   <Route path="/reserve-facilities" element={<ReserveFacilities />} />
                   <Route path="/my-reservations" element={<MyReservations />} />

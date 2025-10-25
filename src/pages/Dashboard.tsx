@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import PendingApprovalMessage from '../components/PendingApprovalMessage';
@@ -37,7 +37,7 @@ interface MatchRequest {
 }
 
 const Dashboard = () => {
-  const { currentUser, isAdmin, isPending } = useAuth();
+  const { currentUser, isAdmin, isPending, isCoach } = useAuth();
   const { toast } = useToast();
   const { 
     bookings,
@@ -103,6 +103,11 @@ const Dashboard = () => {
       });
     }
   };
+
+  // Redirect coaches to coach dashboard
+  if (isCoach) {
+    return <Navigate to="/coach-dashboard" replace />;
+  }
 
   if (loading) {
     return (

@@ -3,10 +3,12 @@ import React from 'react';
 import { Outlet, Navigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import Navbar from '../ui/Navbar';
+import CoachNavbar from '../ui/CoachNavbar';
 import BottomNavigation from './BottomNavigation';
+import CoachBottomNavigation from './CoachBottomNavigation';
 
 const MainLayout = () => {
-  const { currentUser, loading } = useAuth();
+  const { currentUser, loading, isCoach } = useAuth();
 
   if (loading) {
     return (
@@ -28,13 +30,13 @@ const MainLayout = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50/30 via-blue-50/30 to-purple-50/30">
-      <Navbar />
+      {isCoach ? <CoachNavbar /> : <Navbar />}
       <main className="pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         <div className="py-6">
           <Outlet />
         </div>
       </main>
-      <BottomNavigation />
+      {isCoach ? <CoachBottomNavigation /> : <BottomNavigation />}
     </div>
   );
 };
