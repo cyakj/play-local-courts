@@ -112,14 +112,14 @@ graph TD
     ReportMaintenance --> FillReport[Fill Maintenance Report<br/>- Amenity<br/>- Category<br/>- Description<br/>- Photo upload]
     FillReport --> SubmitReport[Submit Report]
     SubmitReport --> AdminReceives[HOA Admin Receives Report]
-    AdminReceives --> AdminAssigns[Admin Assigns & Tracks]
+    AdminReceives --> AdminAssigns[Admin Assigns and Tracks]
     AdminAssigns --> ReportResolved[Issue Resolved]
     
     %% Coach Dashboard Actions
     CoachDash --> CoachActions{Select Action}
     CoachActions --> ManageAvailability[Manage Availability<br/>Set weekly schedule]
     CoachActions --> ViewLessonReqs[View Lesson Requests]
-    CoachActions --> ViewClients[View Clients & Notes]
+    CoachActions --> ViewClients[View Clients and Notes]
     CoachActions --> ViewPayments[View Payments<br/>Stripe dashboard]
     CoachActions --> ViewReviews[View Reviews]
     
@@ -130,7 +130,7 @@ graph TD
     MatchScheduled --> MatchDate{Match Date<br/>Arrives}
     LessonDate --> LessonComplete[Lesson Completed]
     LessonComplete --> ReviewPrompt[Player Prompted for Review]
-    ReviewPrompt --> SubmitReview[Submit Review & Rating<br/>1-5 stars + text]
+    ReviewPrompt --> SubmitReview[Submit Review and Rating<br/>1-5 stars plus text]
     SubmitReview --> CoachSeeReview[Coach Sees Review<br/>Can respond]
     CoachSeeReview --> ReviewPublic[Review Visible to Public]
     
@@ -250,35 +250,35 @@ graph TD
 ## Special Access Rules
 
 ### HOA Residents
-✅ Court booking access  
-✅ Coach lesson booking  
-✅ Player matching  
-✅ Ladder/league participation  
-✅ Maintenance reporting  
-✅ Full facility access (subject to amenity rules)
+- ✓ Court booking access  
+- ✓ Coach lesson booking  
+- ✓ Player matching  
+- ✓ Ladder/league participation  
+- ✓ Maintenance reporting  
+- ✓ Full facility access (subject to amenity rules)
 
 ### Non-HOA Residents (Guests)
-❌ NO court booking access  
-✅ Coach lesson booking only  
-❌ NO player matching  
-❌ NO ladder participation  
-❌ NO maintenance reporting  
+- ✗ NO court booking access  
+- ✓ Coach lesson booking only  
+- ✗ NO player matching  
+- ✗ NO ladder participation  
+- ✗ NO maintenance reporting  
 
 ### Coaches
-✅ Availability management  
-✅ Accept/decline lesson requests  
-✅ Client management  
-✅ Payment dashboard  
-⚠️ Cannot override HOA court rules  
-⚠️ Subject to facility policies
+- ✓ Availability management  
+- ✓ Accept/decline lesson requests  
+- ✓ Client management  
+- ✓ Payment dashboard  
+- ⚠ Cannot override HOA court rules  
+- ⚠ Subject to facility policies
 
 ### HOA Admins
-✅ Full system access  
-✅ Override booking schedules  
-✅ Approve/reject join requests  
-✅ Configure amenity rules  
-✅ Resolve disputes  
-✅ Manage all facility operations
+- ✓ Full system access  
+- ✓ Override booking schedules  
+- ✓ Approve/reject join requests  
+- ✓ Configure amenity rules  
+- ✓ Resolve disputes  
+- ✓ Manage all facility operations
 
 ---
 
