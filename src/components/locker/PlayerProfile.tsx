@@ -201,7 +201,9 @@ const PlayerProfile = () => {
       case 'wtn':
         return `https://worldtennisnumber.com/eng/player-search/?search=${encodedName}`;
       case 'ntrp':
-        return `https://www.usta.com/en/home/play/player-search.html#page=1&search=${encodedName}`;
+        // USTA's player search uses JavaScript and doesn't support URL query params
+        // Link directly to the search page - user will need to enter name manually
+        return `https://www.usta.com/en/home/play/player-search.html`;
       default:
         return '#';
     }
