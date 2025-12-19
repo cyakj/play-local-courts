@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,12 +7,26 @@ import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
 import { Clock, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
+import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 
 export default function CoachSchedule() {
   const { currentUser } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [upcomingLessons, setUpcomingLessons] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const loadUpcomingLessonsCallback = useCallback(() => {
+    loadUpcomingLessons();
+  }, [currentUser]);
+
+  // Real-time subscription for lesson request updates
+  useRealtimeSubscription({
+    table: 'lesson_requests',
+    event: '*',
+    filter: currentUser?.id ? `coach_id=eq.${currentUser.id}` : undefined,
+    onChange: loadUpcomingLessonsCallback,
+    enabled: !!currentUser?.id
+  });
 
   useEffect(() => {
     loadUpcomingLessons();

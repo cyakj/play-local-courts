@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import LadderTeams from './LadderTeams';
 import LadderMatches from './LadderMatches';
 import LadderLeaderboard from './LadderLeaderboard';
 import LadderRules from './LadderRules';
+import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 
 interface LadderDetailsProps {
   ladder: Ladder;
@@ -39,6 +40,28 @@ const LadderDetails = ({ ladder, onBack, onLadderUpdated }: LadderDetailsProps) 
   const [isLoading, setIsLoading] = useState(true);
 
   const isAdmin = ladder.admin_id === currentUser?.id;
+
+  const loadTeamsCallback = useCallback(() => {
+    loadTeams();
+  }, [ladder.id]);
+
+  // Real-time subscription for team updates (new teams joining, points updates)
+  useRealtimeSubscription({
+    table: 'ladder_teams',
+    event: '*',
+    filter: `ladder_id=eq.${ladder.id}`,
+    onChange: loadTeamsCallback,
+    enabled: true
+  });
+
+  // Real-time subscription for match updates (score submissions)
+  useRealtimeSubscription({
+    table: 'ladder_matches',
+    event: '*',
+    filter: `ladder_id=eq.${ladder.id}`,
+    onChange: loadTeamsCallback, // Reload teams when matches are updated (for points)
+    enabled: true
+  });
 
   useEffect(() => {
     loadTeams();

@@ -1,5 +1,5 @@
 
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { User, HOA, Amenity, Booking, UserStatus, AmenityStatus, TimeSlot } from '../types';
 import { useAuth } from './AuthContext';
 import { toast } from 'sonner';
@@ -20,6 +20,7 @@ import {
   getMaintenanceForDateAndAmenity,
   setAmenityMaintenance as supabaseSetAmenityMaintenance
 } from '../services/supabaseService';
+import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 
 interface DataContextType {
   users: User[];
@@ -111,22 +112,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   
   const { currentUser } = useAuth();
 
-  // Initialize data when user changes
-  useEffect(() => {
-    if (currentUser) {
-      refreshData();
-    } else {
-      // Clear data when user logs out
-      setCurrentHOA(null);
-      setHOAs([]);
-      setAmenities([]);
-      setBookings([]);
-      setPendingUsers([]);
-      setLoading(false);
-    }
-  }, [currentUser]);
-
-  const refreshData = async () => {
+  const refreshDataCallback = useCallback(async () => {
     if (!currentUser) {
       setLoading(false);
       return;
@@ -147,6 +133,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setAmenities(amenitiesData);
         setBookings(userBookings);
         setPendingUsers(pendingUsersData);
+        
+        // Clear time slots cache when data refreshes
+        setTimeSlotsCache({});
       }
     } catch (error) {
       console.error('Error loading data:', error);
@@ -154,7 +143,44 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentUser]);
+
+  // Real-time subscription for booking updates
+  useRealtimeSubscription({
+    table: 'bookings',
+    event: '*',
+    onChange: refreshDataCallback,
+    enabled: !!currentUser?.id
+  });
+
+  // Real-time subscription for court maintenance updates
+  useRealtimeSubscription({
+    table: 'court_maintenance',
+    event: '*',
+    onChange: () => {
+      // Clear cache and refresh when maintenance changes
+      setTimeSlotsCache({});
+      refreshDataCallback();
+    },
+    enabled: !!currentUser?.id
+  });
+
+  // Initialize data when user changes
+  useEffect(() => {
+    if (currentUser) {
+      refreshDataCallback();
+    } else {
+      // Clear data when user logs out
+      setCurrentHOA(null);
+      setHOAs([]);
+      setAmenities([]);
+      setBookings([]);
+      setPendingUsers([]);
+      setLoading(false);
+    }
+  }, [currentUser, refreshDataCallback]);
+
+  const refreshData = refreshDataCallback;
 
   // Helper functions
   const getTimeSlots = (date: string, amenityId: string): TimeSlot[] => {

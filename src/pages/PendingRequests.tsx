@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -8,10 +8,27 @@ import { Navigate } from 'react-router-dom';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { UserStatus } from '../types';
 import { Badge } from '@/components/ui/badge';
+import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 
 const PendingRequests = () => {
   const { currentUser, isAdmin } = useAuth();
   const { pendingUsers, approveUser, rejectUser, refreshData } = useData();
+
+  // Real-time subscription for new join requests
+  useRealtimeSubscription({
+    table: 'community_join_requests',
+    event: '*',
+    onChange: () => refreshData(),
+    enabled: isAdmin
+  });
+
+  // Real-time subscription for profile changes (status updates)
+  useRealtimeSubscription({
+    table: 'profiles',
+    event: 'UPDATE',
+    onChange: () => refreshData(),
+    enabled: isAdmin
+  });
   
   // Redirect if not an admin
   if (!isAdmin) {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Calendar, User, MapPin, Clock, Eye, Edit3, CheckCircle, AlertCircle, XCircle, Filter } from 'lucide-react';
+import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 
 interface MaintenanceReport {
   id: string;
@@ -41,6 +42,18 @@ const MaintenanceReports = () => {
     status: searchParams.get('status') || 'all',
     category: 'all',
     amenity: searchParams.get('amenity_id') || 'all'
+  });
+
+  const loadReportsCallback = useCallback(() => {
+    loadReports();
+  }, [currentUser, filters]);
+
+  // Real-time subscription for maintenance report updates
+  useRealtimeSubscription({
+    table: 'maintenance_reports',
+    event: '*',
+    onChange: loadReportsCallback,
+    enabled: isAdmin && !!currentUser?.hoaId
   });
 
   // Redirect if not an admin

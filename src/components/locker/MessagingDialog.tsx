@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,7 @@ import { Search, Send, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 
 interface Player {
   id: string;
@@ -47,6 +48,43 @@ const MessagingDialog = ({ open, onOpenChange, hasUnreadMessages, onMarkAsRead }
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Real-time subscription for new messages
+  const handleNewMessage = useCallback(async (newMsg: any) => {
+    // If we're in a conversation with the sender, add the message
+    if (selectedPlayer && 
+        ((newMsg.sender_id === selectedPlayer.id && newMsg.receiver_id === currentUser?.id) ||
+         (newMsg.sender_id === currentUser?.id && newMsg.receiver_id === selectedPlayer.id))) {
+      // Fetch sender profile for the new message
+      const { data: senderProfile } = await supabase
+        .from('profiles')
+        .select('full_name, avatar_url')
+        .eq('id', newMsg.sender_id)
+        .single();
+
+      setMessages(prev => [...prev, {
+        ...newMsg,
+        sender: senderProfile || { full_name: 'Unknown User', avatar_url: null }
+      }]);
+    }
+    
+    // Update unread indicator for player list
+    if (newMsg.receiver_id === currentUser?.id && newMsg.sender_id !== selectedPlayer?.id) {
+      setPlayers(prev => prev.map(player => 
+        player.id === newMsg.sender_id 
+          ? { ...player, hasUnreadMessages: true }
+          : player
+      ));
+    }
+  }, [selectedPlayer, currentUser?.id]);
+
+  useRealtimeSubscription({
+    table: 'messages',
+    event: 'INSERT',
+    filter: currentUser?.id ? `receiver_id=eq.${currentUser.id}` : undefined,
+    onInsert: handleNewMessage,
+    enabled: open && !!currentUser?.id
+  });
 
   useEffect(() => {
     if (open) {

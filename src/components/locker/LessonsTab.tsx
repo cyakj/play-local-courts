@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,7 @@ import { LeaveReviewDialog } from "./LeaveReviewDialog";
 import { toast } from "sonner";
 import { useSearchParams } from "react-router-dom";
 import { Star } from "lucide-react";
+import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 
 export const LessonsTab = () => {
   const { currentUser } = useAuth();
@@ -17,6 +18,19 @@ export const LessonsTab = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [selectedLesson, setSelectedLesson] = useState<any>(null);
+
+  const loadLessonRequestsCallback = useCallback(() => {
+    loadLessonRequests();
+  }, [currentUser]);
+
+  // Real-time subscription for lesson request updates
+  useRealtimeSubscription({
+    table: 'lesson_requests',
+    event: '*',
+    filter: currentUser?.id ? `player_id=eq.${currentUser.id}` : undefined,
+    onChange: loadLessonRequestsCallback,
+    enabled: !!currentUser?.id
+  });
 
   useEffect(() => {
     if (currentUser) {

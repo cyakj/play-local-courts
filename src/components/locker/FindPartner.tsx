@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import MatchRequestDialog from './MatchRequestDialog';
+import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 
 interface Player {
   id: string;
@@ -38,6 +39,18 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
   const [utrRange, setUtrRange] = useState([1, 15]);
   const [ntrpRange, setNtrpRange] = useState([1, 7]);
   const [location, setLocation] = useState<string>('');
+
+  const loadPlayersCallback = useCallback(() => {
+    loadPlayers();
+  }, [currentUser]);
+
+  // Real-time subscription for profile updates (new players, profile changes)
+  useRealtimeSubscription({
+    table: 'profiles',
+    event: '*',
+    onChange: loadPlayersCallback,
+    enabled: !!currentUser
+  });
 
   useEffect(() => {
     loadPlayers();

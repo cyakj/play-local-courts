@@ -1,9 +1,10 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useData } from '../../contexts/DataContext';
+import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 
 interface UpcomingEvent {
   id: string;
@@ -19,6 +20,30 @@ const UpcomingTab = () => {
   const { currentUser } = useAuth();
   const { bookings } = useData();
   const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
+
+  const loadUpcomingMatchesCallback = useCallback(() => {
+    loadUpcomingMatches();
+  }, [currentUser]);
+
+  // Real-time subscription for match request updates
+  useRealtimeSubscription({
+    table: 'match_requests',
+    event: '*',
+    onChange: loadUpcomingMatchesCallback,
+    enabled: !!currentUser?.id
+  });
+
+  // Real-time subscription for booking updates  
+  useRealtimeSubscription({
+    table: 'bookings',
+    event: '*',
+    filter: currentUser?.id ? `user_id=eq.${currentUser.id}` : undefined,
+    onChange: () => {
+      // Bookings come from DataContext, but we can trigger a visual update
+      combineEvents();
+    },
+    enabled: !!currentUser?.id
+  });
 
   useEffect(() => {
     if (currentUser) {
