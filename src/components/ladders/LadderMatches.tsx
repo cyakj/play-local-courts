@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { LadderTeam } from './LadderDetails';
 import SubmitScoreDialog from './SubmitScoreDialog';
 import { format } from 'date-fns';
+import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 
 interface LadderMatchesProps {
   ladderId: string;
@@ -48,6 +49,19 @@ const LadderMatches = ({ ladderId, isAdmin, teams }: LadderMatchesProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedMatch, setSelectedMatch] = useState<LadderMatch | null>(null);
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
+
+  const loadMatchesCallback = useCallback(() => {
+    loadMatches();
+  }, [ladderId]);
+
+  // Real-time subscription for match updates
+  useRealtimeSubscription({
+    table: 'ladder_matches',
+    event: '*',
+    filter: `ladder_id=eq.${ladderId}`,
+    onChange: loadMatchesCallback,
+    enabled: true
+  });
 
   useEffect(() => {
     loadMatches();
