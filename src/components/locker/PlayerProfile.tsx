@@ -197,7 +197,7 @@ const PlayerProfile = () => {
     const encodedName = encodeURIComponent(name);
     switch (platform) {
       case 'utr':
-        return `https://app.universaltennis.com/search?q=${encodedName}`;
+        return `https://app.utrsports.net/search?query=${encodedName}`;
       case 'wtn':
         return `https://worldtennisnumber.com/eng/player-search/?search=${encodedName}`;
       case 'ntrp':
