@@ -85,10 +85,14 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
   const filterPlayers = () => {
     let filtered = players;
 
-    // Filter by UTR range
+    // Filter by UTR range - include players with no UTR rating (null)
     filtered = filtered.filter(player => {
-      const utr = player.utr_rating || 0;
-      return utr >= utrRange[0] && utr <= utrRange[1];
+      // If player has no UTR rating, include them (they're unrated)
+      if (player.utr_rating === null || player.utr_rating === undefined) {
+        return true;
+      }
+      // Otherwise apply the UTR range filter
+      return player.utr_rating >= utrRange[0] && player.utr_rating <= utrRange[1];
     });
 
     // Filter by location
