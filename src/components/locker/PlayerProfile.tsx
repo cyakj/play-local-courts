@@ -163,6 +163,14 @@ const PlayerProfile = () => {
         .from('avatars')
         .getPublicUrl(fileName);
 
+      // Save the avatar URL to the database
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: data.publicUrl })
+        .eq('id', currentUser.id);
+
+      if (updateError) throw updateError;
+
       setProfile(prev => ({ ...prev, avatarUrl: data.publicUrl }));
 
       toast({
