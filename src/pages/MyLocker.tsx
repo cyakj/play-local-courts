@@ -81,6 +81,7 @@ const MyLocker = () => {
         .from('messages')
         .select('id')
         .eq('receiver_id', currentUser.id)
+        .is('read_at', null)
         .limit(1);
 
       if (error) throw error;

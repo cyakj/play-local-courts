@@ -1241,6 +1241,7 @@ export type Database = {
           content: string
           created_at: string
           id: string
+          read_at: string | null
           receiver_id: string
           sender_id: string
           updated_at: string
@@ -1249,6 +1250,7 @@ export type Database = {
           content: string
           created_at?: string
           id?: string
+          read_at?: string | null
           receiver_id: string
           sender_id: string
           updated_at?: string
@@ -1257,6 +1259,7 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          read_at?: string | null
           receiver_id?: string
           sender_id?: string
           updated_at?: string
