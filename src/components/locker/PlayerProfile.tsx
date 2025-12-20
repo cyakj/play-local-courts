@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getAmenitiesByHOAId } from '../../services/supabaseService';
 import { Amenity } from '../../types';
 import MessagingDialog from './MessagingDialog';
+import { capitalizeWords } from '@/lib/textUtils';
 
 interface ProfileData {
   fullName: string;
@@ -107,11 +108,15 @@ const PlayerProfile = () => {
     if (!currentUser) return;
 
     setLoading(true);
+    
+    // Auto-capitalize the name before saving
+    const capitalizedName = capitalizeWords(profile.fullName);
+    
     try {
       const { error } = await supabase
         .from('profiles')
         .update({
-          full_name: profile.fullName,
+          full_name: capitalizedName,
           avatar_url: profile.avatarUrl,
           date_of_birth: profile.dateOfBirth || null,
           gender: profile.gender || null,
@@ -121,6 +126,9 @@ const PlayerProfile = () => {
           wtn_rating: profile.wtnRating
         })
         .eq('id', currentUser.id);
+      
+      // Update local state with capitalized name
+      setProfile(prev => ({ ...prev, fullName: capitalizedName }));
 
       if (error) {
         console.error('Save error:', error);
