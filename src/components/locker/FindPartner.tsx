@@ -217,7 +217,6 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
                     max={15}
                     min={1}
                     step={0.5}
-                    className="w-full [&_.slider-range]:bg-green-500 [&_.slider-thumb]:bg-white [&_.slider-thumb]:border-green-500 [&_.slider-track]:bg-gray-200"
                   />
                 </div>
               </div>
@@ -232,7 +231,6 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
                     max={7}
                     min={1}
                     step={0.5}
-                    className="w-full [&_.slider-range]:bg-green-500 [&_.slider-thumb]:bg-white [&_.slider-thumb]:border-green-500 [&_.slider-track]:bg-gray-200"
                   />
                 </div>
               </div>

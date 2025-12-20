@@ -38,10 +38,25 @@ const MatchRequestDialog: React.FC<MatchRequestDialogProps> = ({
   });
 
   const handleSubmit = async () => {
-    if (!currentUser || !request.matchType || !request.date || !request.timeStart) {
+    const missingFields: string[] = [];
+    
+    if (!request.matchType) missingFields.push('Match Type');
+    if (!request.date) missingFields.push('Preferred Date');
+    if (!request.timeStart) missingFields.push('Start Time');
+    
+    if (missingFields.length > 0) {
+      toast({
+        title: "Missing Required Fields",
+        description: `Please fill in: ${missingFields.join(', ')}`,
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!currentUser) {
       toast({
         title: "Error",
-        description: "Please fill in all required fields",
+        description: "You must be logged in to send a match request",
         variant: "destructive"
       });
       return;
