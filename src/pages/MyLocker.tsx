@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -16,9 +16,12 @@ import LeaguesLadders from './LeaguesLadders';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { UserType } from '../types';
 import { LessonsTab } from '../components/locker/LessonsTab';
+import { useToast } from '@/hooks/use-toast';
+import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 
 const MyLocker = () => {
   const { currentUser } = useAuth();
+  const { toast } = useToast();
   const [searchParams] = useSearchParams();
   const [showFindPartner, setShowFindPartner] = useState(false);
   const [showFindCoach, setShowFindCoach] = useState(false);
@@ -26,6 +29,33 @@ const MyLocker = () => {
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
 
   console.log('MyLocker component loaded, showFindPartner:', showFindPartner, 'showFindCoach:', showFindCoach);
+
+  // Real-time subscription for new messages when dialog is closed
+  const handleNewMessage = useCallback(async (newMsg: any) => {
+    if (!showMessaging && newMsg.receiver_id === currentUser?.id) {
+      setHasUnreadMessages(true);
+      
+      // Fetch sender name for toast
+      const { data: senderProfile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', newMsg.sender_id)
+        .single();
+      
+      toast({
+        title: "New message",
+        description: `${senderProfile?.full_name || 'Someone'} sent you a message`,
+      });
+    }
+  }, [showMessaging, currentUser?.id, toast]);
+
+  useRealtimeSubscription({
+    table: 'messages',
+    event: 'INSERT',
+    filter: currentUser?.id ? `receiver_id=eq.${currentUser.id}` : undefined,
+    onInsert: handleNewMessage,
+    enabled: !!currentUser?.id && !showMessaging
+  });
 
   useEffect(() => {
     if (currentUser) {

@@ -18,6 +18,7 @@ interface Player {
   full_name: string;
   avatar_url?: string;
   hasUnreadMessages?: boolean;
+  lastMessageAt?: string;
 }
 
 interface Message {
@@ -68,15 +69,32 @@ const MessagingDialog = ({ open, onOpenChange, hasUnreadMessages, onMarkAsRead }
       }]);
     }
     
-    // Update unread indicator for player list
+    // Update unread indicator and move sender to top of player list
     if (newMsg.receiver_id === currentUser?.id && newMsg.sender_id !== selectedPlayer?.id) {
-      setPlayers(prev => prev.map(player => 
-        player.id === newMsg.sender_id 
-          ? { ...player, hasUnreadMessages: true }
-          : player
-      ));
+      setPlayers(prev => {
+        // Find the sender in the list
+        const senderIndex = prev.findIndex(p => p.id === newMsg.sender_id);
+        if (senderIndex === -1) return prev;
+        
+        // Move sender to the top with unread status
+        const sender = { ...prev[senderIndex], hasUnreadMessages: true, lastMessageAt: newMsg.created_at };
+        const newList = [sender, ...prev.filter(p => p.id !== newMsg.sender_id)];
+        return newList;
+      });
+      
+      // Show toast notification for new message
+      const { data: senderProfile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', newMsg.sender_id)
+        .single();
+      
+      toast({
+        title: "New message",
+        description: `${senderProfile?.full_name || 'Someone'} sent you a message`,
+      });
     }
-  }, [selectedPlayer, currentUser?.id]);
+  }, [selectedPlayer, currentUser?.id, toast]);
 
   useRealtimeSubscription({
     table: 'messages',
@@ -137,24 +155,49 @@ const MessagingDialog = ({ open, onOpenChange, hasUnreadMessages, onMarkAsRead }
 
       if (profilesError) throw profilesError;
 
-      // Check for unread messages from each player
+      // Check for unread messages and get the most recent message time for each player
       const playersWithMessageStatus = await Promise.all(
         (profilesData || []).map(async (player) => {
-          const { data: messageData } = await supabase
+          // Get unread messages (messages from this player to current user)
+          const { data: unreadData } = await supabase
             .from('messages')
             .select('id')
             .eq('sender_id', player.id)
             .eq('receiver_id', currentUser?.id)
             .limit(1);
 
+          // Get the most recent message between current user and this player
+          const { data: latestMessage } = await supabase
+            .from('messages')
+            .select('created_at')
+            .or(`and(sender_id.eq.${currentUser?.id},receiver_id.eq.${player.id}),and(sender_id.eq.${player.id},receiver_id.eq.${currentUser?.id})`)
+            .order('created_at', { ascending: false })
+            .limit(1);
+
           return {
             ...player,
-            hasUnreadMessages: (messageData?.length || 0) > 0
+            hasUnreadMessages: (unreadData?.length || 0) > 0,
+            lastMessageAt: latestMessage?.[0]?.created_at || null
           };
         })
       );
 
-      setPlayers(playersWithMessageStatus);
+      // Sort players: those with messages first (sorted by most recent), then others alphabetically
+      const sortedPlayers = playersWithMessageStatus.sort((a, b) => {
+        // Players with messages come first
+        if (a.lastMessageAt && !b.lastMessageAt) return -1;
+        if (!a.lastMessageAt && b.lastMessageAt) return 1;
+        
+        // Both have messages: sort by most recent
+        if (a.lastMessageAt && b.lastMessageAt) {
+          return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime();
+        }
+        
+        // Neither have messages: sort alphabetically
+        return (a.full_name || '').localeCompare(b.full_name || '');
+      });
+
+      setPlayers(sortedPlayers);
     } catch (error) {
       console.error('Error loading players:', error);
       toast({
