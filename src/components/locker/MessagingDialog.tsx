@@ -124,11 +124,13 @@ const MessagingDialog = ({ open, onOpenChange, hasUnreadMessages, onMarkAsRead }
     if (!selectedPlayer || !currentUser) return;
 
     try {
+      // Mark messages as read by setting read_at timestamp (instead of deleting)
       await supabase
         .from('messages')
-        .delete()
+        .update({ read_at: new Date().toISOString() })
         .eq('sender_id', selectedPlayer.id)
-        .eq('receiver_id', currentUser.id);
+        .eq('receiver_id', currentUser.id)
+        .is('read_at', null);
       
       // Update the player's unread status
       setPlayers(prev => prev.map(player => 
@@ -158,12 +160,13 @@ const MessagingDialog = ({ open, onOpenChange, hasUnreadMessages, onMarkAsRead }
       // Check for unread messages and get the most recent message time for each player
       const playersWithMessageStatus = await Promise.all(
         (profilesData || []).map(async (player) => {
-          // Get unread messages (messages from this player to current user)
+          // Get unread messages (messages from this player to current user that haven't been read)
           const { data: unreadData } = await supabase
             .from('messages')
             .select('id')
             .eq('sender_id', player.id)
             .eq('receiver_id', currentUser?.id)
+            .is('read_at', null)
             .limit(1);
 
           // Get the most recent message between current user and this player
