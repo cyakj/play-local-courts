@@ -23,6 +23,14 @@ interface Player {
   bio?: string;
 }
 
+interface MatchPrefs {
+  user_id: string;
+  looking_to_play: boolean;
+  match_types: string[];
+  preferred_times: string[];
+  preferred_days: string[];
+}
+
 interface FindPartnerProps {
   onBack: () => void;
 }
@@ -34,6 +42,8 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
   const [filteredPlayers, setFilteredPlayers] = useState<Player[]>([]);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [showMatchRequest, setShowMatchRequest] = useState(false);
+  const [myPreferences, setMyPreferences] = useState<MatchPrefs | null>(null);
+  const [allPreferences, setAllPreferences] = useState<MatchPrefs[]>([]);
   
   // Filter states
   const [utrRange, setUtrRange] = useState([1, 15]);
@@ -54,11 +64,12 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
 
   useEffect(() => {
     loadPlayers();
+    loadPreferences();
   }, [currentUser]);
 
   useEffect(() => {
     filterPlayers();
-  }, [players, utrRange, ntrpRange, location]);
+  }, [players, utrRange, ntrpRange, location, myPreferences, allPreferences]);
 
   const loadPlayers = async () => {
     if (!currentUser) return;
@@ -82,16 +93,84 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
     }
   };
 
+  const loadPreferences = async () => {
+    if (!currentUser) return;
+
+    try {
+      // Load my preferences
+      const { data: myPrefs } = await supabase
+        .from('match_preferences')
+        .select('user_id, looking_to_play, match_types, preferred_times, preferred_days')
+        .eq('user_id', currentUser.id)
+        .single();
+
+      setMyPreferences(myPrefs);
+
+      // Load all other users' preferences who are looking to play
+      const { data: allPrefs } = await supabase
+        .from('match_preferences')
+        .select('user_id, looking_to_play, match_types, preferred_times, preferred_days')
+        .eq('looking_to_play', true)
+        .neq('user_id', currentUser.id);
+
+      setAllPreferences(allPrefs || []);
+    } catch (error) {
+      console.error('Error loading preferences:', error);
+    }
+  };
+
+  // Helper to check if two arrays have at least one common element
+  const hasOverlap = (arr1: string[], arr2: string[]) => {
+    return arr1.some(item => arr2.includes(item));
+  };
+
   const filterPlayers = () => {
     let filtered = players;
 
+    // Filter by match preferences - strict overlap on all categories
+    if (myPreferences) {
+      filtered = filtered.filter(player => {
+        const playerPrefs = allPreferences.find(p => p.user_id === player.id);
+        
+        // Player must be actively looking to play
+        if (!playerPrefs || !playerPrefs.looking_to_play) {
+          return false;
+        }
+
+        // Must have at least one match_type overlap
+        if (!hasOverlap(myPreferences.match_types, playerPrefs.match_types)) {
+          return false;
+        }
+
+        // Must have at least one preferred_day overlap
+        if (myPreferences.preferred_days.length > 0 && playerPrefs.preferred_days.length > 0) {
+          if (!hasOverlap(myPreferences.preferred_days, playerPrefs.preferred_days)) {
+            return false;
+          }
+        }
+
+        // Must have at least one preferred_time overlap
+        if (myPreferences.preferred_times.length > 0 && playerPrefs.preferred_times.length > 0) {
+          if (!hasOverlap(myPreferences.preferred_times, playerPrefs.preferred_times)) {
+            return false;
+          }
+        }
+
+        return true;
+      });
+    } else {
+      // If no preferences set, show players who are looking to play
+      filtered = filtered.filter(player => {
+        const playerPrefs = allPreferences.find(p => p.user_id === player.id);
+        return playerPrefs?.looking_to_play === true;
+      });
+    }
+
     // Filter by UTR range - include players with no UTR rating (null)
     filtered = filtered.filter(player => {
-      // If player has no UTR rating, include them (they're unrated)
       if (player.utr_rating === null || player.utr_rating === undefined) {
         return true;
       }
-      // Otherwise apply the UTR range filter
       return player.utr_rating >= utrRange[0] && player.utr_rating <= utrRange[1];
     });
 
