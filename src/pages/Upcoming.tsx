@@ -19,6 +19,7 @@ const Upcoming = () => {
   const [upcomingLessons, setUpcomingLessons] = useState<any[]>([]);
   const [upcomingMatches, setUpcomingMatches] = useState<any[]>([]);
   const [upcomingLadderMatches, setUpcomingLadderMatches] = useState<any[]>([]);
+  const [acceptedMatchRequests, setAcceptedMatchRequests] = useState<any[]>([]);
 
   const now = new Date();
   const isNonHOA = currentUser?.userType === UserType.NON_HOA;
@@ -87,6 +88,33 @@ const Upcoming = () => {
     loadUpcomingMatches();
   }, [currentUser?.id]);
 
+  // Load accepted match requests
+  useEffect(() => {
+    const loadAcceptedMatchRequests = async () => {
+      if (!currentUser?.id) return;
+
+      try {
+        const { data: matchRequests } = await supabase
+          .from('match_requests')
+          .select(`
+            *,
+            challenger:profiles!match_requests_challenger_id_fkey(full_name),
+            opponent:profiles!match_requests_opponent_id_fkey(full_name)
+          `)
+          .eq('status', 'accepted')
+          .or(`challenger_id.eq.${currentUser.id},opponent_id.eq.${currentUser.id}`)
+          .gte('date', new Date().toISOString().split('T')[0])
+          .order('date', { ascending: true });
+
+        setAcceptedMatchRequests(matchRequests || []);
+      } catch (error) {
+        console.error('Error loading accepted match requests:', error);
+      }
+    };
+
+    loadAcceptedMatchRequests();
+  }, [currentUser?.id]);
+
   // Load upcoming ladder matches
   useEffect(() => {
     const loadUpcomingLadderMatches = async () => {
@@ -123,6 +151,14 @@ const Upcoming = () => {
     loadUpcomingLadderMatches();
   }, [currentUser?.id]);
 
+  // Helper function to get opponent name from match request
+  function getMatchRequestOpponentName(request: any) {
+    if (request.challenger_id === currentUser?.id) {
+      return request.opponent?.full_name || 'Unknown';
+    }
+    return request.challenger?.full_name || 'Unknown';
+  }
+
   // Combine all match sessions for display
   const upcomingMatchSessions = [
     ...upcomingMatches.map(match => ({
@@ -133,6 +169,15 @@ const Upcoming = () => {
       date: match.date,
       time_start: match.time_start,
       location: match.location
+    })),
+    ...acceptedMatchRequests.map(request => ({
+      id: request.id,
+      type: 'match_request',
+      opponent: getMatchRequestOpponentName(request),
+      match_type: request.match_type || 'Match',
+      date: request.date,
+      time_start: request.time_start || '12:00',
+      location: request.location || 'TBD'
     })),
     ...upcomingLadderMatches.map(match => ({
       id: match.id,
