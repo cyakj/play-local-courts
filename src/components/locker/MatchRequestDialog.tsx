@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { autoCapitalizeProperNoun, formatMatchType as formatMatchTypeUtil } from '@/lib/textUtils';
 
 interface MatchRequestDialogProps {
   targetPlayer: {
@@ -112,13 +113,7 @@ const MatchRequestDialog: React.FC<MatchRequestDialogProps> = ({
   };
 
   const formatMatchType = (type: string) => {
-    switch (type) {
-      case 'singles': return 'Singles';
-      case 'doubles': return 'Doubles';
-      case 'mixed_doubles': return 'Mixed Doubles';
-      case 'hitting_session': return 'Hitting Session';
-      default: return type;
-    }
+    return formatMatchTypeUtil(type);
   };
 
   return (
@@ -181,8 +176,9 @@ const MatchRequestDialog: React.FC<MatchRequestDialogProps> = ({
             <Input
               id="location"
               value={request.location}
-              onChange={(e) => setRequest(prev => ({ ...prev, location: e.target.value }))}
+              onChange={(e) => setRequest(prev => ({ ...prev, location: autoCapitalizeProperNoun(e.target.value) }))}
               placeholder="e.g. Community Tennis Court #1"
+              autoCapitalize="words"
             />
           </div>
 
