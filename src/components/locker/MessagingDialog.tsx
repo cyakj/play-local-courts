@@ -53,13 +53,10 @@ const MessagingDialog = ({ open, onOpenChange, hasUnreadMessages, onMarkAsRead }
 
   // Scroll to bottom of messages
   const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
   }, []);
-
-  // Scroll to bottom when messages change
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, scrollToBottom]);
 
   // Real-time subscription for new messages
   const handleNewMessage = useCallback(async (newMsg: any) => {
@@ -276,7 +273,10 @@ const MessagingDialog = ({ open, onOpenChange, hasUnreadMessages, onMarkAsRead }
       if (error) throw error;
 
       setNewMessage('');
-      loadMessages();
+      await loadMessages();
+      
+      // Scroll to bottom only for the sender
+      scrollToBottom();
       
       toast({
         title: "Message sent",
