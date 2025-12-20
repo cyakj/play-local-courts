@@ -10,6 +10,7 @@ import UpcomingMatchSessions from '../components/upcoming/UpcomingMatchSessions'
 import PastMatchSessions from '../components/upcoming/PastMatchSessions';
 import EventDetails from '../components/upcoming/EventDetails';
 import { UserType } from '../types';
+import { formatMatchType, capitalizeWords } from '@/lib/textUtils';
 
 const Upcoming = () => {
   const { currentUser } = useAuth();
@@ -224,7 +225,7 @@ const Upcoming = () => {
     ...upcomingLessons.map(lesson => ({
       id: lesson.id,
       type: 'lesson' as const,
-      title: `${lesson.lesson_type} Lesson`,
+      title: `${capitalizeWords(lesson.lesson_type)} Lesson`,
       date: lesson.preferred_date,
       startTime: lesson.preferred_time_start,
       endTime: lesson.preferred_time_end,
@@ -236,7 +237,7 @@ const Upcoming = () => {
     ...upcomingMatches.map(match => ({
       id: match.id,
       type: 'match' as const,
-      title: `${match.match_type} Match`,
+      title: `${formatMatchType(match.match_type)} Match`,
       date: match.date,
       startTime: match.time_start,
       endTime: match.time_end,
@@ -316,7 +317,7 @@ const Upcoming = () => {
                 {upcomingLessons.slice(0, 5).map((lesson) => (
                   <div key={lesson.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                     <div>
-                      <div className="font-medium">{lesson.lesson_type} Lesson</div>
+                      <div className="font-medium">{capitalizeWords(lesson.lesson_type)} Lesson</div>
                       <div className="text-sm text-muted-foreground">
                         {lesson.sport} • {lesson.preferred_date} at {lesson.preferred_time_start}
                       </div>
