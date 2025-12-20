@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,6 +49,17 @@ const MessagingDialog = ({ open, onOpenChange, hasUnreadMessages, onMarkAsRead }
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to bottom of messages
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
 
   // Real-time subscription for new messages
   const handleNewMessage = useCallback(async (newMsg: any) => {
@@ -377,6 +388,7 @@ const MessagingDialog = ({ open, onOpenChange, hasUnreadMessages, onMarkAsRead }
                       </div>
                     </div>
                   ))}
+                  <div ref={messagesEndRef} />
                 </div>
               </ScrollArea>
               
