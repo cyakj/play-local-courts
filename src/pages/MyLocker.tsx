@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, MessageCircle, User, Trophy, Users, Target, GraduationCap } from 'lucide-react';
+import { MessageCircle, User, Trophy, Users, Target, GraduationCap } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useSearchParams } from 'react-router-dom';
@@ -129,45 +129,22 @@ const MyLocker = () => {
             <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-pink-600 bg-clip-text text-transparent">
               {isNonHOA ? 'Tennis Network Hub' : 'My Locker'}
             </h1>
-            <p className="text-gray-600">
+            <p className="text-muted-foreground">
               {isNonHOA ? 'Connect with tennis players and improve your game' : 'Your tennis hub & social center'}
             </p>
           </div>
         </div>
-        <div className="flex gap-3">
-          <Button 
-            onClick={() => setShowMessaging(true)}
-            variant="outline"
-            className="flex items-center gap-2 relative group hover:scale-105 transition-all duration-200 hover:shadow-lg"
-          >
-            <MessageCircle className="h-4 w-4" />
-            Messages
-            {hasUnreadMessages && (
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-            )}
-          </Button>
-          <Button 
-            onClick={() => {
-              console.log('Find a Coach button clicked');
-              setShowFindCoach(true);
-            }}
-            variant="outline"
-            className="flex items-center gap-2 hover:scale-105 transition-all duration-200 hover:shadow-lg"
-          >
-            <GraduationCap className="h-4 w-4" />
-            Find a Coach
-          </Button>
-          <Button 
-            onClick={() => {
-              console.log('Find a Partner button clicked');
-              setShowFindPartner(true);
-            }}
-            className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 transition-all duration-200 hover:scale-105 hover:shadow-lg"
-          >
-            <Search className="h-4 w-4" />
-            {isNonHOA ? 'Find Tennis Players' : 'Find a Partner'}
-          </Button>
-        </div>
+        <Button 
+          onClick={() => setShowMessaging(true)}
+          variant="outline"
+          size="icon"
+          className="relative hover:scale-105 transition-all duration-200 hover:shadow-lg"
+        >
+          <MessageCircle className="h-5 w-5" />
+          {hasUnreadMessages && (
+            <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+          )}
+        </Button>
       </div>
 
       <Tabs defaultValue="profile" className="space-y-6">
