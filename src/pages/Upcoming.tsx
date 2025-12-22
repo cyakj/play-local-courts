@@ -244,6 +244,18 @@ const Upcoming = () => {
       opponent: getOpponentName(match),
       location: match.location
     })),
+    // Accepted match requests
+    ...acceptedMatchRequests.map(request => ({
+      id: request.id,
+      type: 'match_request' as const,
+      title: `${formatMatchType(request.match_type)} Match`,
+      date: request.date,
+      startTime: request.time_start || '12:00',
+      endTime: request.time_end || null,
+      opponent: getMatchRequestOpponentName(request),
+      location: request.location || 'TBD',
+      status: 'accepted'
+    })),
     // Ladder matches
     ...upcomingLadderMatches.map(match => ({
       id: match.id,
