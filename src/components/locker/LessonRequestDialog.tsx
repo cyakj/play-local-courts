@@ -97,8 +97,10 @@ const LessonRequestDialog: React.FC<LessonRequestDialogProps> = ({
     try {
       console.log('Submitting lesson request with player_id:', currentUser.id);
       
-      // Set status based on whether the time is within availability
-      const requestStatus = isOutsideAvailability ? 'pending_approval' : 'pending';
+      // Always use 'pending' status - the notes field will indicate if outside availability
+      const notesWithAvailability = isOutsideAvailability 
+        ? `[OUTSIDE AVAILABILITY - MANUAL REVIEW REQUIRED] ${notes || ''}`.trim()
+        : notes || null;
       
       const lessonRequest = {
         player_id: currentUser.id,
@@ -110,8 +112,8 @@ const LessonRequestDialog: React.FC<LessonRequestDialogProps> = ({
         lesson_type: lessonType,
         skill_level: skillLevel,
         location: location || null,
-        notes: notes || null,
-        status: requestStatus,
+        notes: notesWithAvailability,
+        status: 'pending',
       };
 
       console.log('Lesson request data:', lessonRequest);
