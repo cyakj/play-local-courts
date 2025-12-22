@@ -81,20 +81,36 @@ export const LessonsTab = () => {
 
     try {
       setLoading(true);
+      // Fetch lesson requests without the problematic foreign key hint
       const { data: requests, error } = await supabase
         .from("lesson_requests")
-        .select(`
-          *,
-          coach:profiles!lesson_requests_coach_id_fkey(full_name, avatar_url),
-          coaches!lesson_requests_coach_id_fkey(hourly_rate)
-        `)
+        .select("*")
         .eq("player_id", currentUser.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
 
-      // Check if lessons have been reviewed
+      // Manually fetch coach profiles and hourly rates
       if (requests && requests.length > 0) {
+        const coachIds = [...new Set(requests.map(r => r.coach_id))];
+        
+        const { data: coachProfiles } = await supabase
+          .from("profiles")
+          .select("id, full_name, avatar_url")
+          .in("id", coachIds);
+        
+        const { data: coachData } = await supabase
+          .from("coaches")
+          .select("user_id, hourly_rate")
+          .in("user_id", coachIds);
+
+        // Attach coach data to requests
+        requests.forEach((request: any) => {
+          request.coach = coachProfiles?.find(p => p.id === request.coach_id);
+          request.coaches = coachData?.find(c => c.user_id === request.coach_id);
+        });
+
+        // Check if lessons have been reviewed
         const lessonIds = requests.map((r) => r.id);
         const { data: reviews } = await supabase
           .from("coach_reviews")
@@ -149,20 +165,101 @@ export const LessonsTab = () => {
     );
   }
 
+  // Filter upcoming accepted lessons
+  const upcomingLessons = lessonRequests.filter(r => 
+    r.status === 'accepted' && 
+    new Date(r.preferred_date) >= new Date(new Date().toDateString())
+  );
+
+  const otherRequests = lessonRequests.filter(r => 
+    r.status !== 'accepted' || new Date(r.preferred_date) < new Date(new Date().toDateString())
+  );
+
   return (
     <div className="space-y-6">
+      {/* Upcoming Lessons Section */}
+      {upcomingLessons.length > 0 && (
+        <Card className="border-green-200 bg-green-50/30">
+          <CardHeader>
+            <CardTitle className="text-green-700 flex items-center gap-2">
+              <Star className="h-5 w-5" />
+              Upcoming Lessons ({upcomingLessons.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {upcomingLessons.map((request) => (
+                <Card 
+                  key={request.id} 
+                  className="border-l-4 border-l-green-500 bg-white"
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2 flex-wrap">
+                          <h3 className="font-semibold">
+                            {request.coach?.full_name || "Coach"}
+                          </h3>
+                          <Badge className="bg-green-600 hover:bg-green-700">
+                            Confirmed
+                          </Badge>
+                        </div>
+                        <div className="text-sm text-muted-foreground space-y-1">
+                          <p><strong>Sport:</strong> {request.sport}</p>
+                          <p><strong>Type:</strong> {request.lesson_type}</p>
+                          <p>
+                            <strong>Date:</strong>{" "}
+                            {new Date(request.preferred_date + 'T00:00:00').toLocaleDateString()}
+                          </p>
+                          <p>
+                            <strong>Time:</strong> {request.preferred_time_start} - {request.preferred_time_end}
+                          </p>
+                          {request.location && (
+                            <p><strong>Location:</strong> {request.location}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        {!request.hasReview && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleLeaveReview(request)}
+                          >
+                            <Star className="h-4 w-4 mr-2" />
+                            Leave Review
+                          </Button>
+                        )}
+                        {request.hasReview && (
+                          <Badge variant="secondary">Reviewed</Badge>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* All Lesson Requests */}
       <Card>
         <CardHeader>
-          <CardTitle>My Lesson Requests</CardTitle>
+          <CardTitle>Lesson Requests</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {lessonRequests.length === 0 ? (
+            {otherRequests.length === 0 && upcomingLessons.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">
                 No lesson requests yet. Find a coach to get started!
               </p>
+            ) : otherRequests.length === 0 ? (
+              <p className="text-center text-muted-foreground py-4">
+                No pending or past lesson requests.
+              </p>
             ) : (
-              lessonRequests.map((request) => (
+              otherRequests.map((request) => (
                 <Card 
                   key={request.id} 
                   className={`border-l-4 ${

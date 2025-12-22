@@ -32,25 +32,47 @@ const Upcoming = () => {
   });
 
   // Load lessons for non-HOA users
+  // Load lessons for ALL users (including accepted status)
   useEffect(() => {
     const loadUpcomingLessons = async () => {
-      if (!currentUser?.id || !isNonHOA) return;
+      if (!currentUser?.id) return;
 
       try {
-        const { data: lessons } = await supabase
+        // Fetch lesson requests with accepted or confirmed status
+        const { data: lessons, error } = await supabase
           .from('lesson_requests')
-          .select(`
-            *,
-            coach:coaches(
-              user_id,
-              business_name,
-              profiles:profiles(full_name)
-            )
-          `)
+          .select('*')
           .eq('player_id', currentUser.id)
-          .eq('status', 'confirmed')
+          .in('status', ['accepted', 'confirmed'])
           .gte('preferred_date', new Date().toISOString().split('T')[0])
           .order('preferred_date', { ascending: true });
+
+        if (error) throw error;
+
+        // Manually fetch coach data
+        if (lessons && lessons.length > 0) {
+          const coachIds = [...new Set(lessons.map(l => l.coach_id))];
+          
+          const { data: coachProfiles } = await supabase
+            .from('profiles')
+            .select('id, full_name')
+            .in('id', coachIds);
+          
+          const { data: coachData } = await supabase
+            .from('coaches')
+            .select('user_id, business_name')
+            .in('user_id', coachIds);
+
+          // Attach coach data
+          lessons.forEach((lesson: any) => {
+            const profile = coachProfiles?.find(p => p.id === lesson.coach_id);
+            const coach = coachData?.find(c => c.user_id === lesson.coach_id);
+            lesson.coach = {
+              business_name: coach?.business_name,
+              profiles: profile
+            };
+          });
+        }
 
         setUpcomingLessons(lessons || []);
       } catch (error) {
@@ -59,7 +81,7 @@ const Upcoming = () => {
     };
 
     loadUpcomingLessons();
-  }, [currentUser?.id, isNonHOA]);
+  }, [currentUser?.id]);
 
   // Load upcoming matches
   useEffect(() => {
@@ -221,7 +243,7 @@ const Upcoming = () => {
       playType: booking.playType,
       status: booking.status
     }))),
-    // Lessons (for non-HOA users)
+    // Lessons (for all users with accepted/confirmed lessons)
     ...upcomingLessons.map(lesson => ({
       id: lesson.id,
       type: 'lesson' as const,
@@ -231,7 +253,8 @@ const Upcoming = () => {
       endTime: lesson.preferred_time_end,
       coach: lesson.coach?.business_name || lesson.coach?.profiles?.full_name,
       sport: lesson.sport,
-      location: lesson.location
+      location: lesson.location,
+      status: lesson.status
     })),
     // Matches
     ...upcomingMatches.map(match => ({
