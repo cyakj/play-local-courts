@@ -94,24 +94,29 @@ const CalendarSection = ({
           ))}
         </div>
         <div className="grid grid-cols-7 gap-1">
-          {days.map((day, index) => (
-            <div key={index} className="aspect-square">
-              {day && (
-                <Button
-                  variant={selectedDate?.toDateString() === day.toDateString() ? "default" : "ghost"}
-                  className={`w-full h-full p-0 relative ${
-                    isToday(day) ? 'bg-primary text-primary-foreground' : ''
-                  }`}
-                  onClick={() => handleDateClick(day)}
-                >
-                  <span className="text-sm">{day.getDate()}</span>
-                  {hasFutureEventsOnDate(day) && !isToday(day) && (
-                    <div className="absolute top-1 right-1 w-2 h-2 bg-green-500 rounded-full"></div>
-                  )}
-                </Button>
-              )}
-            </div>
-          ))}
+          {days.map((day, index) => {
+            // Format day to YYYY-MM-DD for comparison
+            const dayStr = day ? `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}` : null;
+            
+            return (
+              <div key={index} className="aspect-square">
+                {day && (
+                  <Button
+                    variant={selectedDate?.toDateString() === day.toDateString() ? "default" : "ghost"}
+                    className={`w-full h-full p-0 relative ${
+                      isToday(day) ? 'bg-primary text-primary-foreground' : ''
+                    }`}
+                    onClick={() => handleDateClick(day)}
+                  >
+                    <span className="text-sm">{day.getDate()}</span>
+                    {hasFutureEventsOnDate(day) && !isToday(day) && (
+                      <div className="absolute top-1 right-1 w-2 h-2 bg-green-500 rounded-full"></div>
+                    )}
+                  </Button>
+                )}
+              </div>
+            );
+          })}
         </div>
       </CardContent>
     </Card>

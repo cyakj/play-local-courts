@@ -42,9 +42,9 @@ const EventDetails = ({ selectedDate, events }: EventDetailsProps) => {
     );
   }
 
-  const selectedDateEvents = events.filter(event => 
-    event.date === selectedDate.toISOString().split('T')[0]
-  );
+  // Format as YYYY-MM-DD using local date to avoid timezone issues
+  const selectedDateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
+  const selectedDateEvents = events.filter(event => event.date === selectedDateStr);
 
   return (
     <Card className="sticky top-6">

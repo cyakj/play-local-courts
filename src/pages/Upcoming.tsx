@@ -276,13 +276,13 @@ const Upcoming = () => {
   });
 
   const hasEventsOnDate = (date: Date) => {
-    const dateStr = date.toISOString().split('T')[0];
+    // Format as YYYY-MM-DD using local date to avoid timezone issues
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     return allEvents.some(event => event.date === dateStr);
   };
 
   // Only show green dot for future events
   const hasFutureEventsOnDate = (date: Date) => {
-    const dateStr = date.toISOString().split('T')[0];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
