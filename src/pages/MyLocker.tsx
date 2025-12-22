@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MessageCircle, User, Trophy, Users, Target, GraduationCap } from 'lucide-react';
+import { MessageCircle, User, Trophy, Users, Target, GraduationCap, Search } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useSearchParams } from 'react-router-dom';
@@ -185,6 +185,15 @@ const MyLocker = () => {
 
         <TabsContent value="preferences" className="animate-in fade-in duration-300">
           <div className="space-y-6">
+            <div className="flex justify-end">
+              <Button 
+                onClick={() => setShowFindPartner(true)}
+                className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 transition-all duration-200 hover:scale-105 hover:shadow-lg"
+              >
+                <Search className="h-4 w-4" />
+                {isNonHOA ? 'Find Tennis Players' : 'Find a Partner'}
+              </Button>
+            </div>
             {isNonHOA && (
               <Card className="bg-gradient-to-r from-blue-50 to-green-50 border-l-4 border-l-blue-500">
                 <CardHeader>
@@ -211,7 +220,19 @@ const MyLocker = () => {
         </TabsContent>
 
         <TabsContent value="lessons" className="animate-in fade-in duration-300">
-          <LessonsTab />
+          <div className="space-y-6">
+            <div className="flex justify-end">
+              <Button 
+                onClick={() => setShowFindCoach(true)}
+                variant="outline"
+                className="flex items-center gap-2 hover:scale-105 transition-all duration-200 hover:shadow-lg"
+              >
+                <GraduationCap className="h-4 w-4" />
+                Find a Coach
+              </Button>
+            </div>
+            <LessonsTab />
+          </div>
         </TabsContent>
 
         <TabsContent value="ladders" className="animate-in fade-in duration-300">
