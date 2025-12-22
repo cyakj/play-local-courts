@@ -194,8 +194,8 @@ export default function CoachSchedule() {
                       onClick={() => handleDateClick(day)}
                     >
                       <span className="text-sm">{day.getDate()}</span>
-                      {hasLessonsOnDate(day) && !isToday(day) && (
-                        <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-green-500 rounded-full"></div>
+                      {hasLessonsOnDate(day) && (
+                        <div className="absolute top-1 right-1 w-2 h-2 bg-green-500 rounded-full"></div>
                       )}
                     </Button>
                   )}
