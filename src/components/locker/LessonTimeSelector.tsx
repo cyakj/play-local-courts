@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Clock } from 'lucide-react';
 
 interface CoachAvailability {
   day_of_week: number;
@@ -11,7 +11,7 @@ interface CoachAvailability {
 interface LessonTimeSelectorProps {
   selectedDate: Date;
   coachAvailability: CoachAvailability[];
-  onTimeSelect: (startTime: string, endTime: string) => void;
+  onTimeSelect: (startTime: string, endTime: string, isOutsideAvailability: boolean) => void;
   selectedStartTime?: string;
   selectedEndTime?: string;
 }
@@ -67,7 +67,7 @@ const LessonTimeSelector: React.FC<LessonTimeSelectorProps> = ({
     return ((hour - startHour) / totalHours) * 100;
   }, [startHour, totalHours]);
 
-  const isTimeSlotAvailable = useCallback((start: number, end: number): boolean => {
+  const isTimeSlotWithinAvailability = useCallback((start: number, end: number): boolean => {
     const startTime = `${start.toString().padStart(2, '0')}:00`;
     const endTime = `${end.toString().padStart(2, '0')}:00`;
     
@@ -78,8 +78,18 @@ const LessonTimeSelector: React.FC<LessonTimeSelectorProps> = ({
       }
     }
     
-    return dayAvailability.length === 0; // If no availability set, allow all times
+    return false;
   }, [dayAvailability]);
+
+  // Check if current selection is outside availability
+  const isSelectionOutsideAvailability = useCallback((): boolean => {
+    if (!selectedStartTime || !selectedEndTime) return false;
+    if (dayAvailability.length === 0) return true; // No availability set
+    
+    const startHr = parseInt(selectedStartTime.split(':')[0]);
+    const endHr = parseInt(selectedEndTime.split(':')[0]);
+    return !isTimeSlotWithinAvailability(startHr, endHr);
+  }, [selectedStartTime, selectedEndTime, dayAvailability, isTimeSlotWithinAvailability]);
 
   const handleTimeSlotClick = (hour: number) => {
     // Check if clicking on already selected start time to extend
@@ -90,23 +100,21 @@ const LessonTimeSelector: React.FC<LessonTimeSelectorProps> = ({
       // If clicking adjacent slot, extend selection
       if (hour === currentEndHour) {
         const newEndHour = hour + 1;
-        if (isTimeSlotAvailable(currentStartHour, newEndHour)) {
-          const endTimeStr = `${newEndHour.toString().padStart(2, '0')}:00`;
-          onTimeSelect(selectedStartTime, endTimeStr);
-          return;
-        }
+        const endTimeStr = `${newEndHour.toString().padStart(2, '0')}:00`;
+        const isOutside = !isTimeSlotWithinAvailability(currentStartHour, newEndHour);
+        onTimeSelect(selectedStartTime, endTimeStr, isOutside);
+        return;
       }
     }
     
-    // Otherwise start new selection
+    // Otherwise start new selection - allow all times
     const startTime = hour;
-    const endTime = hour + slotDurationHours;
+    const endTimeVal = hour + slotDurationHours;
     
-    if (isTimeSlotAvailable(startTime, endTime)) {
-      const startTimeStr = `${startTime.toString().padStart(2, '0')}:00`;
-      const endTimeStr = `${endTime.toString().padStart(2, '0')}:00`;
-      onTimeSelect(startTimeStr, endTimeStr);
-    }
+    const startTimeStr = `${startTime.toString().padStart(2, '0')}:00`;
+    const endTimeStr = `${endTimeVal.toString().padStart(2, '0')}:00`;
+    const isOutside = !isTimeSlotWithinAvailability(startTime, endTimeVal);
+    onTimeSelect(startTimeStr, endTimeStr, isOutside);
   };
 
   const renderTimeLabels = () => {
@@ -116,8 +124,8 @@ const LessonTimeSelector: React.FC<LessonTimeSelectorProps> = ({
       labels.push(
         <div
           key={hour}
-          className="absolute text-xs text-muted-foreground flex items-center"
-          style={{ top: `${position}%`, transform: 'translateY(-50%)', right: '100%', paddingRight: '8px' }}
+          className="absolute text-xs text-muted-foreground whitespace-nowrap"
+          style={{ top: `${position}%`, transform: 'translateY(-50%)', left: '0' }}
         >
           {hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : hour === 0 ? '12 AM' : `${hour} AM`}
         </div>
@@ -131,8 +139,9 @@ const LessonTimeSelector: React.FC<LessonTimeSelectorProps> = ({
     for (let hour = startHour; hour < endHour; hour++) {
       const position = getPositionFromTime(hour);
       const height = (1 / totalHours) * 100;
-      const endTime = hour + slotDurationHours;
-      const available = isTimeSlotAvailable(hour, endTime);
+      const endTimeVal = hour + slotDurationHours;
+      const withinAvailability = isTimeSlotWithinAvailability(hour, endTimeVal);
+      const noAvailabilitySet = dayAvailability.length === 0;
       
       // Check if this slot is selected
       const isSelected = selectedStartTime && selectedEndTime && 
@@ -144,16 +153,20 @@ const LessonTimeSelector: React.FC<LessonTimeSelectorProps> = ({
           key={hour}
           className={`absolute w-full border border-border cursor-pointer transition-all ${
             isSelected 
-              ? 'bg-green-500 hover:bg-green-600 z-10' 
-              : available 
+              ? withinAvailability || noAvailabilitySet
+                ? 'bg-green-500 hover:bg-green-600 z-10' 
+                : 'bg-amber-500 hover:bg-amber-600 z-10'
+              : withinAvailability 
                 ? 'bg-green-100 hover:bg-green-200' 
-                : 'bg-red-100 cursor-not-allowed'
+                : noAvailabilitySet
+                  ? 'bg-muted hover:bg-muted/80'
+                  : 'bg-amber-50 hover:bg-amber-100'
           }`}
           style={{
             top: `${position}%`,
             height: `${height}%`,
           }}
-          onClick={() => available && handleTimeSlotClick(hour)}
+          onClick={() => handleTimeSlotClick(hour)}
         >
           {isSelected && (
             <div className="flex items-center justify-center h-full">
@@ -168,13 +181,15 @@ const LessonTimeSelector: React.FC<LessonTimeSelectorProps> = ({
     return slots;
   };
 
+  const outsideAvailability = isSelectionOutsideAvailability();
+
   return (
     <div className="space-y-4">
       {dayAvailability.length === 0 && (
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            This coach has not set availability for this day. You can still select a time and the coach will respond.
+            This coach has not set availability for this day. You can still select a time and your request will be sent for manual review.
           </AlertDescription>
         </Alert>
       )}
@@ -184,27 +199,31 @@ const LessonTimeSelector: React.FC<LessonTimeSelectorProps> = ({
       </div>
       
       <div className="relative flex items-start">
+        {/* Time labels - positioned on the left */}
+        <div className="relative w-14 h-96 flex-shrink-0">
+          {renderTimeLabels()}
+        </div>
+        
         {/* Timeline */}
         <div
           ref={timelineRef}
-          className="relative w-full h-96 bg-background border rounded"
+          className="relative flex-1 h-96 bg-background border rounded"
         >
-          {/* Time labels */}
-          <div className="absolute inset-0 pl-16">
-            {renderTimeLabels()}
-          </div>
-          
           {/* Time slots */}
-          <div className="absolute inset-0 pl-16">
+          <div className="absolute inset-0">
             {renderTimeSlots()}
           </div>
         </div>
       </div>
       
-      <div className="flex gap-4 text-xs">
+      <div className="flex flex-wrap gap-4 text-xs">
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-green-100 border border-border rounded"></div>
           <span className="text-muted-foreground">Available</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 bg-amber-50 border border-border rounded"></div>
+          <span className="text-muted-foreground">Outside Availability</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-green-500 border border-border rounded"></div>
@@ -213,9 +232,15 @@ const LessonTimeSelector: React.FC<LessonTimeSelectorProps> = ({
       </div>
       
       {selectedStartTime && selectedEndTime && (
-        <Alert>
+        <Alert variant={outsideAvailability ? "default" : "default"} className={outsideAvailability ? "border-amber-500 bg-amber-50" : ""}>
+          <Clock className="h-4 w-4" />
           <AlertDescription>
             Selected: {selectedStartTime} - {selectedEndTime}
+            {outsideAvailability && (
+              <span className="block mt-1 text-amber-700 font-medium">
+                This time is outside the coach's posted availability. Your request will be sent for manual review.
+              </span>
+            )}
           </AlertDescription>
         </Alert>
       )}

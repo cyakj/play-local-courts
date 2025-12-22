@@ -37,6 +37,7 @@ const LessonRequestDialog: React.FC<LessonRequestDialogProps> = ({
   const [skillLevel, setSkillLevel] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  const [isOutsideAvailability, setIsOutsideAvailability] = useState(false);
   const [location, setLocation] = useState('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -66,9 +67,10 @@ const LessonRequestDialog: React.FC<LessonRequestDialogProps> = ({
     }
   };
 
-  const handleTimeSelect = (start: string, end: string) => {
+  const handleTimeSelect = (start: string, end: string, outsideAvailability: boolean) => {
     setStartTime(start);
     setEndTime(end);
+    setIsOutsideAvailability(outsideAvailability);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -95,6 +97,9 @@ const LessonRequestDialog: React.FC<LessonRequestDialogProps> = ({
     try {
       console.log('Submitting lesson request with player_id:', currentUser.id);
       
+      // Set status based on whether the time is within availability
+      const requestStatus = isOutsideAvailability ? 'pending_approval' : 'pending';
+      
       const lessonRequest = {
         player_id: currentUser.id,
         coach_id: coachId,
@@ -106,7 +111,7 @@ const LessonRequestDialog: React.FC<LessonRequestDialogProps> = ({
         skill_level: skillLevel,
         location: location || null,
         notes: notes || null,
-        status: 'pending',
+        status: requestStatus,
       };
 
       console.log('Lesson request data:', lessonRequest);
@@ -123,7 +128,10 @@ const LessonRequestDialog: React.FC<LessonRequestDialogProps> = ({
 
       console.log('Lesson request created successfully:', data);
 
-      toast.success(`Lesson request sent to ${coachName}!`);
+      const successMessage = isOutsideAvailability 
+        ? `Request sent to ${coachName} for manual review. The time is outside their posted availability.`
+        : `Lesson request sent to ${coachName}!`;
+      toast.success(successMessage);
       onOpenChange(false);
       
       // Reset form
@@ -133,6 +141,7 @@ const LessonRequestDialog: React.FC<LessonRequestDialogProps> = ({
       setSkillLevel('');
       setStartTime('');
       setEndTime('');
+      setIsOutsideAvailability(false);
       setLocation('');
       setNotes('');
     } catch (error) {
