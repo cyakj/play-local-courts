@@ -44,7 +44,9 @@ const UpcomingMatchSessions = ({ upcomingMatchSessions }: UpcomingMatchSessionsP
         ) : (
           <div className="space-y-4">
             {upcomingMatchSessions.slice(0, 5).map(session => {
-              const sessionDate = new Date(session.date);
+              // Parse date as local date to avoid timezone issues
+              const [year, month, day] = session.date.split('-').map(Number);
+              const sessionDate = new Date(year, month - 1, day);
               
               return (
                 <Card key={session.id} className="overflow-hidden">
