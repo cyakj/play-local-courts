@@ -7,11 +7,11 @@ import { Clock, MapPin, Users, Calendar } from 'lucide-react';
 
 interface Event {
   id: string;
-  type: 'booking' | 'match' | 'lesson' | 'ladder';
+  type: 'booking' | 'match' | 'lesson' | 'ladder' | 'match_request';
   title: string;
   date: string;
   startTime: string;
-  endTime?: string;
+  endTime?: string | null;
   location?: string;
   playType?: string;
   status?: string;
