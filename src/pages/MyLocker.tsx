@@ -91,8 +91,9 @@ const MyLocker = () => {
     }
   };
 
-  const handleMarkAsRead = () => {
-    setHasUnreadMessages(false);
+  const handleMarkAsRead = async () => {
+    // Re-check for truly unread messages after marking some as read
+    await checkForUnreadMessages();
   };
 
   if (showFindPartner) {

@@ -200,7 +200,7 @@ const LessonRequestDialog: React.FC<LessonRequestDialogProps> = ({
                   <SelectItem value="private">Private (1-on-1)</SelectItem>
                   <SelectItem value="semi-private">Semi-Private (2-3 people)</SelectItem>
                   <SelectItem value="group">Group (4+ people)</SelectItem>
-                  <SelectItem value="clinic">Clinic</SelectItem>
+                  <SelectItem value="junior">Junior Lesson</SelectItem>
                 </SelectContent>
               </Select>
             </div>
