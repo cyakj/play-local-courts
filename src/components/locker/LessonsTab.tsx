@@ -221,16 +221,6 @@ export const LessonsTab = () => {
                         </div>
                       </div>
                       <div className="flex flex-col gap-2">
-                        {!request.hasReview && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleLeaveReview(request)}
-                          >
-                            <Star className="h-4 w-4 mr-2" />
-                            Leave Review
-                          </Button>
-                        )}
                         {request.hasReview && (
                           <Badge variant="secondary">Reviewed</Badge>
                         )}
