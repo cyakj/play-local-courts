@@ -8,7 +8,7 @@ import { LessonPaymentButton } from "./LessonPaymentButton";
 import { LeaveReviewDialog } from "./LeaveReviewDialog";
 import { toast } from "sonner";
 import { useSearchParams } from "react-router-dom";
-import { Star } from "lucide-react";
+import { Star, X } from "lucide-react";
 import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 
 export const LessonsTab = () => {
@@ -124,6 +124,23 @@ export const LessonsTab = () => {
     setReviewDialogOpen(true);
   };
 
+  const handleDismissDeclined = async (requestId: string) => {
+    try {
+      const { error } = await supabase
+        .from("lesson_requests")
+        .delete()
+        .eq("id", requestId);
+
+      if (error) throw error;
+      
+      toast.success("Lesson request dismissed");
+      loadLessonRequests();
+    } catch (error) {
+      console.error("Error dismissing request:", error);
+      toast.error("Failed to dismiss request");
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -149,12 +166,12 @@ export const LessonsTab = () => {
                 <Card 
                   key={request.id} 
                   className={`border-l-4 ${
-                    request.status === 'pending_approval' 
-                      ? 'border-l-amber-500 bg-amber-50/30' 
+                    request.status === 'accepted'
+                      ? 'border-l-green-500 bg-green-50/30'
                       : request.status === 'confirmed'
                         ? 'border-l-green-500'
                         : request.status === 'declined'
-                          ? 'border-l-destructive'
+                          ? 'border-l-destructive bg-destructive/5'
                           : 'border-l-primary'
                   }`}
                 >
@@ -169,20 +186,23 @@ export const LessonsTab = () => {
                             variant={
                               request.status === "confirmed"
                                 ? "default"
-                                : request.status === "pending_approval"
-                                ? "outline"
                                 : request.status === "pending"
                                 ? "secondary"
                                 : request.status === "accepted"
                                 ? "default"
                                 : "destructive"
                             }
-                            className={request.status === "pending_approval" ? "border-amber-500 text-amber-700 bg-amber-100" : ""}
+                            className={request.status === "accepted" ? "bg-green-600 hover:bg-green-700" : ""}
                           >
-                            {request.status === "pending_approval" ? "Pending Coach Approval" : request.status}
+                            {request.status}
                           </Badge>
                         </div>
-                        {request.status === "pending_approval" && (
+                        {request.status === "declined" && (
+                          <p className="text-xs text-destructive mb-2 bg-destructive/10 p-2 rounded">
+                            This lesson request was declined by the coach.
+                          </p>
+                        )}
+                        {request.notes?.includes('[OUTSIDE AVAILABILITY') && request.status === 'pending' && (
                           <p className="text-xs text-amber-700 mb-2 bg-amber-100 p-2 rounded">
                             This request is outside the coach's posted availability and is awaiting manual review.
                           </p>
@@ -235,6 +255,17 @@ export const LessonsTab = () => {
                           >
                             <Star className="h-4 w-4 mr-2" />
                             Leave Review
+                          </Button>
+                        )}
+                        {request.status === "declined" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDismissDeclined(request.id)}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <X className="h-4 w-4 mr-2" />
+                            Dismiss
                           </Button>
                         )}
                         {request.hasReview && (
