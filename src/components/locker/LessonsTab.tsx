@@ -146,11 +146,22 @@ export const LessonsTab = () => {
               </p>
             ) : (
               lessonRequests.map((request) => (
-                <Card key={request.id} className="border-l-4 border-l-primary">
+                <Card 
+                  key={request.id} 
+                  className={`border-l-4 ${
+                    request.status === 'pending_approval' 
+                      ? 'border-l-amber-500 bg-amber-50/30' 
+                      : request.status === 'confirmed'
+                        ? 'border-l-green-500'
+                        : request.status === 'declined'
+                          ? 'border-l-destructive'
+                          : 'border-l-primary'
+                  }`}
+                >
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
+                        <div className="flex items-center gap-2 mb-2 flex-wrap">
                           <h3 className="font-semibold">
                             {request.coach?.full_name || "Coach"}
                           </h3>
@@ -158,16 +169,24 @@ export const LessonsTab = () => {
                             variant={
                               request.status === "confirmed"
                                 ? "default"
+                                : request.status === "pending_approval"
+                                ? "outline"
                                 : request.status === "pending"
                                 ? "secondary"
                                 : request.status === "accepted"
                                 ? "default"
                                 : "destructive"
                             }
+                            className={request.status === "pending_approval" ? "border-amber-500 text-amber-700 bg-amber-100" : ""}
                           >
-                            {request.status}
+                            {request.status === "pending_approval" ? "Pending Coach Approval" : request.status}
                           </Badge>
                         </div>
+                        {request.status === "pending_approval" && (
+                          <p className="text-xs text-amber-700 mb-2 bg-amber-100 p-2 rounded">
+                            This request is outside the coach's posted availability and is awaiting manual review.
+                          </p>
+                        )}
                         <div className="text-sm text-muted-foreground space-y-1">
                           <p>
                             <strong>Sport:</strong> {request.sport}
