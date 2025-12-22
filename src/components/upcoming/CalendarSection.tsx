@@ -109,7 +109,7 @@ const CalendarSection = ({
                     onClick={() => handleDateClick(day)}
                   >
                     <span className="text-sm">{day.getDate()}</span>
-                    {hasFutureEventsOnDate(day) && !isToday(day) && (
+                    {hasFutureEventsOnDate(day) && (
                       <div className="absolute top-1 right-1 w-2 h-2 bg-green-500 rounded-full"></div>
                     )}
                   </Button>
