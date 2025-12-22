@@ -168,19 +168,17 @@ const LessonTimeSelector: React.FC<LessonTimeSelectorProps> = ({
     return slots;
   };
 
-  if (dayAvailability.length === 0) {
-    return (
-      <Alert>
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription>
-          This coach has not set availability for this day of the week. You can still request a lesson and the coach will respond.
-        </AlertDescription>
-      </Alert>
-    );
-  }
-
   return (
     <div className="space-y-4">
+      {dayAvailability.length === 0 && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            This coach has not set availability for this day. You can still select a time and the coach will respond.
+          </AlertDescription>
+        </Alert>
+      )}
+      
       <div className="text-sm font-medium">
         Select your time slot(s) - Click slots to select 1-hour increments
       </div>
@@ -207,10 +205,6 @@ const LessonTimeSelector: React.FC<LessonTimeSelectorProps> = ({
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-green-100 border border-border rounded"></div>
           <span className="text-muted-foreground">Available</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-red-100 border border-border rounded"></div>
-          <span className="text-muted-foreground">Unavailable</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-green-500 border border-border rounded"></div>
