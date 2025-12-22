@@ -101,7 +101,11 @@ const CoachDashboard = () => {
 
       // Calculate stats
       const pendingRequests = requestsData?.filter(r => r.status === 'pending').length || 0;
-      const completedLessons = requestsData?.filter(r => r.status === 'completed').length || 0;
+      const today = new Date().toISOString().split('T')[0];
+      const completedLessons = requestsData?.filter(r => 
+        r.status === 'completed' || 
+        (r.status === 'accepted' && r.preferred_date < today)
+      ).length || 0;
       const averageRating = reviewsData?.length 
         ? reviewsData.reduce((sum, review) => sum + review.rating, 0) / reviewsData.length
         : 0;
