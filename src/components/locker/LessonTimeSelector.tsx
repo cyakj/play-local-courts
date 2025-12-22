@@ -148,20 +148,30 @@ const LessonTimeSelector: React.FC<LessonTimeSelectorProps> = ({
         hour >= parseInt(selectedStartTime.split(':')[0]) && 
         hour < parseInt(selectedEndTime.split(':')[0]);
       
+      // Determine slot color:
+      // - Selected within availability: green-500
+      // - Selected outside availability (including no availability set): amber-500
+      // - Available (within coach availability): green-100
+      // - Outside availability or no availability set: amber-50/amber-100
+      const getSlotClasses = () => {
+        if (isSelected) {
+          // When selected, green if within availability, amber if outside (or no availability)
+          return withinAvailability && !noAvailabilitySet
+            ? 'bg-green-500 hover:bg-green-600 z-10' 
+            : 'bg-amber-500 hover:bg-amber-600 z-10';
+        }
+        // Not selected
+        if (withinAvailability && !noAvailabilitySet) {
+          return 'bg-green-100 hover:bg-green-200';
+        }
+        // Outside availability OR no availability set = amber
+        return 'bg-amber-50 hover:bg-amber-100';
+      };
+      
       slots.push(
         <div
           key={hour}
-          className={`absolute w-full border border-border cursor-pointer transition-all ${
-            isSelected 
-              ? withinAvailability || noAvailabilitySet
-                ? 'bg-green-500 hover:bg-green-600 z-10' 
-                : 'bg-amber-500 hover:bg-amber-600 z-10'
-              : withinAvailability 
-                ? 'bg-green-100 hover:bg-green-200' 
-                : noAvailabilitySet
-                  ? 'bg-muted hover:bg-muted/80'
-                  : 'bg-amber-50 hover:bg-amber-100'
-          }`}
+          className={`absolute w-full border border-border cursor-pointer transition-all ${getSlotClasses()}`}
           style={{
             top: `${position}%`,
             height: `${height}%`,
