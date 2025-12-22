@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Calendar, GraduationCap, Star, Users, Settings } from 'lucide-react';
+import { Calendar, GraduationCap, Star, Users, User } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 const CoachBottomNavigation = () => {
@@ -42,8 +42,8 @@ const CoachBottomNavigation = () => {
     },
     {
       path: '/email-settings',
-      icon: Settings,
-      label: 'Settings',
+      icon: User,
+      label: 'Profile',
       color: 'text-gray-600'
     }
   ];

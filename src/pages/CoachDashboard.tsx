@@ -14,8 +14,7 @@ import {
   MapPin,
   CheckCircle,
   XCircle,
-  TrendingUp,
-  UserCog
+  TrendingUp
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,7 +22,6 @@ import { LessonRequest, CoachReview } from '../types/coach';
 import { toast } from 'sonner';
 import AvailabilityManager from '../components/coach/AvailabilityManager';
 import { PaymentsTab } from '../components/coach/PaymentsTab';
-import CoachProfileSettings from '../components/coach/CoachProfileSettings';
 
 const CoachDashboard = () => {
   const searchParams = new URLSearchParams(window.location.search);
@@ -218,12 +216,11 @@ const CoachDashboard = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="requests">Requests</TabsTrigger>
           <TabsTrigger value="reviews">Reviews</TabsTrigger>
           <TabsTrigger value="availability">Availability</TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
-          <TabsTrigger value="profile">Profile</TabsTrigger>
         </TabsList>
 
         <TabsContent value="requests" className="space-y-4">
@@ -338,10 +335,6 @@ const CoachDashboard = () => {
 
         <TabsContent value="payments" className="space-y-4">
           <PaymentsTab />
-        </TabsContent>
-
-        <TabsContent value="profile" className="space-y-4">
-          <CoachProfileSettings />
         </TabsContent>
       </Tabs>
     </div>
