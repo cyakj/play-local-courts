@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { useSearchParams } from "react-router-dom";
 import { Star, X } from "lucide-react";
 import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
+import { formatTime12Hour } from "@/lib/textUtils";
 
 export const LessonsTab = () => {
   const { currentUser } = useAuth();
@@ -212,7 +213,7 @@ export const LessonsTab = () => {
                             {new Date(request.preferred_date + 'T00:00:00').toLocaleDateString()}
                           </p>
                           <p>
-                            <strong>Time:</strong> {request.preferred_time_start} - {request.preferred_time_end}
+                            <strong>Time:</strong> {formatTime12Hour(request.preferred_time_start)} - {formatTime12Hour(request.preferred_time_end)}
                           </p>
                           {request.location && (
                             <p><strong>Location:</strong> {request.location}</p>
@@ -319,8 +320,8 @@ export const LessonsTab = () => {
                             {new Date(request.preferred_date).toLocaleDateString()}
                           </p>
                           <p>
-                            <strong>Time:</strong> {request.preferred_time_start} -{" "}
-                            {request.preferred_time_end}
+                            <strong>Time:</strong> {formatTime12Hour(request.preferred_time_start)} -{" "}
+                            {formatTime12Hour(request.preferred_time_end)}
                           </p>
                           {request.location && (
                             <p>

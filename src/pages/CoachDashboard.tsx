@@ -22,6 +22,7 @@ import { LessonRequest, CoachReview } from '../types/coach';
 import { toast } from 'sonner';
 import AvailabilityManager from '../components/coach/AvailabilityManager';
 import { PaymentsTab } from '../components/coach/PaymentsTab';
+import { formatTime12Hour } from '@/lib/textUtils';
 
 const CoachDashboard = () => {
   const searchParams = new URLSearchParams(window.location.search);
@@ -237,7 +238,7 @@ const CoachDashboard = () => {
                     <div key={request.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
-                          <h3 className="font-medium">{request.player?.full_name || 'Student'}</h3>
+                          <h3 className="font-medium">{request.player?.full_name || 'Unknown Player'}</h3>
                           <Badge 
                             variant={
                               request.status === 'pending' ? 'default' :
@@ -254,7 +255,7 @@ const CoachDashboard = () => {
                           <p><strong>Type:</strong> {request.lesson_type}</p>
                           <p><strong>Skill Level:</strong> {request.skill_level}</p>
                           <p><strong>Preferred Date:</strong> {request.preferred_date}</p>
-                          <p><strong>Time:</strong> {request.preferred_time_start} - {request.preferred_time_end}</p>
+                          <p><strong>Time:</strong> {formatTime12Hour(request.preferred_time_start)} - {formatTime12Hour(request.preferred_time_end)}</p>
                           {request.location && <p><strong>Location:</strong> {request.location}</p>}
                           {request.notes && <p><strong>Notes:</strong> {request.notes}</p>}
                         </div>
@@ -300,7 +301,7 @@ const CoachDashboard = () => {
                   {reviews.map((review) => (
                     <div key={review.id} className="p-4 border rounded-lg">
                       <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-medium">{review.player?.full_name || 'Student'}</h3>
+                        <h3 className="font-medium">{review.player?.full_name || 'Unknown Player'}</h3>
                         <div className="flex items-center gap-1">
                           {[...Array(5)].map((_, i) => (
                             <Star

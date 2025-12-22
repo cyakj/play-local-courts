@@ -107,7 +107,7 @@ const FindCoach: React.FC<FindCoachProps> = ({ onBack }) => {
       filtered = filtered.filter(coach => coach.willing_to_travel);
     }
 
-    if (maxRate) {
+    if (maxRate && maxRate !== 'any') {
       const maxRateNum = parseFloat(maxRate);
       filtered = filtered.filter(coach => 
         !coach.hourly_rate || coach.hourly_rate <= maxRateNum
@@ -192,13 +192,26 @@ const FindCoach: React.FC<FindCoachProps> = ({ onBack }) => {
 
             <div className="space-y-2">
               <Label htmlFor="maxRate">Max Hourly Rate ($)</Label>
-              <Input
-                id="maxRate"
-                type="number"
-                placeholder="Any rate"
-                value={maxRate}
-                onChange={(e) => setMaxRate(e.target.value)}
-              />
+              <Select value={maxRate} onValueChange={setMaxRate}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Any rate" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="any">Any rate</SelectItem>
+                  <SelectItem value="10">$10/hour</SelectItem>
+                  <SelectItem value="20">$20/hour</SelectItem>
+                  <SelectItem value="30">$30/hour</SelectItem>
+                  <SelectItem value="40">$40/hour</SelectItem>
+                  <SelectItem value="50">$50/hour</SelectItem>
+                  <SelectItem value="60">$60/hour</SelectItem>
+                  <SelectItem value="70">$70/hour</SelectItem>
+                  <SelectItem value="80">$80/hour</SelectItem>
+                  <SelectItem value="90">$90/hour</SelectItem>
+                  <SelectItem value="100">$100/hour</SelectItem>
+                  <SelectItem value="150">$150/hour</SelectItem>
+                  <SelectItem value="200">$200/hour</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardContent>
