@@ -238,11 +238,14 @@ const CoachDashboard = () => {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
                           <h3 className="font-medium">{request.player?.full_name || 'Student'}</h3>
-                          <Badge variant={
-                            request.status === 'pending' ? 'default' :
-                            request.status === 'accepted' ? 'secondary' :
-                            request.status === 'declined' ? 'destructive' : 'outline'
-                          }>
+                          <Badge 
+                            variant={
+                              request.status === 'pending' ? 'default' :
+                              request.status === 'accepted' ? 'default' :
+                              request.status === 'declined' ? 'destructive' : 'outline'
+                            }
+                            className={request.status === 'accepted' ? 'bg-green-600 hover:bg-green-700' : ''}
+                          >
                             {request.status}
                           </Badge>
                         </div>
