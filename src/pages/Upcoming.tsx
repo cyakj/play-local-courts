@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
@@ -9,14 +9,17 @@ import UpcomingReservations from '../components/upcoming/UpcomingReservations';
 import UpcomingMatchSessions from '../components/upcoming/UpcomingMatchSessions';
 import PastMatchSessions from '../components/upcoming/PastMatchSessions';
 import EventDetails from '../components/upcoming/EventDetails';
+import WeeklyCalendarView from '../components/WeeklyCalendarView';
 import { UserType } from '../types';
 import { formatMatchType, capitalizeWords } from '@/lib/textUtils';
+import { startOfWeek } from 'date-fns';
 
 const Upcoming = () => {
   const { currentUser } = useAuth();
   const { bookings } = useData();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 0 }));
   const [upcomingLessons, setUpcomingLessons] = useState<any[]>([]);
   const [upcomingMatches, setUpcomingMatches] = useState<any[]>([]);
   const [upcomingLadderMatches, setUpcomingLadderMatches] = useState<any[]>([]);
@@ -31,7 +34,6 @@ const Upcoming = () => {
     return bookingDateTime > now;
   });
 
-  // Load lessons for non-HOA users
   // Load lessons for ALL users (including accepted status)
   useEffect(() => {
     const loadUpcomingLessons = async () => {
@@ -298,6 +300,31 @@ const Upcoming = () => {
     return eventDateTime > now;
   });
 
+  // Convert events to weekly calendar format
+  const weeklyTimeSlots = useMemo(() => {
+    return upcomingEvents.map(event => {
+      let colorClass = 'bg-primary';
+      if (event.type === 'booking') colorClass = 'bg-blue-500';
+      else if (event.type === 'lesson') colorClass = 'bg-green-500';
+      else if (event.type === 'match' || event.type === 'match_request') colorClass = 'bg-orange-500';
+      else if (event.type === 'ladder') colorClass = 'bg-purple-500';
+
+      const locationVal = 'location' in event ? event.location : undefined;
+      const opponentVal = 'opponent' in event ? event.opponent : undefined;
+
+      return {
+        id: event.id,
+        date: event.date,
+        startTime: event.startTime,
+        endTime: event.endTime || event.startTime.replace(/:\d{2}$/, ':00').replace(/^(\d+):/, (_, h) => `${parseInt(h) + 1}:`),
+        title: event.title,
+        subtitle: event.location || event.opponent,
+        color: colorClass,
+        type: event.type
+      };
+    });
+  }, [upcomingEvents]);
+
   const hasEventsOnDate = (date: Date) => {
     // Format as YYYY-MM-DD using local date to avoid timezone issues
     const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -334,11 +361,45 @@ const Upcoming = () => {
         </p>
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-6">
+      <Tabs defaultValue="weekly" className="space-y-6">
         <TabsList>
+          <TabsTrigger value="weekly">Weekly View</TabsTrigger>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="calendar">Calendar View</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="weekly" className="space-y-6">
+          <WeeklyCalendarView
+            title="Weekly Schedule"
+            currentWeekStart={currentWeekStart}
+            onWeekChange={setCurrentWeekStart}
+            timeSlots={weeklyTimeSlots}
+            startHour={7}
+            endHour={20}
+            emptyMessage="No events scheduled this week"
+            mode="events"
+          />
+          
+          {/* Legend */}
+          <div className="flex flex-wrap gap-4 text-sm">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded bg-blue-500"></div>
+              <span>Reservations</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded bg-green-500"></div>
+              <span>Lessons</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded bg-orange-500"></div>
+              <span>Matches</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded bg-purple-500"></div>
+              <span>Ladder Matches</span>
+            </div>
+          </div>
+        </TabsContent>
 
         <TabsContent value="overview" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

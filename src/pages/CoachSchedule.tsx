@@ -1,18 +1,22 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Clock, MapPin, ChevronLeft, ChevronRight, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 import { formatTime12Hour } from '@/lib/textUtils';
+import WeeklyCalendarView from '@/components/WeeklyCalendarView';
+import { startOfWeek } from 'date-fns';
 
 export default function CoachSchedule() {
   const { currentUser } = useAuth();
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
+  const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 0 }));
   const [upcomingLessons, setUpcomingLessons] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -70,6 +74,20 @@ export default function CoachSchedule() {
       setLoading(false);
     }
   };
+
+  // Convert lessons to weekly calendar format
+  const weeklyTimeSlots = useMemo(() => {
+    return upcomingLessons.map(lesson => ({
+      id: lesson.id,
+      date: lesson.preferred_date,
+      startTime: lesson.preferred_time_start,
+      endTime: lesson.preferred_time_end,
+      title: lesson.player?.full_name || 'Student',
+      subtitle: `${lesson.lesson_type} - ${lesson.sport}`,
+      color: 'bg-green-500',
+      type: 'lesson'
+    }));
+  }, [upcomingLessons]);
 
   const navigateMonth = (direction: 'prev' | 'next') => {
     const newDate = new Date(currentMonth);
@@ -144,117 +162,139 @@ export default function CoachSchedule() {
         </p>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Large Calendar - Takes 2 columns on large screens */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>Calendar</span>
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigateMonth('prev')}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span className="font-medium min-w-[140px] text-center">
-                  {currentMonth.toLocaleDateString('en-US', { 
-                    month: 'long', 
-                    year: 'numeric' 
-                  })}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigateMonth('next')}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-7 gap-1 mb-4">
-              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                <div key={day} className="text-center text-sm font-medium text-muted-foreground p-2">
-                  {day}
-                </div>
-              ))}
-            </div>
-            <div className="grid grid-cols-7 gap-1">
-              {days.map((day, index) => (
-                <div key={index} className="aspect-square">
-                  {day && (
-                    <Button
-                      variant={selectedDate?.toDateString() === day.toDateString() ? "default" : "ghost"}
-                      className={`w-full h-full p-0 relative ${
-                        isToday(day) ? 'bg-primary text-primary-foreground' : ''
-                      }`}
-                      onClick={() => handleDateClick(day)}
-                    >
-                      <span className="text-sm">{day.getDate()}</span>
-                      {hasLessonsOnDate(day) && (
-                        <div className="absolute top-1 right-1 w-2 h-2 bg-green-500 rounded-full"></div>
-                      )}
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      <Tabs defaultValue="weekly" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="weekly">Weekly View</TabsTrigger>
+          <TabsTrigger value="calendar">Calendar View</TabsTrigger>
+        </TabsList>
 
-        {/* Selected Date Details */}
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {selectedDate ? selectedDate.toLocaleDateString('en-US', { 
-                weekday: 'long', 
-                month: 'long', 
-                day: 'numeric' 
-              }) : 'Select a Date'}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {lessonsForSelectedDate.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">
-                No lessons scheduled for this day
-              </p>
-            ) : (
-              lessonsForSelectedDate.map((lesson) => (
-                <div
-                  key={lesson.id}
-                  className="p-4 border rounded-lg hover:bg-accent transition-colors"
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <span className="font-semibold">
-                      {lesson.lesson_type} Lesson
+        <TabsContent value="weekly" className="space-y-6">
+          <WeeklyCalendarView
+            title="Weekly Schedule"
+            currentWeekStart={currentWeekStart}
+            onWeekChange={setCurrentWeekStart}
+            timeSlots={weeklyTimeSlots}
+            startHour={7}
+            endHour={20}
+            emptyMessage="No lessons scheduled this week"
+            mode="events"
+          />
+        </TabsContent>
+
+        <TabsContent value="calendar" className="space-y-6">
+          <div className="grid lg:grid-cols-3 gap-6">
+            {/* Large Calendar - Takes 2 columns on large screens */}
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>Calendar</span>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigateMonth('prev')}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="font-medium min-w-[140px] text-center">
+                      {currentMonth.toLocaleDateString('en-US', { 
+                        month: 'long', 
+                        year: 'numeric' 
+                      })}
                     </span>
-                    <Badge variant="secondary">accepted</Badge>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigateMonth('next')}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
                   </div>
-                  <div className="space-y-2 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4" />
-                      {formatTime12Hour(lesson.preferred_time_start)} - {formatTime12Hour(lesson.preferred_time_end)}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-7 gap-1 mb-4">
+                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                    <div key={day} className="text-center text-sm font-medium text-muted-foreground p-2">
+                      {day}
                     </div>
-                    {lesson.location && (
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4" />
-                        {lesson.location}
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2">
-                      <User className="h-4 w-4" />
-                      {lesson.player?.full_name || 'Unknown Student'}
-                    </div>
-                  </div>
+                  ))}
                 </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                <div className="grid grid-cols-7 gap-1">
+                  {days.map((day, index) => (
+                    <div key={index} className="aspect-square">
+                      {day && (
+                        <Button
+                          variant={selectedDate?.toDateString() === day.toDateString() ? "default" : "ghost"}
+                          className={`w-full h-full p-0 relative ${
+                            isToday(day) ? 'bg-primary text-primary-foreground' : ''
+                          }`}
+                          onClick={() => handleDateClick(day)}
+                        >
+                          <span className="text-sm">{day.getDate()}</span>
+                          {hasLessonsOnDate(day) && (
+                            <div className="absolute top-1 right-1 w-2 h-2 bg-green-500 rounded-full"></div>
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Selected Date Details */}
+            <Card>
+              <CardHeader>
+                <CardTitle>
+                  {selectedDate ? selectedDate.toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  }) : 'Select a Date'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {lessonsForSelectedDate.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">
+                    No lessons scheduled for this day
+                  </p>
+                ) : (
+                  lessonsForSelectedDate.map((lesson) => (
+                    <div
+                      key={lesson.id}
+                      className="p-4 border rounded-lg hover:bg-accent transition-colors"
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <span className="font-semibold">
+                          {lesson.lesson_type} Lesson
+                        </span>
+                        <Badge variant="secondary">accepted</Badge>
+                      </div>
+                      <div className="space-y-2 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-4 w-4" />
+                          {formatTime12Hour(lesson.preferred_time_start)} - {formatTime12Hour(lesson.preferred_time_end)}
+                        </div>
+                        {lesson.location && (
+                          <div className="flex items-center gap-2">
+                            <MapPin className="h-4 w-4" />
+                            {lesson.location}
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4" />
+                          {lesson.player?.full_name || 'Unknown Student'}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {/* All Upcoming Lessons List */}
       <Card>
