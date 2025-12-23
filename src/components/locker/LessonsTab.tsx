@@ -11,6 +11,7 @@ import { useSearchParams } from "react-router-dom";
 import { Star, X } from "lucide-react";
 import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import { formatTime12Hour } from "@/lib/textUtils";
+import { ProfileLink } from "@/components/ui/profile-link";
 
 export const LessonsTab = () => {
   const { currentUser } = useAuth();
@@ -199,7 +200,9 @@ export const LessonsTab = () => {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2 flex-wrap">
                           <h3 className="font-semibold">
-                            {request.coach?.full_name || "Coach"}
+                            <ProfileLink userId={request.coach_id}>
+                              {request.coach?.full_name || "Coach"}
+                            </ProfileLink>
                           </h3>
                           <Badge className="bg-green-600 hover:bg-green-700">
                             Confirmed
@@ -268,7 +271,9 @@ export const LessonsTab = () => {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2 flex-wrap">
                           <h3 className="font-semibold">
-                            {request.coach?.full_name || "Coach"}
+                            <ProfileLink userId={request.coach_id}>
+                              {request.coach?.full_name || "Coach"}
+                            </ProfileLink>
                           </h3>
                           <Badge
                             variant={

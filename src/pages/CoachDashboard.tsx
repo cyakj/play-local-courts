@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,8 +14,7 @@ import {
   MapPin,
   CheckCircle,
   XCircle,
-  TrendingUp,
-  User
+  TrendingUp
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -25,6 +23,7 @@ import { toast } from 'sonner';
 import AvailabilityManager from '../components/coach/AvailabilityManager';
 import { PaymentsTab } from '../components/coach/PaymentsTab';
 import { formatTime12Hour } from '@/lib/textUtils';
+import { ProfileLink } from '@/components/ui/profile-link';
 
 const CoachDashboard = () => {
   const navigate = useNavigate();
@@ -245,20 +244,11 @@ const CoachDashboard = () => {
                     <div key={request.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
-                          <h3 
-                            className="font-medium cursor-pointer hover:underline"
-                            onClick={() => navigate(`/profile/${request.player_id}`)}
-                          >
-                            {request.player?.full_name || 'Unknown Player'}
+                          <h3 className="font-medium">
+                            <ProfileLink userId={request.player_id}>
+                              {request.player?.full_name || 'Unknown Player'}
+                            </ProfileLink>
                           </h3>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => navigate(`/profile/${request.player_id}`)}
-                          >
-                            <User className="h-3 w-3 mr-1" />
-                            View Profile
-                          </Button>
                           <Badge 
                             variant={
                               request.status === 'pending' ? 'default' :
@@ -321,11 +311,10 @@ const CoachDashboard = () => {
                   {reviews.map((review) => (
                     <div key={review.id} className="p-4 border rounded-lg">
                       <div className="flex items-center justify-between mb-2">
-                        <h3 
-                          className="font-medium cursor-pointer hover:underline"
-                          onClick={() => navigate(`/profile/${review.player_id}`)}
-                        >
-                          {review.player?.full_name || 'Unknown Player'}
+                        <h3 className="font-medium">
+                          <ProfileLink userId={review.player_id}>
+                            {review.player?.full_name || 'Unknown Player'}
+                          </ProfileLink>
                         </h3>
                         <div className="flex items-center gap-1">
                           {[...Array(5)].map((_, i) => (

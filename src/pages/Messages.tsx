@@ -20,6 +20,7 @@ import {
 import { toast } from 'sonner';
 import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 import { cn } from '@/lib/utils';
+import { ProfileLink } from '@/components/ui/profile-link';
 
 interface Conversation {
   id: string;
@@ -318,7 +319,9 @@ export default function Messages() {
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <span className="font-medium truncate">{conv.full_name}</span>
+                        <ProfileLink userId={conv.id} className="font-medium truncate" showTooltip={false}>
+                          {conv.full_name}
+                        </ProfileLink>
                         <span className="text-xs text-muted-foreground">
                           {formatMessageTime(conv.last_message_time)}
                         </span>
@@ -354,24 +357,22 @@ export default function Messages() {
                   >
                     <ArrowLeft className="h-4 w-4" />
                   </Button>
-                  <Avatar
-                    className="cursor-pointer"
-                    onClick={() => navigate(`/profile/${selectedUserId}`)}
-                  >
-                    <AvatarImage src={selectedUser.avatar_url || undefined} />
-                    <AvatarFallback>
-                      {selectedUser.full_name.split(' ').map(n => n[0]).join('').toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
+                  <ProfileLink userId={selectedUserId} showTooltip={false}>
+                    <Avatar className="cursor-pointer hover:ring-2 hover:ring-primary transition-all">
+                      <AvatarImage src={selectedUser.avatar_url || undefined} />
+                      <AvatarFallback>
+                        {selectedUser.full_name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </ProfileLink>
                   <div className="flex-1">
-                    <h3 
-                      className="font-medium cursor-pointer hover:underline"
-                      onClick={() => navigate(`/profile/${selectedUserId}`)}
-                    >
-                      {selectedUser.full_name}
+                    <h3 className="font-medium">
+                      <ProfileLink userId={selectedUserId}>
+                        {selectedUser.full_name}
+                      </ProfileLink>
                     </h3>
                     <p className="text-xs text-muted-foreground">
-                      Click to view profile
+                      Click name to view profile
                     </p>
                   </div>
                 </div>
