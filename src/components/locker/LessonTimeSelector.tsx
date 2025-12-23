@@ -51,25 +51,42 @@ const LessonTimeSelector: React.FC<LessonTimeSelectorProps> = ({
   
   const totalHours = endHour - startHour;
   
-  // 1 hour increments
-  const slotDurationHours = 1;
+  // 30-minute increments
+  const slotDurationHours = 0.5;
 
   const getTimeFromPosition = useCallback((position: number): number => {
     if (!timelineRef.current) return startHour;
     const rect = timelineRef.current.getBoundingClientRect();
     const relativePosition = Math.max(0, Math.min(1, position / rect.height));
     const time = startHour + (relativePosition * totalHours);
-    // Snap to 1-hour increments
-    return Math.floor(time);
+    // Snap to 30-minute increments
+    const minutes = (time % 1) * 60;
+    const snappedMinutes = Math.round(minutes / 30) * 30;
+    return Math.floor(time) + (snappedMinutes / 60);
   }, [startHour, totalHours]);
 
   const getPositionFromTime = useCallback((hour: number): number => {
     return ((hour - startHour) / totalHours) * 100;
   }, [startHour, totalHours]);
 
+  // Format time value to string (handles 30-min increments)
+  const formatTimeValue = (time: number): string => {
+    const hours = Math.floor(time);
+    const minutes = Math.round((time % 1) * 60);
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  };
+
+  // Format time to AM/PM
+  const formatTimeToAmPm = (time: string) => {
+    const [hours, minutes] = time.split(':').map(Number);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 === 0 ? 12 : hours % 12;
+    return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
+  };
+
   const isTimeSlotWithinAvailability = useCallback((start: number, end: number): boolean => {
-    const startTime = `${start.toString().padStart(2, '0')}:00`;
-    const endTime = `${end.toString().padStart(2, '0')}:00`;
+    const startTime = formatTimeValue(start);
+    const endTime = formatTimeValue(end);
     
     // Check if time falls within any coach availability slot
     for (const slot of dayAvailability) {
@@ -91,43 +108,49 @@ const LessonTimeSelector: React.FC<LessonTimeSelectorProps> = ({
     return !isTimeSlotWithinAvailability(startHr, endHr);
   }, [selectedStartTime, selectedEndTime, dayAvailability, isTimeSlotWithinAvailability]);
 
-  const handleTimeSlotClick = (hour: number) => {
+  const handleTimeSlotClick = (time: number) => {
     // Check if clicking on already selected start time to extend
-    if (selectedStartTime) {
-      const currentStartHour = parseInt(selectedStartTime.split(':')[0]);
-      const currentEndHour = selectedEndTime ? parseInt(selectedEndTime.split(':')[0]) : currentStartHour + 1;
+    if (selectedStartTime && selectedEndTime) {
+      const [startH, startM] = selectedStartTime.split(':').map(Number);
+      const [endH, endM] = selectedEndTime.split(':').map(Number);
+      const currentStart = startH + startM / 60;
+      const currentEnd = endH + endM / 60;
       
       // If clicking adjacent slot, extend selection
-      if (hour === currentEndHour) {
-        const newEndHour = hour + 1;
-        const endTimeStr = `${newEndHour.toString().padStart(2, '0')}:00`;
-        const isOutside = !isTimeSlotWithinAvailability(currentStartHour, newEndHour);
+      if (Math.abs(time - currentEnd) < 0.01) {
+        const newEnd = time + slotDurationHours;
+        const endTimeStr = formatTimeValue(newEnd);
+        const isOutside = !isTimeSlotWithinAvailability(currentStart, newEnd);
         onTimeSelect(selectedStartTime, endTimeStr, isOutside);
         return;
       }
     }
     
     // Otherwise start new selection - allow all times
-    const startTime = hour;
-    const endTimeVal = hour + slotDurationHours;
+    const endTimeVal = time + slotDurationHours;
     
-    const startTimeStr = `${startTime.toString().padStart(2, '0')}:00`;
-    const endTimeStr = `${endTimeVal.toString().padStart(2, '0')}:00`;
-    const isOutside = !isTimeSlotWithinAvailability(startTime, endTimeVal);
+    const startTimeStr = formatTimeValue(time);
+    const endTimeStr = formatTimeValue(endTimeVal);
+    const isOutside = !isTimeSlotWithinAvailability(time, endTimeVal);
     onTimeSelect(startTimeStr, endTimeStr, isOutside);
   };
 
   const renderTimeLabels = () => {
     const labels = [];
-    for (let hour = startHour; hour <= endHour; hour++) {
-      const position = getPositionFromTime(hour);
+    // Show labels at 30-min intervals
+    for (let time = startHour; time <= endHour; time += 0.5) {
+      const position = getPositionFromTime(time);
+      const hours = Math.floor(time);
+      const minutes = Math.round((time % 1) * 60);
+      const displayHour = hours % 12 === 0 ? 12 : hours % 12;
+      const period = hours >= 12 ? 'PM' : 'AM';
       labels.push(
         <div
-          key={hour}
+          key={time}
           className="absolute text-xs text-muted-foreground whitespace-nowrap"
           style={{ top: `${position}%`, transform: 'translateY(-50%)', left: '0' }}
         >
-          {hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : hour === 0 ? '12 AM' : `${hour} AM`}
+          {displayHour}:{minutes.toString().padStart(2, '0')} {period}
         </div>
       );
     }
@@ -136,17 +159,22 @@ const LessonTimeSelector: React.FC<LessonTimeSelectorProps> = ({
 
   const renderTimeSlots = () => {
     const slots = [];
-    for (let hour = startHour; hour < endHour; hour++) {
-      const position = getPositionFromTime(hour);
-      const height = (1 / totalHours) * 100;
-      const endTimeVal = hour + slotDurationHours;
-      const withinAvailability = isTimeSlotWithinAvailability(hour, endTimeVal);
+    // Create 30-minute slots
+    for (let time = startHour; time < endHour; time += 0.5) {
+      const position = getPositionFromTime(time);
+      const height = (0.5 / totalHours) * 100;
+      const endTimeVal = time + slotDurationHours;
+      const withinAvailability = isTimeSlotWithinAvailability(time, endTimeVal);
       const noAvailabilitySet = dayAvailability.length === 0;
       
       // Check if this slot is selected
-      const isSelected = selectedStartTime && selectedEndTime && 
-        hour >= parseInt(selectedStartTime.split(':')[0]) && 
-        hour < parseInt(selectedEndTime.split(':')[0]);
+      const isSelected = selectedStartTime && selectedEndTime && (() => {
+        const [startH, startM] = selectedStartTime.split(':').map(Number);
+        const [endH, endM] = selectedEndTime.split(':').map(Number);
+        const selectedStart = startH + startM / 60;
+        const selectedEnd = endH + endM / 60;
+        return time >= selectedStart && time < selectedEnd;
+      })();
       
       // Determine slot color:
       // - Selected within availability: green-500
@@ -167,21 +195,26 @@ const LessonTimeSelector: React.FC<LessonTimeSelectorProps> = ({
         // Outside availability OR no availability set = amber
         return 'bg-amber-50 hover:bg-amber-100';
       };
+
+      const hours = Math.floor(time);
+      const minutes = Math.round((time % 1) * 60);
+      const displayHour = hours % 12 === 0 ? 12 : hours % 12;
+      const period = hours >= 12 ? 'PM' : 'AM';
       
       slots.push(
         <div
-          key={hour}
+          key={time}
           className={`absolute w-full border border-border cursor-pointer transition-all ${getSlotClasses()}`}
           style={{
             top: `${position}%`,
             height: `${height}%`,
           }}
-          onClick={() => handleTimeSlotClick(hour)}
+          onClick={() => handleTimeSlotClick(time)}
         >
           {isSelected && (
             <div className="flex items-center justify-center h-full">
               <span className="text-xs font-semibold text-white">
-                {`${hour.toString().padStart(2, '0')}:00`}
+                {`${displayHour}:${minutes.toString().padStart(2, '0')} ${period}`}
               </span>
             </div>
           )}
@@ -205,7 +238,7 @@ const LessonTimeSelector: React.FC<LessonTimeSelectorProps> = ({
       )}
       
       <div className="text-sm font-medium">
-        Select your time slot(s) - Click slots to select 1-hour increments
+        Select your time slot(s) - Click slots to select 30-minute increments
       </div>
       
       <div className="relative flex items-start">
@@ -245,7 +278,7 @@ const LessonTimeSelector: React.FC<LessonTimeSelectorProps> = ({
         <Alert variant={outsideAvailability ? "default" : "default"} className={outsideAvailability ? "border-amber-500 bg-amber-50" : ""}>
           <Clock className="h-4 w-4" />
           <AlertDescription>
-            Selected: {selectedStartTime} - {selectedEndTime}
+            Selected: {formatTimeToAmPm(selectedStartTime)} - {formatTimeToAmPm(selectedEndTime)}
             {outsideAvailability && (
               <span className="block mt-1 text-amber-700 font-medium">
                 This time is outside the coach's posted availability. Your request will be sent for manual review.

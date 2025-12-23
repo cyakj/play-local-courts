@@ -120,6 +120,8 @@ export default function WeeklyCalendarView({
           </CardTitle>
         </CardHeader>
       )}
+      
+      {/* Slot for legend - will be passed as children */}
       <CardContent className="p-0">
         <div className="overflow-x-auto">
           <div className="min-w-[800px]">
@@ -145,11 +147,10 @@ export default function WeeklyCalendarView({
                 {timeLabels.map((label, index) => (
                   <div
                     key={index}
-                    className="absolute w-full text-xs text-muted-foreground px-2 flex items-center"
+                    className="absolute w-full text-xs text-muted-foreground px-2 flex items-center border-t border-border/50"
                     style={{ 
                       top: index * rowHeight, 
-                      height: rowHeight,
-                      borderTop: index > 0 ? '1px solid hsl(var(--border))' : 'none'
+                      height: rowHeight
                     }}
                   >
                     {label}

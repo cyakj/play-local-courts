@@ -364,40 +364,42 @@ const Upcoming = () => {
       <Tabs defaultValue="weekly" className="space-y-6">
         <TabsList>
           <TabsTrigger value="weekly">Weekly View</TabsTrigger>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="calendar">Calendar View</TabsTrigger>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
         </TabsList>
 
         <TabsContent value="weekly" className="space-y-6">
-          <WeeklyCalendarView
-            title="Weekly Schedule"
-            currentWeekStart={currentWeekStart}
-            onWeekChange={setCurrentWeekStart}
-            timeSlots={weeklyTimeSlots}
-            startHour={7}
-            endHour={20}
-            emptyMessage="No events scheduled this week"
-            mode="events"
-          />
-          
-          {/* Legend */}
-          <div className="flex flex-wrap gap-4 text-sm">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-blue-500"></div>
-              <span>Reservations</span>
+          <div className="relative">
+            {/* Legend - top right */}
+            <div className="absolute top-4 right-4 z-20 flex flex-wrap gap-3 text-xs bg-background/90 p-2 rounded-lg border">
+              <div className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded bg-blue-500"></div>
+                <span>Reservations</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded bg-green-500"></div>
+                <span>Lessons</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded bg-orange-500"></div>
+                <span>Matches</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded bg-purple-500"></div>
+                <span>Ladder</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-green-500"></div>
-              <span>Lessons</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-orange-500"></div>
-              <span>Matches</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-purple-500"></div>
-              <span>Ladder Matches</span>
-            </div>
+            
+            <WeeklyCalendarView
+              title="Weekly Schedule"
+              currentWeekStart={currentWeekStart}
+              onWeekChange={setCurrentWeekStart}
+              timeSlots={weeklyTimeSlots}
+              startHour={7}
+              endHour={20}
+              emptyMessage="No events scheduled this week"
+              mode="events"
+            />
           </div>
         </TabsContent>
 
