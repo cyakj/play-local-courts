@@ -1,10 +1,30 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { GraduationCap } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { GraduationCap, MessageCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 const CoachNavbar = () => {
   const { currentUser } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (currentUser) {
+      loadUnreadCount();
+    }
+  }, [currentUser]);
+
+  const loadUnreadCount = async () => {
+    if (!currentUser) return;
+    const { count } = await supabase
+      .from('messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('receiver_id', currentUser.id)
+      .is('read_at', null);
+    setUnreadCount(count || 0);
+  };
 
   if (!currentUser) {
     return null;
@@ -26,7 +46,16 @@ const CoachNavbar = () => {
           </div>
           
           <div className="flex items-center">
-            {/* Empty space for balance */}
+            <Link to="/messages" className="relative">
+              <Button variant="ghost" size="icon">
+                <MessageCircle className="h-5 w-5" />
+              </Button>
+              {unreadCount > 0 && (
+                <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs bg-primary">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </Badge>
+              )}
+            </Link>
           </div>
         </div>
       </div>

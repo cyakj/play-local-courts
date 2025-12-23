@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ArrowLeft, MessageCircle } from 'lucide-react';
+import { ArrowLeft, MessageCircle, User } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -36,6 +37,7 @@ interface FindPartnerProps {
 }
 
 const FindPartner = ({ onBack }: FindPartnerProps) => {
+  const navigate = useNavigate();
   const { currentUser } = useAuth();
   const { toast } = useToast();
   const [players, setPlayers] = useState<Player[]>([]);
@@ -289,7 +291,18 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
                     >
                       Send Match Request
                     </Button>
-                    <Button size="sm" variant="outline">
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => navigate(`/profile/${player.id}`)}
+                    >
+                      <User className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => navigate(`/messages?user=${player.id}`)}
+                    >
                       <MessageCircle className="h-4 w-4" />
                     </Button>
                   </div>

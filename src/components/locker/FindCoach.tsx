@@ -1,12 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Star, MapPin, Clock, DollarSign, ArrowLeft } from 'lucide-react';
+import { Star, MapPin, Clock, DollarSign, ArrowLeft, User, MessageCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Coach } from '../../types/coach';
 import { toast } from 'sonner';
@@ -26,6 +27,7 @@ interface CoachWithProfile extends Coach {
 }
 
 const FindCoach: React.FC<FindCoachProps> = ({ onBack }) => {
+  const navigate = useNavigate();
   const [coaches, setCoaches] = useState<CoachWithProfile[]>([]);
   const [filteredCoaches, setFilteredCoaches] = useState<CoachWithProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -295,12 +297,26 @@ const FindCoach: React.FC<FindCoachProps> = ({ onBack }) => {
                 </p>
               )}
 
-              <Button 
-                className="w-full" 
-                onClick={() => handleRequestLesson(coach)}
-              >
-                Request Lesson
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  className="flex-1" 
+                  onClick={() => handleRequestLesson(coach)}
+                >
+                  Request Lesson
+                </Button>
+                <Button 
+                  variant="outline"
+                  onClick={() => navigate(`/profile/${coach.user_id}`)}
+                >
+                  <User className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant="outline"
+                  onClick={() => navigate(`/messages?user=${coach.user_id}`)}
+                >
+                  <MessageCircle className="h-4 w-4" />
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ))}

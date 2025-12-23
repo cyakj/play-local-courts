@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Star } from 'lucide-react';
+import { Star, User } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function CoachReviews() {
+  const navigate = useNavigate();
   const { currentUser } = useAuth();
   const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -140,14 +142,22 @@ export default function CoachReviews() {
               <CardContent className="p-6 space-y-4">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <Avatar>
+                    <Avatar
+                      className="cursor-pointer"
+                      onClick={() => navigate(`/profile/${review.player_id}`)}
+                    >
                       <AvatarImage src={review.player?.avatar_url} />
                       <AvatarFallback>
                         {review.player?.full_name?.split(' ').map((n: string) => n[0]).join('')}
                       </AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="font-semibold">{review.player?.full_name || 'Student'}</p>
+                      <p 
+                        className="font-semibold cursor-pointer hover:underline"
+                        onClick={() => navigate(`/profile/${review.player_id}`)}
+                      >
+                        {review.player?.full_name || 'Student'}
+                      </p>
                       <p className="text-sm text-muted-foreground">
                         {new Date(review.created_at).toLocaleDateString()}
                       </p>
