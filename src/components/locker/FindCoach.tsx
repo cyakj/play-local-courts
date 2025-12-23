@@ -307,12 +307,15 @@ const FindCoach: React.FC<FindCoachProps> = ({ onBack }) => {
                 <Button 
                   variant="outline"
                   onClick={() => navigate(`/profile/${coach.user_id}`)}
+                  title="View Profile"
                 >
-                  <User className="h-4 w-4" />
+                  <User className="h-4 w-4 mr-1" />
+                  Profile
                 </Button>
                 <Button 
                   variant="outline"
                   onClick={() => navigate(`/messages?user=${coach.user_id}`)}
+                  title="Message"
                 >
                   <MessageCircle className="h-4 w-4" />
                 </Button>

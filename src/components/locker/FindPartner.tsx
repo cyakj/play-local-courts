@@ -295,13 +295,16 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
                       size="sm" 
                       variant="outline"
                       onClick={() => navigate(`/profile/${player.id}`)}
+                      title="View Profile"
                     >
-                      <User className="h-4 w-4" />
+                      <User className="h-4 w-4 mr-1" />
+                      Profile
                     </Button>
                     <Button 
                       size="sm" 
                       variant="outline"
                       onClick={() => navigate(`/messages?user=${player.id}`)}
+                      title="Message"
                     >
                       <MessageCircle className="h-4 w-4" />
                     </Button>
