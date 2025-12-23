@@ -1,10 +1,10 @@
 
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
+import { TimeSelect } from '@/components/ui/time-select';
 import { Amenity } from '../../types';
 
 interface PeakHoursSectionProps {
@@ -33,18 +33,18 @@ const PeakHoursSection = ({ amenity, formData, onUpdate }: PeakHoursSectionProps
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Peak Start Time</Label>
-                <Input
-                  type="time"
+                <TimeSelect
                   value={formData.peak_start_time}
-                  onChange={(e) => onUpdate('peak_start_time', e.target.value)}
+                  onChange={(value) => onUpdate('peak_start_time', value)}
+                  placeholder="Select start time"
                 />
               </div>
               <div>
                 <Label>Peak End Time</Label>
-                <Input
-                  type="time"
+                <TimeSelect
                   value={formData.peak_end_time}
-                  onChange={(e) => onUpdate('peak_end_time', e.target.value)}
+                  onChange={(value) => onUpdate('peak_end_time', value)}
+                  placeholder="Select end time"
                 />
               </div>
             </div>
