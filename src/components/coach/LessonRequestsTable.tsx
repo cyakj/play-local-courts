@@ -51,7 +51,6 @@ interface LessonRequestsTableProps {
   onDecline: (id: string) => void;
 }
 
-type SortField = 'created_at' | 'preferred_date';
 type SortOrder = 'asc' | 'desc';
 
 export default function LessonRequestsTable({ 
@@ -59,8 +58,7 @@ export default function LessonRequestsTable({
   onAccept, 
   onDecline 
 }: LessonRequestsTableProps) {
-  const [sortField, setSortField] = useState<SortField>('created_at');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('asc'); // Earliest lesson first by default
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
   const [skillFilter, setSkillFilter] = useState<string[]>([]);
   const [locationFilter, setLocationFilter] = useState<string>('');
@@ -103,31 +101,22 @@ export default function LessonRequestsTable({
       );
     }
 
-    // Sort
+    // Sort by lesson date
     result.sort((a, b) => {
-      const aValue = sortField === 'created_at' ? a.created_at : a.preferred_date;
-      const bValue = sortField === 'created_at' ? b.created_at : b.preferred_date;
-      
       if (sortOrder === 'asc') {
-        return aValue < bValue ? -1 : 1;
+        return a.preferred_date < b.preferred_date ? -1 : 1;
       }
-      return aValue > bValue ? -1 : 1;
+      return a.preferred_date > b.preferred_date ? -1 : 1;
     });
 
     return result;
-  }, [requests, sortField, sortOrder, typeFilter, skillFilter, locationFilter]);
+  }, [requests, sortOrder, typeFilter, skillFilter, locationFilter]);
 
-  const toggleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortOrder('desc');
-    }
+  const toggleSort = () => {
+    setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
   };
 
-  const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortField !== field) return <ArrowUpDown className="h-4 w-4 text-muted-foreground" />;
+  const SortIcon = () => {
     return sortOrder === 'asc' 
       ? <ArrowUp className="h-4 w-4" /> 
       : <ArrowDown className="h-4 w-4" />;
@@ -171,23 +160,17 @@ export default function LessonRequestsTable({
         {/* Filters Row */}
         {showFilters && (
           <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t">
-            {/* Sort by */}
+            {/* Sort by lesson date */}
             <Select 
-              value={`${sortField}-${sortOrder}`} 
-              onValueChange={(val) => {
-                const [field, order] = val.split('-') as [SortField, SortOrder];
-                setSortField(field);
-                setSortOrder(order);
-              }}
+              value={sortOrder} 
+              onValueChange={(val) => setSortOrder(val as SortOrder)}
             >
               <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Sort by" />
+                <SelectValue placeholder="Sort by date" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="created_at-desc">Newest First</SelectItem>
-                <SelectItem value="created_at-asc">Oldest First</SelectItem>
-                <SelectItem value="preferred_date-asc">Date (Earliest)</SelectItem>
-                <SelectItem value="preferred_date-desc">Date (Latest)</SelectItem>
+                <SelectItem value="asc">Earliest First</SelectItem>
+                <SelectItem value="desc">Latest First</SelectItem>
               </SelectContent>
             </Select>
 
@@ -275,9 +258,9 @@ export default function LessonRequestsTable({
                   <th className="text-left p-3 text-sm font-medium text-muted-foreground">
                     <button 
                       className="flex items-center gap-1 hover:text-foreground"
-                      onClick={() => toggleSort('preferred_date')}
+                      onClick={toggleSort}
                     >
-                      Date <SortIcon field="preferred_date" />
+                      Date <SortIcon />
                     </button>
                   </th>
                   <th className="text-left p-3 text-sm font-medium text-muted-foreground">Time</th>
