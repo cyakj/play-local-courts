@@ -1,14 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
-import { Calendar, Clock, Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import WeeklyCalendarView from '@/components/WeeklyCalendarView';
+import { startOfWeek } from 'date-fns';
 
 interface AvailabilitySlot {
   id: string;
@@ -34,6 +34,7 @@ export default function AvailabilityManager() {
   const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
+  const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 0 }));
   const [newSlot, setNewSlot] = useState({
     day_of_week: 1,
     start_time: '09:00',
@@ -111,6 +112,25 @@ export default function AvailabilityManager() {
     }
   };
 
+  // Convert slots to weekly calendar format
+  const weeklyTimeSlots = useMemo(() => {
+    return slots.map(slot => ({
+      id: slot.id,
+      dayOfWeek: slot.day_of_week,
+      startTime: slot.start_time,
+      endTime: slot.end_time,
+      title: `${slot.start_time} - ${slot.end_time}`,
+      subtitle: DAYS_OF_WEEK[slot.day_of_week],
+      color: 'bg-green-500'
+    }));
+  }, [slots]);
+
+  const handleSlotClick = (slot: any) => {
+    if (confirm(`Remove availability slot on ${DAYS_OF_WEEK[slot.dayOfWeek]} from ${slot.startTime} to ${slot.endTime}?`)) {
+      deleteSlot(slot.id);
+    }
+  };
+
   if (loading) {
     return <div className="p-6">Loading availability...</div>;
   }
@@ -140,7 +160,7 @@ export default function AvailabilityManager() {
             <div>
               <Label>Day of Week</Label>
               <select
-                className="w-full mt-1 p-2 border rounded-md"
+                className="w-full mt-1 p-2 border rounded-md bg-background"
                 value={newSlot.day_of_week}
                 onChange={(e) => setNewSlot({ ...newSlot, day_of_week: parseInt(e.target.value) })}
               >
@@ -183,50 +203,22 @@ export default function AvailabilityManager() {
         </Card>
       )}
 
-      <div className="space-y-4">
-        {DAYS_OF_WEEK.map((day, dayIndex) => {
-          const daySlotsData = slots.filter(s => s.day_of_week === dayIndex);
-          
-          return (
-            <Card key={dayIndex}>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  {day}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {daySlotsData.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No availability set</p>
-                ) : (
-                  <div className="space-y-2">
-                    {daySlotsData.map((slot) => (
-                      <div
-                        key={slot.id}
-                        className="flex items-center justify-between p-3 border rounded-lg bg-accent/50"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-medium">
-                            {slot.start_time} - {slot.end_time}
-                          </span>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => deleteSlot(slot.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+      {/* Weekly Calendar View */}
+      <WeeklyCalendarView
+        currentWeekStart={currentWeekStart}
+        onWeekChange={setCurrentWeekStart}
+        timeSlots={weeklyTimeSlots}
+        startHour={7}
+        endHour={20}
+        onSlotClick={handleSlotClick}
+        emptyMessage="No availability set. Click 'Add Time Slot' to get started."
+        showNavigation={false}
+        mode="availability"
+      />
+
+      <p className="text-sm text-muted-foreground text-center">
+        Click on a slot to remove it
+      </p>
     </div>
   );
 }

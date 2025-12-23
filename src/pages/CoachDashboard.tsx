@@ -2,28 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { 
-  Calendar, 
   Clock, 
-  DollarSign, 
   Users, 
   MessageSquare, 
   Star,
-  MapPin,
-  CheckCircle,
-  XCircle,
-  TrendingUp
+  CheckCircle
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { LessonRequest, CoachReview } from '../types/coach';
 import { toast } from 'sonner';
 import AvailabilityManager from '../components/coach/AvailabilityManager';
 import { PaymentsTab } from '../components/coach/PaymentsTab';
-import { formatTime12Hour } from '@/lib/textUtils';
-import { ProfileLink } from '@/components/ui/profile-link';
+import LessonRequestsTable from '../components/coach/LessonRequestsTable';
 
 const CoachDashboard = () => {
   const navigate = useNavigate();
@@ -56,8 +47,7 @@ const CoachDashboard = () => {
         .from('lesson_requests')
         .select('*')
         .eq('coach_id', currentUser.id)
-        .order('created_at', { ascending: false })
-        .limit(10);
+        .order('created_at', { ascending: false });
 
       // Manually fetch player profiles
       if (requestsData && requestsData.length > 0) {
@@ -230,71 +220,11 @@ const CoachDashboard = () => {
         </TabsList>
 
         <TabsContent value="requests" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Lesson Requests</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {lessonRequests.length === 0 ? (
-                <p className="text-center text-gray-500 py-8">No lesson requests yet</p>
-              ) : (
-                <div className="space-y-4">
-                  {lessonRequests.map((request) => (
-                    <div key={request.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="font-medium">
-                            <ProfileLink userId={request.player_id}>
-                              {request.player?.full_name || 'Unknown Player'}
-                            </ProfileLink>
-                          </h3>
-                          <Badge 
-                            variant={
-                              request.status === 'pending' ? 'default' :
-                              request.status === 'accepted' ? 'default' :
-                              request.status === 'declined' ? 'destructive' : 'outline'
-                            }
-                            className={request.status === 'accepted' ? 'bg-green-600 hover:bg-green-700' : ''}
-                          >
-                            {request.status}
-                          </Badge>
-                        </div>
-                        <div className="text-sm text-gray-600 space-y-1">
-                          <p><strong>Sport:</strong> {request.sport}</p>
-                          <p><strong>Type:</strong> {request.lesson_type}</p>
-                          <p><strong>Skill Level:</strong> {request.skill_level}</p>
-                          <p><strong>Preferred Date:</strong> {request.preferred_date}</p>
-                          <p><strong>Time:</strong> {formatTime12Hour(request.preferred_time_start)} - {formatTime12Hour(request.preferred_time_end)}</p>
-                          {request.location && <p><strong>Location:</strong> {request.location}</p>}
-                          {request.notes && <p><strong>Notes:</strong> {request.notes}</p>}
-                        </div>
-                      </div>
-                      {request.status === 'pending' && (
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            onClick={() => handleRequestAction(request.id, 'accept')}
-                            className="bg-green-600 hover:bg-green-700"
-                          >
-                            <CheckCircle className="h-4 w-4 mr-1" />
-                            Accept
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => handleRequestAction(request.id, 'decline')}
-                          >
-                            <XCircle className="h-4 w-4 mr-1" />
-                            Decline
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <LessonRequestsTable
+            requests={lessonRequests}
+            onAccept={(id) => handleRequestAction(id, 'accept')}
+            onDecline={(id) => handleRequestAction(id, 'decline')}
+          />
         </TabsContent>
 
         <TabsContent value="availability" className="space-y-4">
