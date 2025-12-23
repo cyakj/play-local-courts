@@ -126,24 +126,26 @@ export default function WeeklyCalendarView({
         <div className="overflow-x-auto">
           <div className="min-w-[800px]">
             {/* Day headers */}
-            <div className="grid grid-cols-8 border-b bg-muted/30">
-              <div className="p-2 text-center text-sm font-medium text-muted-foreground border-r">
+            <div className="flex border-b bg-muted/30">
+              <div className="w-[80px] box-border p-2 text-center text-sm font-medium text-muted-foreground border-r shrink-0">
                 Time
               </div>
-              {weekDates.map((date, index) => (
-                <div key={index} className="p-2 text-center border-r last:border-r-0">
-                  <div className="text-sm font-medium">{DAYS[index]}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {format(date, 'M/d')}
+              <div className="grid grid-cols-7 flex-1">
+                {weekDates.map((date, index) => (
+                  <div key={index} className="p-2 text-center border-r last:border-r-0">
+                    <div className="text-sm font-medium">{DAYS[index]}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {format(date, 'M/d')}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
 
             {/* Time grid */}
             <div className="relative" style={{ height: rowCount * rowHeight }}>
               {/* Time labels column */}
-              <div className="absolute left-0 top-0 w-[80px] h-full border-r bg-background z-10">
+              <div className="absolute left-0 top-0 w-[80px] box-border h-full border-r bg-background z-10">
                 {timeLabels.map((label, index) => (
                   <div
                     key={index}
