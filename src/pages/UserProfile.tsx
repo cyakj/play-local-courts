@@ -278,7 +278,7 @@ export default function UserProfile() {
               </div>
             )}
             
-            {getAge(profile.date_of_birth) && (
+            {getAge(profile.date_of_birth) !== null && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Age</span>
                 <span>{getAge(profile.date_of_birth)}</span>
