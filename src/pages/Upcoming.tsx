@@ -368,28 +368,30 @@ const Upcoming = () => {
           <TabsTrigger value="overview">Overview</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="weekly" className="space-y-6">
-          <div className="relative">
-            {/* Legend - top right */}
-            <div className="absolute top-4 right-4 z-20 flex flex-wrap gap-3 text-xs bg-background/90 p-2 rounded-lg border">
-              <div className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 rounded bg-blue-500"></div>
-                <span>Reservations</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 rounded bg-green-500"></div>
-                <span>Lessons</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 rounded bg-orange-500"></div>
-                <span>Matches</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 rounded bg-purple-500"></div>
-                <span>Ladder</span>
+        <TabsContent value="weekly" className="space-y-4">
+          <div className="relative pt-10">
+            {/* Legend - higher, outside the schedule */}
+            <div className="absolute top-0 right-0 z-20 flex justify-end">
+              <div className="flex flex-wrap gap-3 text-xs bg-background/90 px-3 py-2 rounded-lg border">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded bg-blue-500"></div>
+                  <span>Reservations</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded bg-green-500"></div>
+                  <span>Lessons</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded bg-orange-500"></div>
+                  <span>Matches</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded bg-purple-500"></div>
+                  <span>Ladder</span>
+                </div>
               </div>
             </div>
-            
+
             <WeeklyCalendarView
               title="Weekly Schedule"
               currentWeekStart={currentWeekStart}
