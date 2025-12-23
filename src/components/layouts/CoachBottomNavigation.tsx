@@ -29,10 +29,10 @@ const CoachBottomNavigation = () => {
       color: 'text-blue-600'
     },
     {
-      path: '/coach-clients',
-      icon: Users,
-      label: 'Clients',
-      color: 'text-purple-600'
+      path: '/email-settings',
+      icon: User,
+      label: 'Profile',
+      color: 'text-gray-600'
     },
     {
       path: '/coach-reviews',
@@ -41,10 +41,10 @@ const CoachBottomNavigation = () => {
       color: 'text-yellow-600'
     },
     {
-      path: '/email-settings',
-      icon: User,
-      label: 'Profile',
-      color: 'text-gray-600'
+      path: '/coach-clients',
+      icon: Users,
+      label: 'Clients',
+      color: 'text-purple-600'
     }
   ];
 
