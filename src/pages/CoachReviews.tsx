@@ -18,13 +18,19 @@ export default function CoachReviews() {
   const [responseText, setResponseText] = useState<{ [key: string]: string }>({});
 
   useEffect(() => {
-    loadReviews();
-  }, [currentUser]);
+    if (currentUser?.id) {
+      loadReviews();
+    }
+  }, [currentUser?.id]);
 
   const loadReviews = async () => {
-    if (!currentUser) return;
+    if (!currentUser?.id) return;
+    
+    setLoading(true);
 
     try {
+      console.log('Loading reviews for coach_id:', currentUser.id);
+      
       const { data, error } = await supabase
         .from('coach_reviews')
         .select(`
@@ -33,6 +39,8 @@ export default function CoachReviews() {
         `)
         .eq('coach_id', currentUser.id)
         .order('created_at', { ascending: false });
+
+      console.log('Reviews query result:', { data, error });
 
       if (error) throw error;
       setReviews(data || []);
