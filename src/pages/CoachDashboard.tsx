@@ -223,9 +223,8 @@ const CoachDashboard = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="requests">Requests</TabsTrigger>
-          <TabsTrigger value="reviews">Reviews</TabsTrigger>
           <TabsTrigger value="availability">Availability</TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
         </TabsList>
@@ -290,55 +289,6 @@ const CoachDashboard = () => {
                           </Button>
                         </div>
                       )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="reviews" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Student Reviews</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {reviews.length === 0 ? (
-                <p className="text-center text-gray-500 py-8">No reviews yet</p>
-              ) : (
-                <div className="space-y-4">
-                  {reviews.map((review) => (
-                    <div key={review.id} className="p-4 border rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-medium">
-                          <ProfileLink userId={review.player_id}>
-                            {review.player?.full_name || 'Unknown Player'}
-                          </ProfileLink>
-                        </h3>
-                        <div className="flex items-center gap-1">
-                          {[...Array(5)].map((_, i) => (
-                            <Star
-                              key={i}
-                              className={`h-4 w-4 ${
-                                i < review.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'
-                              }`}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                      {review.review_text && (
-                        <p className="text-gray-600 mb-2">{review.review_text}</p>
-                      )}
-                      {review.coach_response && (
-                        <div className="mt-2 p-2 bg-gray-50 rounded">
-                          <p className="text-sm font-medium">Your response:</p>
-                          <p className="text-sm text-gray-600">{review.coach_response}</p>
-                        </div>
-                      )}
-                      <p className="text-xs text-gray-400 mt-2">
-                        {new Date(review.created_at).toLocaleDateString()}
-                      </p>
                     </div>
                   ))}
                 </div>
