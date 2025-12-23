@@ -283,31 +283,34 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
                     </p>
                   )}
 
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2">
                     <Button 
                       size="sm" 
-                      className="flex-1"
+                      className="w-full"
                       onClick={() => handleSendMatchRequest(player)}
                     >
                       Send Match Request
                     </Button>
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => navigate(`/profile/${player.id}`)}
-                      title="View Profile"
-                    >
-                      <User className="h-4 w-4 mr-1" />
-                      Profile
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => navigate(`/messages?user=${player.id}`)}
-                      title="Message"
-                    >
-                      <MessageCircle className="h-4 w-4" />
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => navigate(`/profile/${player.id}`)}
+                      >
+                        <User className="h-4 w-4 mr-1" />
+                        Profile
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => navigate(`/messages?user=${player.id}`)}
+                      >
+                        <MessageCircle className="h-4 w-4 mr-1" />
+                        Message
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
