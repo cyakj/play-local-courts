@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Clock, MapPin, CalendarDays } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { formatTime12Hour } from '@/lib/textUtils';
 
 interface Booking {
   id: string;
@@ -68,7 +69,7 @@ const UpcomingReservations = ({ upcomingReservations }: UpcomingReservationsProp
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <div className="flex items-center gap-1">
                           <Clock className="h-4 w-4" />
-                          {booking.startTime} - {booking.endTime}
+                          {formatTime12Hour(booking.startTime)} - {formatTime12Hour(booking.endTime)}
                         </div>
                         {booking.playType && (
                           <div className="flex items-center gap-1">

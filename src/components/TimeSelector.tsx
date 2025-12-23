@@ -65,9 +65,9 @@ const TimeSelector: React.FC<TimeSelectorProps> = ({
     const rect = timelineRef.current.getBoundingClientRect();
     const relativePosition = Math.max(0, Math.min(1, position / rect.height));
     const time = startHour + (relativePosition * totalHours);
-    // Snap to 15-minute increments
+    // Snap to 30-minute increments
     const minutes = (time % 1) * 60;
-    const snappedMinutes = Math.round(minutes / 15) * 15;
+    const snappedMinutes = Math.round(minutes / 30) * 30;
     return Math.floor(time) + (snappedMinutes / 60);
   }, [startHour, totalHours]);
 
@@ -170,10 +170,10 @@ const TimeSelector: React.FC<TimeSelectorProps> = ({
 
   const renderTimeSlots = () => {
     const slots = [];
-    // Create 15-minute increments
-    for (let hour = startHour; hour < endHour; hour += 0.25) {
+    // Create 30-minute increments
+    for (let hour = startHour; hour < endHour; hour += 0.5) {
       const position = getPositionFromTime(hour);
-      const height = (0.25 / totalHours) * 100;
+      const height = (0.5 / totalHours) * 100;
       const endTime = Math.min(hour + maxDurationHours, endHour);
       const available = isTimeSlotAvailable(hour, endTime);
       
@@ -223,6 +223,14 @@ const TimeSelector: React.FC<TimeSelectorProps> = ({
     });
   };
 
+  // Format time to AM/PM
+  const formatTimeToAmPm = (time: string) => {
+    const [hours, minutes] = time.split(':').map(Number);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 === 0 ? 12 : hours % 12;
+    return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
+  };
+
   const renderSelectedSlot = () => {
     if (!selectedStartTime || !selectedEndTime) return null;
     
@@ -243,7 +251,7 @@ const TimeSelector: React.FC<TimeSelectorProps> = ({
         }}
       >
         <span className="text-xs text-green-700 px-1 text-center font-medium">
-          {selectedStartTime} - {selectedEndTime}
+          {formatTimeToAmPm(selectedStartTime)} - {formatTimeToAmPm(selectedEndTime)}
         </span>
       </div>
     );
@@ -321,14 +329,24 @@ const TimeSelector: React.FC<TimeSelectorProps> = ({
               }}
             >
               <span className="text-xs px-1 text-center">
-                {`${Math.floor(dragStart).toString().padStart(2, '0')}:${Math.round((dragStart % 1) * 60).toString().padStart(2, '0')} - ${Math.floor(dragEnd).toString().padStart(2, '0')}:${Math.round((dragEnd % 1) * 60).toString().padStart(2, '0')}`}
+                {(() => {
+                  const startH = Math.floor(dragStart);
+                  const startM = Math.round((dragStart % 1) * 60);
+                  const endH = Math.floor(dragEnd);
+                  const endM = Math.round((dragEnd % 1) * 60);
+                  const startPeriod = startH >= 12 ? 'PM' : 'AM';
+                  const endPeriod = endH >= 12 ? 'PM' : 'AM';
+                  const startDisplay = startH % 12 === 0 ? 12 : startH % 12;
+                  const endDisplay = endH % 12 === 0 ? 12 : endH % 12;
+                  return `${startDisplay}:${startM.toString().padStart(2, '0')} ${startPeriod} - ${endDisplay}:${endM.toString().padStart(2, '0')} ${endPeriod}`;
+                })()}
               </span>
             </div>
           )}
         </div>
         
         <div className="text-xs text-muted-foreground mt-2 ml-4 max-w-48">
-          Click on a time slot or drag to select your preferred time. Each slot is 15 minutes. Red areas are unavailable. Green shows your current selection.
+          Click on a time slot or drag to select your preferred time. Each slot is 30 minutes. Red areas are unavailable. Green shows your current selection.
         </div>
       </div>
     </div>

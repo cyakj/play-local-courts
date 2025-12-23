@@ -112,6 +112,14 @@ export default function AvailabilityManager() {
     }
   };
 
+  // Format time to AM/PM
+  const formatTimeToAmPm = (time: string) => {
+    const [hours, minutes] = time.split(':').map(Number);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 === 0 ? 12 : hours % 12;
+    return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
+  };
+
   // Convert slots to weekly calendar format
   const weeklyTimeSlots = useMemo(() => {
     return slots.map(slot => ({
@@ -119,14 +127,14 @@ export default function AvailabilityManager() {
       dayOfWeek: slot.day_of_week,
       startTime: slot.start_time,
       endTime: slot.end_time,
-      title: `${slot.start_time} - ${slot.end_time}`,
+      title: `${formatTimeToAmPm(slot.start_time)} - ${formatTimeToAmPm(slot.end_time)}`,
       subtitle: DAYS_OF_WEEK[slot.day_of_week],
       color: 'bg-green-500'
     }));
   }, [slots]);
 
   const handleSlotClick = (slot: any) => {
-    if (confirm(`Remove availability slot on ${DAYS_OF_WEEK[slot.dayOfWeek]} from ${slot.startTime} to ${slot.endTime}?`)) {
+    if (confirm(`Remove availability slot on ${DAYS_OF_WEEK[slot.dayOfWeek]} from ${formatTimeToAmPm(slot.startTime)} to ${formatTimeToAmPm(slot.endTime)}?`)) {
       deleteSlot(slot.id);
     }
   };
@@ -175,19 +183,45 @@ export default function AvailabilityManager() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Start Time</Label>
-                <Input
-                  type="time"
+                <select
+                  className="w-full mt-1 p-2 border rounded-md bg-background"
                   value={newSlot.start_time}
                   onChange={(e) => setNewSlot({ ...newSlot, start_time: e.target.value })}
-                />
+                >
+                  {Array.from({ length: 26 }, (_, i) => {
+                    const hour = Math.floor(i / 2) + 7;
+                    const minutes = (i % 2) * 30;
+                    const timeValue = `${hour.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                    const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+                    const period = hour >= 12 ? 'PM' : 'AM';
+                    return (
+                      <option key={timeValue} value={timeValue}>
+                        {displayHour}:{minutes.toString().padStart(2, '0')} {period}
+                      </option>
+                    );
+                  })}
+                </select>
               </div>
               <div>
                 <Label>End Time</Label>
-                <Input
-                  type="time"
+                <select
+                  className="w-full mt-1 p-2 border rounded-md bg-background"
                   value={newSlot.end_time}
                   onChange={(e) => setNewSlot({ ...newSlot, end_time: e.target.value })}
-                />
+                >
+                  {Array.from({ length: 26 }, (_, i) => {
+                    const hour = Math.floor(i / 2) + 7;
+                    const minutes = (i % 2) * 30;
+                    const timeValue = `${hour.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                    const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+                    const period = hour >= 12 ? 'PM' : 'AM';
+                    return (
+                      <option key={timeValue} value={timeValue}>
+                        {displayHour}:{minutes.toString().padStart(2, '0')} {period}
+                      </option>
+                    );
+                  })}
+                </select>
               </div>
             </div>
 

@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Clock, MapPin, Users, Calendar } from 'lucide-react';
+import { formatTime12Hour } from '@/lib/textUtils';
 
 interface Event {
   id: string;
@@ -79,7 +80,7 @@ const EventDetails = ({ selectedDate, events }: EventDetailsProps) => {
                   <div className="space-y-1 text-sm text-muted-foreground">
                     <div className="flex items-center gap-2">
                       <Clock className="h-4 w-4" />
-                      {event.startTime}{event.endTime && ` - ${event.endTime}`}
+                      {formatTime12Hour(event.startTime)}{event.endTime && ` - ${formatTime12Hour(event.endTime)}`}
                     </div>
                     
                     {event.location && (

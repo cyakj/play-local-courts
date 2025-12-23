@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Users, CalendarDays } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { formatMatchType } from '@/lib/textUtils';
+import { formatMatchType, formatTime12Hour } from '@/lib/textUtils';
 
 interface MatchSession {
   id: string;
@@ -64,7 +64,7 @@ const UpcomingMatchSessions = ({ upcomingMatchSessions }: UpcomingMatchSessionsP
                         {formatMatchType(session.match_type)} Match
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        vs {session.opponent} • {session.time_start} • {session.location}
+                        vs {session.opponent} • {formatTime12Hour(session.time_start)} • {session.location}
                       </div>
                     </div>
                   </div>
