@@ -318,7 +318,7 @@ const Upcoming = () => {
         startTime: event.startTime,
         endTime: event.endTime || event.startTime.replace(/:\d{2}$/, ':00').replace(/^(\d+):/, (_, h) => `${parseInt(h) + 1}:`),
         title: event.title,
-        subtitle: event.location || event.opponent,
+        subtitle: locationVal || opponentVal,
         color: colorClass,
         type: event.type
       };
