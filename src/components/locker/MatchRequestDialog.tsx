@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { TimeSelect } from '@/components/ui/time-select';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -153,20 +154,20 @@ const MatchRequestDialog: React.FC<MatchRequestDialogProps> = ({
           <div className="grid grid-cols-2 gap-2">
             <div>
               <Label htmlFor="timeStart">Start Time *</Label>
-              <Input
+              <TimeSelect
                 id="timeStart"
-                type="time"
                 value={request.timeStart}
-                onChange={(e) => setRequest(prev => ({ ...prev, timeStart: e.target.value }))}
+                onChange={(value) => setRequest(prev => ({ ...prev, timeStart: value }))}
+                placeholder="Select time"
               />
             </div>
             <div>
               <Label htmlFor="timeEnd">End Time</Label>
-              <Input
+              <TimeSelect
                 id="timeEnd"
-                type="time"
                 value={request.timeEnd}
-                onChange={(e) => setRequest(prev => ({ ...prev, timeEnd: e.target.value }))}
+                onChange={(value) => setRequest(prev => ({ ...prev, timeEnd: value }))}
+                placeholder="Select time"
               />
             </div>
           </div>
