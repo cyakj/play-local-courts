@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -10,10 +9,17 @@ import { Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { ProfileLink } from '@/components/ui/profile-link';
 
+type ReviewRow = any;
+
+type PlayerProfile = {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+};
+
 export default function CoachReviews() {
-  const navigate = useNavigate();
   const { currentUser } = useAuth();
-  const [reviews, setReviews] = useState<any[]>([]);
+  const [reviews, setReviews] = useState<ReviewRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [responseText, setResponseText] = useState<{ [key: string]: string }>({});
 
@@ -25,25 +31,40 @@ export default function CoachReviews() {
 
   const loadReviews = async () => {
     if (!currentUser?.id) return;
-    
+
     setLoading(true);
 
     try {
-      console.log('Loading reviews for coach_id:', currentUser.id);
-      
-      const { data, error } = await supabase
+      const { data: reviewRows, error } = await supabase
         .from('coach_reviews')
-        .select(`
-          *,
-          player:profiles!coach_reviews_player_id_fkey (full_name, avatar_url)
-        `)
+        .select('*')
         .eq('coach_id', currentUser.id)
         .order('created_at', { ascending: false });
 
-      console.log('Reviews query result:', { data, error });
-
       if (error) throw error;
-      setReviews(data || []);
+
+      const rows = reviewRows || [];
+      const playerIds = [...new Set(rows.map((r: any) => r.player_id))];
+
+      let playersById = new Map<string, PlayerProfile>();
+
+      if (playerIds.length > 0) {
+        const { data: players, error: playersError } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url')
+          .in('id', playerIds);
+
+        if (playersError) throw playersError;
+
+        playersById = new Map((players || []).map((p: any) => [p.id, p]));
+      }
+
+      const enriched = rows.map((r: any) => ({
+        ...r,
+        player: playersById.get(r.player_id) || null,
+      }));
+
+      setReviews(enriched);
     } catch (error) {
       console.error('Error loading reviews:', error);
       toast.error('Failed to load reviews');

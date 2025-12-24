@@ -21,6 +21,31 @@ export const formatMatchType = (type: string | null | undefined): string => {
 };
 
 /**
+ * Formats lesson types for display (e.g., "semi-private" -> "Semi-Private")
+ */
+export const formatLessonTypeDisplay = (type: string | null | undefined): string => {
+  if (!type) return '';
+
+  const normalized = type.trim().toLowerCase();
+
+  // Preserve hyphenated lesson types like "semi-private".
+  if (normalized.includes('-')) {
+    return normalized
+      .split('-')
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+      .join('-');
+  }
+
+  // Fallback for underscore/space separated strings.
+  return normalized
+    .replace(/_/g, ' ')
+    .split(' ')
+    .filter(Boolean)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
+/**
  * Auto-capitalize input handler for proper nouns (names, places)
  * Capitalizes the first letter of each word as the user types
  */

@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { LogOut, User, Settings } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import CoachProfileSettings from '@/components/coach/CoachProfileSettings';
 
@@ -57,41 +56,22 @@ const EmailSettings = () => {
       </div>
 
       {isCoach ? (
-        <Tabs defaultValue="coach-profile" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="coach-profile">
-              <User className="h-4 w-4 mr-2" />
-              Coach Profile
-            </TabsTrigger>
-            <TabsTrigger value="account">
-              <Settings className="h-4 w-4 mr-2" />
-              Account
-            </TabsTrigger>
-          </TabsList>
+        <div className="space-y-6">
+          <CoachProfileSettings />
 
-          <TabsContent value="coach-profile">
-            <CoachProfileSettings />
-          </TabsContent>
-
-          <TabsContent value="account">
-            <Card>
-              <CardHeader>
-                <CardTitle>Account</CardTitle>
-                <CardDescription>Sign out of your account</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button 
-                  onClick={logout} 
-                  variant="destructive"
-                  className="w-full sm:w-auto"
-                >
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Log Out
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+          <Card>
+            <CardHeader>
+              <CardTitle>Account</CardTitle>
+              <CardDescription>Sign out of your account</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={logout} variant="destructive" className="w-full sm:w-auto">
+                <LogOut className="mr-2 h-4 w-4" />
+                Log Out
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
       ) : (
         <Card>
           <CardHeader>
@@ -99,11 +79,7 @@ const EmailSettings = () => {
             <CardDescription>Sign out of your account</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button 
-              onClick={logout} 
-              variant="destructive"
-              className="w-full sm:w-auto"
-            >
+            <Button onClick={logout} variant="destructive" className="w-full sm:w-auto">
               <LogOut className="mr-2 h-4 w-4" />
               Log Out
             </Button>
