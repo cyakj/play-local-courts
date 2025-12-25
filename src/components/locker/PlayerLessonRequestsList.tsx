@@ -203,10 +203,6 @@ export default function PlayerLessonRequestsList({
           </div>
         )}
 
-        <div className="mt-3 text-xs text-muted-foreground flex items-center gap-2">
-          <SortIcon className="h-3.5 w-3.5" />
-          <span>{sortOrder === "asc" ? "Earliest First" : "Latest First"}</span>
-        </div>
       </CardHeader>
 
       <CardContent>
@@ -217,86 +213,72 @@ export default function PlayerLessonRequestsList({
               : "No lessons match your filters."}
           </p>
         ) : (
-          <div className="space-y-3">
-            {filtered.map((r: LessonRequest) => {
-              const isUpcoming = isUpcomingLesson(r);
-
-              return (
-                <Card
-                  key={r.id}
-                  className={`border-l-4 ${
-                    r.status === "declined"
-                      ? "border-l-destructive"
-                      : isUpcoming
-                        ? "border-l-primary"
-                        : "border-l-muted"
-                  }`}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-semibold truncate">
-                            <ProfileLink userId={r.coach_id}>
-                              {r.coach?.full_name || "Coach"}
-                            </ProfileLink>
-                          </h3>
-                          <Badge
-                            variant={
-                              r.status === "declined"
-                                ? "destructive"
-                                : r.status === "pending"
-                                  ? "secondary"
-                                  : "default"
-                            }
-                          >
-                            {statusLabel(r.status)}
-                          </Badge>
-                          {r.hasReview && <Badge variant="secondary">Reviewed</Badge>}
-                        </div>
-
-                        {r.status === "declined" && (
-                          <p className="text-xs text-destructive mt-2 bg-destructive/10 p-2 rounded">
-                            This lesson request was declined by the coach.
-                          </p>
-                        )}
-
-                        {r.notes?.includes("[OUTSIDE AVAILABILITY") && r.status === "pending" && (
-                          <p className="text-xs text-amber-700 mt-2 bg-amber-100 p-2 rounded">
-                            This request is outside the coachs posted availability and is awaiting manual review.
-                          </p>
-                        )}
-
-                        <div className="mt-2 text-sm text-muted-foreground space-y-1">
-                          <p>
-                            <strong>Sport:</strong> {capitalizeWords(r.sport)}
-                          </p>
-                          <p>
-                            <strong>Type:</strong> {formatLessonTypeDisplay(r.lesson_type)}
-                          </p>
-                          <p>
-                            <strong>Skill Level:</strong> {capitalizeWords(r.skill_level)}
-                          </p>
-                          <p>
-                            <strong>Date:</strong> {new Date(`${r.preferred_date}T00:00:00`).toLocaleDateString()}
-                          </p>
-                          <p>
-                            <strong>Time:</strong> {formatTime12Hour(r.preferred_time_start)}  {formatTime12Hour(r.preferred_time_end)}
-                          </p>
-                          {r.location && (
-                            <p>
-                              <strong>Location:</strong> {r.location}
-                            </p>
-                          )}
-                          {r.coaches?.hourly_rate && (
-                            <p>
-                              <strong>Rate:</strong> ${r.coaches.hourly_rate}/Hour
-                            </p>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col items-end gap-2 shrink-0">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left p-3 text-sm font-medium text-muted-foreground">#</th>
+                  <th className="text-left p-3 text-sm font-medium text-muted-foreground">Coach</th>
+                  <th className="text-left p-3 text-sm font-medium text-muted-foreground">Sport</th>
+                  <th className="text-left p-3 text-sm font-medium text-muted-foreground">Type</th>
+                  <th className="text-left p-3 text-sm font-medium text-muted-foreground">Skill</th>
+                  <th className="text-left p-3 text-sm font-medium text-muted-foreground">
+                    <button 
+                      className="flex items-center gap-1 hover:text-foreground"
+                      onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+                    >
+                      Date <SortIcon className="h-4 w-4" />
+                    </button>
+                  </th>
+                  <th className="text-left p-3 text-sm font-medium text-muted-foreground">Time</th>
+                  <th className="text-left p-3 text-sm font-medium text-muted-foreground">Location</th>
+                  <th className="text-left p-3 text-sm font-medium text-muted-foreground">Notes</th>
+                  <th className="text-left p-3 text-sm font-medium text-muted-foreground">Status</th>
+                  <th className="text-left p-3 text-sm font-medium text-muted-foreground">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((r: LessonRequest, index: number) => (
+                  <tr key={r.id} className="border-b hover:bg-muted/50 transition-colors">
+                    <td className="p-3 text-sm text-muted-foreground">{index + 1}</td>
+                    <td className="p-3">
+                      <ProfileLink userId={r.coach_id}>
+                        <span className="font-medium text-sm">
+                          {r.coach?.full_name || "Coach"}
+                        </span>
+                      </ProfileLink>
+                    </td>
+                    <td className="p-3 text-sm">{capitalizeWords(r.sport)}</td>
+                    <td className="p-3">
+                      <Badge variant="outline" className="text-xs">
+                        {formatLessonTypeDisplay(r.lesson_type)}
+                      </Badge>
+                    </td>
+                    <td className="p-3 text-sm">{capitalizeWords(r.skill_level)}</td>
+                    <td className="p-3 text-sm">{r.preferred_date}</td>
+                    <td className="p-3 text-sm whitespace-nowrap">
+                      {formatTime12Hour(r.preferred_time_start)}
+                    </td>
+                    <td className="p-3 text-sm max-w-[150px] truncate" title={r.location}>
+                      {r.location || "-"}
+                    </td>
+                    <td className="p-3 text-sm max-w-[150px] truncate" title={r.notes}>
+                      {r.notes || "-"}
+                    </td>
+                    <td className="p-3">
+                      <Badge 
+                        variant={
+                          r.status === "pending" ? "secondary" :
+                          r.status === "accepted" || r.status === "confirmed" ? "default" :
+                          r.status === "declined" ? "destructive" : "outline"
+                        }
+                        className={`text-xs ${r.status === "accepted" || r.status === "confirmed" ? "bg-green-600 hover:bg-green-700" : ""}`}
+                      >
+                        {statusLabel(r.status)}
+                      </Badge>
+                    </td>
+                    <td className="p-3">
+                      <div className="flex gap-1">
                         {r.status === "accepted" && r.coaches?.hourly_rate && (
                           <LessonPaymentButton
                             lessonRequestId={r.id}
@@ -305,34 +287,33 @@ export default function PlayerLessonRequestsList({
                             status={r.status}
                           />
                         )}
-
                         {r.status === "accepted" && !r.hasReview && (
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => onLeaveReview(r)}
+                            className="h-8"
                           >
-                            <Star className="h-4 w-4 mr-2" />
-                            Leave Review
+                            <Star className="h-4 w-4 mr-1" />
+                            Review
                           </Button>
                         )}
-
                         {r.status === "declined" && (
                           <Button
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
                             onClick={() => onDismissDeclined(r.id)}
+                            className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
                           >
-                            <X className="h-4 w-4 mr-2" />
-                            Dismiss
+                            <X className="h-4 w-4" />
                           </Button>
                         )}
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </CardContent>
