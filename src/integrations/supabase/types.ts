@@ -187,6 +187,7 @@ export type Database = {
           coach_id: string
           created_at: string | null
           id: string
+          is_hidden: boolean | null
           notes: string | null
           updated_at: string | null
         }
@@ -195,6 +196,7 @@ export type Database = {
           coach_id: string
           created_at?: string | null
           id?: string
+          is_hidden?: boolean | null
           notes?: string | null
           updated_at?: string | null
         }
@@ -203,6 +205,7 @@ export type Database = {
           coach_id?: string
           created_at?: string | null
           id?: string
+          is_hidden?: boolean | null
           notes?: string | null
           updated_at?: string | null
         }
