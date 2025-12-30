@@ -329,7 +329,7 @@ export default function LessonRequestsTable({
                             className="h-8"
                           >
                             <ClipboardList className="h-4 w-4 mr-1" />
-                            Lesson Plan
+                            Lesson Overview
                           </Button>
                         )}
                         {request.status === 'pending' && (
