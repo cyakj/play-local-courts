@@ -181,6 +181,45 @@ export type Database = {
           },
         ]
       }
+      client_assignments: {
+        Row: {
+          client_id: string
+          coach_id: string
+          completed_at: string | null
+          created_at: string
+          description: string | null
+          due_date: string | null
+          id: string
+          is_completed: boolean
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          coach_id: string
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          is_completed?: boolean
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          coach_id?: string
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          is_completed?: boolean
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       client_notes: {
         Row: {
           client_id: string
@@ -851,6 +890,41 @@ export type Database = {
             columns: ["hoa_id"]
             isOneToOne: false
             referencedRelation: "hoas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lesson_plans: {
+        Row: {
+          coach_id: string
+          content: string | null
+          created_at: string
+          id: string
+          lesson_request_id: string
+          updated_at: string
+        }
+        Insert: {
+          coach_id: string
+          content?: string | null
+          created_at?: string
+          id?: string
+          lesson_request_id: string
+          updated_at?: string
+        }
+        Update: {
+          coach_id?: string
+          content?: string | null
+          created_at?: string
+          id?: string
+          lesson_request_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_plans_lesson_request_id_fkey"
+            columns: ["lesson_request_id"]
+            isOneToOne: true
+            referencedRelation: "lesson_requests"
             referencedColumns: ["id"]
           },
         ]

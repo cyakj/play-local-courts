@@ -24,10 +24,13 @@ import {
   Filter,
   ArrowUpDown,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  ClipboardList
 } from 'lucide-react';
 import { ProfileLink } from '@/components/ui/profile-link';
 import { formatTime12Hour } from '@/lib/textUtils';
+import LessonPlanDialog from './LessonPlanDialog';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface LessonRequest {
   id: string;
@@ -58,11 +61,14 @@ export default function LessonRequestsTable({
   onAccept, 
   onDecline 
 }: LessonRequestsTableProps) {
+  const { currentUser } = useAuth();
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc'); // Earliest lesson first by default
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
   const [skillFilter, setSkillFilter] = useState<string[]>([]);
   const [locationFilter, setLocationFilter] = useState<string>('');
   const [showFilters, setShowFilters] = useState(false);
+  const [lessonPlanOpen, setLessonPlanOpen] = useState(false);
+  const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
 
   // Get unique values for filters
   const lessonTypes = useMemo(() => 
@@ -311,26 +317,42 @@ export default function LessonRequestsTable({
                       </Badge>
                     </td>
                     <td className="p-3">
-                      {request.status === 'pending' && (
-                        <div className="flex gap-1">
+                      <div className="flex gap-1">
+                        {request.status === 'accepted' && (
                           <Button
                             size="sm"
-                            variant="ghost"
-                            onClick={() => onAccept(request.id)}
-                            className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedLessonId(request.id);
+                              setLessonPlanOpen(true);
+                            }}
+                            className="h-8"
                           >
-                            <CheckCircle className="h-4 w-4" />
+                            <ClipboardList className="h-4 w-4 mr-1" />
+                            Lesson Plan
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => onDecline(request.id)}
-                            className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                          >
-                            <XCircle className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      )}
+                        )}
+                        {request.status === 'pending' && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => onAccept(request.id)}
+                              className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => onDecline(request.id)}
+                              className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -339,6 +361,17 @@ export default function LessonRequestsTable({
           </div>
         )}
       </CardContent>
+
+      {/* Lesson Plan Dialog */}
+      {selectedLessonId && currentUser && (
+        <LessonPlanDialog
+          lessonRequestId={selectedLessonId}
+          coachId={currentUser.id}
+          isCoach={true}
+          open={lessonPlanOpen}
+          onOpenChange={setLessonPlanOpen}
+        />
+      )}
     </Card>
   );
 }

@@ -18,10 +18,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ArrowDown, ArrowUp, Filter, Star, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Filter, Star, X, ClipboardList } from "lucide-react";
 import { ProfileLink } from "@/components/ui/profile-link";
 import { LessonPaymentButton } from "./LessonPaymentButton";
 import { capitalizeWords, formatLessonTypeDisplay, formatTime12Hour } from "@/lib/textUtils";
+import LessonPlanDialog from "@/components/coach/LessonPlanDialog";
 
 type SortOrder = "asc" | "desc";
 
@@ -58,6 +59,8 @@ export default function PlayerLessonRequestsList({
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
   const [search, setSearch] = useState("");
+  const [lessonPlanOpen, setLessonPlanOpen] = useState(false);
+  const [selectedLesson, setSelectedLesson] = useState<LessonRequest | null>(null);
 
   const lessonTypes = useMemo(
     () => [...new Set(requests.map((r) => r.lesson_type))].filter(Boolean),
@@ -279,6 +282,20 @@ export default function PlayerLessonRequestsList({
                     </td>
                     <td className="p-3">
                       <div className="flex gap-1">
+                        {r.status === "accepted" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedLesson(r);
+                              setLessonPlanOpen(true);
+                            }}
+                            className="h-8"
+                          >
+                            <ClipboardList className="h-4 w-4 mr-1" />
+                            Lesson Plan
+                          </Button>
+                        )}
                         {r.status === "accepted" && r.coaches?.hourly_rate && (
                           <LessonPaymentButton
                             lessonRequestId={r.id}
@@ -317,6 +334,17 @@ export default function PlayerLessonRequestsList({
           </div>
         )}
       </CardContent>
+
+      {/* Lesson Plan Dialog */}
+      {selectedLesson && (
+        <LessonPlanDialog
+          lessonRequestId={selectedLesson.id}
+          coachId={selectedLesson.coach_id}
+          isCoach={false}
+          open={lessonPlanOpen}
+          onOpenChange={setLessonPlanOpen}
+        />
+      )}
     </Card>
   );
 }
