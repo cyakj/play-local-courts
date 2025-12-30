@@ -293,7 +293,7 @@ export default function PlayerLessonRequestsList({
                             className="h-8"
                           >
                             <ClipboardList className="h-4 w-4 mr-1" />
-                            Lesson Plan
+                            Lesson Overview
                           </Button>
                         )}
                         {r.status === "accepted" && r.coaches?.hourly_rate && (

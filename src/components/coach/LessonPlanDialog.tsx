@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -31,7 +32,9 @@ export default function LessonPlanDialog({
 }: LessonPlanDialogProps) {
   const { currentUser } = useAuth();
   const [content, setContent] = useState('');
+  const [takeaways, setTakeaways] = useState('');
   const [originalContent, setOriginalContent] = useState('');
+  const [originalTakeaways, setOriginalTakeaways] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -48,7 +51,7 @@ export default function LessonPlanDialog({
     try {
       const { data, error } = await supabase
         .from('lesson_plans')
-        .select('content')
+        .select('content, takeaways')
         .eq('lesson_request_id', lessonRequestId)
         .maybeSingle();
 
@@ -56,17 +59,21 @@ export default function LessonPlanDialog({
 
       if (data) {
         setContent(data.content || '');
+        setTakeaways(data.takeaways || '');
         setOriginalContent(data.content || '');
+        setOriginalTakeaways(data.takeaways || '');
         setPlanExists(true);
       } else {
         setContent('');
+        setTakeaways('');
         setOriginalContent('');
+        setOriginalTakeaways('');
         setPlanExists(false);
       }
       setIsEditing(false);
     } catch (error) {
-      console.error('Error loading lesson plan:', error);
-      toast.error('Failed to load lesson plan');
+      console.error('Error loading lesson overview:', error);
+      toast.error('Failed to load lesson overview');
     } finally {
       setLoading(false);
     }
@@ -80,7 +87,7 @@ export default function LessonPlanDialog({
       if (planExists) {
         const { error } = await supabase
           .from('lesson_plans')
-          .update({ content, updated_at: new Date().toISOString() })
+          .update({ content, takeaways, updated_at: new Date().toISOString() })
           .eq('lesson_request_id', lessonRequestId);
         if (error) throw error;
       } else {
@@ -88,17 +95,19 @@ export default function LessonPlanDialog({
           lesson_request_id: lessonRequestId,
           coach_id: coachId,
           content,
+          takeaways,
         });
         if (error) throw error;
         setPlanExists(true);
       }
 
       setOriginalContent(content);
+      setOriginalTakeaways(takeaways);
       setIsEditing(false);
-      toast.success('Lesson plan saved');
+      toast.success('Lesson overview saved');
     } catch (error) {
-      console.error('Error saving lesson plan:', error);
-      toast.error('Failed to save lesson plan');
+      console.error('Error saving lesson overview:', error);
+      toast.error('Failed to save lesson overview');
     } finally {
       setSaving(false);
     }
@@ -106,47 +115,82 @@ export default function LessonPlanDialog({
 
   const handleCancel = () => {
     setContent(originalContent);
+    setTakeaways(originalTakeaways);
     setIsEditing(false);
   };
 
-  const hasChanges = content !== originalContent;
+  const hasChanges = content !== originalContent || takeaways !== originalTakeaways;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ClipboardList className="h-5 w-5" />
-            Lesson Plan
+            Lesson Overview
           </DialogTitle>
           <DialogDescription>
             {isCoach
-              ? 'Plan what you will cover in this lesson. Players can view but not edit.'
-              : 'View the lesson plan your coach has prepared.'}
+              ? 'Plan what you will cover and record takeaways after the lesson.'
+              : 'View the lesson plan and takeaways from your coach.'}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4">
+        <div className="py-4 space-y-6">
           {loading ? (
             <div className="text-center text-muted-foreground py-8">Loading...</div>
           ) : isCoach && isEditing ? (
-            <Textarea
-              placeholder="Write your lesson plan here... (drills, focus areas, goals, etc.)"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              rows={10}
-              className="resize-none"
-            />
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="lesson-plan">Lesson Plan (Before)</Label>
+                <Textarea
+                  id="lesson-plan"
+                  placeholder="What you plan to cover... (drills, focus areas, goals, etc.)"
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  rows={6}
+                  className="resize-none"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="takeaways">Lesson Takeaways (After)</Label>
+                <Textarea
+                  id="takeaways"
+                  placeholder="Key takeaways, progress notes, areas to work on..."
+                  value={takeaways}
+                  onChange={(e) => setTakeaways(e.target.value)}
+                  rows={6}
+                  className="resize-none"
+                />
+              </div>
+            </>
           ) : (
-            <div className="min-h-[200px] p-4 rounded-lg bg-muted/50 border">
-              {content ? (
-                <p className="text-sm whitespace-pre-wrap">{content}</p>
-              ) : (
-                <p className="text-sm text-muted-foreground italic">
-                  {isCoach ? 'No lesson plan yet. Click Edit to add one.' : 'No lesson plan has been added yet.'}
-                </p>
-              )}
-            </div>
+            <>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Lesson Plan (Before)</Label>
+                <div className="min-h-[100px] p-4 rounded-lg bg-muted/50 border">
+                  {content ? (
+                    <p className="text-sm whitespace-pre-wrap">{content}</p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">
+                      {isCoach ? 'No lesson plan yet. Click Edit to add one.' : 'No lesson plan has been added yet.'}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Lesson Takeaways (After)</Label>
+                <div className="min-h-[100px] p-4 rounded-lg bg-muted/50 border">
+                  {takeaways ? (
+                    <p className="text-sm whitespace-pre-wrap">{takeaways}</p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">
+                      {isCoach ? 'No takeaways yet. Click Edit to add them after the lesson.' : 'No takeaways have been added yet.'}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </>
           )}
         </div>
 
@@ -158,7 +202,7 @@ export default function LessonPlanDialog({
                   Cancel
                 </Button>
                 <Button onClick={saveLessonPlan} disabled={saving || !hasChanges}>
-                  {saving ? 'Saving...' : 'Save Plan'}
+                  {saving ? 'Saving...' : 'Save'}
                 </Button>
               </>
             ) : (
@@ -168,7 +212,7 @@ export default function LessonPlanDialog({
                 </Button>
                 <Button onClick={() => setIsEditing(true)}>
                   <Edit2 className="h-4 w-4 mr-2" />
-                  Edit Plan
+                  Edit
                 </Button>
               </>
             )
