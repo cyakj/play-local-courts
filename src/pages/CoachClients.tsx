@@ -34,8 +34,10 @@ import {
   Search,
   UserX,
   Calendar,
-  Trophy
+  Trophy,
+  ClipboardList
 } from 'lucide-react';
+import ClientAssignments from '@/components/coach/ClientAssignments';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { format, differenceInDays } from 'date-fns';
@@ -486,6 +488,15 @@ export default function CoachClients() {
                     </p>
                   </div>
                 )}
+
+                {/* Assignments Section */}
+                <div className="mt-4 pt-4 border-t">
+                  <ClientAssignments
+                    clientId={client.id}
+                    clientName={client.full_name}
+                    isCoach={true}
+                  />
+                </div>
               </CardContent>
             </Card>
           ))
