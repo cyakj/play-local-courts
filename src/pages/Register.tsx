@@ -135,7 +135,7 @@ const Register = () => {
               <SelectContent>
                 <SelectItem value="player">Player (HOA resident or non-resident)</SelectItem>
                 <SelectItem value="coach">Coach</SelectItem>
-                <SelectItem value="admin">HOA Admin</SelectItem>
+                <SelectItem value="hoa_manager">HOA Manager (requires verification)</SelectItem>
               </SelectContent>
             </Select>
           </div>

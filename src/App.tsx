@@ -32,6 +32,9 @@ import UpgradeToCoach from "./pages/UpgradeToCoach";
 import UserProfile from "./pages/UserProfile";
 import Messages from "./pages/Messages";
 import NotFound from "./pages/NotFound";
+import HOAApplication from "./pages/HOAApplication";
+import PlatformReviewerLogin from "./pages/PlatformReviewerLogin";
+import PlatformReviewerDashboard from "./pages/PlatformReviewerDashboard";
 
 const queryClient = new QueryClient();
 
@@ -49,6 +52,7 @@ function App() {
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />
                   <Route path="/complete-profile" element={<CompleteProfile />} />
+                  <Route path="/reviewer/login" element={<PlatformReviewerLogin />} />
                 </Route>
                 <Route element={<MainLayout />}>
                   <Route path="/" element={<Dashboard />} />
@@ -72,6 +76,8 @@ function App() {
                   <Route path="/upgrade-to-coach" element={<UpgradeToCoach />} />
                   <Route path="/profile/:id" element={<UserProfile />} />
                   <Route path="/messages" element={<Messages />} />
+                  <Route path="/hoa-application" element={<HOAApplication />} />
+                  <Route path="/reviewer/dashboard" element={<PlatformReviewerDashboard />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>
