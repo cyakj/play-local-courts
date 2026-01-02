@@ -134,6 +134,44 @@ export type Database = {
           },
         ]
       }
+      application_notifications: {
+        Row: {
+          application_id: string
+          created_at: string
+          id: string
+          is_read: boolean
+          message: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          application_id: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          application_id?: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "application_notifications_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bookings: {
         Row: {
           court_id: string
@@ -609,6 +647,103 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      hoa_application_notes: {
+        Row: {
+          application_id: string
+          created_at: string
+          id: string
+          note: string
+          reviewer_id: string
+          status_change: string | null
+        }
+        Insert: {
+          application_id: string
+          created_at?: string
+          id?: string
+          note: string
+          reviewer_id: string
+          status_change?: string | null
+        }
+        Update: {
+          application_id?: string
+          created_at?: string
+          id?: string
+          note?: string
+          reviewer_id?: string
+          status_change?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hoa_application_notes_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hoa_applications: {
+        Row: {
+          applicant_id: string
+          claimed_role: string
+          claimed_role_other: string | null
+          community_location: string
+          created_at: string
+          created_hoa_id: string | null
+          estimated_residents: number
+          hoa_name: string
+          id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          submitted_at: string
+          updated_at: string
+          verification_documents: string[] | null
+        }
+        Insert: {
+          applicant_id: string
+          claimed_role: string
+          claimed_role_other?: string | null
+          community_location: string
+          created_at?: string
+          created_hoa_id?: string | null
+          estimated_residents: number
+          hoa_name: string
+          id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          submitted_at?: string
+          updated_at?: string
+          verification_documents?: string[] | null
+        }
+        Update: {
+          applicant_id?: string
+          claimed_role?: string
+          claimed_role_other?: string | null
+          community_location?: string
+          created_at?: string
+          created_hoa_id?: string | null
+          estimated_residents?: number
+          hoa_name?: string
+          id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          submitted_at?: string
+          updated_at?: string
+          verification_documents?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hoa_applications_created_hoa_id_fkey"
+            columns: ["created_hoa_id"]
+            isOneToOne: false
+            referencedRelation: "hoas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       hoas: {
         Row: {
@@ -1801,6 +1936,10 @@ export type Database = {
       }
     }
     Functions: {
+      approve_hoa_application: {
+        Args: { application_id: string; reviewer_note?: string }
+        Returns: string
+      }
       calculate_ladder_points: {
         Args: {
           loser_games: number
@@ -1877,9 +2016,17 @@ export type Database = {
         }
         Returns: boolean
       }
+      update_hoa_application_status: {
+        Args: {
+          application_id: string
+          new_status: string
+          reviewer_note: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      app_role: "admin" | "resident" | "coach"
+      app_role: "admin" | "resident" | "coach" | "platform_reviewer"
       court_type: "hard" | "clay" | "grass" | "indoor"
       ladder_format: "singles" | "doubles"
       ladder_status: "setup" | "active" | "completed"
@@ -2015,7 +2162,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "resident", "coach"],
+      app_role: ["admin", "resident", "coach", "platform_reviewer"],
       court_type: ["hard", "clay", "grass", "indoor"],
       ladder_format: ["singles", "doubles"],
       ladder_status: ["setup", "active", "completed"],
