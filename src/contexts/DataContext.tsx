@@ -145,6 +145,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   }, [currentUser]);
 
+  const refreshPendingUsersCallback = useCallback(async () => {
+    if (!currentUser?.id || currentUser.role !== 'admin' || !currentUser.hoaId) return;
+
+    try {
+      const pendingUsersData = await getPendingUsersByHOAId(currentUser.hoaId);
+      setPendingUsers(pendingUsersData);
+    } catch (error) {
+      console.error('Error loading pending users:', error);
+    }
+  }, [currentUser?.id, currentUser?.role, currentUser?.hoaId]);
+
   // Real-time subscription for booking updates
   useRealtimeSubscription({
     table: 'bookings',
@@ -163,6 +174,27 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       refreshDataCallback();
     },
     enabled: !!currentUser?.id
+  });
+
+  // Real-time subscription for join request / membership updates (admin pending approvals)
+  useRealtimeSubscription({
+    table: 'community_join_requests',
+    event: '*',
+    filter: currentUser?.hoaId ? `hoa_id=eq.${currentUser.hoaId}` : undefined,
+    onChange: () => {
+      refreshPendingUsersCallback();
+    },
+    enabled: !!currentUser?.id && currentUser.role === 'admin' && !!currentUser.hoaId
+  });
+
+  useRealtimeSubscription({
+    table: 'profiles',
+    event: 'UPDATE',
+    filter: currentUser?.hoaId ? `hoa_id=eq.${currentUser.hoaId}` : undefined,
+    onChange: () => {
+      refreshPendingUsersCallback();
+    },
+    enabled: !!currentUser?.id && currentUser.role === 'admin' && !!currentUser.hoaId
   });
 
   // Initialize data when user changes

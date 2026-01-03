@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { Shield, FileSearch, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import HOAApplicationReview from '@/components/reviewer/HOAApplicationReview';
+import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 
 interface HOAApplication {
   id: string;
@@ -37,18 +38,6 @@ const PlatformReviewerDashboard = () => {
     checkReviewerRole();
   }, [currentUser]);
 
-  useEffect(() => {
-    if (isPlatformReviewer) {
-      fetchAllApplications();
-      fetchApplications();
-    }
-  }, [isPlatformReviewer]);
-
-  useEffect(() => {
-    if (isPlatformReviewer) {
-      fetchApplications();
-    }
-  }, [activeTab]);
 
   const checkReviewerRole = async () => {
     if (!currentUser) {
@@ -72,7 +61,7 @@ const PlatformReviewerDashboard = () => {
     }
   };
 
-  const fetchAllApplications = async () => {
+  const fetchAllApplications = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('hoa_applications')
@@ -84,9 +73,9 @@ const PlatformReviewerDashboard = () => {
     } catch (error) {
       console.error('Error fetching all applications:', error);
     }
-  };
+  }, []);
 
-  const fetchApplications = async () => {
+  const fetchApplications = useCallback(async () => {
     setIsLoading(true);
     try {
       let query = supabase
@@ -108,7 +97,39 @@ const PlatformReviewerDashboard = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [activeTab]);
+
+  const refreshLists = useCallback(() => {
+    fetchAllApplications();
+    fetchApplications();
+  }, [fetchAllApplications, fetchApplications]);
+
+  useRealtimeSubscription({
+    table: 'hoa_applications',
+    event: '*',
+    onChange: () => refreshLists(),
+    enabled: !!isPlatformReviewer
+  });
+
+  useRealtimeSubscription({
+    table: 'hoa_application_notes',
+    event: '*',
+    onChange: () => refreshLists(),
+    enabled: !!isPlatformReviewer
+  });
+
+  useEffect(() => {
+    if (isPlatformReviewer) {
+      refreshLists();
+    }
+  }, [isPlatformReviewer, refreshLists]);
+
+  useEffect(() => {
+    if (isPlatformReviewer) {
+      fetchApplications();
+    }
+  }, [activeTab, isPlatformReviewer, fetchApplications]);
+
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -156,10 +177,10 @@ const PlatformReviewerDashboard = () => {
     return (
       <HOAApplicationReview
         application={selectedApplication}
-        onBack={() => {
-          setSelectedApplication(null);
-          fetchApplications();
-        }}
+          onBack={() => {
+            setSelectedApplication(null);
+            refreshLists();
+          }}
       />
     );
   }

@@ -390,7 +390,7 @@ const Dashboard = () => {
         </Card>
 
         {/* Admin Panel Card - Only for HOA admins */}
-        {isAdmin && isCommunityUser && (
+        {isAdmin && (
           <Card className="overflow-hidden group hover:shadow-xl transition-all duration-300 animate-slide-up" style={{ animationDelay: '0.4s' }}>
             <CardHeader className="pb-4 bg-gradient-to-br from-orange-50 to-red-50 relative">
               <div className="absolute top-4 right-4 opacity-20">
