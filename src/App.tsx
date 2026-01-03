@@ -8,6 +8,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { DataProvider } from "./contexts/DataContext";
 import AuthLayout from "./components/layouts/AuthLayout";
 import MainLayout from "./components/layouts/MainLayout";
+import ReviewerLayout from "./components/layouts/ReviewerLayout";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import CompleteProfile from "./pages/CompleteProfile";
@@ -54,6 +55,11 @@ function App() {
                   <Route path="/complete-profile" element={<CompleteProfile />} />
                   <Route path="/reviewer/login" element={<PlatformReviewerLogin />} />
                 </Route>
+                {/* Platform Reviewer Routes - Separate layout with no player navigation */}
+                <Route element={<ReviewerLayout />}>
+                  <Route path="/reviewer/dashboard" element={<PlatformReviewerDashboard />} />
+                </Route>
+                {/* Main App Routes */}
                 <Route element={<MainLayout />}>
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/dashboard" element={<Dashboard />} />
@@ -77,7 +83,6 @@ function App() {
                   <Route path="/profile/:id" element={<UserProfile />} />
                   <Route path="/messages" element={<Messages />} />
                   <Route path="/hoa-application" element={<HOAApplication />} />
-                  <Route path="/reviewer/dashboard" element={<PlatformReviewerDashboard />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>
