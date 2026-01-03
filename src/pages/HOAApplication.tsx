@@ -22,6 +22,8 @@ const HOAApplication = () => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   
+  const [fullName, setFullName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [hoaName, setHoaName] = useState('');
   const [communityLocation, setCommunityLocation] = useState('');
   const [estimatedResidents, setEstimatedResidents] = useState<number>(0);
@@ -34,6 +36,13 @@ const HOAApplication = () => {
 
   useEffect(() => {
     checkExistingApplication();
+    // Pre-fill from profile if available
+    if (currentUser?.fullName) {
+      setFullName(currentUser.fullName);
+    }
+    if (currentUser?.phoneNumber) {
+      setPhoneNumber(currentUser.phoneNumber);
+    }
   }, [currentUser]);
 
   const checkExistingApplication = async () => {
@@ -103,6 +112,16 @@ const HOAApplication = () => {
       return;
     }
 
+    if (!fullName.trim()) {
+      toast.error('Please enter your full name');
+      return;
+    }
+
+    if (!phoneNumber.trim()) {
+      toast.error('Please enter your phone number');
+      return;
+    }
+
     if (uploadedFiles.length === 0) {
       toast.error('Please upload at least one verification document');
       return;
@@ -111,6 +130,17 @@ const HOAApplication = () => {
     setIsSubmitting(true);
 
     try {
+      // First update the profile with name and phone
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          full_name: fullName.trim(),
+          phone_number: phoneNumber.trim(),
+        })
+        .eq('id', currentUser.id);
+
+      if (profileError) throw profileError;
+
       // Upload verification documents
       const documentUrls = await uploadFiles();
 
@@ -242,6 +272,31 @@ const HOAApplication = () => {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Applicant Contact Info */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="fullName">Your Full Name <span className="text-red-500">*</span></Label>
+                <Input
+                  id="fullName"
+                  placeholder="John Smith"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phoneNumber">Phone Number <span className="text-red-500">*</span></Label>
+                <Input
+                  id="phoneNumber"
+                  type="tel"
+                  placeholder="(555) 123-4567"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
             {/* HOA Name */}
             <div className="space-y-2">
               <Label htmlFor="hoaName">HOA / Community Name <span className="text-red-500">*</span></Label>
@@ -387,6 +442,8 @@ const HOAApplication = () => {
               className="w-full"
               disabled={
                 isSubmitting ||
+                !fullName.trim() ||
+                !phoneNumber.trim() ||
                 !hoaName ||
                 !communityLocation ||
                 !estimatedResidents ||
