@@ -196,16 +196,21 @@ const HOAApplication = () => {
         const existingDocs: string[] = currentApp?.verification_documents || [];
         const mergedDocs = [...existingDocs, ...documentUrls];
 
-        const { error: updateError } = await supabase
+        const { data: updatedApp, error: updateError } = await supabase
           .from('hoa_applications')
           .update({
             verification_documents: mergedDocs,
             status: 'pending',
             updated_at: new Date().toISOString(),
           })
-          .eq('id', existingApplication.id);
+          .eq('id', existingApplication.id)
+          .select('id, status')
+          .maybeSingle();
 
         if (updateError) throw updateError;
+        if (!updatedApp) {
+          throw new Error('Unable to resubmit your application. Please try again.');
+        }
 
         toast.success('Updated information submitted! RallyNet will review your application.');
       } else {
