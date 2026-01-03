@@ -327,7 +327,7 @@ const HOAApplication = () => {
             <div className="flex flex-col sm:flex-row gap-3">
               {existingApplication.status === 'needs_more_info' && (
                 <Button onClick={() => setForceResubmit(true)} className="sm:flex-1">
-                  Submit Updated Documents
+                  Update Documents
                 </Button>
               )}
               <Button variant="outline" onClick={() => navigate('/dashboard')} className="sm:flex-1">
