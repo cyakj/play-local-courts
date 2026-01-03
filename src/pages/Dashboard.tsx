@@ -37,7 +37,7 @@ interface MatchRequest {
 }
 
 const Dashboard = () => {
-  const { currentUser, isAdmin, isPending, isCoach } = useAuth();
+  const { currentUser, isAdmin, isPending, isCoach, isPlatformReviewer } = useAuth();
   const { toast } = useToast();
   const { 
     bookings,
@@ -103,6 +103,11 @@ const Dashboard = () => {
       });
     }
   };
+
+  // Redirect platform reviewers to their dedicated dashboard
+  if (isPlatformReviewer) {
+    return <Navigate to="/reviewer/dashboard" replace />;
+  }
 
   // Redirect coaches to coach dashboard
   if (isCoach) {
