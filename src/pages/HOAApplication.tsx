@@ -14,6 +14,10 @@ import { Upload, FileText, X, Building2, CheckCircle, Clock } from 'lucide-react
 interface ExistingApplication {
   id: string;
   hoa_name: string;
+  community_location: string;
+  estimated_residents: number;
+  claimed_role: string;
+  claimed_role_other: string | null;
   status: string;
   submitted_at: string;
 }
@@ -71,7 +75,7 @@ const HOAApplication = () => {
     try {
       const { data, error } = await supabase
         .from('hoa_applications')
-        .select('id, hoa_name, status, submitted_at')
+        .select('id, hoa_name, community_location, estimated_residents, claimed_role, claimed_role_other, status, submitted_at')
         .eq('applicant_id', currentUser.id)
         .order('submitted_at', { ascending: false })
         .limit(1)
@@ -81,6 +85,15 @@ const HOAApplication = () => {
 
       setExistingApplication(data ?? null);
       setForceResubmit(false);
+
+      // Pre-fill form fields from existing application
+      if (data) {
+        setHoaName(data.hoa_name || '');
+        setCommunityLocation(data.community_location || '');
+        setEstimatedResidents(data.estimated_residents || 0);
+        setClaimedRole(data.claimed_role || '');
+        setClaimedRoleOther(data.claimed_role_other || '');
+      }
 
       if (data?.id) {
         await fetchLatestReviewerNote(data.id);
@@ -415,6 +428,7 @@ const HOAApplication = () => {
                 placeholder="e.g., 150"
                 value={estimatedResidents || ''}
                 onChange={(e) => setEstimatedResidents(parseInt(e.target.value) || 0)}
+                className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 required
               />
             </div>

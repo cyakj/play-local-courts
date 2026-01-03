@@ -26,55 +26,73 @@ const PendingApprovalMessage = () => {
   const [latestNote, setLatestNote] = useState<ApplicationNote | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    let cancelled = false;
+  const load = async () => {
+    if (!currentUser?.id) {
+      setIsLoading(false);
+      return;
+    }
 
-    const load = async () => {
-      if (!currentUser?.id) {
-        setIsLoading(false);
-        return;
-      }
+    try {
+      const { data: appData, error: appError } = await supabase
+        .from('hoa_applications')
+        .select('id, hoa_name, status, submitted_at')
+        .eq('applicant_id', currentUser.id)
+        .order('submitted_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      try {
-        const { data: appData, error: appError } = await supabase
-          .from('hoa_applications')
-          .select('id, hoa_name, status, submitted_at')
-          .eq('applicant_id', currentUser.id)
-          .order('submitted_at', { ascending: false })
+      if (appError) throw appError;
+
+      setApplication(appData ?? null);
+
+      if (appData?.id) {
+        const { data: noteData, error: noteError } = await supabase
+          .from('hoa_application_notes')
+          .select('note, created_at, status_change')
+          .eq('application_id', appData.id)
+          .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
 
-        if (appError) throw appError;
-        if (cancelled) return;
+        if (noteError) throw noteError;
 
-        setApplication(appData ?? null);
-
-        if (appData?.id) {
-          const { data: noteData, error: noteError } = await supabase
-            .from('hoa_application_notes')
-            .select('note, created_at, status_change')
-            .eq('application_id', appData.id)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-          if (noteError) throw noteError;
-          if (cancelled) return;
-
-          setLatestNote(noteData ?? null);
-        } else {
-          setLatestNote(null);
-        }
-      } catch (error) {
-        console.error('Error loading HOA application status:', error);
-      } finally {
-        if (!cancelled) setIsLoading(false);
+        setLatestNote(noteData ?? null);
+      } else {
+        setLatestNote(null);
       }
-    };
+    } catch (error) {
+      console.error('Error loading HOA application status:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  useEffect(() => {
     load();
+  }, [currentUser?.id]);
+
+  // Subscribe to realtime updates on the user's application
+  useEffect(() => {
+    if (!currentUser?.id) return;
+
+    const channel = supabase
+      .channel('hoa-application-status')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'hoa_applications',
+          filter: `applicant_id=eq.${currentUser.id}`,
+        },
+        () => {
+          load();
+        }
+      )
+      .subscribe();
+
     return () => {
-      cancelled = true;
+      supabase.removeChannel(channel);
     };
   }, [currentUser?.id]);
 
