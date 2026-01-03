@@ -32,6 +32,8 @@ const HOAApplication = () => {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [existingApplication, setExistingApplication] = useState<ExistingApplication | null>(null);
+  const [latestReviewerNote, setLatestReviewerNote] = useState<{ note: string; created_at: string } | null>(null);
+  const [forceResubmit, setForceResubmit] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -45,9 +47,27 @@ const HOAApplication = () => {
     }
   }, [currentUser]);
 
+  const fetchLatestReviewerNote = async (applicationId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('hoa_application_notes')
+        .select('note, created_at')
+        .eq('application_id', applicationId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+      setLatestReviewerNote(data ?? null);
+    } catch (error) {
+      console.error('Error fetching reviewer note:', error);
+      setLatestReviewerNote(null);
+    }
+  };
+
   const checkExistingApplication = async () => {
     if (!currentUser) return;
-    
+
     try {
       const { data, error } = await supabase
         .from('hoa_applications')
@@ -58,8 +78,14 @@ const HOAApplication = () => {
         .maybeSingle();
 
       if (error) throw error;
-      if (data) {
-        setExistingApplication(data);
+
+      setExistingApplication(data ?? null);
+      setForceResubmit(false);
+
+      if (data?.id) {
+        await fetchLatestReviewerNote(data.id);
+      } else {
+        setLatestReviewerNote(null);
       }
     } catch (error) {
       console.error('Error checking existing application:', error);
@@ -160,7 +186,9 @@ const HOAApplication = () => {
       if (error) throw error;
 
       toast.success('Application submitted successfully! We will review it shortly.');
-      
+      setForceResubmit(false);
+      setUploadedFiles([]);
+
       // Refresh to show pending status
       await checkExistingApplication();
     } catch (error: any) {
@@ -180,7 +208,16 @@ const HOAApplication = () => {
   }
 
   // Show existing application status
-  if (existingApplication) {
+  if (existingApplication && !forceResubmit) {
+    const submittedLabel = new Date(existingApplication.submitted_at).toLocaleDateString('en-US');
+    const noteTimestampLabel = latestReviewerNote?.created_at
+      ? new Date(latestReviewerNote.created_at).toLocaleString('en-US', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+          hour12: true,
+        })
+      : null;
+
     return (
       <div className="max-w-2xl mx-auto p-6">
         <Card>
@@ -196,21 +233,21 @@ const HOAApplication = () => {
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="flex items-center gap-4 p-4 rounded-lg bg-muted">
+            <div className="flex items-start gap-4 p-4 rounded-lg bg-muted">
               {existingApplication.status === 'pending' && (
                 <>
-                  <Clock className="h-8 w-8 text-yellow-500" />
+                  <Clock className="h-8 w-8 text-muted-foreground" />
                   <div>
                     <h3 className="font-semibold text-lg">Verification Pending</h3>
                     <p className="text-muted-foreground">
-                      Your application is being reviewed by our team. This usually takes 1-2 business days.
+                      RallyNet is reviewing your application to register this HOA on the platform.
                     </p>
                   </div>
                 </>
               )}
               {existingApplication.status === 'approved' && (
                 <>
-                  <CheckCircle className="h-8 w-8 text-green-500" />
+                  <CheckCircle className="h-8 w-8 text-muted-foreground" />
                   <div>
                     <h3 className="font-semibold text-lg">Application Approved!</h3>
                     <p className="text-muted-foreground">
@@ -221,35 +258,54 @@ const HOAApplication = () => {
               )}
               {existingApplication.status === 'rejected' && (
                 <>
-                  <X className="h-8 w-8 text-red-500" />
+                  <X className="h-8 w-8 text-muted-foreground" />
                   <div>
                     <h3 className="font-semibold text-lg">Application Not Approved</h3>
                     <p className="text-muted-foreground">
-                      Please check your notifications for more details.
+                      Please review the most recent note below for details.
                     </p>
                   </div>
                 </>
               )}
               {existingApplication.status === 'needs_more_info' && (
                 <>
-                  <FileText className="h-8 w-8 text-orange-500" />
+                  <FileText className="h-8 w-8 text-muted-foreground" />
                   <div>
                     <h3 className="font-semibold text-lg">Additional Information Needed</h3>
                     <p className="text-muted-foreground">
-                      Please check your notifications for details on what's needed.
+                      A RallyNet reviewer requested more information. Review the request below, then submit updated documents.
                     </p>
                   </div>
                 </>
               )}
             </div>
 
-            <p className="text-sm text-muted-foreground">
-              Submitted on {new Date(existingApplication.submitted_at).toLocaleDateString()}
-            </p>
+            {(existingApplication.status === 'needs_more_info' || existingApplication.status === 'rejected') && (
+              <div className="rounded-lg border bg-background p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <p className="text-sm font-medium">Reviewer request</p>
+                  {noteTimestampLabel && (
+                    <p className="text-xs text-muted-foreground">{noteTimestampLabel}</p>
+                  )}
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">
+                  {latestReviewerNote?.note || 'No note found yet.'}
+                </p>
+              </div>
+            )}
 
-            <Button variant="outline" onClick={() => navigate('/dashboard')}>
-              Return to Dashboard
-            </Button>
+            <p className="text-sm text-muted-foreground">Submitted on {submittedLabel}</p>
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              {existingApplication.status === 'needs_more_info' && (
+                <Button onClick={() => setForceResubmit(true)} className="sm:flex-1">
+                  Submit Updated Documents
+                </Button>
+              )}
+              <Button variant="outline" onClick={() => navigate('/dashboard')} className="sm:flex-1">
+                Return to Dashboard
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
