@@ -170,26 +170,54 @@ const HOAApplication = () => {
       // Upload verification documents
       const documentUrls = await uploadFiles();
 
-      // Create the application
-      const { error } = await supabase
-        .from('hoa_applications')
-        .insert({
-          applicant_id: currentUser.id,
-          hoa_name: hoaName,
-          community_location: communityLocation,
-          estimated_residents: estimatedResidents,
-          claimed_role: claimedRole,
-          claimed_role_other: claimedRole === 'other' ? claimedRoleOther : null,
-          verification_documents: documentUrls,
-        });
+      if (forceResubmit && existingApplication) {
+        // Update existing application: append new documents and reset status to pending
+        const { data: currentApp, error: fetchError } = await supabase
+          .from('hoa_applications')
+          .select('verification_documents')
+          .eq('id', existingApplication.id)
+          .single();
 
-      if (error) throw error;
+        if (fetchError) throw fetchError;
 
-      toast.success('Application submitted successfully! We will review it shortly.');
+        const existingDocs: string[] = currentApp?.verification_documents || [];
+        const mergedDocs = [...existingDocs, ...documentUrls];
+
+        const { error: updateError } = await supabase
+          .from('hoa_applications')
+          .update({
+            verification_documents: mergedDocs,
+            status: 'pending',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existingApplication.id);
+
+        if (updateError) throw updateError;
+
+        toast.success('Updated information submitted! RallyNet will review your application.');
+      } else {
+        // Create new application
+        const { error } = await supabase
+          .from('hoa_applications')
+          .insert({
+            applicant_id: currentUser.id,
+            hoa_name: hoaName,
+            community_location: communityLocation,
+            estimated_residents: estimatedResidents,
+            claimed_role: claimedRole,
+            claimed_role_other: claimedRole === 'other' ? claimedRoleOther : null,
+            verification_documents: documentUrls,
+          });
+
+        if (error) throw error;
+
+        toast.success('Application submitted successfully! We will review it shortly.');
+      }
+
       setForceResubmit(false);
       setUploadedFiles([]);
 
-      // Refresh to show pending status
+      // Refresh to show updated status
       await checkExistingApplication();
     } catch (error: any) {
       console.error('Error submitting application:', error);
