@@ -28,6 +28,7 @@ const PlatformReviewerDashboard = () => {
   const { currentUser } = useAuth();
   const [isPlatformReviewer, setIsPlatformReviewer] = useState<boolean | null>(null);
   const [applications, setApplications] = useState<HOAApplication[]>([]);
+  const [allApplications, setAllApplications] = useState<HOAApplication[]>([]);
   const [selectedApplication, setSelectedApplication] = useState<HOAApplication | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('pending');
@@ -38,9 +39,16 @@ const PlatformReviewerDashboard = () => {
 
   useEffect(() => {
     if (isPlatformReviewer) {
+      fetchAllApplications();
       fetchApplications();
     }
-  }, [isPlatformReviewer, activeTab]);
+  }, [isPlatformReviewer]);
+
+  useEffect(() => {
+    if (isPlatformReviewer) {
+      fetchApplications();
+    }
+  }, [activeTab]);
 
   const checkReviewerRole = async () => {
     if (!currentUser) {
@@ -61,6 +69,20 @@ const PlatformReviewerDashboard = () => {
     } catch (error) {
       console.error('Error checking reviewer role:', error);
       setIsPlatformReviewer(false);
+    }
+  };
+
+  const fetchAllApplications = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('hoa_applications')
+        .select('*')
+        .order('submitted_at', { ascending: false });
+
+      if (error) throw error;
+      setAllApplications(data || []);
+    } catch (error) {
+      console.error('Error fetching all applications:', error);
     }
   };
 
@@ -165,7 +187,7 @@ const PlatformReviewerDashboard = () => {
               <Clock className="h-5 w-5 text-yellow-500" />
               <div>
                 <p className="text-2xl font-bold">
-                  {applications.filter(a => a.status === 'pending').length}
+                  {allApplications.filter(a => a.status === 'pending').length}
                 </p>
                 <p className="text-sm text-muted-foreground">Pending Review</p>
               </div>
@@ -178,7 +200,7 @@ const PlatformReviewerDashboard = () => {
               <CheckCircle className="h-5 w-5 text-green-500" />
               <div>
                 <p className="text-2xl font-bold">
-                  {applications.filter(a => a.status === 'approved').length}
+                  {allApplications.filter(a => a.status === 'approved').length}
                 </p>
                 <p className="text-sm text-muted-foreground">Approved</p>
               </div>
@@ -191,7 +213,7 @@ const PlatformReviewerDashboard = () => {
               <AlertCircle className="h-5 w-5 text-orange-500" />
               <div>
                 <p className="text-2xl font-bold">
-                  {applications.filter(a => a.status === 'needs_more_info').length}
+                  {allApplications.filter(a => a.status === 'needs_more_info').length}
                 </p>
                 <p className="text-sm text-muted-foreground">Needs Info</p>
               </div>
@@ -204,7 +226,7 @@ const PlatformReviewerDashboard = () => {
               <XCircle className="h-5 w-5 text-red-500" />
               <div>
                 <p className="text-2xl font-bold">
-                  {applications.filter(a => a.status === 'rejected').length}
+                  {allApplications.filter(a => a.status === 'rejected').length}
                 </p>
                 <p className="text-sm text-muted-foreground">Rejected</p>
               </div>
