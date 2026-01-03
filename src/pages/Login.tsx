@@ -115,11 +115,17 @@ const Login = () => {
           </p>
         </div>
       </CardContent>
-      <CardFooter>
+      <CardFooter className="flex flex-col gap-3">
         <p className="text-sm text-center w-full">
           Don't have an account?{' '}
           <Link to="/register" className="text-primary hover:underline font-medium">
             Sign up
+          </Link>
+        </p>
+        <Separator />
+        <p className="text-xs text-center text-muted-foreground">
+          <Link to="/reviewer/login" className="hover:underline">
+            RallyNet Personnel Login
           </Link>
         </p>
       </CardFooter>

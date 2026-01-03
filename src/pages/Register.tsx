@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
@@ -21,7 +21,7 @@ interface HOA {
 }
 
 const Register = () => {
-  const [userRole, setUserRole] = useState<'player' | 'coach' | 'admin'>('player');
+  const [userRole, setUserRole] = useState<'player' | 'coach' | 'admin' | 'hoa_manager'>('player');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -47,6 +47,7 @@ const Register = () => {
   const [loadingHOAs, setLoadingHOAs] = useState(true);
   
   const { register, registerCoach } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if ((userRole === 'player' && livesInHOA) || userRole === 'admin') {
@@ -99,6 +100,11 @@ const Register = () => {
           hourlyRate,
           bio
         });
+      } else if (userRole === 'hoa_manager') {
+        // Register as a basic user first, then redirect to HOA application
+        await register(fullName, email, password, phoneNumber, dateOfBirth, '');
+        toast.success('Account created! Now submit your HOA verification.');
+        navigate('/hoa-application');
       } else {
         // For players and admins
         await register(fullName, email, password, phoneNumber, dateOfBirth, selectedHOA || '');
@@ -128,7 +134,7 @@ const Register = () => {
           {/* Role Selection */}
           <div className="space-y-2">
             <Label htmlFor="userRole">I am a <span className="text-red-500">*</span></Label>
-            <Select value={userRole} onValueChange={(value: 'player' | 'coach' | 'admin') => setUserRole(value)}>
+            <Select value={userRole} onValueChange={(value: 'player' | 'coach' | 'admin' | 'hoa_manager') => setUserRole(value)}>
               <SelectTrigger>
                 <SelectValue placeholder="Select your role" />
               </SelectTrigger>
@@ -138,6 +144,11 @@ const Register = () => {
                 <SelectItem value="hoa_manager">HOA Manager (requires verification)</SelectItem>
               </SelectContent>
             </Select>
+            {userRole === 'hoa_manager' && (
+              <p className="text-sm text-muted-foreground mt-2">
+                After creating your account, you'll be guided to submit verification documents to prove your HOA management authority.
+              </p>
+            )}
           </div>
 
           {/* HOA Question for Players */}
