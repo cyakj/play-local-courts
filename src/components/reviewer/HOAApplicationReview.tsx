@@ -317,7 +317,11 @@ const HOAApplicationReview: React.FC<Props> = ({ application, onBack }) => {
               <div className="flex items-center gap-2 text-sm">
                 <Clock className="h-4 w-4 text-muted-foreground" />
                 <span className="font-medium">Submitted:</span>
-                <span>{new Date(application.submitted_at).toLocaleString()}</span>
+                <span>{new Date(application.submitted_at).toLocaleString('en-US', { 
+                  dateStyle: 'medium', 
+                  timeStyle: 'short',
+                  hour12: true 
+                })}</span>
               </div>
             </div>
           </div>
@@ -453,7 +457,11 @@ const HOAApplicationReview: React.FC<Props> = ({ application, onBack }) => {
                       )}
                     </div>
                     <span className="text-xs text-muted-foreground">
-                      {new Date(note.created_at).toLocaleString()}
+                      {new Date(note.created_at).toLocaleString('en-US', { 
+                        dateStyle: 'medium', 
+                        timeStyle: 'short',
+                        hour12: true 
+                      })}
                     </span>
                   </div>
                   <p className="text-sm">{note.note}</p>

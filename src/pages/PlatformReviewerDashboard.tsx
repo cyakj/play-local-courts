@@ -113,13 +113,13 @@ const PlatformReviewerDashboard = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending':
-        return <Badge variant="secondary" className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30"><Clock className="h-3 w-3 mr-1" /> Pending</Badge>;
+        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800"><Clock className="h-3 w-3 mr-1" /> Pending</Badge>;
       case 'approved':
-        return <Badge variant="secondary" className="bg-green-500/20 text-green-400 border-green-500/30"><CheckCircle className="h-3 w-3 mr-1" /> Approved</Badge>;
+        return <Badge variant="secondary" className="bg-green-100 text-green-800"><CheckCircle className="h-3 w-3 mr-1" /> Approved</Badge>;
       case 'rejected':
-        return <Badge variant="secondary" className="bg-red-500/20 text-red-400 border-red-500/30"><XCircle className="h-3 w-3 mr-1" /> Rejected</Badge>;
+        return <Badge variant="secondary" className="bg-red-100 text-red-800"><XCircle className="h-3 w-3 mr-1" /> Rejected</Badge>;
       case 'needs_more_info':
-        return <Badge variant="secondary" className="bg-orange-500/20 text-orange-400 border-orange-500/30"><AlertCircle className="h-3 w-3 mr-1" /> Needs Info</Badge>;
+        return <Badge variant="secondary" className="bg-orange-100 text-orange-800"><AlertCircle className="h-3 w-3 mr-1" /> Needs Info</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }
@@ -143,7 +143,7 @@ const PlatformReviewerDashboard = () => {
   if (isPlatformReviewer === null) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );
   }
@@ -168,12 +168,12 @@ const PlatformReviewerDashboard = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <div className="p-3 bg-blue-500/20 rounded-lg">
-          <Shield className="h-8 w-8 text-blue-400" />
+        <div className="p-3 bg-purple-100 rounded-lg">
+          <Shield className="h-8 w-8 text-purple-600" />
         </div>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-white">HOA Verification Queue</h1>
-          <p className="text-slate-400">
+          <h1 className="text-3xl font-bold tracking-tight">HOA Verification Queue</h1>
+          <p className="text-muted-foreground">
             Review and manage HOA manager applications
           </p>
         </div>
@@ -181,54 +181,54 @@ const PlatformReviewerDashboard = () => {
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-slate-800/50 border-slate-700">
+        <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <Clock className="h-5 w-5 text-yellow-400" />
+              <Clock className="h-5 w-5 text-yellow-500" />
               <div>
-                <p className="text-2xl font-bold text-white">
+                <p className="text-2xl font-bold">
                   {allApplications.filter(a => a.status === 'pending').length}
                 </p>
-                <p className="text-sm text-slate-400">Pending Review</p>
+                <p className="text-sm text-muted-foreground">Pending Review</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-slate-800/50 border-slate-700">
+        <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <CheckCircle className="h-5 w-5 text-green-400" />
+              <CheckCircle className="h-5 w-5 text-green-500" />
               <div>
-                <p className="text-2xl font-bold text-white">
+                <p className="text-2xl font-bold">
                   {allApplications.filter(a => a.status === 'approved').length}
                 </p>
-                <p className="text-sm text-slate-400">Approved</p>
+                <p className="text-sm text-muted-foreground">Approved</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-slate-800/50 border-slate-700">
+        <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <AlertCircle className="h-5 w-5 text-orange-400" />
+              <AlertCircle className="h-5 w-5 text-orange-500" />
               <div>
-                <p className="text-2xl font-bold text-white">
+                <p className="text-2xl font-bold">
                   {allApplications.filter(a => a.status === 'needs_more_info').length}
                 </p>
-                <p className="text-sm text-slate-400">Needs Info</p>
+                <p className="text-sm text-muted-foreground">Needs Info</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-slate-800/50 border-slate-700">
+        <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <XCircle className="h-5 w-5 text-red-400" />
+              <XCircle className="h-5 w-5 text-red-500" />
               <div>
-                <p className="text-2xl font-bold text-white">
+                <p className="text-2xl font-bold">
                   {allApplications.filter(a => a.status === 'rejected').length}
                 </p>
-                <p className="text-sm text-slate-400">Rejected</p>
+                <p className="text-sm text-muted-foreground">Rejected</p>
               </div>
             </div>
           </CardContent>
@@ -236,51 +236,51 @@ const PlatformReviewerDashboard = () => {
       </div>
 
       {/* Applications List */}
-      <Card className="bg-slate-800/50 border-slate-700">
+      <Card>
         <CardHeader>
-          <CardTitle className="text-white">Applications</CardTitle>
-          <CardDescription className="text-slate-400">
+          <CardTitle>Applications</CardTitle>
+          <CardDescription>
             Click on an application to review it in detail
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="mb-4 bg-slate-700/50">
-              <TabsTrigger value="pending" className="data-[state=active]:bg-slate-600 data-[state=active]:text-white">Pending</TabsTrigger>
-              <TabsTrigger value="needs_more_info" className="data-[state=active]:bg-slate-600 data-[state=active]:text-white">Needs Info</TabsTrigger>
-              <TabsTrigger value="approved" className="data-[state=active]:bg-slate-600 data-[state=active]:text-white">Approved</TabsTrigger>
-              <TabsTrigger value="rejected" className="data-[state=active]:bg-slate-600 data-[state=active]:text-white">Rejected</TabsTrigger>
-              <TabsTrigger value="all" className="data-[state=active]:bg-slate-600 data-[state=active]:text-white">All</TabsTrigger>
+            <TabsList className="mb-4">
+              <TabsTrigger value="pending">Pending</TabsTrigger>
+              <TabsTrigger value="needs_more_info">Needs Info</TabsTrigger>
+              <TabsTrigger value="approved">Approved</TabsTrigger>
+              <TabsTrigger value="rejected">Rejected</TabsTrigger>
+              <TabsTrigger value="all">All</TabsTrigger>
             </TabsList>
 
             <TabsContent value={activeTab}>
               {isLoading ? (
                 <div className="flex items-center justify-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
                 </div>
               ) : applications.length === 0 ? (
                 <div className="text-center py-12">
-                  <FileSearch className="h-12 w-12 mx-auto text-slate-500 mb-4" />
-                  <p className="text-slate-400">No applications found</p>
+                  <FileSearch className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">No applications found</p>
                 </div>
               ) : (
                 <div className="space-y-3">
                   {applications.map((app) => (
                     <div
                       key={app.id}
-                      className="p-4 border border-slate-700 rounded-lg hover:bg-slate-700/50 cursor-pointer transition-colors"
+                      className="p-4 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
                       onClick={() => setSelectedApplication(app)}
                     >
                       <div className="flex items-start justify-between">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-white">{app.hoa_name}</h3>
+                            <h3 className="font-semibold">{app.hoa_name}</h3>
                             {getStatusBadge(app.status)}
                           </div>
-                          <p className="text-sm text-slate-400">
+                          <p className="text-sm text-muted-foreground">
                             {app.community_location}
                           </p>
-                          <div className="flex items-center gap-4 text-sm text-slate-500">
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
                             <span>{app.estimated_residents} residents</span>
                             <span>•</span>
                             <span>{getRoleLabel(app.claimed_role, app.claimed_role_other)}</span>
@@ -288,7 +288,7 @@ const PlatformReviewerDashboard = () => {
                             <span>{app.verification_documents.length} documents</span>
                           </div>
                         </div>
-                        <div className="text-right text-sm text-slate-500">
+                        <div className="text-right text-sm text-muted-foreground">
                           <p>Submitted</p>
                           <p>{new Date(app.submitted_at).toLocaleDateString()}</p>
                         </div>
