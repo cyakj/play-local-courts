@@ -17,6 +17,7 @@ interface AuthContextType {
   isAdmin: boolean;
   isPending: boolean;
   isCoach: boolean;
+  isPlatformReviewer: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -347,7 +348,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Check roles from user_roles table instead of profiles
   const isAdmin = userRoles.includes('admin');
   const isCoach = userRoles.includes('coach');
-  const isPending = currentUser?.status === UserStatus.PENDING;
+  const isPlatformReviewer = userRoles.includes('platform_reviewer');
+  // Platform reviewers should never be considered "pending" - they're above HOA hierarchy
+  const isPending = currentUser?.status === UserStatus.PENDING && !isPlatformReviewer;
 
   const value = {
     currentUser,
@@ -359,7 +362,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     logout,
     isAdmin,
     isPending,
-    isCoach
+    isCoach,
+    isPlatformReviewer
   };
 
   return (
