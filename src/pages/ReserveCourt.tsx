@@ -1,21 +1,21 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { format, addDays } from 'date-fns';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from '@/components/ui/label';
-import { Wrench } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Calendar, Wrench, Users, Heart, Clock } from 'lucide-react';
 import TimeSelector from '../components/TimeSelector';
 import CourtPoliciesDialog from '../components/CourtPoliciesDialog';
-import { ReportIssueDialog } from '../components/maintenance/ReportIssueDialog';
+import { MultiStepReportDialog } from '../components/maintenance/MultiStepReportDialog';
 import { useAmenityRules } from '../hooks/useAmenityRules';
 import { AmenityStatus } from '../types';
+import { cn } from '@/lib/utils';
 
 const ReserveCourt = () => {
   const { currentUser } = useAuth();
@@ -28,84 +28,77 @@ const ReserveCourt = () => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedAmenity, setSelectedAmenity] = useState<string>('');
   const [playType, setPlayType] = useState<'singles' | 'doubles' | 'family' | 'group'>('singles');
-  const [selectedDuration, setSelectedDuration] = useState<number>(60); // Duration in minutes
+  const [selectedDuration, setSelectedDuration] = useState<number>(60);
   const [selectedStartTime, setSelectedStartTime] = useState<string>('');
   const [selectedEndTime, setSelectedEndTime] = useState<string>('');
   const [showPoliciesDialog, setShowPoliciesDialog] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
-  const [reportAmenityId, setReportAmenityId] = useState('');
+  const [activeFilter, setActiveFilter] = useState<string>('all');
+  const [favorites, setFavorites] = useState<string[]>([]);
   
-  // Fetch amenity rules for the selected amenity
   const { rules, loading: rulesLoading } = useAmenityRules(selectedAmenity);
   
-  // Get only today and tomorrow for date options
   const today = new Date();
   const tomorrow = addDays(today, 1);
   
   const dateOptions = [
-    {
-      value: format(today, 'yyyy-MM-dd'),
-      label: `Today (${format(today, 'MMMM d')})`,
-      date: today
-    },
-    {
-      value: format(tomorrow, 'yyyy-MM-dd'),
-      label: `Tomorrow (${format(tomorrow, 'MMMM d')})`,
-      date: tomorrow
-    }
+    { value: format(today, 'yyyy-MM-dd'), label: `Today (${format(today, 'MMMM d')})`, date: today },
+    { value: format(tomorrow, 'yyyy-MM-dd'), label: `Tomorrow (${format(tomorrow, 'MMMM d')})`, date: tomorrow }
   ];
-  
-  // Group amenities by type
-  const groupedAmenities = amenities.reduce((acc, amenity) => {
-    if (!acc[amenity.amenityType]) {
-      acc[amenity.amenityType] = [];
-    }
-    acc[amenity.amenityType].push(amenity);
-    return acc;
-  }, {} as Record<string, typeof amenities>);
 
-  // Amenity type configurations
-  const amenityTypeConfig = {
-    tennis: { 
-      label: 'Tennis Courts', 
-      basePlayTypes: ['singles', 'doubles'],
-      description: 'Book a tennis court for singles or doubles play'
-    },
-    pickleball: { 
-      label: 'Pickleball Courts', 
-      basePlayTypes: ['singles', 'doubles'],
-      description: 'Book a pickleball court for singles or doubles play'
-    },
-    barbecue: { 
-      label: 'Barbecue Areas', 
-      basePlayTypes: ['family', 'group'],
-      description: 'Reserve a barbecue area for family gatherings or group events'
-    },
-    jacuzzi: { 
-      label: 'Jacuzzi', 
-      basePlayTypes: ['family', 'group'],
-      description: 'Book the jacuzzi for relaxation'
-    },
-    pool: { 
-      label: 'Pool', 
-      basePlayTypes: ['family', 'group'],
-      description: 'Reserve pool time for swimming and recreation'
-    },
-    gym: { 
-      label: 'Gym', 
-      basePlayTypes: ['singles', 'group'],
-      description: 'Book gym time for personal or group workouts'
-    },
-    clubhouse: { 
-      label: 'Clubhouse', 
-      basePlayTypes: ['family', 'group'],
-      description: 'Reserve the clubhouse for events and gatherings'
+  // Get unique amenity types for filter tabs
+  const amenityTypes = ['all', ...new Set(amenities.map(a => a.amenityType))];
+
+  // Filter amenities based on active filter
+  const filteredAmenities = activeFilter === 'all' 
+    ? amenities 
+    : amenities.filter(a => a.amenityType === activeFilter);
+
+  const amenityTypeConfig: Record<string, { label: string; basePlayTypes: string[]; description: string }> = {
+    tennis: { label: 'Courts', basePlayTypes: ['singles', 'doubles'], description: 'Professional grade courts with night lighting' },
+    pickleball: { label: 'Courts', basePlayTypes: ['singles', 'doubles'], description: 'Dedicated pickleball courts' },
+    pool: { label: 'Pools', basePlayTypes: ['family', 'group'], description: 'Heated pool with dedicated lap lanes' },
+    barbecue: { label: 'Dining', basePlayTypes: ['family', 'group'], description: 'Outdoor BBQ and dining areas' },
+    clubhouse: { label: 'Dining', basePlayTypes: ['family', 'group'], description: 'Perfect for events and gatherings' },
+    gym: { label: 'Gym', basePlayTypes: ['singles', 'group'], description: 'Fully equipped fitness center' },
+    jacuzzi: { label: 'Pools', basePlayTypes: ['family', 'group'], description: 'Relaxation spa' }
+  };
+
+  // Mock status for amenities - in production this would come from real-time data
+  const getAmenityStatus = (amenityId: string) => {
+    const statuses = ['open', 'low', 'closed'];
+    const hash = amenityId.charCodeAt(0) % 3;
+    return statuses[hash];
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'open':
+        return <Badge className="bg-green-500 text-white border-0">Open Now</Badge>;
+      case 'low':
+        return <Badge className="bg-orange-500 text-white border-0">Low Availability</Badge>;
+      case 'closed':
+        return <Badge className="bg-muted text-muted-foreground border-0">Closed</Badge>;
+      default:
+        return null;
     }
   };
-  
-  // Mock data for booked and maintenance slots - in real app this would come from the data context
+
+  const getNextAvailable = (status: string) => {
+    if (status === 'open') return null;
+    if (status === 'low') return 'Next: 2:00 PM';
+    return 'Opens: 9:00 AM';
+  };
+
+  const toggleFavorite = (amenityId: string) => {
+    setFavorites(prev => 
+      prev.includes(amenityId) 
+        ? prev.filter(id => id !== amenityId)
+        : [...prev, amenityId]
+    );
+  };
+
   const getBookedSlots = (amenityId: string, date: string) => {
-    // This should be replaced with actual data from your booking system
     return [
       { start: '08:00', end: '09:00' },
       { start: '14:00', end: '15:30' },
@@ -114,10 +107,7 @@ const ReserveCourt = () => {
   };
   
   const getMaintenanceSlots = (amenityId: string, date: string) => {
-    // This should be replaced with actual maintenance data
-    return [
-      { start: '12:00', end: '13:00' }
-    ];
+    return [{ start: '12:00', end: '13:00' }];
   };
   
   const handleTimeSelect = (startTime: string, endTime: string) => {
@@ -138,13 +128,11 @@ const ReserveCourt = () => {
     
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
     
-    // Check if user already has a booking for this date
     if (currentUser && hasBookingForDate(currentUser.id, dateStr)) {
       toast.error("You already have a booking for this date");
       return;
     }
     
-    // Show policies dialog before booking
     setShowPoliciesDialog(true);
   };
   
@@ -155,7 +143,6 @@ const ReserveCourt = () => {
     const amenity = amenities.find(a => a.id === selectedAmenity);
     
     if (amenity) {
-      // Create a time slot object for the booking
       const timeSlot = {
         id: `${selectedAmenity}-${dateStr}-${selectedStartTime}`,
         start: new Date(`${dateStr}T${selectedStartTime}:00`).toISOString(),
@@ -173,18 +160,17 @@ const ReserveCourt = () => {
         playType
       );
       
-      // Reset form
       setSelectedStartTime('');
       setSelectedEndTime('');
       setShowPoliciesDialog(false);
+      setSelectedAmenity('');
     }
   };
 
   const getPlayTypeOptions = (amenityType: string) => {
-    const config = amenityTypeConfig[amenityType as keyof typeof amenityTypeConfig];
+    const config = amenityTypeConfig[amenityType];
     let availablePlayTypes = config?.basePlayTypes || ['singles'];
 
-    // Apply amenity rules restrictions
     if (rules) {
       if (rules.singles_only) {
         availablePlayTypes = availablePlayTypes.filter(type => type === 'singles');
@@ -196,9 +182,8 @@ const ReserveCourt = () => {
     return availablePlayTypes;
   };
 
-  const getMaxDuration = () => {
+  const getMaxDuration = (): number => {
     if (!rules) {
-      // Fallback to default durations if no rules configured
       switch (playType) {
         case 'singles': return 60;
         case 'doubles': return 90;
@@ -207,99 +192,16 @@ const ReserveCourt = () => {
         default: return 60;
       }
     }
-
-    // Check if we're in peak hours (simplified for now)
-    const now = new Date();
-    const isCurrentlyPeakHours = rules.enable_peak_hours && 
-      rules.peak_start_time && rules.peak_end_time;
-
-    if (isCurrentlyPeakHours) {
-      switch (playType) {
-        case 'singles': return rules.peak_singles_duration_minutes || 30;
-        case 'doubles': return rules.peak_doubles_duration_minutes || 45;
-        case 'family': return rules.peak_family_duration_minutes || 60;
-        case 'group': return rules.peak_group_duration_minutes || 60;
-        default: return 30;
-      }
-    } else {
-      switch (playType) {
-        case 'singles': return rules.singles_duration_minutes || 60;
-        case 'doubles': return rules.doubles_duration_minutes || 90;
-        case 'family': return rules.family_duration_minutes || 120;
-        case 'group': return rules.group_duration_minutes || 120;
-        default: return 60;
-      }
+    // Use play-type specific durations from rules
+    switch (playType) {
+      case 'singles': return rules.singles_duration_minutes || 60;
+      case 'doubles': return rules.doubles_duration_minutes || 90;
+      case 'family': return rules.family_duration_minutes || 120;
+      case 'group': return rules.group_duration_minutes || 120;
+      default: return 60;
     }
   };
 
-  const getDurationLabel = (specificPlayType: string) => {
-    if (!rules) {
-      // Fallback to default durations if no rules configured
-      let defaultDuration;
-      switch (specificPlayType) {
-        case 'singles': defaultDuration = 60; break;
-        case 'doubles': defaultDuration = 90; break;
-        case 'family':
-        case 'group': defaultDuration = 120; break;
-        default: defaultDuration = 60;
-      }
-      
-      const hours = Math.floor(defaultDuration / 60);
-      const minutes = defaultDuration % 60;
-      
-      let timeLabel = '';
-      if (hours > 0) {
-        timeLabel += `${hours} hour${hours > 1 ? 's' : ''}`;
-        if (minutes > 0) {
-          timeLabel += ` ${minutes} min`;
-        }
-      } else {
-        timeLabel = `${minutes} min`;
-      }
-      
-      return `${specificPlayType} (up to ${timeLabel})`;
-    }
-
-    // Check if we're in peak hours (simplified for now)
-    const isCurrentlyPeakHours = rules.enable_peak_hours && 
-      rules.peak_start_time && rules.peak_end_time;
-
-    let maxDuration;
-    if (isCurrentlyPeakHours) {
-      switch (specificPlayType) {
-        case 'singles': maxDuration = rules.peak_singles_duration_minutes || 30; break;
-        case 'doubles': maxDuration = rules.peak_doubles_duration_minutes || 45; break;
-        case 'family': maxDuration = rules.peak_family_duration_minutes || 60; break;
-        case 'group': maxDuration = rules.peak_group_duration_minutes || 60; break;
-        default: maxDuration = 30;
-      }
-    } else {
-      switch (specificPlayType) {
-        case 'singles': maxDuration = rules.singles_duration_minutes || 60; break;
-        case 'doubles': maxDuration = rules.doubles_duration_minutes || 90; break;
-        case 'family': maxDuration = rules.family_duration_minutes || 120; break;
-        case 'group': maxDuration = rules.group_duration_minutes || 120; break;
-        default: maxDuration = 60;
-      }
-    }
-    
-    const hours = Math.floor(maxDuration / 60);
-    const minutes = maxDuration % 60;
-    
-    let timeLabel = '';
-    if (hours > 0) {
-      timeLabel += `${hours} hour${hours > 1 ? 's' : ''}`;
-      if (minutes > 0) {
-        timeLabel += ` ${minutes} min`;
-      }
-    } else {
-      timeLabel = `${minutes} min`;
-    }
-    
-    return `${specificPlayType} (up to ${timeLabel})`;
-  };
-
-  // Generate duration options from 30 minutes to max duration
   const getDurationOptions = () => {
     const maxDuration = getMaxDuration();
     const options = [];
@@ -311,211 +213,285 @@ const ReserveCourt = () => {
       let label = '';
       if (hours > 0) {
         label += `${hours} hour${hours > 1 ? 's' : ''}`;
-        if (minutes > 0) {
-          label += ` ${minutes} min`;
-        }
+        if (minutes > 0) label += ` ${minutes} min`;
       } else {
         label = `${minutes} min`;
       }
       
-      options.push({
-        value: duration,
-        label: label
-      });
+      options.push({ value: duration, label });
     }
     
     return options;
   };
 
-  const renderAmenityTab = (amenityType: string, amenityList: typeof amenities) => {
-    const config = amenityTypeConfig[amenityType as keyof typeof amenityTypeConfig];
-    
-    return (
-      <div className="grid grid-cols-1 gap-4">
-        {amenityList.map(amenity => {
-          const playTypeOptions = getPlayTypeOptions(amenityType);
-          const isSelected = selectedAmenity === amenity.id;
-          
-          return (
-            <Card key={amenity.id} className={isSelected ? "border-primary" : ""}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">{amenity.name}</CardTitle>
-                <CardDescription>{config?.description}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button 
-                  onClick={() => {
-                    setSelectedAmenity(amenity.id);
-                    setSelectedStartTime('');
-                    setSelectedEndTime('');
-                    // Reset play type to first available option
-                    const availableTypes = getPlayTypeOptions(amenityType);
-                    if (availableTypes.length > 0) {
-                      setPlayType(availableTypes[0] as typeof playType);
-                    }
-                  }}
-                  variant={isSelected ? "default" : "outline"}
-                  className="w-full mb-4"
-                >
-                  {isSelected ? "Selected" : "Select"}
-                </Button>
-                
-                {isSelected && !rulesLoading && (
-                  <div className="mt-4 space-y-4">
-                    {playTypeOptions.length > 1 && (
-                      <div className="space-y-2">
-                        <label className="block text-sm font-medium mb-1">Type of Use</label>
-                        <RadioGroup value={playType} onValueChange={(value) => {
-                          setPlayType(value as typeof playType);
-                          setSelectedStartTime('');
-                          setSelectedEndTime('');
-                          setSelectedDuration(60); // Reset duration
-                        }}>
-                          {playTypeOptions.map(option => (
-                            <div key={option} className="flex items-center space-x-2">
-                              <RadioGroupItem value={option} id={option} />
-                              <Label htmlFor={option} className="capitalize">
-                                {getDurationLabel(option)}
-                              </Label>
-                            </div>
-                          ))}
-                        </RadioGroup>
-                      </div>
-                    )}
-                    
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium mb-1">Duration</label>
-                      <Select value={selectedDuration.toString()} onValueChange={(value) => {
-                        setSelectedDuration(parseInt(value));
-                        setSelectedStartTime('');
-                        setSelectedEndTime('');
-                      }}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select duration" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {getDurationOptions().map(option => (
-                            <SelectItem key={option.value} value={option.value.toString()}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium mb-1">Select Time</label>
-                      <div className="text-xs text-muted-foreground mb-2">
-                        Click on a time slot to select your preferred time. Each slot is 15 minutes. Red areas are unavailable. Green shows your current selection.
-                      </div>
-                      <TimeSelector
-                        selectedDate={selectedDate}
-                        onTimeSelect={handleTimeSelect}
-                        onClearSelection={handleClearSelection}
-                        maxDurationMinutes={selectedDuration}
-                        amenityRules={rules}
-                        bookedSlots={getBookedSlots(amenity.id, format(selectedDate, 'yyyy-MM-dd'))}
-                        maintenanceSlots={getMaintenanceSlots(amenity.id, format(selectedDate, 'yyyy-MM-dd'))}
-                        selectedStartTime={selectedStartTime}
-                        selectedEndTime={selectedEndTime}
-                      />
-                    </div>
-                    
-                    {selectedStartTime && selectedEndTime && (
-                      <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                        <p className="text-sm font-medium text-green-800">
-                          Selected Time: {selectedStartTime} - {selectedEndTime}
-                        </p>
-                        <div className="flex gap-2 mt-2">
-                          <Button onClick={handleBookAmenity} className="flex-1">
-                            Book {amenity.name}
-                          </Button>
-                          <Button onClick={handleClearSelection} variant="outline">
-                            Clear
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-    );
+  const getFilterLabel = (type: string) => {
+    if (type === 'all') return 'All';
+    const config = amenityTypeConfig[type];
+    return config?.label || type.charAt(0).toUpperCase() + type.slice(1);
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Reserve an Amenity</h1>
-        <p className="text-muted-foreground">
-          Book amenities at your community
+    <div className="min-h-screen bg-background">
+      {/* Hero Header */}
+      <div className="px-4 pt-6 pb-4">
+        <h1 className="text-3xl font-bold text-primary leading-tight">
+          Love where<br />you live.
+        </h1>
+        <p className="text-muted-foreground mt-2">
+          Reserve your spot at the pool, gym, or clubhouse instantly.
         </p>
-      </div>
-      
-      <div className="grid grid-cols-1 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Select Date & Type</CardTitle>
-            <CardDescription>Choose when you want to use the amenity</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium mb-1">Select Date</label>
-                <Select 
-                  value={format(selectedDate, 'yyyy-MM-dd')}
-                  onValueChange={(value) => {
-                    const date = dateOptions.find(d => d.value === value)?.date;
-                    if (date) setSelectedDate(date);
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a date" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {dateOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
         
-        {Object.keys(groupedAmenities).length > 0 ? (
-          <Tabs defaultValue={Object.keys(groupedAmenities)[0]}>
-            <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${Object.keys(groupedAmenities).length}, 1fr)` }}>
-              {Object.entries(groupedAmenities).map(([type, _]) => {
-                const config = amenityTypeConfig[type as keyof typeof amenityTypeConfig];
-                return (
-                  <TabsTrigger key={type} value={type}>
-                    {config?.label || type}
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
+        {/* Check Availability Button */}
+        <Button className="w-full mt-6 h-12 rounded-full text-base font-semibold">
+          <Calendar className="h-5 w-5 mr-2" />
+          Check Availability
+        </Button>
+        
+        {/* Report Maintenance Issue Link */}
+        <button 
+          onClick={() => setShowReportDialog(true)}
+          className="flex items-center justify-center w-full mt-3 text-muted-foreground hover:text-primary transition-colors"
+        >
+          <Wrench className="h-4 w-4 mr-2" />
+          <span className="text-sm">Report Maintenance Issue</span>
+        </button>
+      </div>
+
+      {/* Filter Tabs */}
+      <div className="px-4 py-3">
+        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+          {amenityTypes.map((type) => (
+            <button
+              key={type}
+              onClick={() => setActiveFilter(type)}
+              className={cn(
+                "px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all",
+                activeFilter === type
+                  ? "bg-foreground text-background"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+              )}
+            >
+              {getFilterLabel(type)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Discover Amenities */}
+      <div className="px-4 pb-6">
+        <h2 className="text-lg font-semibold mb-4">Discover Amenities</h2>
+        
+        <div className="space-y-4">
+          {filteredAmenities.map((amenity) => {
+            const status = getAmenityStatus(amenity.id);
+            const nextAvailable = getNextAvailable(status);
+            const isSelected = selectedAmenity === amenity.id;
+            const config = amenityTypeConfig[amenity.amenityType];
+            const isFavorite = favorites.includes(amenity.id);
             
-            {Object.entries(groupedAmenities).map(([type, amenityList]) => (
-              <TabsContent key={type} value={type} className="mt-4">
-                {amenityList.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-muted-foreground">No {type} amenities available in your community</p>
-                  </div>
-                ) : (
-                  renderAmenityTab(type, amenityList)
+            return (
+              <Card 
+                key={amenity.id} 
+                className={cn(
+                  "overflow-hidden transition-all",
+                  isSelected && "ring-2 ring-primary"
                 )}
-              </TabsContent>
-            ))}
-          </Tabs>
-        ) : (
-          <div className="text-center py-8">
-            <p className="text-muted-foreground">No amenities available in your community</p>
+              >
+                {/* Amenity Image */}
+                <div className="relative aspect-[16/9] bg-muted">
+                  <img 
+                    src="/placeholder.svg" 
+                    alt={amenity.name}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute top-3 right-3">
+                    {getStatusBadge(status)}
+                  </div>
+                </div>
+                
+                <CardContent className="p-4">
+                  {/* Amenity Info */}
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <h3 className="font-semibold text-primary">{amenity.name}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {config?.description || `${amenity.amenityType} amenity`}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      {nextAvailable && (
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {nextAvailable}
+                        </span>
+                      )}
+                      <span className="flex items-center gap-1">
+                        <Users className="h-3 w-3" />
+                        12/50 Cap
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {/* Action Buttons */}
+                  <div className="flex gap-2 mt-4">
+                    {status === 'open' ? (
+                      <>
+                        <Button 
+                          className="flex-1 rounded-full"
+                          onClick={() => {
+                            setSelectedAmenity(amenity.id);
+                            const availableTypes = getPlayTypeOptions(amenity.amenityType);
+                            if (availableTypes.length > 0) {
+                              setPlayType(availableTypes[0] as typeof playType);
+                            }
+                          }}
+                        >
+                          Book Now
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="icon" 
+                          className="rounded-full"
+                          onClick={() => toggleFavorite(amenity.id)}
+                        >
+                          <Heart className={cn(
+                            "h-4 w-4",
+                            isFavorite && "fill-red-500 text-red-500"
+                          )} />
+                        </Button>
+                      </>
+                    ) : status === 'low' ? (
+                      <Button variant="outline" className="flex-1 rounded-full">
+                        View Schedule
+                      </Button>
+                    ) : (
+                      <Button variant="outline" className="flex-1 rounded-full">
+                        Join Waitlist
+                      </Button>
+                    )}
+                  </div>
+                  
+                  {/* Booking Form (when selected) */}
+                  {isSelected && !rulesLoading && (
+                    <div className="mt-6 pt-6 border-t space-y-4">
+                      {/* Date Selection */}
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Select Date</Label>
+                        <Select 
+                          value={format(selectedDate, 'yyyy-MM-dd')}
+                          onValueChange={(value) => {
+                            const date = dateOptions.find(d => d.value === value)?.date;
+                            if (date) setSelectedDate(date);
+                          }}
+                        >
+                          <SelectTrigger className="rounded-xl">
+                            <SelectValue placeholder="Select a date" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {dateOptions.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Play Type Selection */}
+                      {getPlayTypeOptions(amenity.amenityType).length > 1 && (
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Type of Use</Label>
+                          <RadioGroup 
+                            value={playType} 
+                            onValueChange={(value) => {
+                              setPlayType(value as typeof playType);
+                              setSelectedStartTime('');
+                              setSelectedEndTime('');
+                            }}
+                            className="flex gap-4"
+                          >
+                            {getPlayTypeOptions(amenity.amenityType).map(option => (
+                              <div key={option} className="flex items-center space-x-2">
+                                <RadioGroupItem value={option} id={`${amenity.id}-${option}`} />
+                                <Label htmlFor={`${amenity.id}-${option}`} className="capitalize">
+                                  {option}
+                                </Label>
+                              </div>
+                            ))}
+                          </RadioGroup>
+                        </div>
+                      )}
+                      
+                      {/* Duration Selection */}
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Duration</Label>
+                        <Select 
+                          value={selectedDuration.toString()} 
+                          onValueChange={(value) => {
+                            setSelectedDuration(parseInt(value));
+                            setSelectedStartTime('');
+                            setSelectedEndTime('');
+                          }}
+                        >
+                          <SelectTrigger className="rounded-xl">
+                            <SelectValue placeholder="Select duration" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {getDurationOptions().map(option => (
+                              <SelectItem key={option.value} value={option.value.toString()}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      {/* Time Selector */}
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Select Time</Label>
+                        <p className="text-xs text-muted-foreground">
+                          Tap a time slot to select. Red = unavailable, Green = your selection.
+                        </p>
+                        <TimeSelector
+                          selectedDate={selectedDate}
+                          onTimeSelect={handleTimeSelect}
+                          onClearSelection={handleClearSelection}
+                          maxDurationMinutes={selectedDuration}
+                          amenityRules={rules}
+                          bookedSlots={getBookedSlots(amenity.id, format(selectedDate, 'yyyy-MM-dd'))}
+                          maintenanceSlots={getMaintenanceSlots(amenity.id, format(selectedDate, 'yyyy-MM-dd'))}
+                          selectedStartTime={selectedStartTime}
+                          selectedEndTime={selectedEndTime}
+                        />
+                      </div>
+                      
+                      {/* Confirm Selection */}
+                      {selectedStartTime && selectedEndTime && (
+                        <div className="bg-primary/5 p-4 rounded-xl border border-primary/20">
+                          <p className="text-sm font-medium text-primary mb-3">
+                            Selected: {selectedStartTime} - {selectedEndTime}
+                          </p>
+                          <div className="flex gap-2">
+                            <Button onClick={handleBookAmenity} className="flex-1 rounded-xl">
+                              Confirm Booking
+                            </Button>
+                            <Button onClick={handleClearSelection} variant="outline" className="rounded-xl">
+                              Clear
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+        
+        {filteredAmenities.length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">No amenities available in this category</p>
           </div>
         )}
       </div>
@@ -524,6 +500,12 @@ const ReserveCourt = () => {
         isOpen={showPoliciesDialog}
         onClose={() => setShowPoliciesDialog(false)}
         onAgree={handlePoliciesAgreed}
+      />
+      
+      <MultiStepReportDialog
+        open={showReportDialog}
+        onOpenChange={setShowReportDialog}
+        amenities={amenities.map(a => ({ id: a.id, name: a.name, amenityType: a.amenityType }))}
       />
     </div>
   );
