@@ -69,15 +69,24 @@ const TimeSelector: React.FC<TimeSelectorProps> = ({
     return false;
   }, [bookedSlots, maintenanceSlots]);
 
+  // Calculate the latest start time based on max duration
+  const maxDurationHoursCalc = maxDurationMinutes / 60;
+  const latestStartHour = endHour - maxDurationHoursCalc;
+
   // Generate time slots with 30-minute increments
   const generateTimeSlots = () => {
     const slots: { time: string; displayTime: string }[] = [];
     
     for (let hour = startHour; hour < endHour; hour++) {
       for (let minute = 0; minute < 60; minute += 30) {
+        const slotTime = hour + minute / 60;
+        // Skip slots where starting would exceed booking end time with selected duration
+        if (slotTime > latestStartHour) continue;
+        
         const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
         const displayHour = hour % 12 === 0 ? 12 : hour % 12;
-        const displayTime = `${displayHour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+        const amPm = hour < 12 ? 'AM' : 'PM';
+        const displayTime = `${displayHour}:${minute.toString().padStart(2, '0')} ${amPm}`;
         slots.push({ time: timeStr, displayTime });
       }
     }
