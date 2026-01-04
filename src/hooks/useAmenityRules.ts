@@ -40,6 +40,8 @@ interface AmenityRules {
   requires_power_outlet?: boolean;
   no_lifeguard_acknowledgment?: boolean;
   custom_rules?: string;
+  updated_at?: string;
+  created_at?: string;
 }
 
 export const useAmenityRules = (amenityId: string) => {

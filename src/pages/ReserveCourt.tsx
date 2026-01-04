@@ -9,9 +9,10 @@ import { toast } from 'sonner';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, Wrench, Users, Heart, Clock, ChevronRight, FileText } from 'lucide-react';
+import { Calendar, Wrench, Heart, Clock, ChevronRight, FileText, BookOpen } from 'lucide-react';
 import TimeSelector from '../components/TimeSelector';
 import CourtPoliciesDialog from '../components/CourtPoliciesDialog';
+import AmenityRulesDialog from '../components/AmenityRulesDialog';
 import { MultiStepReportDialog } from '../components/maintenance/MultiStepReportDialog';
 import { useAmenityRules } from '../hooks/useAmenityRules';
 import { AmenityStatus } from '../types';
@@ -25,6 +26,12 @@ interface MaintenanceReport {
   created_at: string;
   description: string;
 }
+
+interface PolicyAgreement {
+  amenity_id: string;
+  rules_version: string;
+}
+
 const ReserveCourt = () => {
   const { currentUser } = useAuth();
   const { 
@@ -41,12 +48,33 @@ const ReserveCourt = () => {
   const [selectedEndTime, setSelectedEndTime] = useState<string>('');
   const [showPoliciesDialog, setShowPoliciesDialog] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
+  const [showRulesDialog, setShowRulesDialog] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [favorites, setFavorites] = useState<string[]>([]);
   const [myReports, setMyReports] = useState<MaintenanceReport[]>([]);
   const [reportsExpanded, setReportsExpanded] = useState(false);
+  const [policyAgreements, setPolicyAgreements] = useState<PolicyAgreement[]>([]);
+  const [pendingBooking, setPendingBooking] = useState(false);
   
   const { rules, loading: rulesLoading } = useAmenityRules(selectedAmenity);
+
+  // Fetch user's policy agreements
+  useEffect(() => {
+    const fetchPolicyAgreements = async () => {
+      if (!currentUser) return;
+      
+      const { data, error } = await supabase
+        .from('amenity_policy_agreements')
+        .select('amenity_id, rules_version')
+        .eq('user_id', currentUser.id);
+      
+      if (!error && data) {
+        setPolicyAgreements(data);
+      }
+    };
+    
+    fetchPolicyAgreements();
+  }, [currentUser]);
 
   // Fetch user's maintenance reports
   useEffect(() => {
@@ -148,6 +176,25 @@ const ReserveCourt = () => {
     setSelectedEndTime('');
   };
   
+  // Check if user needs to agree to policies for this amenity
+  const needsPolicyAgreement = (amenityId: string): boolean => {
+    if (!currentUser) return true;
+    
+    // Check if user has agreed to this amenity's policies
+    const agreement = policyAgreements.find(a => a.amenity_id === amenityId);
+    if (!agreement) return true;
+    
+    // Check if rules have been updated since agreement
+    // We use the amenity_rules updated_at timestamp as the version
+    if (rules?.updated_at) {
+      const rulesVersion = new Date(rules.updated_at).getTime();
+      const agreementVersion = new Date(agreement.rules_version).getTime();
+      return rulesVersion > agreementVersion;
+    }
+    
+    return false;
+  };
+  
   const handleBookAmenity = () => {
     if (!currentUser || !selectedAmenity || !selectedStartTime || !selectedEndTime) {
       toast.error("Please select an amenity and time slot");
@@ -161,10 +208,17 @@ const ReserveCourt = () => {
       return;
     }
     
-    setShowPoliciesDialog(true);
+    // Check if policy agreement is needed
+    if (needsPolicyAgreement(selectedAmenity)) {
+      setShowPoliciesDialog(true);
+    } else {
+      // Skip policy dialog and book directly
+      setPendingBooking(true);
+      completeBooking();
+    }
   };
   
-  const handlePoliciesAgreed = async () => {
+  const completeBooking = async () => {
     if (!currentUser || !selectedAmenity) return;
     
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
@@ -190,8 +244,40 @@ const ReserveCourt = () => {
       
       setSelectedStartTime('');
       setSelectedEndTime('');
-      setShowPoliciesDialog(false);
       setSelectedAmenity('');
+      setPendingBooking(false);
+    }
+  };
+  
+  const handlePoliciesAgreed = async () => {
+    if (!currentUser || !selectedAmenity) return;
+    
+    try {
+      // Save policy agreement with current rules version
+      const rulesVersion = rules?.updated_at || new Date().toISOString();
+      
+      await supabase
+        .from('amenity_policy_agreements')
+        .upsert({
+          user_id: currentUser.id,
+          amenity_id: selectedAmenity,
+          rules_version: rulesVersion,
+          agreed_at: new Date().toISOString()
+        }, { onConflict: 'user_id,amenity_id' });
+      
+      // Update local state
+      setPolicyAgreements(prev => {
+        const filtered = prev.filter(a => a.amenity_id !== selectedAmenity);
+        return [...filtered, { amenity_id: selectedAmenity, rules_version: rulesVersion }];
+      });
+      
+      setShowPoliciesDialog(false);
+      
+      // Complete the booking
+      await completeBooking();
+    } catch (error) {
+      console.error('Error saving policy agreement:', error);
+      toast.error('Failed to save agreement. Please try again.');
     }
   };
 
@@ -588,10 +674,30 @@ const ReserveCourt = () => {
         )}
       </div>
       
+      {/* Rules Button at Bottom */}
+      <div className="px-4 pb-8">
+        <Button
+          variant="outline"
+          className="w-full h-11 rounded-xl"
+          onClick={() => setShowRulesDialog(true)}
+        >
+          <BookOpen className="h-4 w-4 mr-2" />
+          View Amenity Rules & Guidelines
+        </Button>
+      </div>
+      
       <CourtPoliciesDialog
         isOpen={showPoliciesDialog}
         onClose={() => setShowPoliciesDialog(false)}
         onAgree={handlePoliciesAgreed}
+        amenityName={amenities.find(a => a.id === selectedAmenity)?.name}
+        amenityType={amenities.find(a => a.id === selectedAmenity)?.amenityType}
+      />
+      
+      <AmenityRulesDialog
+        isOpen={showRulesDialog}
+        onClose={() => setShowRulesDialog(false)}
+        amenities={amenities.map(a => ({ id: a.id, name: a.name, amenityType: a.amenityType }))}
       />
       
       <MultiStepReportDialog

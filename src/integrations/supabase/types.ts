@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      amenity_policy_agreements: {
+        Row: {
+          agreed_at: string
+          amenity_id: string
+          created_at: string
+          id: string
+          rules_version: string
+          user_id: string
+        }
+        Insert: {
+          agreed_at?: string
+          amenity_id: string
+          created_at?: string
+          id?: string
+          rules_version: string
+          user_id: string
+        }
+        Update: {
+          agreed_at?: string
+          amenity_id?: string
+          created_at?: string
+          id?: string
+          rules_version?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "amenity_policy_agreements_amenity_id_fkey"
+            columns: ["amenity_id"]
+            isOneToOne: false
+            referencedRelation: "courts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       amenity_rules: {
         Row: {
           advance_booking_days: number | null
