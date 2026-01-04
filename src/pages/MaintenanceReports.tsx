@@ -4,7 +4,6 @@ import { Navigate, useSearchParams } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -12,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Calendar, User, MapPin, Clock, Eye, Edit3, CheckCircle, AlertCircle, XCircle, Filter } from 'lucide-react';
+import { AssigneeSearch } from '@/components/maintenance/AssigneeSearch';
 import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 
 interface MaintenanceReport {
@@ -404,11 +404,10 @@ const ReportDetailForm: React.FC<{
           
           <div>
             <Label htmlFor="assignee">Assign To</Label>
-            <Input
-              id="assignee"
+            <AssigneeSearch
               value={assignee}
-              onChange={(e) => setAssignee(e.target.value)}
-              placeholder="Enter name or leave blank"
+              onChange={setAssignee}
+              placeholder="Type a name to search..."
             />
           </div>
         </div>

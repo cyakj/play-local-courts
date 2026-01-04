@@ -129,15 +129,13 @@ const ReserveCourt = () => {
   };
 
   const getBookedSlots = (amenityId: string, date: string) => {
-    return [
-      { start: '08:00', end: '09:00' },
-      { start: '14:00', end: '15:30' },
-      { start: '18:00', end: '19:00' }
-    ];
+    // Return empty array - real bookings come from Supabase through DataContext
+    return [];
   };
   
   const getMaintenanceSlots = (amenityId: string, date: string) => {
-    return [{ start: '12:00', end: '13:00' }];
+    // Return empty array - real maintenance comes from Supabase through DataContext
+    return [];
   };
   
   const handleTimeSelect = (startTime: string, endTime: string) => {
@@ -464,116 +462,148 @@ const ReserveCourt = () => {
                   </CardContent>
                 </div>
                   
-                {/* Booking Form (when selected) */}
+                {/* Booking Form (when selected) - Redesigned to match screenshot */}
                 {isSelected && !rulesLoading && (
-                  <div className="px-4 pb-4 pt-0 border-t space-y-4">
-                    {/* Date Selection */}
-                    <div className="space-y-2 pt-4">
-                      <Label className="text-sm font-medium">Select Date</Label>
-                      <Select 
-                        value={format(selectedDate, 'yyyy-MM-dd')}
-                        onValueChange={(value) => {
-                          const date = dateOptions.find(d => d.value === value)?.date;
-                          if (date) setSelectedDate(date);
-                        }}
+                  <div className="border-t bg-background">
+                    {/* Header with image and amenity info */}
+                    <div className="flex border-b">
+                      <div className="w-24 h-20 flex-shrink-0 bg-muted">
+                        <img 
+                          src="/placeholder.svg" 
+                          alt={amenity.name}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute top-1 left-1">
+                          {getStatusBadge(status)}
+                        </div>
+                      </div>
+                      <div className="p-3 flex-1">
+                        <h3 className="font-semibold text-sm">{amenity.name}</h3>
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Users className="h-3 w-3" />
+                          12/50 Capacity
+                        </p>
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 m-2"
+                        onClick={() => toggleFavorite(amenity.id)}
                       >
-                        <SelectTrigger className="rounded-xl">
-                          <SelectValue placeholder="Select a date" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {dateOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        <Heart className={cn(
+                          "h-4 w-4",
+                          isFavorite && "fill-red-500 text-red-500"
+                        )} />
+                      </Button>
                     </div>
+                    
+                    <div className="p-4 space-y-4">
+                      {/* Date and Type Row */}
+                      <div className="grid grid-cols-2 gap-4">
+                        {/* Date Selection */}
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium text-muted-foreground">Select Date</Label>
+                          <Select 
+                            value={format(selectedDate, 'yyyy-MM-dd')}
+                            onValueChange={(value) => {
+                              const date = dateOptions.find(d => d.value === value)?.date;
+                              if (date) setSelectedDate(date);
+                            }}
+                          >
+                            <SelectTrigger className="h-9 text-sm">
+                              <SelectValue placeholder="Select a date" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {dateOptions.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
 
-                    {/* Play Type Selection */}
-                    {getPlayTypeOptions(amenity.amenityType).length > 1 && (
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium">Type of Use</Label>
-                        <RadioGroup 
-                          value={playType} 
+                        {/* Play Type Selection - Radio buttons style */}
+                        {getPlayTypeOptions(amenity.amenityType).length > 1 && (
+                          <div className="space-y-1.5">
+                            <Label className="text-xs font-medium text-muted-foreground">Type of Use</Label>
+                            <RadioGroup 
+                              value={playType} 
+                              onValueChange={(value) => {
+                                setPlayType(value as typeof playType);
+                                setSelectedStartTime('');
+                                setSelectedEndTime('');
+                              }}
+                              className="flex gap-3 pt-1"
+                            >
+                              {getPlayTypeOptions(amenity.amenityType).map(option => (
+                                <div key={option} className="flex items-center space-x-1.5">
+                                  <RadioGroupItem value={option} id={`${amenity.id}-${option}`} className="h-4 w-4" />
+                                  <Label htmlFor={`${amenity.id}-${option}`} className="capitalize text-sm cursor-pointer">
+                                    {option}
+                                  </Label>
+                                </div>
+                              ))}
+                            </RadioGroup>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Duration Selection */}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-medium text-muted-foreground">Duration</Label>
+                        <Select 
+                          value={selectedDuration.toString()} 
                           onValueChange={(value) => {
-                            setPlayType(value as typeof playType);
+                            setSelectedDuration(parseInt(value));
                             setSelectedStartTime('');
                             setSelectedEndTime('');
                           }}
-                          className="flex gap-4"
                         >
-                          {getPlayTypeOptions(amenity.amenityType).map(option => (
-                            <div key={option} className="flex items-center space-x-2">
-                              <RadioGroupItem value={option} id={`${amenity.id}-${option}`} />
-                              <Label htmlFor={`${amenity.id}-${option}`} className="capitalize">
-                                {option}
-                              </Label>
-                            </div>
-                          ))}
-                        </RadioGroup>
+                          <SelectTrigger className="h-9 text-sm">
+                            <SelectValue placeholder="Select duration" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {getDurationOptions().map(option => (
+                              <SelectItem key={option.value} value={option.value.toString()}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
-                    )}
-                    
-                    {/* Duration Selection */}
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium">Duration</Label>
-                      <Select 
-                        value={selectedDuration.toString()} 
-                        onValueChange={(value) => {
-                          setSelectedDuration(parseInt(value));
-                          setSelectedStartTime('');
-                          setSelectedEndTime('');
-                        }}
-                      >
-                        <SelectTrigger className="rounded-xl">
-                          <SelectValue placeholder="Select duration" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {getDurationOptions().map(option => (
-                            <SelectItem key={option.value} value={option.value.toString()}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    {/* Time Selector */}
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium">Select Time</Label>
-                      <p className="text-xs text-muted-foreground">
-                        Tap a time slot to select. Red = unavailable, Green = your selection.
-                      </p>
-                      <TimeSelector
-                        selectedDate={selectedDate}
-                        onTimeSelect={handleTimeSelect}
-                        onClearSelection={handleClearSelection}
-                        maxDurationMinutes={selectedDuration}
-                        amenityRules={rules}
-                        bookedSlots={getBookedSlots(amenity.id, format(selectedDate, 'yyyy-MM-dd'))}
-                        maintenanceSlots={getMaintenanceSlots(amenity.id, format(selectedDate, 'yyyy-MM-dd'))}
-                        selectedStartTime={selectedStartTime}
-                        selectedEndTime={selectedEndTime}
-                      />
-                    </div>
-                    
-                    {/* Confirm Selection */}
-                    {selectedStartTime && selectedEndTime && (
-                      <div className="bg-primary/5 p-4 rounded-xl border border-primary/20">
-                        <p className="text-sm font-medium text-primary mb-3">
-                          Selected: {selectedStartTime} - {selectedEndTime}
-                        </p>
-                        <div className="flex gap-2">
-                          <Button onClick={handleBookAmenity} className="flex-1 rounded-xl">
-                            Confirm Booking
-                          </Button>
-                          <Button onClick={handleClearSelection} variant="outline" className="rounded-xl">
-                            Clear
-                          </Button>
+                      
+                      {/* Time Selector */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs font-medium text-muted-foreground">Select Time</Label>
+                          <span className="text-[10px] text-muted-foreground">Your timezone: EST</span>
                         </div>
+                        <p className="text-[10px] text-muted-foreground">
+                          Available slots are shown in white. Selected slot is green.
+                        </p>
+                        <TimeSelector
+                          selectedDate={selectedDate}
+                          onTimeSelect={handleTimeSelect}
+                          onClearSelection={handleClearSelection}
+                          maxDurationMinutes={selectedDuration}
+                          amenityRules={rules}
+                          bookedSlots={getBookedSlots(amenity.id, format(selectedDate, 'yyyy-MM-dd'))}
+                          maintenanceSlots={getMaintenanceSlots(amenity.id, format(selectedDate, 'yyyy-MM-dd'))}
+                          selectedStartTime={selectedStartTime}
+                          selectedEndTime={selectedEndTime}
+                        />
                       </div>
-                    )}
+                      
+                      {/* Confirm Button - Full width gradient at bottom */}
+                      <Button 
+                        onClick={handleBookAmenity} 
+                        disabled={!selectedStartTime || !selectedEndTime}
+                        className="w-full h-11 rounded-xl mt-2"
+                      >
+                        {selectedStartTime ? `Confirm Booking for ${selectedStartTime}` : 'Select a time slot'} →
+                      </Button>
+                    </div>
                   </div>
                 )}
               </Card>
