@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,14 +9,22 @@ import { toast } from 'sonner';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, Wrench, Users, Heart, Clock } from 'lucide-react';
+import { Calendar, Wrench, Users, Heart, Clock, ChevronRight, FileText } from 'lucide-react';
 import TimeSelector from '../components/TimeSelector';
 import CourtPoliciesDialog from '../components/CourtPoliciesDialog';
 import { MultiStepReportDialog } from '../components/maintenance/MultiStepReportDialog';
 import { useAmenityRules } from '../hooks/useAmenityRules';
 import { AmenityStatus } from '../types';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 
+interface MaintenanceReport {
+  id: string;
+  category: string;
+  status: string;
+  created_at: string;
+  description: string;
+}
 const ReserveCourt = () => {
   const { currentUser } = useAuth();
   const { 
@@ -35,8 +43,30 @@ const ReserveCourt = () => {
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [myReports, setMyReports] = useState<MaintenanceReport[]>([]);
+  const [reportsExpanded, setReportsExpanded] = useState(false);
   
   const { rules, loading: rulesLoading } = useAmenityRules(selectedAmenity);
+
+  // Fetch user's maintenance reports
+  useEffect(() => {
+    const fetchMyReports = async () => {
+      if (!currentUser) return;
+      
+      const { data, error } = await supabase
+        .from('maintenance_reports')
+        .select('id, category, status, created_at, description')
+        .eq('reporter_id', currentUser.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+      
+      if (!error && data) {
+        setMyReports(data);
+      }
+    };
+    
+    fetchMyReports();
+  }, [currentUser, showReportDialog]);
   
   const today = new Date();
   const tomorrow = addDays(today, 1);
@@ -256,6 +286,69 @@ const ReserveCourt = () => {
           <span className="text-sm">Report Maintenance Issue</span>
         </button>
       </div>
+
+      {/* My Reports Bubble */}
+      {myReports.length > 0 && (
+        <div className="px-4 pb-3">
+          <button
+            onClick={() => setReportsExpanded(!reportsExpanded)}
+            className="w-full bg-muted/50 border border-border rounded-xl p-3 text-left"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">My Reports</span>
+                <Badge variant="secondary" className="text-xs">{myReports.length}</Badge>
+              </div>
+              <ChevronRight className={cn(
+                "h-4 w-4 text-muted-foreground transition-transform",
+                reportsExpanded && "rotate-90"
+              )} />
+            </div>
+            
+            {reportsExpanded && (
+              <div className="mt-3 space-y-2">
+                {myReports.map((report) => {
+                  const statusColors: Record<string, string> = {
+                    'open': 'bg-blue-100 text-blue-700',
+                    'in_review': 'bg-yellow-100 text-yellow-700',
+                    'in_progress': 'bg-orange-100 text-orange-700',
+                    'resolved': 'bg-green-100 text-green-700',
+                  };
+                  
+                  const categoryLabels: Record<string, string> = {
+                    'amenities_equipment': 'Amenities',
+                    'lighting_electrical': 'Electrical',
+                    'water_plumbing': 'Plumbing',
+                    'grounds_landscaping': 'Landscaping',
+                    'buildings_structures': 'Structures',
+                    'safety_other': 'Safety',
+                  };
+                  
+                  return (
+                    <div key={report.id} className="flex items-center justify-between bg-background rounded-lg p-2 border border-border/50">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium truncate">
+                          {categoryLabels[report.category] || report.category}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {format(new Date(report.created_at), 'MMM d, yyyy')}
+                        </p>
+                      </div>
+                      <Badge className={cn(
+                        "text-[10px] capitalize border-0",
+                        statusColors[report.status] || 'bg-muted text-muted-foreground'
+                      )}>
+                        {report.status.replace('_', ' ')}
+                      </Badge>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </button>
+        </div>
+      )}
 
       {/* Filter Tabs */}
       <div className="px-4 py-3">
