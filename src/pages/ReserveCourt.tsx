@@ -414,10 +414,6 @@ const ReserveCourt = () => {
                               {nextAvailable}
                             </span>
                           )}
-                          <span className="flex items-center gap-0.5">
-                            <Users className="h-3 w-3" />
-                            12/50
-                          </span>
                         </div>
                       </div>
                       <Button 
@@ -465,37 +461,6 @@ const ReserveCourt = () => {
                 {/* Booking Form (when selected) - Redesigned to match screenshot */}
                 {isSelected && !rulesLoading && (
                   <div className="border-t bg-background">
-                    {/* Header with image and amenity info */}
-                    <div className="flex border-b">
-                      <div className="w-24 h-20 flex-shrink-0 bg-muted">
-                        <img 
-                          src="/placeholder.svg" 
-                          alt={amenity.name}
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute top-1 left-1">
-                          {getStatusBadge(status)}
-                        </div>
-                      </div>
-                      <div className="p-3 flex-1">
-                        <h3 className="font-semibold text-sm">{amenity.name}</h3>
-                        <p className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Users className="h-3 w-3" />
-                          12/50 Capacity
-                        </p>
-                      </div>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-8 w-8 m-2"
-                        onClick={() => toggleFavorite(amenity.id)}
-                      >
-                        <Heart className={cn(
-                          "h-4 w-4",
-                          isFavorite && "fill-red-500 text-red-500"
-                        )} />
-                      </Button>
-                    </div>
                     
                     <div className="p-4 space-y-4">
                       {/* Date and Type Row */}
@@ -601,7 +566,12 @@ const ReserveCourt = () => {
                         disabled={!selectedStartTime || !selectedEndTime}
                         className="w-full h-11 rounded-xl mt-2"
                       >
-                        {selectedStartTime ? `Confirm Booking for ${selectedStartTime}` : 'Select a time slot'} →
+                        {selectedStartTime ? (() => {
+                          const [h, m] = selectedStartTime.split(':').map(Number);
+                          const displayHour = h % 12 === 0 ? 12 : h % 12;
+                          const amPm = h < 12 ? 'AM' : 'PM';
+                          return `Confirm Booking for ${displayHour}:${m.toString().padStart(2, '0')} ${amPm}`;
+                        })() : 'Select a time slot'} →
                       </Button>
                     </div>
                   </div>
