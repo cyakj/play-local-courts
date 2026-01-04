@@ -368,6 +368,32 @@ export const MultiStepReportDialog: React.FC<MultiStepReportDialogProps> = ({
                   />
                 </div>
               )}
+
+              {/* Status Preview */}
+              <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 mt-4">
+                <p className="text-sm font-medium text-primary mb-3">What happens next?</p>
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex flex-col items-center">
+                    <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-[10px] font-bold">1</div>
+                    <span className="mt-1 text-muted-foreground">Submitted</span>
+                  </div>
+                  <div className="flex-1 h-0.5 bg-border mx-1" />
+                  <div className="flex flex-col items-center">
+                    <div className="w-6 h-6 rounded-full bg-muted text-muted-foreground flex items-center justify-center text-[10px] font-bold">2</div>
+                    <span className="mt-1 text-muted-foreground">In Review</span>
+                  </div>
+                  <div className="flex-1 h-0.5 bg-border mx-1" />
+                  <div className="flex flex-col items-center">
+                    <div className="w-6 h-6 rounded-full bg-muted text-muted-foreground flex items-center justify-center text-[10px] font-bold">3</div>
+                    <span className="mt-1 text-muted-foreground">In Progress</span>
+                  </div>
+                  <div className="flex-1 h-0.5 bg-border mx-1" />
+                  <div className="flex flex-col items-center">
+                    <div className="w-6 h-6 rounded-full bg-muted text-muted-foreground flex items-center justify-center text-[10px] font-bold">4</div>
+                    <span className="mt-1 text-muted-foreground">Resolved</span>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
