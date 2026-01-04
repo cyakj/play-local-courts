@@ -297,47 +297,57 @@ const ReserveCourt = () => {
                   isSelected && "ring-2 ring-primary"
                 )}
               >
-                {/* Amenity Image */}
-                <div className="relative aspect-[16/9] bg-muted">
-                  <img 
-                    src="/placeholder.svg" 
-                    alt={amenity.name}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute top-3 right-3">
-                    {getStatusBadge(status)}
-                  </div>
-                </div>
-                
-                <CardContent className="p-4">
-                  {/* Amenity Info */}
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <h3 className="font-semibold text-primary">{amenity.name}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {config?.description || `${amenity.amenityType} amenity`}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      {nextAvailable && (
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {nextAvailable}
-                        </span>
-                      )}
-                      <span className="flex items-center gap-1">
-                        <Users className="h-3 w-3" />
-                        12/50 Cap
-                      </span>
+                {/* Compact horizontal layout */}
+                <div className="flex">
+                  {/* Thumbnail */}
+                  <div className="relative w-24 h-24 flex-shrink-0 bg-muted">
+                    <img 
+                      src="/placeholder.svg" 
+                      alt={amenity.name}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute top-1 left-1">
+                      {getStatusBadge(status)}
                     </div>
                   </div>
                   
-                  {/* Action Buttons */}
-                  <div className="flex gap-2 mt-4">
-                    {status === 'open' ? (
-                      <>
+                  <CardContent className="flex-1 p-3 flex flex-col justify-between">
+                    {/* Info row */}
+                    <div className="flex items-start justify-between">
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-semibold text-primary text-sm truncate">{amenity.name}</h3>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                          {nextAvailable && (
+                            <span className="flex items-center gap-0.5">
+                              <Clock className="h-3 w-3" />
+                              {nextAvailable}
+                            </span>
+                          )}
+                          <span className="flex items-center gap-0.5">
+                            <Users className="h-3 w-3" />
+                            12/50
+                          </span>
+                        </div>
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-7 w-7 -mr-1 -mt-1"
+                        onClick={() => toggleFavorite(amenity.id)}
+                      >
+                        <Heart className={cn(
+                          "h-4 w-4",
+                          isFavorite && "fill-red-500 text-red-500"
+                        )} />
+                      </Button>
+                    </div>
+                    
+                    {/* Action Button */}
+                    <div className="mt-2">
+                      {status === 'open' ? (
                         <Button 
-                          className="flex-1 rounded-full"
+                          size="sm"
+                          className="w-full h-7 text-xs rounded-full"
                           onClick={() => {
                             setSelectedAmenity(amenity.id);
                             const availableTypes = getPlayTypeOptions(amenity.amenityType);
@@ -348,142 +358,131 @@ const ReserveCourt = () => {
                         >
                           Book Now
                         </Button>
-                        <Button 
-                          variant="outline" 
-                          size="icon" 
-                          className="rounded-full"
-                          onClick={() => toggleFavorite(amenity.id)}
-                        >
-                          <Heart className={cn(
-                            "h-4 w-4",
-                            isFavorite && "fill-red-500 text-red-500"
-                          )} />
+                      ) : status === 'low' ? (
+                        <Button variant="outline" size="sm" className="w-full h-7 text-xs rounded-full">
+                          View Schedule
                         </Button>
-                      </>
-                    ) : status === 'low' ? (
-                      <Button variant="outline" className="flex-1 rounded-full">
-                        View Schedule
-                      </Button>
-                    ) : (
-                      <Button variant="outline" className="flex-1 rounded-full">
-                        Join Waitlist
-                      </Button>
-                    )}
-                  </div>
-                  
-                  {/* Booking Form (when selected) */}
-                  {isSelected && !rulesLoading && (
-                    <div className="mt-6 pt-6 border-t space-y-4">
-                      {/* Date Selection */}
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium">Select Date</Label>
-                        <Select 
-                          value={format(selectedDate, 'yyyy-MM-dd')}
-                          onValueChange={(value) => {
-                            const date = dateOptions.find(d => d.value === value)?.date;
-                            if (date) setSelectedDate(date);
-                          }}
-                        >
-                          <SelectTrigger className="rounded-xl">
-                            <SelectValue placeholder="Select a date" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {dateOptions.map((option) => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {/* Play Type Selection */}
-                      {getPlayTypeOptions(amenity.amenityType).length > 1 && (
-                        <div className="space-y-2">
-                          <Label className="text-sm font-medium">Type of Use</Label>
-                          <RadioGroup 
-                            value={playType} 
-                            onValueChange={(value) => {
-                              setPlayType(value as typeof playType);
-                              setSelectedStartTime('');
-                              setSelectedEndTime('');
-                            }}
-                            className="flex gap-4"
-                          >
-                            {getPlayTypeOptions(amenity.amenityType).map(option => (
-                              <div key={option} className="flex items-center space-x-2">
-                                <RadioGroupItem value={option} id={`${amenity.id}-${option}`} />
-                                <Label htmlFor={`${amenity.id}-${option}`} className="capitalize">
-                                  {option}
-                                </Label>
-                              </div>
-                            ))}
-                          </RadioGroup>
-                        </div>
+                      ) : (
+                        <Button variant="outline" size="sm" className="w-full h-7 text-xs rounded-full">
+                          Join Waitlist
+                        </Button>
                       )}
-                      
-                      {/* Duration Selection */}
+                    </div>
+                  </CardContent>
+                </div>
+                  
+                {/* Booking Form (when selected) */}
+                {isSelected && !rulesLoading && (
+                  <div className="px-4 pb-4 pt-0 border-t space-y-4">
+                    {/* Date Selection */}
+                    <div className="space-y-2 pt-4">
+                      <Label className="text-sm font-medium">Select Date</Label>
+                      <Select 
+                        value={format(selectedDate, 'yyyy-MM-dd')}
+                        onValueChange={(value) => {
+                          const date = dateOptions.find(d => d.value === value)?.date;
+                          if (date) setSelectedDate(date);
+                        }}
+                      >
+                        <SelectTrigger className="rounded-xl">
+                          <SelectValue placeholder="Select a date" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {dateOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Play Type Selection */}
+                    {getPlayTypeOptions(amenity.amenityType).length > 1 && (
                       <div className="space-y-2">
-                        <Label className="text-sm font-medium">Duration</Label>
-                        <Select 
-                          value={selectedDuration.toString()} 
+                        <Label className="text-sm font-medium">Type of Use</Label>
+                        <RadioGroup 
+                          value={playType} 
                           onValueChange={(value) => {
-                            setSelectedDuration(parseInt(value));
+                            setPlayType(value as typeof playType);
                             setSelectedStartTime('');
                             setSelectedEndTime('');
                           }}
+                          className="flex gap-4"
                         >
-                          <SelectTrigger className="rounded-xl">
-                            <SelectValue placeholder="Select duration" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {getDurationOptions().map(option => (
-                              <SelectItem key={option.value} value={option.value.toString()}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          {getPlayTypeOptions(amenity.amenityType).map(option => (
+                            <div key={option} className="flex items-center space-x-2">
+                              <RadioGroupItem value={option} id={`${amenity.id}-${option}`} />
+                              <Label htmlFor={`${amenity.id}-${option}`} className="capitalize">
+                                {option}
+                              </Label>
+                            </div>
+                          ))}
+                        </RadioGroup>
                       </div>
-                      
-                      {/* Time Selector */}
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium">Select Time</Label>
-                        <p className="text-xs text-muted-foreground">
-                          Tap a time slot to select. Red = unavailable, Green = your selection.
-                        </p>
-                        <TimeSelector
-                          selectedDate={selectedDate}
-                          onTimeSelect={handleTimeSelect}
-                          onClearSelection={handleClearSelection}
-                          maxDurationMinutes={selectedDuration}
-                          amenityRules={rules}
-                          bookedSlots={getBookedSlots(amenity.id, format(selectedDate, 'yyyy-MM-dd'))}
-                          maintenanceSlots={getMaintenanceSlots(amenity.id, format(selectedDate, 'yyyy-MM-dd'))}
-                          selectedStartTime={selectedStartTime}
-                          selectedEndTime={selectedEndTime}
-                        />
-                      </div>
-                      
-                      {/* Confirm Selection */}
-                      {selectedStartTime && selectedEndTime && (
-                        <div className="bg-primary/5 p-4 rounded-xl border border-primary/20">
-                          <p className="text-sm font-medium text-primary mb-3">
-                            Selected: {selectedStartTime} - {selectedEndTime}
-                          </p>
-                          <div className="flex gap-2">
-                            <Button onClick={handleBookAmenity} className="flex-1 rounded-xl">
-                              Confirm Booking
-                            </Button>
-                            <Button onClick={handleClearSelection} variant="outline" className="rounded-xl">
-                              Clear
-                            </Button>
-                          </div>
-                        </div>
-                      )}
+                    )}
+                    
+                    {/* Duration Selection */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Duration</Label>
+                      <Select 
+                        value={selectedDuration.toString()} 
+                        onValueChange={(value) => {
+                          setSelectedDuration(parseInt(value));
+                          setSelectedStartTime('');
+                          setSelectedEndTime('');
+                        }}
+                      >
+                        <SelectTrigger className="rounded-xl">
+                          <SelectValue placeholder="Select duration" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {getDurationOptions().map(option => (
+                            <SelectItem key={option.value} value={option.value.toString()}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-                  )}
-                </CardContent>
+                    
+                    {/* Time Selector */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Select Time</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Tap a time slot to select. Red = unavailable, Green = your selection.
+                      </p>
+                      <TimeSelector
+                        selectedDate={selectedDate}
+                        onTimeSelect={handleTimeSelect}
+                        onClearSelection={handleClearSelection}
+                        maxDurationMinutes={selectedDuration}
+                        amenityRules={rules}
+                        bookedSlots={getBookedSlots(amenity.id, format(selectedDate, 'yyyy-MM-dd'))}
+                        maintenanceSlots={getMaintenanceSlots(amenity.id, format(selectedDate, 'yyyy-MM-dd'))}
+                        selectedStartTime={selectedStartTime}
+                        selectedEndTime={selectedEndTime}
+                      />
+                    </div>
+                    
+                    {/* Confirm Selection */}
+                    {selectedStartTime && selectedEndTime && (
+                      <div className="bg-primary/5 p-4 rounded-xl border border-primary/20">
+                        <p className="text-sm font-medium text-primary mb-3">
+                          Selected: {selectedStartTime} - {selectedEndTime}
+                        </p>
+                        <div className="flex gap-2">
+                          <Button onClick={handleBookAmenity} className="flex-1 rounded-xl">
+                            Confirm Booking
+                          </Button>
+                          <Button onClick={handleClearSelection} variant="outline" className="rounded-xl">
+                            Clear
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </Card>
             );
           })}

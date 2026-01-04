@@ -9,7 +9,7 @@ import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Wrench, Zap, Thermometer, Building2, Camera, Loader2, ChevronLeft } from 'lucide-react';
+import { Wrench, Zap, Droplets, TreePine, Building2, ShieldAlert, Camera, Loader2, ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface MultiStepReportDialogProps {
@@ -19,10 +19,12 @@ interface MultiStepReportDialogProps {
 }
 
 const issueTypes = [
-  { value: 'plumbing', label: 'Plumbing', icon: Wrench },
-  { value: 'electrical', label: 'Electrical', icon: Zap },
-  { value: 'hvac', label: 'HVAC', icon: Thermometer },
-  { value: 'structural', label: 'Structural', icon: Building2 },
+  { value: 'amenities_equipment', label: 'Amenities & Equipment', icon: Wrench },
+  { value: 'lighting_electrical', label: 'Lighting & Electrical', icon: Zap },
+  { value: 'water_plumbing', label: 'Water & Plumbing', icon: Droplets },
+  { value: 'grounds_landscaping', label: 'Grounds & Landscaping', icon: TreePine },
+  { value: 'buildings_structures', label: 'Buildings & Structures', icon: Building2 },
+  { value: 'safety_other', label: 'Safety / Other', icon: ShieldAlert },
 ];
 
 const severityLabels: Record<number, string> = {
@@ -197,7 +199,7 @@ export const MultiStepReportDialog: React.FC<MultiStepReportDialogProps> = ({
             <div className="space-y-6">
               <div className="space-y-3">
                 <Label className="text-sm font-semibold">What type of issue is this?</Label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-2">
                   {issueTypes.map((type) => {
                     const Icon = type.icon;
                     const isSelected = issueType === type.value;
@@ -207,18 +209,18 @@ export const MultiStepReportDialog: React.FC<MultiStepReportDialogProps> = ({
                         type="button"
                         onClick={() => setIssueType(type.value)}
                         className={cn(
-                          "flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all",
+                          "flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all",
                           isSelected 
                             ? "border-primary bg-primary/5" 
                             : "border-border hover:border-primary/50 hover:bg-muted/50"
                         )}
                       >
                         <Icon className={cn(
-                          "h-6 w-6 mb-2",
+                          "h-5 w-5 mb-1",
                           isSelected ? "text-primary" : "text-muted-foreground"
                         )} />
                         <span className={cn(
-                          "text-sm font-medium",
+                          "text-xs font-medium text-center leading-tight",
                           isSelected ? "text-primary" : "text-muted-foreground"
                         )}>
                           {type.label}
