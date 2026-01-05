@@ -319,7 +319,7 @@ const PlayerProfile = () => {
                     value={profile.dateOfBirth}
                     onChange={(e) => setProfile(prev => ({ ...prev, dateOfBirth: e.target.value }))}
                   />
-                  {getAge() && (
+                  {getAge() !== null && getAge()! > 0 && (
                     <span className="flex items-center text-sm text-muted-foreground">
                       <Calendar className="h-4 w-4 mr-1" />
                       Age {getAge()}
