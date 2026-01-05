@@ -9,9 +9,15 @@ interface ZipCoordinates {
 // Approximate center coordinates for US ZIP code prefix regions
 // This provides reasonable estimates for distance calculations without requiring a full ZIP database
 const ZIP_PREFIX_COORDINATES: Record<string, ZipCoordinates> = {
+  // Puerto Rico (00600-00999)
+  '006': { lat: 18.4153, lng: -66.1057 }, // Northern PR - Dorado, Vega Alta, Manatí
+  '007': { lat: 18.3850, lng: -65.9600 }, // East-Central PR - Carolina, Trujillo Alto
+  '008': { lat: 18.2341, lng: -66.0485 }, // Southern PR - Ponce area
+  '009': { lat: 18.4655, lng: -66.1057 }, // San Juan metro area
+  
   // Northeast
-  '0': { lat: 42.3601, lng: -71.0589 }, // Boston area
-  '1': { lat: 42.3601, lng: -72.5589 }, // Massachusetts/Connecticut
+  '01': { lat: 42.1015, lng: -72.5898 }, // Western Massachusetts
+  '02': { lat: 42.3601, lng: -71.0589 }, // Boston area
   
   // New York/New Jersey
   '10': { lat: 40.7128, lng: -74.0060 }, // NYC
