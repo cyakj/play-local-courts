@@ -402,28 +402,33 @@ const FindCoach: React.FC<FindCoachProps> = ({ onBack }) => {
                   </p>
                 )}
 
-                <div className="flex gap-2">
+                <div className="space-y-2">
                   <Button 
-                    className="flex-1" 
+                    className="w-full" 
                     onClick={() => handleRequestLesson(coach)}
                   >
                     Request Lesson
                   </Button>
-                  <Button 
-                    variant="outline"
-                    onClick={() => navigate(`/profile/${coach.user_id}`)}
-                    title="View Profile"
-                  >
-                    <User className="h-4 w-4 mr-1" />
-                    Profile
-                  </Button>
-                  <Button 
-                    variant="outline"
-                    onClick={() => navigate(`/messages?user=${coach.user_id}`)}
-                    title="Message"
-                  >
-                    <MessageCircle className="h-4 w-4" />
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => navigate(`/profile/${coach.user_id}`)}
+                      title="View Profile"
+                    >
+                      <User className="h-4 w-4 mr-1" />
+                      Profile
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => navigate(`/messages?user=${coach.user_id}`)}
+                      title="Message"
+                    >
+                      <MessageCircle className="h-4 w-4 mr-1" />
+                      Message
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
