@@ -6,9 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ExternalLink, Upload, Calendar, HelpCircle, MessageSquare, LogOut } from 'lucide-react';
+import { ExternalLink, Upload, Calendar, HelpCircle, MessageSquare, LogOut, MapPin } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -16,6 +17,7 @@ import { getAmenitiesByHOAId } from '../../services/supabaseService';
 import { Amenity } from '../../types';
 import MessagingDialog from './MessagingDialog';
 import { capitalizeWords } from '@/lib/textUtils';
+import { isValidZipCode } from '@/lib/zipCodeUtils';
 
 interface ProfileData {
   fullName: string;
@@ -27,6 +29,9 @@ interface ProfileData {
   utrRating: number | null;
   ntrpRating: number | null;
   wtnRating: number | null;
+  zipCode: string;
+  locationVisible: boolean;
+  showExactDistance: boolean;
 }
 
 const PlayerProfile = () => {
@@ -45,7 +50,10 @@ const PlayerProfile = () => {
     homeCourtId: '',
     utrRating: null,
     ntrpRating: null,
-    wtnRating: null
+    wtnRating: null,
+    zipCode: '',
+    locationVisible: true,
+    showExactDistance: true
   });
 
   useEffect(() => {
@@ -77,7 +85,10 @@ const PlayerProfile = () => {
           homeCourtId: data.home_court_id || '',
           utrRating: data.utr_rating,
           ntrpRating: null, // Will be handled separately as it's not stored
-          wtnRating: data.wtn_rating
+          wtnRating: data.wtn_rating,
+          zipCode: data.zip_code || '',
+          locationVisible: data.location_visible !== false,
+          showExactDistance: data.show_exact_distance !== false
         });
       }
     } catch (error) {
@@ -107,6 +118,16 @@ const PlayerProfile = () => {
   const handleSave = async () => {
     if (!currentUser) return;
 
+    // Validate ZIP code if provided
+    if (profile.zipCode && !isValidZipCode(profile.zipCode)) {
+      toast({
+        title: "Invalid ZIP Code",
+        description: "Please enter a valid 5-digit US ZIP code",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setLoading(true);
     
     // Auto-capitalize the name before saving
@@ -123,7 +144,10 @@ const PlayerProfile = () => {
           bio: profile.bio || null,
           home_court_id: profile.homeCourtId || null,
           utr_rating: profile.utrRating,
-          wtn_rating: profile.wtnRating
+          wtn_rating: profile.wtnRating,
+          zip_code: profile.zipCode || null,
+          location_visible: profile.locationVisible,
+          show_exact_distance: profile.showExactDistance
         })
         .eq('id', currentUser.id);
       
@@ -347,6 +371,83 @@ const PlayerProfile = () => {
                 placeholder="Tell us about yourself..."
                 rows={3}
               />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Location Settings Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <MapPin className="h-5 w-5" />
+              Location Settings
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <div className="flex items-center gap-1">
+                  <Label htmlFor="zipCode">ZIP Code</Label>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p>Your ZIP code is used for distance-based searches so players and coaches can find others nearby. Your exact ZIP code is never shown publicly.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <Input
+                  id="zipCode"
+                  value={profile.zipCode}
+                  onChange={(e) => setProfile(prev => ({ ...prev, zipCode: e.target.value.replace(/\D/g, '').slice(0, 5) }))}
+                  placeholder="e.g. 90210"
+                  maxLength={5}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  5-digit US ZIP code for location-based discovery
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-4 pt-2 border-t">
+              <h4 className="text-sm font-medium">Privacy Controls</h4>
+              
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="locationVisible" className="text-base">
+                    Appear in Location-Based Searches
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    When enabled, players and coaches can find you based on distance
+                  </p>
+                </div>
+                <Switch
+                  id="locationVisible"
+                  checked={profile.locationVisible}
+                  onCheckedChange={(checked) => 
+                    setProfile(prev => ({ ...prev, locationVisible: checked }))
+                  }
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="showExactDistance" className="text-base">
+                    Show Exact Distance
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    When disabled, others see "Nearby" instead of exact miles
+                  </p>
+                </div>
+                <Switch
+                  id="showExactDistance"
+                  checked={profile.showExactDistance}
+                  onCheckedChange={(checked) => 
+                    setProfile(prev => ({ ...prev, showExactDistance: checked }))
+                  }
+                />
+              </div>
             </div>
           </CardContent>
         </Card>

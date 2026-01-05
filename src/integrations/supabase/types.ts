@@ -1620,15 +1620,18 @@ export type Database = {
           id: string
           is_verified: boolean | null
           location: string | null
+          location_visible: boolean | null
           phone_number: string | null
           referred_by: string | null
           role: Database["public"]["Enums"]["user_role"] | null
+          show_exact_distance: boolean | null
           updated_at: string | null
           user_type: string | null
           username: string | null
           usta_ranking: string | null
           utr_rating: number | null
           wtn_rating: number | null
+          zip_code: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -1644,15 +1647,18 @@ export type Database = {
           id: string
           is_verified?: boolean | null
           location?: string | null
+          location_visible?: boolean | null
           phone_number?: string | null
           referred_by?: string | null
           role?: Database["public"]["Enums"]["user_role"] | null
+          show_exact_distance?: boolean | null
           updated_at?: string | null
           user_type?: string | null
           username?: string | null
           usta_ranking?: string | null
           utr_rating?: number | null
           wtn_rating?: number | null
+          zip_code?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -1668,15 +1674,18 @@ export type Database = {
           id?: string
           is_verified?: boolean | null
           location?: string | null
+          location_visible?: boolean | null
           phone_number?: string | null
           referred_by?: string | null
           role?: Database["public"]["Enums"]["user_role"] | null
+          show_exact_distance?: boolean | null
           updated_at?: string | null
           user_type?: string | null
           username?: string | null
           usta_ranking?: string | null
           utr_rating?: number | null
           wtn_rating?: number | null
+          zip_code?: string | null
         }
         Relationships: [
           {

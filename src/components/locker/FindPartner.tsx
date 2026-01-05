@@ -5,15 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ArrowLeft, MessageCircle, User } from 'lucide-react';
+import { ArrowLeft, MessageCircle, User, MapPin } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import MatchRequestDialog from './MatchRequestDialog';
 import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
+import { getDistanceBetweenZips, formatDistance } from '@/lib/zipCodeUtils';
 
 interface Player {
   id: string;
@@ -22,6 +22,10 @@ interface Player {
   utr_rating?: number;
   location?: string;
   bio?: string;
+  zip_code?: string;
+  location_visible?: boolean;
+  show_exact_distance?: boolean;
+  distance?: number | null;
 }
 
 interface MatchPrefs {
@@ -46,11 +50,14 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
   const [showMatchRequest, setShowMatchRequest] = useState(false);
   const [myPreferences, setMyPreferences] = useState<MatchPrefs | null>(null);
   const [allPreferences, setAllPreferences] = useState<MatchPrefs[]>([]);
+  const [myZipCode, setMyZipCode] = useState<string | null>(null);
   
   // Filter states
   const [utrRange, setUtrRange] = useState([1, 15]);
   const [ntrpRange, setNtrpRange] = useState([1, 7]);
   const [location, setLocation] = useState<string>('');
+  const [maxDistance, setMaxDistance] = useState<number>(25);
+  const [useDistanceFilter, setUseDistanceFilter] = useState(false);
 
   const loadPlayersCallback = useCallback(() => {
     loadPlayers();
@@ -65,13 +72,35 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
   });
 
   useEffect(() => {
+    loadMyProfile();
     loadPlayers();
     loadPreferences();
   }, [currentUser]);
 
   useEffect(() => {
     filterPlayers();
-  }, [players, utrRange, ntrpRange, location, myPreferences, allPreferences]);
+  }, [players, utrRange, ntrpRange, location, myPreferences, allPreferences, maxDistance, useDistanceFilter, myZipCode]);
+
+  const loadMyProfile = async () => {
+    if (!currentUser) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('zip_code')
+        .eq('id', currentUser.id)
+        .single();
+      
+      if (error) throw error;
+      
+      if (data?.zip_code) {
+        setMyZipCode(data.zip_code);
+        setUseDistanceFilter(true);
+      }
+    } catch (error) {
+      console.error('Error loading user profile:', error);
+    }
+  };
 
   const loadPlayers = async () => {
     if (!currentUser) return;
@@ -79,7 +108,7 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, avatar_url, utr_rating, location, bio')
+        .select('id, full_name, avatar_url, utr_rating, location, bio, zip_code, location_visible, show_exact_distance')
         .neq('id', currentUser.id)
         .not('full_name', 'is', null);
 
@@ -127,7 +156,17 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
   };
 
   const filterPlayers = () => {
-    let filtered = players;
+    let filtered = players.map(player => {
+      // Calculate distance for each player
+      let distance: number | null = null;
+      if (myZipCode && player.zip_code && player.location_visible !== false) {
+        distance = getDistanceBetweenZips(myZipCode, player.zip_code);
+      }
+      return { ...player, distance };
+    });
+
+    // Filter by location visibility (opt-out)
+    filtered = filtered.filter(player => player.location_visible !== false);
 
     // Filter by match preferences - strict overlap on all categories
     if (myPreferences) {
@@ -168,6 +207,14 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
       });
     }
 
+    // Filter by distance if enabled and user has ZIP code
+    if (useDistanceFilter && myZipCode) {
+      filtered = filtered.filter(player => {
+        if (player.distance === null) return true; // Include players without distance data
+        return player.distance <= maxDistance;
+      });
+    }
+
     // Filter by UTR range - include players with no UTR rating (null)
     filtered = filtered.filter(player => {
       if (player.utr_rating === null || player.utr_rating === undefined) {
@@ -176,12 +223,24 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
       return player.utr_rating >= utrRange[0] && player.utr_rating <= utrRange[1];
     });
 
-    // Filter by location
+    // Filter by location text
     if (location) {
       filtered = filtered.filter(player => 
         player.location?.toLowerCase().includes(location.toLowerCase())
       );
     }
+
+    // Sort by distance first, then by name
+    filtered.sort((a, b) => {
+      // Players with distance come first, sorted by distance
+      if (a.distance !== null && b.distance !== null) {
+        return a.distance - b.distance;
+      }
+      if (a.distance !== null) return -1;
+      if (b.distance !== null) return 1;
+      // Then alphabetically
+      return (a.full_name || '').localeCompare(b.full_name || '');
+    });
 
     setFilteredPlayers(filtered);
   };
@@ -189,6 +248,14 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
   const handleSendMatchRequest = (player: Player) => {
     setSelectedPlayer(player);
     setShowMatchRequest(true);
+  };
+
+  const getPlayerDistanceDisplay = (player: Player) => {
+    if (!myZipCode || !player.zip_code || player.location_visible === false) {
+      return null;
+    }
+    
+    return formatDistance(player.distance, player.show_exact_distance !== false);
   };
 
   return (
@@ -209,6 +276,35 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
               <CardTitle>Filters</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Distance Filter */}
+              {myZipCode && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Max Distance: {maxDistance} miles</Label>
+                  </div>
+                  <div className="px-2">
+                    <Slider
+                      value={[maxDistance]}
+                      onValueChange={(value) => setMaxDistance(value[0])}
+                      max={50}
+                      min={1}
+                      step={1}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Showing players within {maxDistance} miles
+                  </p>
+                </div>
+              )}
+
+              {!myZipCode && (
+                <div className="p-3 bg-muted rounded-lg text-sm">
+                  <p className="text-muted-foreground">
+                    Add a ZIP code to your profile to filter by distance
+                  </p>
+                </div>
+              )}
+
               {/* UTR Range */}
               <div className="space-y-2">
                 <Label>UTR Range: {utrRange[0]} - {utrRange[1]}</Label>
@@ -237,7 +333,7 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
                 </div>
               </div>
 
-              {/* Location */}
+              {/* Location Text */}
               <div className="space-y-2">
                 <Label>Location</Label>
                 <Input
@@ -253,73 +349,89 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
         {/* Players Grid */}
         <div className="lg:col-span-3">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filteredPlayers.map((player) => (
-              <Card key={player.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-4">
-                  <div className="flex items-center space-x-3 mb-3">
-                    <Avatar className="h-12 w-12">
-                      <AvatarImage src={player.avatar_url} />
-                      <AvatarFallback>
-                        {player.full_name?.split(' ').map(n => n[0]).join('').toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <h3 className="font-semibold">{player.full_name}</h3>
-                      <div className="flex gap-2 text-sm text-muted-foreground">
-                        <span>UTR: {player.utr_rating || 'N/A'}</span>
+            {filteredPlayers.map((player) => {
+              const distanceDisplay = getPlayerDistanceDisplay(player);
+              
+              return (
+                <Card key={player.id} className="hover:shadow-md transition-shadow">
+                  <CardContent className="p-4">
+                    <div className="flex items-center space-x-3 mb-3">
+                      <Avatar className="h-12 w-12">
+                        <AvatarImage src={player.avatar_url} />
+                        <AvatarFallback>
+                          {player.full_name?.split(' ').map(n => n[0]).join('').toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <h3 className="font-semibold">{player.full_name}</h3>
+                        <div className="flex gap-2 text-sm text-muted-foreground">
+                          <span>UTR: {player.utr_rating || 'N/A'}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  
-                  {player.location && (
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Location: {player.location}
-                    </p>
-                  )}
-                  
-                  {player.bio && (
-                    <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-                      {player.bio}
-                    </p>
-                  )}
+                    
+                    {distanceDisplay && (
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground mb-2">
+                        <MapPin className="h-3 w-3" />
+                        <span>{distanceDisplay}</span>
+                      </div>
+                    )}
+                    
+                    {player.location && (
+                      <p className="text-sm text-muted-foreground mb-2">
+                        {player.location}
+                      </p>
+                    )}
+                    
+                    {player.bio && (
+                      <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                        {player.bio}
+                      </p>
+                    )}
 
-                  <div className="flex flex-col gap-2">
-                    <Button 
-                      size="sm" 
-                      className="w-full"
-                      onClick={() => handleSendMatchRequest(player)}
-                    >
-                      Send Match Request
-                    </Button>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2">
                       <Button 
                         size="sm" 
-                        variant="outline"
-                        className="flex-1"
-                        onClick={() => navigate(`/profile/${player.id}`)}
+                        className="w-full"
+                        onClick={() => handleSendMatchRequest(player)}
                       >
-                        <User className="h-4 w-4 mr-1" />
-                        Profile
+                        Send Match Request
                       </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        className="flex-1"
-                        onClick={() => navigate(`/messages?user=${player.id}`)}
-                      >
-                        <MessageCircle className="h-4 w-4 mr-1" />
-                        Message
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => navigate(`/profile/${player.id}`)}
+                        >
+                          <User className="h-4 w-4 mr-1" />
+                          Profile
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => navigate(`/messages?user=${player.id}`)}
+                        >
+                          <MessageCircle className="h-4 w-4 mr-1" />
+                          Message
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
 
           {filteredPlayers.length === 0 && (
             <div className="text-center py-12">
               <p className="text-muted-foreground">No players match your current filters.</p>
+              {myZipCode && maxDistance < 25 && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  Try increasing your distance range to see more players.
+                </p>
+              )}
             </div>
           )}
         </div>
