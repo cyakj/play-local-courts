@@ -3,15 +3,17 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { Star, MapPin, Clock, DollarSign, ArrowLeft, User, MessageCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '../../contexts/AuthContext';
 import { Coach } from '../../types/coach';
 import { toast } from 'sonner';
 import LessonRequestDialog from './LessonRequestDialog';
+import { getDistanceBetweenZips, formatDistance } from '@/lib/zipCodeUtils';
 
 interface FindCoachProps {
   onBack: () => void;
@@ -21,13 +23,18 @@ interface CoachWithProfile extends Coach {
   profiles: {
     full_name: string;
     avatar_url?: string;
+    zip_code?: string;
+    location_visible?: boolean;
+    show_exact_distance?: boolean;
   } | null;
   averageRating?: number;
   totalReviews?: number;
+  distance?: number | null;
 }
 
 const FindCoach: React.FC<FindCoachProps> = ({ onBack }) => {
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
   const [coaches, setCoaches] = useState<CoachWithProfile[]>([]);
   const [filteredCoaches, setFilteredCoaches] = useState<CoachWithProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,16 +42,39 @@ const FindCoach: React.FC<FindCoachProps> = ({ onBack }) => {
   const [selectedSkillLevel, setSelectedSkillLevel] = useState<string>('all');
   const [travelFilter, setTravelFilter] = useState<string>('all');
   const [maxRate, setMaxRate] = useState<string>('');
+  const [maxDistance, setMaxDistance] = useState<number>(25);
+  const [myZipCode, setMyZipCode] = useState<string | null>(null);
   const [lessonDialogOpen, setLessonDialogOpen] = useState(false);
   const [selectedCoach, setSelectedCoach] = useState<CoachWithProfile | null>(null);
 
   useEffect(() => {
+    loadMyProfile();
     loadCoaches();
-  }, []);
+  }, [currentUser]);
 
   useEffect(() => {
     filterCoaches();
-  }, [coaches, selectedSport, selectedSkillLevel, travelFilter, maxRate]);
+  }, [coaches, selectedSport, selectedSkillLevel, travelFilter, maxRate, maxDistance, myZipCode]);
+
+  const loadMyProfile = async () => {
+    if (!currentUser) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('zip_code')
+        .eq('id', currentUser.id)
+        .single();
+      
+      if (error) throw error;
+      
+      if (data?.zip_code) {
+        setMyZipCode(data.zip_code);
+      }
+    } catch (error) {
+      console.error('Error loading user profile:', error);
+    }
+  };
 
   const loadCoaches = async () => {
     try {
@@ -60,7 +90,7 @@ const FindCoach: React.FC<FindCoachProps> = ({ onBack }) => {
         (coachData || []).map(async (coach) => {
           const { data: profile } = await supabase
             .from('profiles')
-            .select('full_name, avatar_url')
+            .select('full_name, avatar_url, zip_code, location_visible, show_exact_distance')
             .eq('id', coach.user_id)
             .single();
 
@@ -97,7 +127,17 @@ const FindCoach: React.FC<FindCoachProps> = ({ onBack }) => {
   };
 
   const filterCoaches = () => {
-    let filtered = [...coaches];
+    let filtered = coaches.map(coach => {
+      // Calculate distance for each coach
+      let distance: number | null = null;
+      if (myZipCode && coach.profiles?.zip_code && coach.profiles?.location_visible !== false) {
+        distance = getDistanceBetweenZips(myZipCode, coach.profiles.zip_code);
+      }
+      return { ...coach, distance };
+    });
+
+    // Filter by location visibility (opt-out)
+    filtered = filtered.filter(coach => coach.profiles?.location_visible !== false);
 
     if (selectedSport && selectedSport !== 'all') {
       filtered = filtered.filter(coach => 
@@ -116,12 +156,43 @@ const FindCoach: React.FC<FindCoachProps> = ({ onBack }) => {
       );
     }
 
+    // Filter by distance if user has ZIP code
+    if (myZipCode) {
+      filtered = filtered.filter(coach => {
+        if (coach.distance === null) return true; // Include coaches without distance data
+        return coach.distance <= maxDistance;
+      });
+    }
+
+    // Sort by distance first, then by rating
+    filtered.sort((a, b) => {
+      // Coaches with distance come first, sorted by distance
+      if (a.distance !== null && b.distance !== null) {
+        return a.distance - b.distance;
+      }
+      if (a.distance !== null) return -1;
+      if (b.distance !== null) return 1;
+      // Then by rating
+      if (a.averageRating && b.averageRating) {
+        return b.averageRating - a.averageRating;
+      }
+      return 0;
+    });
+
     setFilteredCoaches(filtered);
   };
 
   const handleRequestLesson = (coach: CoachWithProfile) => {
     setSelectedCoach(coach);
     setLessonDialogOpen(true);
+  };
+
+  const getCoachDistanceDisplay = (coach: CoachWithProfile) => {
+    if (!myZipCode || !coach.profiles?.zip_code || coach.profiles?.location_visible === false) {
+      return null;
+    }
+    
+    return formatDistance(coach.distance, coach.profiles?.show_exact_distance !== false);
   };
 
   if (loading) {
@@ -148,7 +219,23 @@ const FindCoach: React.FC<FindCoachProps> = ({ onBack }) => {
           <CardTitle>Filter Coaches</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            {/* Distance Slider */}
+            {myZipCode && (
+              <div className="space-y-2">
+                <Label>Max Distance: {maxDistance} mi</Label>
+                <div className="px-2 pt-2">
+                  <Slider
+                    value={[maxDistance]}
+                    onValueChange={(value) => setMaxDistance(value[0])}
+                    max={50}
+                    min={1}
+                    step={1}
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="sport">Sport</Label>
               <Select value={selectedSport} onValueChange={setSelectedSport}>
@@ -216,120 +303,144 @@ const FindCoach: React.FC<FindCoachProps> = ({ onBack }) => {
               </Select>
             </div>
           </div>
+          
+          {!myZipCode && (
+            <div className="mt-4 p-3 bg-muted rounded-lg text-sm">
+              <p className="text-muted-foreground">
+                Add a ZIP code to your profile to filter coaches by distance
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {/* Coaches List */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredCoaches.map((coach) => (
-          <Card key={coach.id} className="hover:shadow-lg transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-start gap-4 mb-4">
-                <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center">
-                  {coach.profiles?.avatar_url ? (
-                    <img 
-                      src={coach.profiles.avatar_url} 
-                      alt={coach.profiles.full_name || 'Coach'}
-                      className="w-16 h-16 rounded-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-lg font-semibold">
-                      {coach.profiles?.full_name?.charAt(0) || 'C'}
-                    </span>
-                  )}
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-lg">{coach.profiles?.full_name || 'Coach'}</h3>
-                  {coach.business_name && (
-                    <p className="text-sm text-gray-600">{coach.business_name}</p>
-                  )}
-                  <div className="flex items-center gap-2 mt-1">
-                    {coach.averageRating && (
-                      <div className="flex items-center gap-1">
-                        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                        <span className="text-sm font-medium">{coach.averageRating.toFixed(1)}</span>
-                        <span className="text-sm text-gray-500">({coach.totalReviews})</span>
-                      </div>
+        {filteredCoaches.map((coach) => {
+          const distanceDisplay = getCoachDistanceDisplay(coach);
+          
+          return (
+            <Card key={coach.id} className="hover:shadow-lg transition-shadow">
+              <CardContent className="p-6">
+                <div className="flex items-start gap-4 mb-4">
+                  <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center">
+                    {coach.profiles?.avatar_url ? (
+                      <img 
+                        src={coach.profiles.avatar_url} 
+                        alt={coach.profiles.full_name || 'Coach'}
+                        className="w-16 h-16 rounded-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-lg font-semibold">
+                        {coach.profiles?.full_name?.charAt(0) || 'C'}
+                      </span>
                     )}
                   </div>
-                </div>
-              </div>
-
-              <div className="space-y-2 mb-4">
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <MapPin className="h-4 w-4" />
-                  <span>{coach.home_base}</span>
-                  {coach.willing_to_travel && (
-                    <Badge variant="secondary" className="text-xs">Will Travel</Badge>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <Clock className="h-4 w-4" />
-                  <span>{coach.years_experience} years experience</span>
-                </div>
-
-                {coach.hourly_rate && (
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <DollarSign className="h-4 w-4" />
-                    <span>${coach.hourly_rate}/hour</span>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-lg">{coach.profiles?.full_name || 'Coach'}</h3>
+                    {coach.business_name && (
+                      <p className="text-sm text-muted-foreground">{coach.business_name}</p>
+                    )}
+                    <div className="flex items-center gap-2 mt-1">
+                      {coach.averageRating && (
+                        <div className="flex items-center gap-1">
+                          <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                          <span className="text-sm font-medium">{coach.averageRating.toFixed(1)}</span>
+                          <span className="text-sm text-muted-foreground">({coach.totalReviews})</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
+                </div>
+
+                <div className="space-y-2 mb-4">
+                  {distanceDisplay && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <MapPin className="h-4 w-4 text-primary" />
+                      <span className="font-medium">{distanceDisplay}</span>
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <MapPin className="h-4 w-4" />
+                    <span>{coach.home_base}</span>
+                    {coach.willing_to_travel && (
+                      <Badge variant="secondary" className="text-xs">Will Travel</Badge>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Clock className="h-4 w-4" />
+                    <span>{coach.years_experience} years experience</span>
+                  </div>
+
+                  {coach.hourly_rate && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <DollarSign className="h-4 w-4" />
+                      <span>${coach.hourly_rate}/hour</span>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2 text-sm">
+                    <Badge variant="outline">{coach.credentials}</Badge>
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <div className="flex flex-wrap gap-1">
+                    {coach.sports_offered?.map((sport) => (
+                      <Badge key={sport} variant="secondary" className="text-xs">
+                        {sport}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+
+                {coach.bio && (
+                  <p className="text-sm text-muted-foreground mb-4 line-clamp-3">
+                    {coach.bio}
+                  </p>
                 )}
 
-                <div className="flex items-center gap-2 text-sm">
-                  <Badge variant="outline">{coach.credentials}</Badge>
+                <div className="flex gap-2">
+                  <Button 
+                    className="flex-1" 
+                    onClick={() => handleRequestLesson(coach)}
+                  >
+                    Request Lesson
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => navigate(`/profile/${coach.user_id}`)}
+                    title="View Profile"
+                  >
+                    <User className="h-4 w-4 mr-1" />
+                    Profile
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => navigate(`/messages?user=${coach.user_id}`)}
+                    title="Message"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                  </Button>
                 </div>
-              </div>
-
-              <div className="mb-4">
-                <div className="flex flex-wrap gap-1">
-                  {coach.sports_offered?.map((sport) => (
-                    <Badge key={sport} variant="secondary" className="text-xs">
-                      {sport}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-
-              {coach.bio && (
-                <p className="text-sm text-gray-600 mb-4 line-clamp-3">
-                  {coach.bio}
-                </p>
-              )}
-
-              <div className="flex gap-2">
-                <Button 
-                  className="flex-1" 
-                  onClick={() => handleRequestLesson(coach)}
-                >
-                  Request Lesson
-                </Button>
-                <Button 
-                  variant="outline"
-                  onClick={() => navigate(`/profile/${coach.user_id}`)}
-                  title="View Profile"
-                >
-                  <User className="h-4 w-4 mr-1" />
-                  Profile
-                </Button>
-                <Button 
-                  variant="outline"
-                  onClick={() => navigate(`/messages?user=${coach.user_id}`)}
-                  title="Message"
-                >
-                  <MessageCircle className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       {filteredCoaches.length === 0 && (
         <Card>
           <CardContent className="p-8 text-center">
-            <p className="text-gray-500">No coaches found matching your criteria.</p>
-            <p className="text-sm text-gray-400 mt-2">Try adjusting your filters to see more results.</p>
+            <p className="text-muted-foreground">No coaches found matching your criteria.</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              {myZipCode && maxDistance < 25 
+                ? 'Try increasing your distance range to see more coaches.'
+                : 'Try adjusting your filters to see more results.'
+              }
+            </p>
           </CardContent>
         </Card>
       )}
