@@ -8,10 +8,11 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Save, Upload, User } from 'lucide-react';
+import { Save, Upload, User, MapPin } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { isValidZipCode } from '@/lib/zipCodeUtils';
 
 const SPORTS_OPTIONS = [
   'Tennis',
@@ -63,6 +64,12 @@ const CoachProfileSettings = () => {
     bio: '',
     profile_image_url: ''
   });
+  
+  const [locationData, setLocationData] = useState({
+    zip_code: '',
+    location_visible: true,
+    show_exact_distance: true
+  });
 
   useEffect(() => {
     if (currentUser) {
@@ -74,6 +81,7 @@ const CoachProfileSettings = () => {
     if (!currentUser) return;
 
     try {
+      // Load coach profile
       const { data, error } = await supabase
         .from('coaches')
         .select('*')
@@ -96,6 +104,21 @@ const CoachProfileSettings = () => {
           profile_image_url: data.profile_image_url || ''
         });
       }
+      
+      // Load location data from profiles table
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('zip_code, location_visible, show_exact_distance')
+        .eq('id', currentUser.id)
+        .single();
+        
+      if (!profileError && profileData) {
+        setLocationData({
+          zip_code: profileData.zip_code || '',
+          location_visible: profileData.location_visible ?? true,
+          show_exact_distance: profileData.show_exact_distance ?? true
+        });
+      }
     } catch (error) {
       console.error('Error loading coach profile:', error);
       toast.error('Failed to load profile');
@@ -106,9 +129,16 @@ const CoachProfileSettings = () => {
 
   const handleSave = async () => {
     if (!currentUser || !profile) return;
+    
+    // Validate ZIP code if provided
+    if (locationData.zip_code && !isValidZipCode(locationData.zip_code)) {
+      toast.error('Please enter a valid 5-digit ZIP code');
+      return;
+    }
 
     setSaving(true);
     try {
+      // Update coach profile
       const { error } = await supabase
         .from('coaches')
         .update({
@@ -126,6 +156,19 @@ const CoachProfileSettings = () => {
         .eq('user_id', currentUser.id);
 
       if (error) throw error;
+      
+      // Update location data in profiles table
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          zip_code: locationData.zip_code || null,
+          location_visible: locationData.location_visible,
+          show_exact_distance: locationData.show_exact_distance,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', currentUser.id);
+        
+      if (profileError) throw profileError;
 
       toast.success('Profile updated successfully');
     } catch (error) {
@@ -299,9 +342,9 @@ const CoachProfileSettings = () => {
             </div>
           </div>
 
-          {/* Home Base / Location */}
+          {/* Home Base */}
           <div className="space-y-2">
-            <Label htmlFor="home_base">Home Base / Location</Label>
+            <Label htmlFor="home_base">Home Base</Label>
             <Input
               id="home_base"
               placeholder="e.g., San Francisco, CA"
@@ -364,6 +407,76 @@ const CoachProfileSettings = () => {
           >
             <Save className="h-4 w-4 mr-2" />
             {saving ? 'Saving...' : 'Save Profile'}
+          </Button>
+        </CardContent>
+      </Card>
+      
+      {/* Location Settings Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MapPin className="h-5 w-5" />
+            Location Settings
+          </CardTitle>
+          <CardDescription>
+            Control how your location is used for discovery
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* ZIP Code */}
+          <div className="space-y-2">
+            <Label htmlFor="zip_code">ZIP Code</Label>
+            <Input
+              id="zip_code"
+              placeholder="e.g., 94102"
+              value={locationData.zip_code}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, '').slice(0, 5);
+                setLocationData(prev => ({ ...prev, zip_code: value }));
+              }}
+              maxLength={5}
+            />
+            <p className="text-xs text-muted-foreground">
+              Used for distance-based discovery. Your exact ZIP code is never shown publicly.
+            </p>
+          </div>
+          
+          {/* Location Visible */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label>Appear in Location-Based Searches</Label>
+              <p className="text-sm text-muted-foreground">
+                Allow students to find you based on distance
+              </p>
+            </div>
+            <Switch
+              checked={locationData.location_visible}
+              onCheckedChange={(checked) => setLocationData(prev => ({ ...prev, location_visible: checked }))}
+            />
+          </div>
+          
+          {/* Show Exact Distance */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label>Show Exact Distance</Label>
+              <p className="text-sm text-muted-foreground">
+                When disabled, shows "Nearby" instead of exact miles
+              </p>
+            </div>
+            <Switch
+              checked={locationData.show_exact_distance}
+              onCheckedChange={(checked) => setLocationData(prev => ({ ...prev, show_exact_distance: checked }))}
+            />
+          </div>
+          
+          {/* Save Location Button */}
+          <Button 
+            onClick={handleSave} 
+            disabled={saving}
+            className="w-full"
+          >
+            <Save className="h-4 w-4 mr-2" />
+            {saving ? 'Saving...' : 'Save Location Settings'}
           </Button>
         </CardContent>
       </Card>
