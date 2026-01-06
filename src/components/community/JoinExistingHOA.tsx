@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Building2, MapPin, Search, Loader2 } from 'lucide-react';
+import { Building2, MapPin, Search, Loader2, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveHOA } from '@/contexts/ActiveHOAContext';
+import { useNavigate } from 'react-router-dom';
 
 interface JoinExistingHOAProps {
   onSuccess: () => void;
@@ -19,6 +20,7 @@ interface HOAOption {
 
 export const JoinExistingHOA = ({ onSuccess }: JoinExistingHOAProps) => {
   const { requestJoinHOA, memberships, pendingMemberships } = useActiveHOA();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [communities, setCommunities] = useState<HOAOption[]>([]);
   const [selectedHOA, setSelectedHOA] = useState<HOAOption | null>(null);
@@ -26,11 +28,11 @@ export const JoinExistingHOA = ({ onSuccess }: JoinExistingHOAProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
 
-  // Get IDs of HOAs user already has membership in
-  const existingHOAIds = new Set([
+  // Memoize the existing HOA IDs to prevent useEffect from re-running on every render
+  const existingHOAIds = useMemo(() => new Set([
     ...memberships.map(m => m.hoaId),
     ...pendingMemberships.map(m => m.hoaId),
-  ]);
+  ]), [memberships, pendingMemberships]);
 
   useEffect(() => {
     const searchCommunities = async () => {
@@ -62,6 +64,10 @@ export const JoinExistingHOA = ({ onSuccess }: JoinExistingHOAProps) => {
     const debounce = setTimeout(searchCommunities, 300);
     return () => clearTimeout(debounce);
   }, [searchTerm, existingHOAIds]);
+
+  const handleRegisterCommunity = () => {
+    navigate('/hoa-application');
+  };
 
   const handleSubmit = async () => {
     if (!selectedHOA) return;
@@ -123,9 +129,18 @@ export const JoinExistingHOA = ({ onSuccess }: JoinExistingHOAProps) => {
           )}
 
           {!isSearching && searchTerm.length >= 2 && communities.length === 0 && (
-            <div className="text-center py-4 text-muted-foreground">
-              <p className="text-sm">No communities found matching "{searchTerm}"</p>
-              <p className="text-xs mt-1">Try a different search term</p>
+            <div className="text-center py-4 space-y-3">
+              <div className="text-muted-foreground">
+                <p className="text-sm">No communities found matching "{searchTerm}"</p>
+              </div>
+              <Button
+                variant="outline"
+                className="w-full justify-center gap-2 h-auto py-3 bg-green-50 border-green-200 hover:bg-green-100 hover:border-green-300"
+                onClick={handleRegisterCommunity}
+              >
+                <Plus className="h-4 w-4 text-green-600" />
+                <span className="text-green-700 font-medium">Register Your Community</span>
+              </Button>
             </div>
           )}
 
