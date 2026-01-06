@@ -30,6 +30,7 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
     weekly_deadline_day: 0, // 0 = Sunday
     min_ntrp: 'none',
     max_ntrp: 'none',
+    auto_approve_registration: false,
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -68,6 +69,7 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
           status: 'setup',
           min_ntrp: formData.min_ntrp !== 'none' ? parseFloat(formData.min_ntrp) : null,
           max_ntrp: formData.max_ntrp !== 'none' ? parseFloat(formData.max_ntrp) : null,
+          auto_approve_registration: formData.auto_approve_registration,
         })
         .select()
         .single();
@@ -84,6 +86,7 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
         weekly_deadline_day: 0,
         min_ntrp: 'none',
         max_ntrp: 'none',
+        auto_approve_registration: false,
       });
     } catch (error) {
       console.error('Error creating ladder:', error);
@@ -261,6 +264,20 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
             />
             <Label htmlFor="is_private">Private Ladder (invite-only)</Label>
           </div>
+
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="auto_approve"
+              checked={formData.auto_approve_registration}
+              onCheckedChange={(checked) => 
+                setFormData(prev => ({ ...prev, auto_approve_registration: checked }))
+              }
+            />
+            <Label htmlFor="auto_approve">Auto-approve player registrations</Label>
+          </div>
+          <p className="text-xs text-muted-foreground -mt-2 ml-9">
+            When enabled, eligible players can join without admin approval
+          </p>
 
           <div className="flex justify-end space-x-2 pt-4">
             <Button 
