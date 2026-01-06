@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import CreateLadderDialog from '@/components/ladders/CreateLadderDialog';
 import LadderList from '@/components/ladders/LadderList';
 import LadderDetails from '@/components/ladders/LadderDetails';
+import LadderDiscovery from '@/components/ladders/LadderDiscovery';
 
 export interface Ladder {
   id: string;
@@ -34,6 +35,7 @@ const LeaguesLadders = () => {
   const [selectedLadder, setSelectedLadder] = useState<Ladder | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<'my-ladders' | 'discover'>('my-ladders');
 
   const isAdmin = currentUser?.role === 'admin';
 
@@ -82,53 +84,71 @@ const LeaguesLadders = () => {
     <div className="container mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold">Leagues & Ladders</h1>
+          <h1 className="text-3xl font-bold">Compete</h1>
           <p className="text-muted-foreground">
-            Compete in round-robin tournaments with your community
+            Join ladders and compete in round-robin tournaments
           </p>
         </div>
-        {isAdmin && (
-          <Button onClick={() => setShowCreateDialog(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Create Ladder
+        <div className="flex gap-2">
+          <Button 
+            variant={viewMode === 'discover' ? 'default' : 'outline'}
+            onClick={() => setViewMode('discover')}
+          >
+            <Search className="mr-2 h-4 w-4" />
+            Find Ladders
           </Button>
-        )}
+          {isAdmin && (
+            <Button onClick={() => setShowCreateDialog(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Create Ladder
+            </Button>
+          )}
+        </div>
       </div>
 
-      <Tabs defaultValue="active" className="w-full">
-        <TabsList>
-          <TabsTrigger value="active">Active Ladders</TabsTrigger>
-          <TabsTrigger value="completed">Completed</TabsTrigger>
-          <TabsTrigger value="setup">Setup</TabsTrigger>
-        </TabsList>
+      {viewMode === 'discover' ? (
+        <LadderDiscovery 
+          onSelectLadder={(ladder) => {
+            setSelectedLadder(ladder);
+            setViewMode('my-ladders');
+          }}
+        />
+      ) : (
+        <Tabs defaultValue="active" className="w-full">
+          <TabsList>
+            <TabsTrigger value="active">Active</TabsTrigger>
+            <TabsTrigger value="setup">Open for Registration</TabsTrigger>
+            <TabsTrigger value="completed">Completed</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="active" className="mt-6">
-          <LadderList 
-            ladders={ladders.filter(l => l.status === 'active')}
-            onSelectLadder={setSelectedLadder}
-            isLoading={isLoading}
-            emptyMessage="No active ladders found."
-          />
-        </TabsContent>
+          <TabsContent value="active" className="mt-6">
+            <LadderList 
+              ladders={ladders.filter(l => l.status === 'active')}
+              onSelectLadder={setSelectedLadder}
+              isLoading={isLoading}
+              emptyMessage="No active ladders. Click 'Find Ladders' to discover and join one!"
+            />
+          </TabsContent>
 
-        <TabsContent value="completed" className="mt-6">
-          <LadderList 
-            ladders={ladders.filter(l => l.status === 'completed')}
-            onSelectLadder={setSelectedLadder}
-            isLoading={isLoading}
-            emptyMessage="No completed ladders found."
-          />
-        </TabsContent>
+          <TabsContent value="setup" className="mt-6">
+            <LadderList 
+              ladders={ladders.filter(l => l.status === 'setup')}
+              onSelectLadder={setSelectedLadder}
+              isLoading={isLoading}
+              emptyMessage="No ladders open for registration."
+            />
+          </TabsContent>
 
-        <TabsContent value="setup" className="mt-6">
-          <LadderList 
-            ladders={ladders.filter(l => l.status === 'setup')}
-            onSelectLadder={setSelectedLadder}
-            isLoading={isLoading}
-            emptyMessage="No ladders in setup found."
-          />
-        </TabsContent>
-      </Tabs>
+          <TabsContent value="completed" className="mt-6">
+            <LadderList 
+              ladders={ladders.filter(l => l.status === 'completed')}
+              onSelectLadder={setSelectedLadder}
+              isLoading={isLoading}
+              emptyMessage="No completed ladders."
+            />
+          </TabsContent>
+        </Tabs>
+      )}
 
       <CreateLadderDialog
         open={showCreateDialog}

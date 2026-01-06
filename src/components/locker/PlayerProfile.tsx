@@ -84,7 +84,7 @@ const PlayerProfile = () => {
           bio: data.bio || '',
           homeCourtId: data.home_court_id || '',
           utrRating: data.utr_rating,
-          ntrpRating: null, // Will be handled separately as it's not stored
+          ntrpRating: data.ntrp_rating,
           wtnRating: data.wtn_rating,
           zipCode: data.zip_code || '',
           locationVisible: data.location_visible !== false,
@@ -144,6 +144,7 @@ const PlayerProfile = () => {
           bio: profile.bio || null,
           home_court_id: profile.homeCourtId || null,
           utr_rating: profile.utrRating,
+          ntrp_rating: profile.ntrpRating,
           wtn_rating: profile.wtnRating,
           zip_code: profile.zipCode || null,
           location_visible: profile.locationVisible,

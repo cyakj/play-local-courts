@@ -38,11 +38,12 @@ interface RegistrationRequest {
 }
 
 interface RegistrationRequestsProps {
-  ladder: Ladder;
+  ladderId: string;
+  ladderFormat: 'singles' | 'doubles' | 'mixed_doubles';
   onRequestProcessed: () => void;
 }
 
-const RegistrationRequests = ({ ladder, onRequestProcessed }: RegistrationRequestsProps) => {
+const RegistrationRequests = ({ ladderId, ladderFormat, onRequestProcessed }: RegistrationRequestsProps) => {
   const { currentUser } = useAuth();
   const [requests, setRequests] = useState<RegistrationRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -53,7 +54,7 @@ const RegistrationRequests = ({ ladder, onRequestProcessed }: RegistrationReques
 
   useEffect(() => {
     loadRequests();
-  }, [ladder.id]);
+  }, [ladderId]);
 
   const loadRequests = async () => {
     try {
@@ -62,7 +63,7 @@ const RegistrationRequests = ({ ladder, onRequestProcessed }: RegistrationReques
       const { data: requestsData, error } = await supabase
         .from('ladder_registration_requests')
         .select('*')
-        .eq('ladder_id', ladder.id)
+        .eq('ladder_id', ladderId)
         .eq('status', 'pending')
         .order('created_at', { ascending: true });
 
@@ -109,7 +110,7 @@ const RegistrationRequests = ({ ladder, onRequestProcessed }: RegistrationReques
       const { error: teamError } = await supabase
         .from('ladder_teams')
         .insert({
-          ladder_id: ladder.id,
+          ladder_id: ladderId,
           team_name: request.team_name,
           player1_id: request.player_id,
           player2_id: request.partner_id || null,
@@ -235,25 +236,11 @@ const RegistrationRequests = ({ ladder, onRequestProcessed }: RegistrationReques
                   </p>
                 )}
 
-                {/* NTRP Check */}
-                {(ladder.min_ntrp || ladder.max_ntrp) && (
-                  <div className="mt-2">
-                    {request.player_ntrp === null && (
-                      <Badge variant="destructive" className="text-xs">
-                        <AlertCircle className="h-3 w-3 mr-1" />
-                        Player has no NTRP rating
-                      </Badge>
-                    )}
-                    {request.player_ntrp !== null && (
-                      (ladder.min_ntrp && request.player_ntrp < ladder.min_ntrp) ||
-                      (ladder.max_ntrp && request.player_ntrp > ladder.max_ntrp)
-                    ) && (
-                      <Badge variant="destructive" className="text-xs">
-                        <AlertCircle className="h-3 w-3 mr-1" />
-                        NTRP {request.player_ntrp} outside requirements
-                      </Badge>
-                    )}
-                  </div>
+                {/* Looking for partner indicator */}
+                {request.looking_for_partner && (
+                  <Badge variant="outline" className="text-xs mt-2">
+                    Looking for Partner
+                  </Badge>
                 )}
               </div>
 

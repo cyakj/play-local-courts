@@ -19,7 +19,7 @@ interface LadderJoinDialogProps {
   onOpenChange: (open: boolean) => void;
   ladder: Ladder;
   userNtrp: number | null;
-  onSuccess: () => void;
+  onRegistrationComplete: () => void;
 }
 
 interface Profile {
@@ -29,7 +29,7 @@ interface Profile {
   ntrp_rating: number | null;
 }
 
-const LadderJoinDialog = ({ open, onOpenChange, ladder, userNtrp, onSuccess }: LadderJoinDialogProps) => {
+const LadderJoinDialog = ({ open, onOpenChange, ladder, userNtrp, onRegistrationComplete }: LadderJoinDialogProps) => {
   const { currentUser } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -135,7 +135,7 @@ const LadderJoinDialog = ({ open, onOpenChange, ladder, userNtrp, onSuccess }: L
         }
       }
 
-      onSuccess();
+      onRegistrationComplete();
     } catch (error: any) {
       console.error('Error joining ladder:', error);
       toast.error(error.message || 'Failed to join ladder');

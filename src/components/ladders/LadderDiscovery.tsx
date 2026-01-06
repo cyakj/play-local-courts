@@ -403,7 +403,7 @@ const LadderDiscovery = ({ onSelectLadder }: LadderDiscoveryProps) => {
           onOpenChange={setShowJoinDialog}
           ladder={selectedLadder}
           userNtrp={userNtrp}
-          onSuccess={() => {
+          onRegistrationComplete={() => {
             loadLadders();
             setShowJoinDialog(false);
           }}
