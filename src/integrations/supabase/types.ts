@@ -1002,6 +1002,56 @@ export type Database = {
           },
         ]
       }
+      ladder_registration_requests: {
+        Row: {
+          admin_notes: string | null
+          created_at: string
+          id: string
+          ladder_id: string
+          looking_for_partner: boolean | null
+          message: string | null
+          partner_id: string | null
+          player_id: string
+          status: string
+          team_name: string
+          updated_at: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          created_at?: string
+          id?: string
+          ladder_id: string
+          looking_for_partner?: boolean | null
+          message?: string | null
+          partner_id?: string | null
+          player_id: string
+          status?: string
+          team_name: string
+          updated_at?: string
+        }
+        Update: {
+          admin_notes?: string | null
+          created_at?: string
+          id?: string
+          ladder_id?: string
+          looking_for_partner?: boolean | null
+          message?: string | null
+          partner_id?: string | null
+          player_id?: string
+          status?: string
+          team_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ladder_registration_requests_ladder_id_fkey"
+            columns: ["ladder_id"]
+            isOneToOne: false
+            referencedRelation: "ladders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ladder_teams: {
         Row: {
           created_at: string
@@ -1052,6 +1102,7 @@ export type Database = {
       ladders: {
         Row: {
           admin_id: string
+          auto_approve_registration: boolean | null
           created_at: string
           description: string | null
           format: Database["public"]["Enums"]["ladder_format"]
@@ -1068,6 +1119,7 @@ export type Database = {
         }
         Insert: {
           admin_id: string
+          auto_approve_registration?: boolean | null
           created_at?: string
           description?: string | null
           format?: Database["public"]["Enums"]["ladder_format"]
@@ -1084,6 +1136,7 @@ export type Database = {
         }
         Update: {
           admin_id?: string
+          auto_approve_registration?: boolean | null
           created_at?: string
           description?: string | null
           format?: Database["public"]["Enums"]["ladder_format"]
@@ -1665,6 +1718,7 @@ export type Database = {
           is_verified: boolean | null
           location: string | null
           location_visible: boolean | null
+          ntrp_rating: number | null
           phone_number: string | null
           referred_by: string | null
           role: Database["public"]["Enums"]["user_role"] | null
@@ -1692,6 +1746,7 @@ export type Database = {
           is_verified?: boolean | null
           location?: string | null
           location_visible?: boolean | null
+          ntrp_rating?: number | null
           phone_number?: string | null
           referred_by?: string | null
           role?: Database["public"]["Enums"]["user_role"] | null
@@ -1719,6 +1774,7 @@ export type Database = {
           is_verified?: boolean | null
           location?: string | null
           location_visible?: boolean | null
+          ntrp_rating?: number | null
           phone_number?: string | null
           referred_by?: string | null
           role?: Database["public"]["Enums"]["user_role"] | null

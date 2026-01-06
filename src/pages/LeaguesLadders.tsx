@@ -25,6 +25,7 @@ export interface Ladder {
   updated_at: string;
   min_ntrp?: number | null;
   max_ntrp?: number | null;
+  auto_approve_registration?: boolean;
 }
 
 const LeaguesLadders = () => {
