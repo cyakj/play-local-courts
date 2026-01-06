@@ -5,6 +5,7 @@ import { NotificationContainer } from "@/components/ui/notification-banner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
+import { ActiveHOAProvider } from "./contexts/ActiveHOAContext";
 import { DataProvider } from "./contexts/DataContext";
 import AuthLayout from "./components/layouts/AuthLayout";
 import MainLayout from "./components/layouts/MainLayout";
@@ -47,8 +48,9 @@ function App() {
         <Toaster />
         <BrowserRouter>
           <AuthProvider>
-            <DataProvider>
-              <Routes>
+            <ActiveHOAProvider>
+              <DataProvider>
+                <Routes>
                 <Route element={<AuthLayout />}>
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />
@@ -84,9 +86,10 @@ function App() {
                   <Route path="/messages" element={<Messages />} />
                   <Route path="/hoa-application" element={<HOAApplication />} />
                 </Route>
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </DataProvider>
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </DataProvider>
+            </ActiveHOAProvider>
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>

@@ -780,6 +780,50 @@ export type Database = {
           },
         ]
       }
+      hoa_memberships: {
+        Row: {
+          created_at: string
+          hoa_id: string
+          id: string
+          is_primary: boolean
+          last_active_at: string | null
+          role: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          hoa_id: string
+          id?: string
+          is_primary?: boolean
+          last_active_at?: string | null
+          role?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          hoa_id?: string
+          id?: string
+          is_primary?: boolean
+          last_active_at?: string | null
+          role?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hoa_memberships_hoa_id_fkey"
+            columns: ["hoa_id"]
+            isOneToOne: false
+            referencedRelation: "hoas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hoas: {
         Row: {
           address: string | null
@@ -1984,6 +2028,10 @@ export type Database = {
         Args: { application_id: string; reviewer_note?: string }
         Returns: string
       }
+      approve_hoa_membership: {
+        Args: { membership_id: string }
+        Returns: boolean
+      }
       calculate_ladder_points: {
         Args: {
           loser_games: number
@@ -2048,10 +2096,20 @@ export type Database = {
         Args: { _target_user_id: string; _user_id: string }
         Returns: boolean
       }
+      migrate_existing_hoa_memberships: { Args: never; Returns: undefined }
+      reject_hoa_membership: {
+        Args: { membership_id: string }
+        Returns: boolean
+      }
+      request_hoa_membership: {
+        Args: { join_message?: string; target_hoa_id: string }
+        Returns: string
+      }
       request_join_community: {
         Args: { join_message?: string; target_hoa_id: string }
         Returns: string
       }
+      set_active_hoa: { Args: { target_hoa_id: string }; Returns: boolean }
       update_email_preference: {
         Args: {
           preference_key: string

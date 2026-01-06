@@ -3,8 +3,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MessageCircle, User, Trophy, Users, Target, GraduationCap, Search } from 'lucide-react';
+import { MessageCircle, User, Trophy, Users, Target, GraduationCap, Search, Building2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useActiveHOA } from '../contexts/ActiveHOAContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useSearchParams } from 'react-router-dom';
 import PlayerProfile from '../components/locker/PlayerProfile';
@@ -18,9 +19,12 @@ import { UserType } from '../types';
 import { LessonsTab } from '../components/locker/LessonsTab';
 import { useToast } from '@/hooks/use-toast';
 import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
+import { CommunityManagement } from '@/components/community';
+import { ActiveHOAIndicator } from '@/components/community/ActiveHOAIndicator';
 
 const MyLocker = () => {
   const { currentUser } = useAuth();
+  const { isHOAUser, activeHOA } = useActiveHOA();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
   const [showFindPartner, setShowFindPartner] = useState(false);
@@ -149,39 +153,50 @@ const MyLocker = () => {
       </div>
 
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 bg-white/80 backdrop-blur-sm shadow-lg rounded-xl p-1">
+        <TabsList className="grid w-full grid-cols-5 bg-white/80 backdrop-blur-sm shadow-lg rounded-xl p-1">
           <TabsTrigger 
             value="profile" 
             className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-pink-500 data-[state=active]:text-white transition-all duration-200 rounded-lg"
           >
             <User className="h-4 w-4" />
-            Profile
+            <span className="hidden sm:inline">Profile</span>
+          </TabsTrigger>
+          <TabsTrigger 
+            value="community"
+            className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-500 data-[state=active]:text-white transition-all duration-200 rounded-lg"
+          >
+            <Building2 className="h-4 w-4" />
+            <span className="hidden sm:inline">Community</span>
           </TabsTrigger>
           <TabsTrigger 
             value="preferences"
             className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-blue-500 data-[state=active]:text-white transition-all duration-200 rounded-lg"
           >
             <Target className="h-4 w-4" />
-            {isNonHOA ? 'Open Play Network' : 'Match Finder'}
+            <span className="hidden sm:inline">{isNonHOA ? 'Network' : 'Match'}</span>
           </TabsTrigger>
           <TabsTrigger 
             value="lessons"
             className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white transition-all duration-200 rounded-lg"
           >
             <GraduationCap className="h-4 w-4" />
-            Lessons
+            <span className="hidden sm:inline">Lessons</span>
           </TabsTrigger>
           <TabsTrigger 
             value="ladders"
             className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-indigo-500 data-[state=active]:text-white transition-all duration-200 rounded-lg"
           >
             <Trophy className="h-4 w-4" />
-            {isNonHOA ? 'Public Ladders' : 'Leagues & Ladders'}
+            <span className="hidden sm:inline">{isNonHOA ? 'Ladders' : 'Leagues'}</span>
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile" className="animate-in fade-in duration-300">
           <PlayerProfile />
+        </TabsContent>
+
+        <TabsContent value="community" className="animate-in fade-in duration-300">
+          <CommunityManagement />
         </TabsContent>
 
         <TabsContent value="preferences" className="animate-in fade-in duration-300">
