@@ -41,10 +41,9 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
       toast.error('You must be logged in to create a ladder');
       return;
     }
-    if (!activeHOA?.hoaId) {
-      toast.error('You must be part of a community to create a ladder');
-      return;
-    }
+
+    // Coaches can create ladders without an HOA, but we need at least one identifier
+    const hoaId = activeHOA?.hoaId || null;
 
     // Validate NTRP range if provided
     if (formData.min_ntrp !== 'none' && formData.max_ntrp !== 'none') {
@@ -75,7 +74,7 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
           registration_deadline: formData.registration_deadline || null,
           weekly_deadline_day: formData.weekly_deadline_day,
           admin_id: currentUser.id,
-          hoa_id: activeHOA.hoaId,
+          hoa_id: hoaId,
           status: 'setup',
           min_ntrp: formData.min_ntrp !== 'none' ? parseFloat(formData.min_ntrp) : null,
           max_ntrp: formData.max_ntrp !== 'none' ? parseFloat(formData.max_ntrp) : null,
