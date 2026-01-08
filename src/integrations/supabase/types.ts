@@ -1112,6 +1112,7 @@ export type Database = {
           max_ntrp: number | null
           min_ntrp: number | null
           name: string
+          registration_deadline: string | null
           start_date: string | null
           status: Database["public"]["Enums"]["ladder_status"]
           updated_at: string
@@ -1129,6 +1130,7 @@ export type Database = {
           max_ntrp?: number | null
           min_ntrp?: number | null
           name: string
+          registration_deadline?: string | null
           start_date?: string | null
           status?: Database["public"]["Enums"]["ladder_status"]
           updated_at?: string
@@ -1146,6 +1148,7 @@ export type Database = {
           max_ntrp?: number | null
           min_ntrp?: number | null
           name?: string
+          registration_deadline?: string | null
           start_date?: string | null
           status?: Database["public"]["Enums"]["ladder_status"]
           updated_at?: string

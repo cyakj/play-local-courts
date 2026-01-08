@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MessageCircle, User, Trophy, Users, Target, GraduationCap, Search, Building2 } from 'lucide-react';
+import { MessageCircle, User, Users, Target, GraduationCap, Search, Building2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useActiveHOA } from '../contexts/ActiveHOAContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,7 +13,7 @@ import MatchPreferences from '../components/locker/MatchPreferences';
 import FindPartner from '../components/locker/FindPartner';
 import FindCoach from '../components/locker/FindCoach';
 import MessagingDialog from '../components/locker/MessagingDialog';
-import LeaguesLadders from './LeaguesLadders';
+
 import ErrorBoundary from '../components/ErrorBoundary';
 import { UserType } from '../types';
 import { LessonsTab } from '../components/locker/LessonsTab';
@@ -153,7 +153,7 @@ const MyLocker = () => {
       </div>
 
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5 bg-white/80 backdrop-blur-sm shadow-lg rounded-xl p-1">
+        <TabsList className="grid w-full grid-cols-4 bg-white/80 backdrop-blur-sm shadow-lg rounded-xl p-1">
           <TabsTrigger 
             value="profile" 
             className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-pink-500 data-[state=active]:text-white transition-all duration-200 rounded-lg"
@@ -181,13 +181,6 @@ const MyLocker = () => {
           >
             <GraduationCap className="h-4 w-4" />
             <span className="hidden sm:inline">Lessons</span>
-          </TabsTrigger>
-          <TabsTrigger 
-            value="ladders"
-            className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-indigo-500 data-[state=active]:text-white transition-all duration-200 rounded-lg"
-          >
-            <Trophy className="h-4 w-4" />
-            <span className="hidden sm:inline">{isNonHOA ? 'Ladders' : 'Leagues'}</span>
           </TabsTrigger>
         </TabsList>
 
@@ -251,31 +244,6 @@ const MyLocker = () => {
           </div>
         </TabsContent>
 
-        <TabsContent value="ladders" className="animate-in fade-in duration-300">
-          <div className="space-y-6">
-            {isNonHOA && (
-              <Card className="bg-gradient-to-r from-purple-50 to-pink-50 border-l-4 border-l-purple-500">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-purple-800">
-                    <Trophy className="h-5 w-5" />
-                    Public Competitive Play
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-purple-700 mb-4">
-                    Join public ladders and leagues open to all players. Compete with players from different communities and track your ranking!
-                  </p>
-                  <div className="text-sm text-purple-600">
-                    ✓ Open to all skill levels<br/>
-                    ✓ Play against diverse competition<br/>
-                    ✓ Track your progress and ranking
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-            <LeaguesLadders />
-          </div>
-        </TabsContent>
       </Tabs>
 
       <MessagingDialog 

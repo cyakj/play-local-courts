@@ -1,30 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import { Home, MessageCircle } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { Home } from 'lucide-react';
 
 const Navbar = () => {
   const { currentUser } = useAuth();
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  useEffect(() => {
-    if (currentUser) {
-      loadUnreadCount();
-    }
-  }, [currentUser]);
-
-  const loadUnreadCount = async () => {
-    if (!currentUser) return;
-    const { count } = await supabase
-      .from('messages')
-      .select('*', { count: 'exact', head: true })
-      .eq('receiver_id', currentUser.id)
-      .is('read_at', null);
-    setUnreadCount(count || 0);
-  };
 
   if (!currentUser) {
     return null;
@@ -39,22 +19,6 @@ const Navbar = () => {
               <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-blue-500 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
                 <Home className="h-4 w-4 text-white" />
               </div>
-              <span className="text-xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
-                HOA Amenities
-              </span>
-            </Link>
-          </div>
-          
-          <div className="flex items-center">
-            <Link to="/messages" className="relative">
-              <Button variant="ghost" size="icon">
-                <MessageCircle className="h-5 w-5" />
-              </Button>
-              {unreadCount > 0 && (
-                <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs bg-primary">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </Badge>
-              )}
             </Link>
           </div>
         </div>
