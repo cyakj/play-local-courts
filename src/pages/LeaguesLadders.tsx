@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Plus, Search } from 'lucide-react';
+import { Search, Settings } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import CreateLadderDialog from '@/components/ladders/CreateLadderDialog';
+import { useNavigate } from 'react-router-dom';
 import LadderList from '@/components/ladders/LadderList';
 import LadderDetails from '@/components/ladders/LadderDetails';
 import LadderDiscovery from '@/components/ladders/LadderDiscovery';
@@ -27,17 +26,35 @@ export interface Ladder {
   min_ntrp?: number | null;
   max_ntrp?: number | null;
   auto_approve_registration?: boolean;
+  registration_deadline?: string | null;
 }
 
 const LeaguesLadders = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, isAdmin } = useAuth();
+  const navigate = useNavigate();
   const [ladders, setLadders] = useState<Ladder[]>([]);
   const [selectedLadder, setSelectedLadder] = useState<Ladder | null>(null);
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'my-ladders' | 'discover'>('my-ladders');
 
-  const isAdmin = currentUser?.role === 'admin';
+  // Check if user is a coach
+  const [isCoach, setIsCoach] = useState(false);
+
+  useEffect(() => {
+    checkIsCoach();
+  }, [currentUser?.id]);
+
+  const checkIsCoach = async () => {
+    if (!currentUser?.id) return;
+    const { data } = await supabase
+      .from('coaches')
+      .select('id')
+      .eq('user_id', currentUser.id)
+      .single();
+    setIsCoach(!!data);
+  };
+
+  const canManageLadders = isAdmin || isCoach;
 
   useEffect(() => {
     loadLadders();
@@ -62,12 +79,6 @@ const LeaguesLadders = () => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleLadderCreated = (newLadder: Ladder) => {
-    setLadders(prev => [newLadder, ...prev]);
-    setShowCreateDialog(false);
-    toast.success('Ladder created successfully!');
   };
 
   if (selectedLadder) {
@@ -97,10 +108,10 @@ const LeaguesLadders = () => {
             <Search className="mr-2 h-4 w-4" />
             Find Ladders
           </Button>
-          {isAdmin && (
-            <Button onClick={() => setShowCreateDialog(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Create Ladder
+          {canManageLadders && (
+            <Button onClick={() => navigate('/manage-ladders')}>
+              <Settings className="mr-2 h-4 w-4" />
+              Manage Ladders
             </Button>
           )}
         </div>
@@ -149,12 +160,6 @@ const LeaguesLadders = () => {
           </TabsContent>
         </Tabs>
       )}
-
-      <CreateLadderDialog
-        open={showCreateDialog}
-        onOpenChange={setShowCreateDialog}
-        onLadderCreated={handleLadderCreated}
-      />
     </div>
   );
 };

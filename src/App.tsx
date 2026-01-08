@@ -28,6 +28,7 @@ import AmenityRules from "./pages/AmenityRules";
 import AdminHub from "./pages/AdminHub";
 import MyLocker from "./pages/MyLocker";
 import LeaguesLadders from "./pages/LeaguesLadders";
+import ManageLadders from "./pages/ManageLadders";
 import EmailSettings from "./pages/EmailSettings";
 import MaintenanceReports from "./pages/MaintenanceReports";
 import UpgradeToCoach from "./pages/UpgradeToCoach";
@@ -80,6 +81,7 @@ function App() {
                   <Route path="/amenity-rules" element={<AmenityRules />} />
                   <Route path="/my-locker" element={<MyLocker />} />
                   <Route path="/leagues-ladders" element={<LeaguesLadders />} />
+                  <Route path="/manage-ladders" element={<ManageLadders />} />
                   <Route path="/email-settings" element={<EmailSettings />} />
                   <Route path="/upgrade-to-coach" element={<UpgradeToCoach />} />
                   <Route path="/profile/:id" element={<UserProfile />} />

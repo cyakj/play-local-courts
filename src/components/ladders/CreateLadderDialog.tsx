@@ -27,6 +27,7 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
     format: 'doubles' as 'singles' | 'doubles' | 'mixed_doubles',
     is_private: false,
     start_date: '',
+    registration_deadline: '',
     weekly_deadline_day: 0, // 0 = Sunday
     min_ntrp: 'none',
     max_ntrp: 'none',
@@ -63,6 +64,7 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
           format: formData.format as any, // Type assertion to handle the enum
           is_private: formData.is_private,
           start_date: formData.start_date || null,
+          registration_deadline: formData.registration_deadline || null,
           weekly_deadline_day: formData.weekly_deadline_day,
           admin_id: currentUser.id,
           hoa_id: currentUser.hoaId,
@@ -83,6 +85,7 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
         format: 'doubles',
         is_private: false,
         start_date: '',
+        registration_deadline: '',
         weekly_deadline_day: 0,
         min_ntrp: 'none',
         max_ntrp: 'none',
@@ -229,6 +232,19 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
               value={formData.start_date}
               onChange={(e) => setFormData(prev => ({ ...prev, start_date: e.target.value }))}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="registration_deadline">Registration Deadline (Optional)</Label>
+            <Input
+              id="registration_deadline"
+              type="date"
+              value={formData.registration_deadline}
+              onChange={(e) => setFormData(prev => ({ ...prev, registration_deadline: e.target.value }))}
+            />
+            <p className="text-xs text-muted-foreground">
+              Players won't be able to register after this date
+            </p>
           </div>
 
           <div className="space-y-2">
