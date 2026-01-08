@@ -1,6 +1,5 @@
-
-import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import React, { useState } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useActiveHOA } from '@/contexts/ActiveHOAContext';
 import { toast } from 'sonner';
 import { Ladder } from '@/pages/LeaguesLadders';
 
@@ -20,6 +20,7 @@ interface CreateLadderDialogProps {
 
 const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadderDialogProps) => {
   const { currentUser } = useAuth();
+  const { activeHOA } = useActiveHOA();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -36,7 +37,14 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentUser?.id || !currentUser?.hoaId) return;
+    if (!currentUser?.id) {
+      toast.error('You must be logged in to create a ladder');
+      return;
+    }
+    if (!activeHOA?.hoaId) {
+      toast.error('You must be part of a community to create a ladder');
+      return;
+    }
 
     // Validate NTRP range if provided
     if (formData.min_ntrp !== 'none' && formData.max_ntrp !== 'none') {
@@ -67,7 +75,7 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
           registration_deadline: formData.registration_deadline || null,
           weekly_deadline_day: formData.weekly_deadline_day,
           admin_id: currentUser.id,
-          hoa_id: currentUser.hoaId,
+          hoa_id: activeHOA.hoaId,
           status: 'setup',
           min_ntrp: formData.min_ntrp !== 'none' ? parseFloat(formData.min_ntrp) : null,
           max_ntrp: formData.max_ntrp !== 'none' ? parseFloat(formData.max_ntrp) : null,
@@ -104,6 +112,7 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create New Ladder</DialogTitle>
+          <DialogDescription>Set up a new competitive ladder for your community</DialogDescription>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
