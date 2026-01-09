@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import AvailabilityManager from '../components/coach/AvailabilityManager';
 import { PaymentsTab } from '../components/coach/PaymentsTab';
 import LessonRequestsTable from '../components/coach/LessonRequestsTable';
-
+import { WeatherBanner } from '@/components/weather';
 const CoachDashboard = () => {
   const navigate = useNavigate();
   const searchParams = new URLSearchParams(window.location.search);
@@ -25,6 +25,7 @@ const CoachDashboard = () => {
   const [lessonRequests, setLessonRequests] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [coachLocation, setCoachLocation] = useState<string | null>(null);
   const [stats, setStats] = useState({
     pendingRequests: 0,
     completedLessons: 0,
@@ -42,6 +43,22 @@ const CoachDashboard = () => {
     if (!currentUser) return;
 
     try {
+      // Load coach profile for location
+      const { data: coachData } = await supabase
+        .from('coaches')
+        .select('home_base')
+        .eq('user_id', currentUser.id)
+        .single();
+      
+      // Also get profile location/zip_code as fallback
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('location, zip_code')
+        .eq('id', currentUser.id)
+        .single();
+      
+      setCoachLocation(coachData?.home_base || profileData?.location || profileData?.zip_code || null);
+
       // Load lesson requests
       const { data: requestsData, error: requestsError } = await supabase
         .from('lesson_requests')
@@ -147,6 +164,13 @@ const CoachDashboard = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      {/* Weather Banner */}
+      {coachLocation && (
+        <div className="mb-6">
+          <WeatherBanner location={coachLocation} />
+        </div>
+      )}
+
       <div className="flex items-center gap-3 mb-8">
         <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center shadow-lg">
           <Users className="h-6 w-6 text-white" />
