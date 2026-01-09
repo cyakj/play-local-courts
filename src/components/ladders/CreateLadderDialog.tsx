@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,6 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { ImagePlus, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useActiveHOA } from '@/contexts/ActiveHOAContext';
@@ -22,6 +24,9 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
   const { currentUser } = useAuth();
   const { activeHOA } = useActiveHOA();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -34,6 +39,43 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
     max_ntrp: 'none',
     auto_approve_registration: false,
   });
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onload = () => setImagePreview(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const uploadImage = async (ladderId: string): Promise<string | null> => {
+    if (!imageFile) return null;
+    
+    const fileExt = imageFile.name.split('.').pop();
+    const filePath = `ladder-images/${ladderId}.${fileExt}`;
+    
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(filePath, imageFile, { upsert: true });
+    
+    if (uploadError) {
+      console.error('Error uploading image:', uploadError);
+      return null;
+    }
+    
+    const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+    return data.publicUrl;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,6 +127,18 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
 
       if (error) throw error;
 
+      // Upload image if selected
+      if (imageFile && data) {
+        const imageUrl = await uploadImage(data.id);
+        if (imageUrl) {
+          await supabase
+            .from('ladders')
+            .update({ image_url: imageUrl })
+            .eq('id', data.id);
+          data.image_url = imageUrl;
+        }
+      }
+
       onLadderCreated(data);
       setFormData({
         name: '',
@@ -98,6 +152,8 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
         max_ntrp: 'none',
         auto_approve_registration: false,
       });
+      setImageFile(null);
+      setImagePreview(null);
     } catch (error) {
       console.error('Error creating ladder:', error);
       toast.error('Failed to create ladder');
@@ -115,6 +171,50 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Ladder Image */}
+          <div className="space-y-2">
+            <Label>Ladder Image (Optional)</Label>
+            <div className="flex items-center gap-4">
+              {imagePreview ? (
+                <div className="relative">
+                  <Avatar className="h-20 w-20 rounded-lg">
+                    <AvatarImage src={imagePreview} className="object-cover" />
+                    <AvatarFallback className="rounded-lg">🎾</AvatarFallback>
+                  </Avatar>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="absolute -top-2 -right-2 h-6 w-6"
+                    onClick={removeImage}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="h-20 w-20 rounded-lg border-dashed flex flex-col gap-1"
+                >
+                  <ImagePlus className="h-6 w-6 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Add</span>
+                </Button>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageSelect}
+                className="hidden"
+              />
+              <p className="text-xs text-muted-foreground">
+                Add a photo to represent your ladder
+              </p>
+            </div>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="name">Ladder Name</Label>
             <Input

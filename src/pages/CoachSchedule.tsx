@@ -162,11 +162,61 @@ export default function CoachSchedule() {
         </p>
       </div>
 
-      <Tabs defaultValue="weekly" className="space-y-6">
+      <Tabs defaultValue="overview" className="space-y-6">
         <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="weekly">Weekly View</TabsTrigger>
           <TabsTrigger value="calendar">Calendar View</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="overview" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>All Upcoming Lessons</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {upcomingLessons.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">
+                  No upcoming lessons scheduled
+                </p>
+              ) : (
+                upcomingLessons.map((lesson) => (
+                  <div
+                    key={lesson.id}
+                    className="p-4 border rounded-lg hover:bg-accent transition-colors"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-2 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold">
+                            {lesson.player?.full_name || 'Unknown Student'}
+                          </span>
+                          <Badge variant="outline">{lesson.lesson_type}</Badge>
+                        </div>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-4 w-4" />
+                            {new Date(lesson.preferred_date).toLocaleDateString()} at{' '}
+                            {formatTime12Hour(lesson.preferred_time_start)}
+                          </div>
+                          {lesson.location && (
+                            <div className="flex items-center gap-1">
+                              <MapPin className="h-4 w-4" />
+                              {lesson.location}
+                            </div>
+                          )}
+                        </div>
+                        {lesson.notes && (
+                          <p className="text-sm text-muted-foreground">{lesson.notes}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="weekly" className="space-y-6">
           <WeeklyCalendarView
@@ -295,54 +345,6 @@ export default function CoachSchedule() {
           </div>
         </TabsContent>
       </Tabs>
-
-      {/* All Upcoming Lessons List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>All Upcoming Lessons</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {upcomingLessons.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">
-              No upcoming lessons scheduled
-            </p>
-          ) : (
-            upcomingLessons.map((lesson) => (
-              <div
-                key={lesson.id}
-                className="p-4 border rounded-lg hover:bg-accent transition-colors"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold">
-                        {lesson.player?.full_name || 'Unknown Student'}
-                      </span>
-                      <Badge variant="outline">{lesson.lesson_type}</Badge>
-                    </div>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-4 w-4" />
-                        {new Date(lesson.preferred_date).toLocaleDateString()} at{' '}
-                        {formatTime12Hour(lesson.preferred_time_start)}
-                      </div>
-                      {lesson.location && (
-                        <div className="flex items-center gap-1">
-                          <MapPin className="h-4 w-4" />
-                          {lesson.location}
-                        </div>
-                      )}
-                    </div>
-                    {lesson.notes && (
-                      <p className="text-sm text-muted-foreground">{lesson.notes}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }
