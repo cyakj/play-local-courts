@@ -188,6 +188,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   });
 
   useRealtimeSubscription({
+    table: 'hoa_memberships',
+    event: '*',
+    filter: currentUser?.hoaId ? `hoa_id=eq.${currentUser.hoaId}` : undefined,
+    onChange: () => {
+      refreshPendingUsersCallback();
+    },
+    enabled: !!currentUser?.id && currentUser.role === 'admin' && !!currentUser.hoaId
+  });
+
+  useRealtimeSubscription({
     table: 'profiles',
     event: 'UPDATE',
     filter: currentUser?.hoaId ? `hoa_id=eq.${currentUser.hoaId}` : undefined,
