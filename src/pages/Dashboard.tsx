@@ -2,12 +2,14 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
+import { useActiveHOA } from '../contexts/ActiveHOAContext';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Link, Navigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import PendingApprovalMessage from '../components/PendingApprovalMessage';
+import { WeatherBanner } from '@/components/weather';
 import { UserType } from '../types';
 import { 
   Users, 
@@ -39,6 +41,7 @@ interface MatchRequest {
 const Dashboard = () => {
   const { currentUser, isAdmin, isPending, isCoach, isPlatformReviewer } = useAuth();
   const { toast } = useToast();
+  const { activeHOA } = useActiveHOA();
   const { 
     bookings,
     pendingUsers,
@@ -47,6 +50,9 @@ const Dashboard = () => {
   } = useData();
   
   const [matchRequests, setMatchRequests] = useState<MatchRequest[]>([]);
+
+  // Get HOA location for weather
+  const hoaLocation = currentHOA?.address || activeHOA?.hoaName || null;
 
   useEffect(() => {
     if (currentUser) {
@@ -172,6 +178,11 @@ const Dashboard = () => {
           </p>
         </div>
       </div>
+
+      {/* Weather Banner for HOA users */}
+      {isCommunityUser && hoaLocation && (
+        <WeatherBanner location={hoaLocation} className="animate-slide-up" />
+      )}
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Match Play Requests Card */}
