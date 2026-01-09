@@ -75,6 +75,9 @@ const TimeSelector: React.FC<TimeSelectorProps> = ({
     return false;
   }, [bookedSlots, maintenanceSlots]);
 
+  // Helper to format time for range display
+  const formatRangeTime = (slot: TimeSlot) => slot.displayTime;
+
   // Generate time slots grouped by period of day
   const groupedTimeSlots = useMemo(() => {
     const morning: TimeSlot[] = [];
@@ -98,7 +101,7 @@ const TimeSelector: React.FC<TimeSelectorProps> = ({
         
         const slot = { time: timeStr, displayTime };
         
-        // Categorize by period
+        // Categorize by period (Morning < 12, Afternoon 12-16:59, Evening 17+)
         if (hour < 12) {
           morning.push(slot);
         } else if (hour < 17) {
@@ -109,15 +112,19 @@ const TimeSelector: React.FC<TimeSelectorProps> = ({
       }
     }
     
+    // Build periods with dynamic ranges based on actual slots
     const periods: TimePeriod[] = [];
     if (morning.length > 0) {
-      periods.push({ label: 'Morning', slots: morning, range: '6:00 AM – 11:30 AM' });
+      const range = `${formatRangeTime(morning[0])} – ${formatRangeTime(morning[morning.length - 1])}`;
+      periods.push({ label: 'Morning', slots: morning, range });
     }
     if (afternoon.length > 0) {
-      periods.push({ label: 'Afternoon', slots: afternoon, range: '12:00 PM – 4:30 PM' });
+      const range = `${formatRangeTime(afternoon[0])} – ${formatRangeTime(afternoon[afternoon.length - 1])}`;
+      periods.push({ label: 'Afternoon', slots: afternoon, range });
     }
     if (evening.length > 0) {
-      periods.push({ label: 'Evening', slots: evening, range: '5:00 PM – 9:00 PM' });
+      const range = `${formatRangeTime(evening[0])} – ${formatRangeTime(evening[evening.length - 1])}`;
+      periods.push({ label: 'Evening', slots: evening, range });
     }
     
     return periods;
