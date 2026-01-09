@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
+import { useActiveHOA } from '../contexts/ActiveHOAContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +10,7 @@ import { toast } from 'sonner';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, Wrench, Heart, Clock, ChevronRight, FileText, BookOpen } from 'lucide-react';
+import { Calendar, Wrench, Heart, Clock, ChevronRight, FileText, BookOpen, AlertCircle } from 'lucide-react';
 import TimeSelector from '../components/TimeSelector';
 import CourtPoliciesDialog from '../components/CourtPoliciesDialog';
 import AmenityRulesDialog from '../components/AmenityRulesDialog';
@@ -18,6 +19,7 @@ import { useAmenityRules } from '../hooks/useAmenityRules';
 import { AmenityStatus } from '../types';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import { Link } from 'react-router-dom';
 
 interface MaintenanceReport {
   id: string;
@@ -34,6 +36,7 @@ interface PolicyAgreement {
 
 const ReserveCourt = () => {
   const { currentUser } = useAuth();
+  const { activeHOA, isHOAUser, loading: hoaLoading } = useActiveHOA();
   const { 
     amenities, 
     bookAmenity,
@@ -57,6 +60,33 @@ const ReserveCourt = () => {
   const [pendingBooking, setPendingBooking] = useState(false);
   
   const { rules, loading: rulesLoading } = useAmenityRules(selectedAmenity);
+
+  // Block access if user is not part of any HOA
+  if (!hoaLoading && !isHOAUser) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="max-w-md w-full">
+          <CardContent className="pt-6">
+            <div className="text-center space-y-4">
+              <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto" />
+              <h2 className="text-xl font-semibold">Community Membership Required</h2>
+              <p className="text-muted-foreground">
+                You need to be a member of a community to access amenity reservations.
+              </p>
+              <div className="space-y-2">
+                <Button asChild className="w-full">
+                  <Link to="/my-locker?tab=community">Join a Community</Link>
+                </Button>
+                <Button asChild variant="outline" className="w-full">
+                  <Link to="/dashboard">Back to Dashboard</Link>
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   // Fetch user's policy agreements
   useEffect(() => {

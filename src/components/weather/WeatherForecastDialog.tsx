@@ -151,7 +151,7 @@ export const WeatherForecastDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-hidden">
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             7-Day Forecast • {locationName}
@@ -165,7 +165,7 @@ export const WeatherForecastDialog = ({
         ) : (
           <div className="space-y-4">
             {/* Day selector */}
-            <div className="flex gap-2 overflow-x-auto pb-2">
+            <div className="grid grid-cols-7 gap-2 pb-2">
               {dailyForecasts.map((day, index) => {
                 const date = new Date(day.date + 'T12:00:00');
                 const isToday = index === 0;
@@ -175,7 +175,7 @@ export const WeatherForecastDialog = ({
                     key={day.date}
                     onClick={() => setSelectedDay(index)}
                     className={cn(
-                      "flex flex-col items-center p-2 rounded-lg min-w-[72px] transition-colors",
+                      "flex flex-col items-center p-2 rounded-lg transition-colors",
                       selectedDay === index 
                         ? "bg-primary text-primary-foreground" 
                         : "bg-muted hover:bg-muted/80"

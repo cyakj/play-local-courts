@@ -62,10 +62,29 @@ const Dashboard = () => {
   } = useData();
   
   const [matchRequests, setMatchRequests] = useState<MatchRequest[]>([]);
+  const [userZipCode, setUserZipCode] = useState<string | null>(null);
 
-  // Get HOA location for weather
-  const hoaLocation = currentHOA?.address || activeHOA?.hoaName || null;
-  const { weather, forecast, loading: weatherLoading, locationName } = useWeather(hoaLocation);
+  // Fetch user's zip_code from profiles
+  useEffect(() => {
+    const fetchUserLocation = async () => {
+      if (!currentUser?.id) return;
+      
+      const { data } = await supabase
+        .from('profiles')
+        .select('zip_code, location')
+        .eq('id', currentUser.id)
+        .single();
+      
+      if (data) {
+        setUserZipCode(data.zip_code || data.location || null);
+      }
+    };
+    
+    fetchUserLocation();
+  }, [currentUser?.id]);
+
+  // Get weather location - only show weather if user has a zip code or home base set
+  const { weather, forecast, loading: weatherLoading, locationName } = useWeather(userZipCode);
 
   useEffect(() => {
     if (currentUser) {
@@ -167,35 +186,39 @@ const Dashboard = () => {
   
   return (
     <div className="space-y-6 animate-fade-scale">
-      {/* Top Header Row with Weather Pill */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          {isCommunityUser && <ActiveHOAIndicator />}
-        </div>
-        <div className="flex items-center gap-3">
-          {isCommunityUser && hoaLocation && (
-            <WeatherPill location={hoaLocation} />
-          )}
-          <Link to="/notifications">
-            <Button variant="ghost" size="icon" className="rounded-full">
-              <Bell className="h-5 w-5" />
-            </Button>
-          </Link>
-          <Link to="/my-locker">
-            <Avatar className="h-9 w-9 cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all">
-              <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                {currentUser?.fullName?.charAt(0) || 'U'}
-              </AvatarFallback>
-            </Avatar>
-          </Link>
+      {/* Dashboard Header */}
+      <div className="bg-gradient-to-r from-primary to-primary/80 rounded-2xl p-6 text-primary-foreground">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col">
+            <h1 className="text-2xl font-bold">Dashboard</h1>
+            {isCommunityUser && activeHOA && (
+              <div className="flex items-center gap-2 mt-1 text-primary-foreground/80">
+                <span className="text-sm">{activeHOA.hoaName}</span>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            {userZipCode && (
+              <WeatherPill location={userZipCode} className="bg-white/20 border-white/30 text-primary-foreground hover:bg-white/30" />
+            )}
+            <Link to="/notifications">
+              <Button variant="ghost" size="icon" className="rounded-full text-primary-foreground hover:bg-white/20">
+                <Bell className="h-5 w-5" />
+              </Button>
+            </Link>
+            <Link to="/my-locker">
+              <Avatar className="h-9 w-9 cursor-pointer hover:ring-2 hover:ring-white/50 transition-all">
+                <AvatarFallback className="bg-white text-primary text-sm font-semibold">
+                  {currentUser?.fullName?.charAt(0) || 'U'}
+                </AvatarFallback>
+              </Avatar>
+            </Link>
+          </div>
         </div>
       </div>
 
       {/* Action Required Alerts */}
       <ActionRequiredAlerts />
-
-      {/* Dashboard Title */}
-      <h2 className="text-xl font-semibold text-foreground">Dashboard</h2>
 
       {/* Quick Action Buttons Row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
