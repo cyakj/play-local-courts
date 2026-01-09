@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getZipCoordinates } from '@/lib/zipCodeUtils';
 
-interface WeatherData {
+export interface WeatherData {
   temperature: number;
   condition: 'sunny' | 'partly_cloudy' | 'cloudy' | 'rainy' | 'stormy';
   description: string;
@@ -9,7 +9,23 @@ interface WeatherData {
   windSpeed?: number;
 }
 
-interface WeatherForecast {
+export interface HourlyForecast {
+  time: string;
+  temperature: number;
+  condition: WeatherData['condition'];
+  description: string;
+}
+
+export interface DailyForecast {
+  date: string;
+  tempHigh: number;
+  tempLow: number;
+  condition: WeatherData['condition'];
+  description: string;
+  hourly: HourlyForecast[];
+}
+
+export interface WeatherForecast {
   [date: string]: WeatherData;
 }
 
