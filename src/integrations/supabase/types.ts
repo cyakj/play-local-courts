@@ -2142,6 +2142,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_user_hoa_ids: { Args: { _user_id: string }; Returns: string[] }
       grant_admin_role: { Args: { target_user_id: string }; Returns: boolean }
       has_role: {
         Args: {
@@ -2188,6 +2189,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      user_is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "resident" | "coach" | "platform_reviewer"
