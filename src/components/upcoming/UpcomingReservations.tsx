@@ -6,6 +6,9 @@ import { Badge } from '@/components/ui/badge';
 import { Clock, MapPin, CalendarDays } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { formatTime12Hour } from '@/lib/textUtils';
+import { WeatherBadge } from '@/components/weather';
+import { useWeather, getWeatherForDate } from '@/hooks/useWeather';
+import { useData } from '@/contexts/DataContext';
 
 interface Booking {
   id: string;
@@ -23,6 +26,8 @@ interface UpcomingReservationsProps {
 
 const UpcomingReservations = ({ upcomingReservations }: UpcomingReservationsProps) => {
   const navigate = useNavigate();
+  const { currentHOA } = useData();
+  const { forecast } = useWeather(currentHOA?.address || currentHOA?.name);
 
   return (
     <Card>
@@ -47,6 +52,7 @@ const UpcomingReservations = ({ upcomingReservations }: UpcomingReservationsProp
           <div className="space-y-4">
             {upcomingReservations.slice(0, 5).map(booking => {
               const bookingDate = new Date(booking.date);
+              const weatherData = getWeatherForDate(forecast, booking.date);
               
               return (
                 <Card key={booking.id} className="overflow-hidden">
@@ -62,9 +68,18 @@ const UpcomingReservations = ({ upcomingReservations }: UpcomingReservationsProp
                     <div className="p-4 flex-1">
                       <div className="flex items-start justify-between mb-2">
                         <div className="font-semibold">{booking.amenityName}</div>
-                        <Badge variant={booking.status === 'confirmed' ? 'default' : 'secondary'}>
-                          {booking.status}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          {weatherData && (
+                            <WeatherBadge 
+                              temperature={weatherData.temperature} 
+                              condition={weatherData.condition}
+                              compact
+                            />
+                          )}
+                          <Badge variant={booking.status === 'confirmed' ? 'default' : 'secondary'}>
+                            {booking.status}
+                          </Badge>
+                        </div>
                       </div>
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <div className="flex items-center gap-1">

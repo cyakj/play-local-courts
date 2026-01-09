@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Users, CalendarDays } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { formatMatchType, formatTime12Hour } from '@/lib/textUtils';
+import { WeatherBadge } from '@/components/weather';
+import { useWeather, getWeatherForDate } from '@/hooks/useWeather';
 
 interface MatchSession {
   id: string;
@@ -21,6 +23,10 @@ interface UpcomingMatchSessionsProps {
 
 const UpcomingMatchSessions = ({ upcomingMatchSessions }: UpcomingMatchSessionsProps) => {
   const navigate = useNavigate();
+  
+  // Use first session location for weather or default to San Juan
+  const firstLocation = upcomingMatchSessions[0]?.location || 'San Juan';
+  const { forecast } = useWeather(firstLocation);
 
   return (
     <Card>
@@ -47,6 +53,7 @@ const UpcomingMatchSessions = ({ upcomingMatchSessions }: UpcomingMatchSessionsP
               // Parse date as local date to avoid timezone issues
               const [year, month, day] = session.date.split('-').map(Number);
               const sessionDate = new Date(year, month - 1, day);
+              const weatherData = getWeatherForDate(forecast, session.date);
               
               return (
                 <Card key={session.id} className="overflow-hidden">
@@ -60,8 +67,17 @@ const UpcomingMatchSessions = ({ upcomingMatchSessions }: UpcomingMatchSessionsP
                       </div>
                     </div>
                     <div className="p-4 flex-1">
-                      <div className="font-semibold">
-                        {formatMatchType(session.match_type)} Match
+                      <div className="flex items-start justify-between">
+                        <div className="font-semibold">
+                          {formatMatchType(session.match_type)} Match
+                        </div>
+                        {weatherData && (
+                          <WeatherBadge 
+                            temperature={weatherData.temperature} 
+                            condition={weatherData.condition}
+                            compact
+                          />
+                        )}
                       </div>
                       <div className="text-sm text-muted-foreground">
                         vs {session.opponent} • {formatTime12Hour(session.time_start)} • {session.location}
