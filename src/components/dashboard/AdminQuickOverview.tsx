@@ -130,7 +130,7 @@ export const AdminQuickOverview = () => {
             </Link>
           </Button>
           <Button asChild variant="outline" size="sm" className="flex-1">
-            <Link to="/manage-courts" className="flex items-center gap-1">
+            <Link to="/manage-amenities" className="flex items-center gap-1">
               Amenities
               <ChevronRight className="h-4 w-4" />
             </Link>

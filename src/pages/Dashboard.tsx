@@ -187,33 +187,33 @@ const Dashboard = () => {
   return (
     <div className="space-y-6 animate-fade-scale">
       {/* Dashboard Header */}
-      <div className="bg-gradient-to-r from-primary to-primary/80 rounded-2xl p-6 text-primary-foreground">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex flex-col">
-            <h1 className="text-2xl font-bold">Dashboard</h1>
-            {isCommunityUser && activeHOA && (
-              <div className="flex items-center gap-2 mt-1 text-primary-foreground/80">
-                <span className="text-sm">{activeHOA.hoaName}</span>
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            {userZipCode && (
-              <WeatherPill location={userZipCode} className="bg-white/20 border-white/30 text-primary-foreground hover:bg-white/30" />
-            )}
-            <Link to="/notifications">
-              <Button variant="ghost" size="icon" className="rounded-full text-primary-foreground hover:bg-white/20">
-                <Bell className="h-5 w-5" />
-              </Button>
-            </Link>
-            <Link to="/my-locker">
-              <Avatar className="h-9 w-9 cursor-pointer hover:ring-2 hover:ring-white/50 transition-all">
-                <AvatarFallback className="bg-white text-primary text-sm font-semibold">
-                  {currentUser?.fullName?.charAt(0) || 'U'}
-                </AvatarFallback>
-              </Avatar>
-            </Link>
-          </div>
+      <div className="flex items-center justify-between">
+        <div className="flex flex-col">
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-primary via-blue-500 to-primary bg-clip-text text-transparent">
+            Dashboard
+          </h1>
+          {isCommunityUser && activeHOA && (
+            <div className="flex items-center gap-2 mt-1 text-muted-foreground">
+              <span className="text-sm">{activeHOA.hoaName}</span>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          {userZipCode && (
+            <WeatherPill location={userZipCode} />
+          )}
+          <Link to="/notifications">
+            <Button variant="ghost" size="icon" className="rounded-full">
+              <Bell className="h-5 w-5" />
+            </Button>
+          </Link>
+          <Link to="/my-locker">
+            <Avatar className="h-9 w-9 cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all">
+              <AvatarFallback className="bg-primary text-primary-foreground text-sm font-semibold">
+                {currentUser?.fullName?.charAt(0) || 'U'}
+              </AvatarFallback>
+            </Avatar>
+          </Link>
         </div>
       </div>
 
