@@ -2,6 +2,7 @@ import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Trophy, Users, Star, Target, Lock } from 'lucide-react';
 import { Ladder } from '@/pages/LeaguesLadders';
 import { differenceInDays, format, isPast, isFuture } from 'date-fns';
@@ -138,11 +139,20 @@ const LadderList = ({ ladders, onSelectLadder, isLoading, emptyMessage, teamCoun
             onClick={() => onSelectLadder(ladder)}
           >
             <CardContent className="p-6">
-              {/* Header with icon and status */}
+              {/* Header with icon/image and status */}
               <div className="flex items-start justify-between mb-4">
-                <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${getIconBgColor(ladder.format)}`}>
-                  {getFormatIcon(ladder.format)}
-                </div>
+                {ladder.image_url ? (
+                  <Avatar className="h-12 w-12 rounded-xl">
+                    <AvatarImage src={ladder.image_url} className="object-cover" />
+                    <AvatarFallback className={`rounded-xl ${getIconBgColor(ladder.format)}`}>
+                      {getFormatIcon(ladder.format)}
+                    </AvatarFallback>
+                  </Avatar>
+                ) : (
+                  <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${getIconBgColor(ladder.format)}`}>
+                    {getFormatIcon(ladder.format)}
+                  </div>
+                )}
                 <div className="flex items-center gap-2">
                   {ladder.is_private && <Lock className="h-4 w-4 text-muted-foreground" />}
                   {getStatusBadge(ladder)}

@@ -28,6 +28,7 @@ export interface Ladder {
   max_ntrp?: number | null;
   auto_approve_registration?: boolean;
   registration_deadline?: string | null;
+  image_url?: string | null;
 }
 
 const LeaguesLadders = () => {
