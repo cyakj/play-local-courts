@@ -61,33 +61,6 @@ const ReserveCourt = () => {
   
   const { rules, loading: rulesLoading } = useAmenityRules(selectedAmenity);
 
-  // Block access if user is not part of any HOA
-  if (!hoaLoading && !isHOAUser) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="max-w-md w-full">
-          <CardContent className="pt-6">
-            <div className="text-center space-y-4">
-              <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto" />
-              <h2 className="text-xl font-semibold">Community Membership Required</h2>
-              <p className="text-muted-foreground">
-                You need to be a member of a community to access amenity reservations.
-              </p>
-              <div className="space-y-2">
-                <Button asChild className="w-full">
-                  <Link to="/my-locker?tab=community">Join a Community</Link>
-                </Button>
-                <Button asChild variant="outline" className="w-full">
-                  <Link to="/dashboard">Back to Dashboard</Link>
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   // Fetch user's policy agreements
   useEffect(() => {
     const fetchPolicyAgreements = async () => {
@@ -125,6 +98,33 @@ const ReserveCourt = () => {
     
     fetchMyReports();
   }, [currentUser, showReportDialog]);
+
+  // Block access if user is not part of any HOA - AFTER all hooks
+  if (!hoaLoading && !isHOAUser) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="max-w-md w-full">
+          <CardContent className="pt-6">
+            <div className="text-center space-y-4">
+              <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto" />
+              <h2 className="text-xl font-semibold">Community Membership Required</h2>
+              <p className="text-muted-foreground">
+                You need to be a member of a community to access amenity reservations.
+              </p>
+              <div className="space-y-2">
+                <Button asChild className="w-full">
+                  <Link to="/my-locker?tab=community">Join a Community</Link>
+                </Button>
+                <Button asChild variant="outline" className="w-full">
+                  <Link to="/dashboard">Back to Dashboard</Link>
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
   
   const today = new Date();
   const tomorrow = addDays(today, 1);
