@@ -145,21 +145,115 @@ export const getHOAById = async (hoaId: string): Promise<HOA | null> => {
 };
 
 export const getPendingUsersByHOAId = async (hoaId: string): Promise<User[]> => {
-  const { data, error } = await supabase
+  // Fetch pending users from profiles table (legacy flow)
+  const { data: profilesData, error: profilesError } = await supabase
     .from('profiles')
     .select('*')
     .eq('hoa_id', hoaId)
     .eq('hoa_status', 'pending');
 
-  if (error || !data) return [];
-  return data.map(profile => transformProfileToUser(profile));
+  // Fetch pending join requests from community_join_requests table
+  const { data: joinRequestsData, error: joinRequestsError } = await supabase
+    .from('community_join_requests')
+    .select(`
+      id,
+      user_id,
+      hoa_id,
+      status,
+      message,
+      created_at,
+      updated_at
+    `)
+    .eq('hoa_id', hoaId)
+    .eq('status', 'pending');
+
+  const pendingUsers: User[] = [];
+
+  // Add users from profiles table
+  if (profilesData && !profilesError) {
+    pendingUsers.push(...profilesData.map(profile => transformProfileToUser(profile)));
+  }
+
+  // Add users from join requests (fetch their profile info separately)
+  if (joinRequestsData && !joinRequestsError) {
+    for (const request of joinRequestsData) {
+      // Skip if we already have this user from profiles
+      if (pendingUsers.some(u => u.id === request.user_id)) continue;
+
+      // Fetch the user's profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', request.user_id)
+        .single();
+
+      if (profile) {
+        pendingUsers.push({
+          ...transformProfileToUser(profile),
+          status: 'pending' as UserStatus,
+          createdAt: request.created_at
+        });
+      }
+    }
+  }
+
+  return pendingUsers;
 };
 
 export const approveUser = async (userId: string): Promise<void> => {
-  await updateUserProfile(userId, { hoa_status: 'approved' });
+  // First check if there's a pending join request for this user
+  const { data: joinRequest } = await supabase
+    .from('community_join_requests')
+    .select('id, hoa_id')
+    .eq('user_id', userId)
+    .eq('status', 'pending')
+    .single();
+
+  if (joinRequest) {
+    // Update the join request status
+    await supabase
+      .from('community_join_requests')
+      .update({ 
+        status: 'approved',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', joinRequest.id);
+
+    // Update the user's profile to link them to the HOA
+    await supabase
+      .from('profiles')
+      .update({
+        hoa_id: joinRequest.hoa_id,
+        hoa_status: 'approved'
+      })
+      .eq('id', userId);
+  } else {
+    // Legacy flow - just update the profile status
+    await updateUserProfile(userId, { hoa_status: 'approved' });
+  }
 };
 
 export const rejectUser = async (userId: string): Promise<void> => {
+  // First check if there's a pending join request for this user
+  const { data: joinRequest } = await supabase
+    .from('community_join_requests')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('status', 'pending')
+    .single();
+
+  if (joinRequest) {
+    // Update the join request status
+    await supabase
+      .from('community_join_requests')
+      .update({ 
+        status: 'rejected',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', joinRequest.id);
+  }
+
+  // Update the profile status
   await updateUserProfile(userId, { hoa_status: 'rejected' });
 };
 
