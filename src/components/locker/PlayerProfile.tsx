@@ -9,15 +9,35 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ExternalLink, Upload, Calendar, HelpCircle, MessageSquare, LogOut, MapPin } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { 
+  ExternalLink, 
+  Upload, 
+  Calendar, 
+  HelpCircle, 
+  LogOut, 
+  MapPin, 
+  User,
+  Shield,
+  Bell,
+  Mail,
+  Phone,
+  Lock,
+  Pencil,
+  Eye,
+  Camera,
+  Building2
+} from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useActiveHOA } from '../../contexts/ActiveHOAContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getAmenitiesByHOAId } from '../../services/supabaseService';
 import { Amenity } from '../../types';
-import MessagingDialog from './MessagingDialog';
 import { capitalizeWords } from '@/lib/textUtils';
 import { isValidZipCode } from '@/lib/zipCodeUtils';
+import { format } from 'date-fns';
+import { Link } from 'react-router-dom';
 
 interface ProfileData {
   fullName: string;
@@ -34,13 +54,18 @@ interface ProfileData {
   showExactDistance: boolean;
 }
 
+type ActiveSection = 'details' | 'privacy' | 'notifications';
+
 const PlayerProfile = () => {
   const { currentUser, logout } = useAuth();
+  const { memberships, activeHOA } = useActiveHOA();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [amenities, setAmenities] = useState<Amenity[]>([]);
-  const [showMessaging, setShowMessaging] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [activeSection, setActiveSection] = useState<ActiveSection>('details');
+  const [memberSince, setMemberSince] = useState<string | null>(null);
   const [profile, setProfile] = useState<ProfileData>({
     fullName: '',
     avatarUrl: '',
@@ -90,6 +115,9 @@ const PlayerProfile = () => {
           locationVisible: data.location_visible !== false,
           showExactDistance: data.show_exact_distance !== false
         });
+        if (data.created_at) {
+          setMemberSince(format(new Date(data.created_at), 'MMM yyyy'));
+        }
       }
     } catch (error) {
       console.error('Error loading profile:', error);
@@ -118,7 +146,6 @@ const PlayerProfile = () => {
   const handleSave = async () => {
     if (!currentUser) return;
 
-    // Validate ZIP code if provided
     if (profile.zipCode && !isValidZipCode(profile.zipCode)) {
       toast({
         title: "Invalid ZIP Code",
@@ -129,8 +156,6 @@ const PlayerProfile = () => {
     }
 
     setLoading(true);
-    
-    // Auto-capitalize the name before saving
     const capitalizedName = capitalizeWords(profile.fullName);
     
     try {
@@ -152,18 +177,15 @@ const PlayerProfile = () => {
         })
         .eq('id', currentUser.id);
       
-      // Update local state with capitalized name
       setProfile(prev => ({ ...prev, fullName: capitalizedName }));
 
-      if (error) {
-        console.error('Save error:', error);
-        throw error;
-      }
+      if (error) throw error;
 
       toast({
         title: "Success",
         description: "Profile updated successfully"
       });
+      setIsEditing(false);
     } catch (error: any) {
       console.error('Error saving profile:', error);
       toast({
@@ -196,7 +218,6 @@ const PlayerProfile = () => {
         .from('avatars')
         .getPublicUrl(fileName);
 
-      // Save the avatar URL to the database
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ avatar_url: data.publicUrl })
@@ -231,23 +252,15 @@ const PlayerProfile = () => {
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
       age--;
     }
-    return age;
+    return age > 0 ? age : null;
   };
 
-  const generateSearchUrl = (platform: string, name: string) => {
-    const encodedName = encodeURIComponent(name);
-    switch (platform) {
-      case 'utr':
-        return `https://app.utrsports.net/search?query=${encodedName}`;
-      case 'wtn':
-        return `https://worldtennisnumber.com/eng/player-search/?search=${encodedName}`;
-      case 'ntrp':
-        // USTA's player search uses JavaScript and doesn't support URL query params
-        // Link directly to the search page - user will need to enter name manually
-        return `https://www.usta.com/en/home/play/player-search.html`;
-      default:
-        return '#';
-    }
+  const getNtrpTier = (rating: number | null) => {
+    if (!rating) return null;
+    if (rating >= 5.0) return { label: 'Advanced', color: 'bg-purple-100 text-purple-700' };
+    if (rating >= 4.0) return { label: 'Intermediate+', color: 'bg-blue-100 text-blue-700' };
+    if (rating >= 3.0) return { label: 'Intermediate', color: 'bg-green-100 text-green-700' };
+    return { label: 'Beginner', color: 'bg-gray-100 text-gray-700' };
   };
 
   const handleLogout = async () => {
@@ -263,332 +276,439 @@ const PlayerProfile = () => {
     }
   };
 
+  const tier = getNtrpTier(profile.ntrpRating);
+
   return (
     <TooltipProvider>
-      <div className="space-y-6">
-        {/* Profile Overview Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Player Profile Overview</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Avatar Section */}
-            <div className="flex items-center space-x-4">
-              <Avatar className="h-20 w-20">
-                <AvatarImage src={profile.avatarUrl} alt={profile.fullName} />
-                <AvatarFallback>
-                  {profile.fullName.split(' ').map(n => n[0]).join('').toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <div>
-                <Label htmlFor="avatar-upload" className="cursor-pointer">
-                  <Button variant="outline" size="sm" disabled={uploading} asChild>
-                    <span>
-                      <Upload className="h-4 w-4 mr-2" />
-                      {uploading ? 'Uploading...' : 'Upload Photo'}
-                    </span>
-                  </Button>
-                </Label>
-                <input
-                  id="avatar-upload"
-                  type="file"
-                  accept="image/*"
-                  onChange={uploadAvatar}
-                  className="hidden"
-                />
-              </div>
-            </div>
-
-            {/* Basic Info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="fullName">Full Name *</Label>
-                <Input
-                  id="fullName"
-                  value={profile.fullName}
-                  onChange={(e) => setProfile(prev => ({ ...prev, fullName: e.target.value }))}
-                  placeholder="Enter your full name"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="dateOfBirth">Date of Birth</Label>
-                <div className="flex items-center space-x-2">
-                  <Input
-                    id="dateOfBirth"
-                    type="date"
-                    value={profile.dateOfBirth}
-                    onChange={(e) => setProfile(prev => ({ ...prev, dateOfBirth: e.target.value }))}
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* Left Sidebar */}
+        <div className="lg:w-72 flex-shrink-0">
+          <Card className="sticky top-4">
+            <CardContent className="pt-6">
+              {/* Avatar Section */}
+              <div className="flex flex-col items-center text-center mb-6">
+                <div className="relative mb-4">
+                  <Avatar className="h-28 w-28 border-4 border-background shadow-lg">
+                    <AvatarImage src={profile.avatarUrl} alt={profile.fullName} />
+                    <AvatarFallback className="text-2xl bg-gradient-to-br from-primary to-blue-500 text-white">
+                      {profile.fullName.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <Label 
+                    htmlFor="avatar-upload" 
+                    className="absolute bottom-0 right-0 bg-primary text-primary-foreground p-2 rounded-full cursor-pointer hover:bg-primary/90 transition-colors shadow-md"
+                  >
+                    <Camera className="h-4 w-4" />
+                  </Label>
+                  <input
+                    id="avatar-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={uploadAvatar}
+                    className="hidden"
+                    disabled={uploading}
                   />
-                  {getAge() !== null && getAge()! > 0 && (
-                    <span className="flex items-center text-sm text-muted-foreground">
-                      <Calendar className="h-4 w-4 mr-1" />
-                      Age {getAge()}
-                    </span>
-                  )}
                 </div>
-              </div>
-
-              <div>
-                <Label htmlFor="gender">Gender</Label>
-                <Select value={profile.gender} onValueChange={(value) => setProfile(prev => ({ ...prev, gender: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select gender" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="male">Male</SelectItem>
-                    <SelectItem value="female">Female</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                    <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {currentUser?.hoaId && (
-                <div>
-                  <Label htmlFor="homeCourt">Home Court Preference</Label>
-                  <Select value={profile.homeCourtId} onValueChange={(value) => setProfile(prev => ({ ...prev, homeCourtId: value }))}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select home court" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {amenities.map((amenity) => (
-                        <SelectItem key={amenity.id} value={amenity.id}>
-                          {amenity.name} ({amenity.amenityType})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-            </div>
-
-            <div>
-              <Label htmlFor="bio">Bio</Label>
-              <Textarea
-                id="bio"
-                value={profile.bio}
-                onChange={(e) => setProfile(prev => ({ ...prev, bio: e.target.value }))}
-                placeholder="Tell us about yourself..."
-                rows={3}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Location Settings Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <MapPin className="h-5 w-5" />
-              Location Settings
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <div className="flex items-center gap-1">
-                  <Label htmlFor="zipCode">ZIP Code</Label>
-                  <Tooltip>
-                    <TooltipTrigger>
-                      <HelpCircle className="h-3 w-3 text-muted-foreground" />
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs">
-                      <p>Your ZIP code is used for distance-based searches so players and coaches can find others nearby. Your exact ZIP code is never shown publicly.</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-                <Input
-                  id="zipCode"
-                  value={profile.zipCode}
-                  onChange={(e) => setProfile(prev => ({ ...prev, zipCode: e.target.value.replace(/\D/g, '').slice(0, 5) }))}
-                  placeholder="e.g. 90210"
-                  maxLength={5}
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  5-digit US ZIP code for location-based discovery
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-4 pt-2 border-t">
-              <h4 className="text-sm font-medium">Privacy Controls</h4>
-              
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="locationVisible" className="text-base">
-                    Appear in Location-Based Searches
-                  </Label>
-                  <p className="text-sm text-muted-foreground">
-                    When enabled, players and coaches can find you based on distance
+                
+                <h2 className="text-xl font-bold">{profile.fullName || 'Your Name'}</h2>
+                {profile.zipCode && (
+                  <div className="flex items-center gap-1 text-muted-foreground text-sm mt-1">
+                    <MapPin className="h-3 w-3" />
+                    <span>{profile.zipCode}</span>
+                  </div>
+                )}
+                {memberSince && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Member since {memberSince}
                   </p>
-                </div>
-                <Switch
-                  id="locationVisible"
-                  checked={profile.locationVisible}
-                  onCheckedChange={(checked) => 
-                    setProfile(prev => ({ ...prev, locationVisible: checked }))
-                  }
-                />
+                )}
               </div>
 
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="showExactDistance" className="text-base">
-                    Show Exact Distance
-                  </Label>
-                  <p className="text-sm text-muted-foreground">
-                    When disabled, others see "Nearby" instead of exact miles
-                  </p>
-                </div>
-                <Switch
-                  id="showExactDistance"
-                  checked={profile.showExactDistance}
-                  onCheckedChange={(checked) => 
-                    setProfile(prev => ({ ...prev, showExactDistance: checked }))
-                  }
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Rankings Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Tennis Rankings</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1">
-                    <Label htmlFor="utrRating">UTR Rating</Label>
-                    <Tooltip>
-                      <TooltipTrigger>
-                        <HelpCircle className="h-3 w-3 text-muted-foreground" />
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs">
-                        <p><strong>Universal Tennis Rating (UTR):</strong> A global rating from 1.00 to 16.50+ based on your match scores and opponent levels. Commonly used by schools, colleges, and competitive juniors.</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                  {profile.fullName && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => window.open(generateSearchUrl('utr', profile.fullName), '_blank')}
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-                <Input
-                  id="utrRating"
-                  type="number"
-                  step="0.1"
-                  min="1"
-                  max="16"
-                  value={profile.utrRating || ''}
-                  onChange={(e) => setProfile(prev => ({ ...prev, utrRating: e.target.value ? parseFloat(e.target.value) : null }))}
-                  placeholder="e.g. 4.5"
-                />
+              {/* Action Buttons */}
+              <div className="space-y-2 mb-6">
+                <Button 
+                  onClick={() => setIsEditing(!isEditing)} 
+                  className="w-full"
+                  variant={isEditing ? "default" : "default"}
+                >
+                  <Pencil className="h-4 w-4 mr-2" />
+                  {isEditing ? 'Cancel Edit' : 'Edit Profile'}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  asChild
+                >
+                  <Link to={`/profile/${currentUser?.id}`}>
+                    <Eye className="h-4 w-4 mr-2" />
+                    Public View
+                  </Link>
+                </Button>
               </div>
 
-              <div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1">
-                    <Label htmlFor="ntrpRating">NTRP Rating</Label>
-                    <Tooltip>
-                      <TooltipTrigger>
-                        <HelpCircle className="h-3 w-3 text-muted-foreground" />
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs">
-                        <p><strong>NTRP (National Tennis Rating Program):</strong> USTA's official rating from 1.0 to 7.0, mostly used in U.S. adult leagues and tournaments. Based on match play or self-assessment.</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                  {profile.fullName && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => window.open(generateSearchUrl('ntrp', profile.fullName), '_blank')}
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-                <Input
-                  id="ntrpRating"
-                  type="number"
-                  step="0.5"
-                  min="1.0"
-                  max="7.0"
-                  value={profile.ntrpRating || ''}
-                  onChange={(e) => setProfile(prev => ({ ...prev, ntrpRating: e.target.value ? parseFloat(e.target.value) : null }))}
-                  placeholder="e.g. 4.0"
-                />
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1">
-                    <Label htmlFor="wtnRating">WTN Number</Label>
-                    <Tooltip>
-                      <TooltipTrigger>
-                        <HelpCircle className="h-3 w-3 text-muted-foreground" />
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs">
-                        <p><strong>World Tennis Number (WTN):</strong> A global rating created by the ITF, ranging from 40 (beginner) to 1 (elite). Used across junior and adult competitions worldwide.</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                  {profile.fullName && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => window.open(generateSearchUrl('wtn', profile.fullName), '_blank')}
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-                <Input
-                  id="wtnRating"
-                  type="number"
-                  step="0.1"
-                  min="1"
-                  max="40"
-                  value={profile.wtnRating || ''}
-                  onChange={(e) => setProfile(prev => ({ ...prev, wtnRating: e.target.value ? parseFloat(e.target.value) : null }))}
-                  placeholder="e.g. 18.5"
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="flex justify-between items-center">
-          <Button onClick={handleSave} disabled={loading}>
-            {loading ? 'Saving...' : 'Save Profile'}
-          </Button>
-          
-          <Button 
-            onClick={handleLogout} 
-            variant="outline"
-            className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
-          >
-            <LogOut className="h-4 w-4 mr-2" />
-            Logout
-          </Button>
+              {/* Navigation Menu */}
+              <nav className="space-y-1">
+                <button
+                  onClick={() => setActiveSection('details')}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                    activeSection === 'details' 
+                      ? 'bg-primary/10 text-primary font-medium' 
+                      : 'text-muted-foreground hover:bg-muted'
+                  }`}
+                >
+                  <User className="h-4 w-4" />
+                  Profile Details
+                </button>
+                <button
+                  onClick={() => setActiveSection('privacy')}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                    activeSection === 'privacy' 
+                      ? 'bg-primary/10 text-primary font-medium' 
+                      : 'text-muted-foreground hover:bg-muted'
+                  }`}
+                >
+                  <Shield className="h-4 w-4" />
+                  Privacy & Security
+                </button>
+                <button
+                  onClick={() => setActiveSection('notifications')}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                    activeSection === 'notifications' 
+                      ? 'bg-primary/10 text-primary font-medium' 
+                      : 'text-muted-foreground hover:bg-muted'
+                  }`}
+                >
+                  <Bell className="h-4 w-4" />
+                  Notifications
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Log Out
+                </button>
+              </nav>
+            </CardContent>
+          </Card>
         </div>
 
-        {showMessaging && (
-          <MessagingDialog 
-            open={showMessaging} 
-            onOpenChange={setShowMessaging}
-          />
-        )}
+        {/* Right Content Area */}
+        <div className="flex-1 space-y-6">
+          {/* Account Details Card */}
+          <Card>
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg">Account Details</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between py-3 border-b">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-muted rounded-lg">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Email Address</p>
+                    <p className="font-medium">{currentUser?.email || 'Not set'}</p>
+                  </div>
+                </div>
+                <Button variant="outline" size="sm" disabled>Change</Button>
+              </div>
+
+              <div className="flex items-center justify-between py-3 border-b">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-muted rounded-lg">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Phone Number</p>
+                    <p className="font-medium">Not set</p>
+                  </div>
+                </div>
+                <Button variant="outline" size="sm" disabled>Edit</Button>
+              </div>
+
+              <div className="flex items-center justify-between py-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-muted rounded-lg">
+                    <Lock className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Password</p>
+                    <p className="font-medium">••••••••••••</p>
+                  </div>
+                </div>
+                <Button variant="outline" size="sm" disabled>Update</Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Player Profile Card */}
+          <Card>
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">Player Profile</CardTitle>
+                {isEditing && (
+                  <Button size="sm" onClick={handleSave} disabled={loading}>
+                    {loading ? 'Saving...' : 'Save Changes'}
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {isEditing ? (
+                <div className="space-y-6">
+                  {/* Editable Fields */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="fullName">Full Name *</Label>
+                      <Input
+                        id="fullName"
+                        value={profile.fullName}
+                        onChange={(e) => setProfile(prev => ({ ...prev, fullName: e.target.value }))}
+                        placeholder="Enter your full name"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="dateOfBirth">Date of Birth</Label>
+                      <Input
+                        id="dateOfBirth"
+                        type="date"
+                        value={profile.dateOfBirth}
+                        onChange={(e) => setProfile(prev => ({ ...prev, dateOfBirth: e.target.value }))}
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="gender">Gender</Label>
+                      <Select value={profile.gender} onValueChange={(value) => setProfile(prev => ({ ...prev, gender: value }))}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select gender" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="male">Male</SelectItem>
+                          <SelectItem value="female">Female</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                          <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="zipCode">ZIP Code</Label>
+                      <Input
+                        id="zipCode"
+                        value={profile.zipCode}
+                        onChange={(e) => setProfile(prev => ({ ...prev, zipCode: e.target.value.replace(/\D/g, '').slice(0, 5) }))}
+                        placeholder="e.g. 90210"
+                        maxLength={5}
+                      />
+                    </div>
+
+                    {currentUser?.hoaId && (
+                      <div>
+                        <Label htmlFor="homeCourt">Home Court</Label>
+                        <Select value={profile.homeCourtId} onValueChange={(value) => setProfile(prev => ({ ...prev, homeCourtId: value }))}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select home court" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {amenities.map((amenity) => (
+                              <SelectItem key={amenity.id} value={amenity.id}>
+                                {amenity.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <Label htmlFor="bio">Bio</Label>
+                    <Textarea
+                      id="bio"
+                      value={profile.bio}
+                      onChange={(e) => setProfile(prev => ({ ...prev, bio: e.target.value }))}
+                      placeholder="Tell us about yourself..."
+                      rows={3}
+                    />
+                  </div>
+
+                  {/* Ratings */}
+                  <div>
+                    <h4 className="font-medium mb-3">Tennis Ratings</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <Label htmlFor="ntrpRating">NTRP Rating</Label>
+                        <Input
+                          id="ntrpRating"
+                          type="number"
+                          step="0.5"
+                          min="1.0"
+                          max="7.0"
+                          value={profile.ntrpRating || ''}
+                          onChange={(e) => setProfile(prev => ({ ...prev, ntrpRating: e.target.value ? parseFloat(e.target.value) : null }))}
+                          placeholder="e.g. 4.0"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="utrRating">UTR Rating</Label>
+                        <Input
+                          id="utrRating"
+                          type="number"
+                          step="0.1"
+                          min="1"
+                          max="16"
+                          value={profile.utrRating || ''}
+                          onChange={(e) => setProfile(prev => ({ ...prev, utrRating: e.target.value ? parseFloat(e.target.value) : null }))}
+                          placeholder="e.g. 4.5"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="wtnRating">WTN Number</Label>
+                        <Input
+                          id="wtnRating"
+                          type="number"
+                          step="0.1"
+                          min="1"
+                          max="40"
+                          value={profile.wtnRating || ''}
+                          onChange={(e) => setProfile(prev => ({ ...prev, wtnRating: e.target.value ? parseFloat(e.target.value) : null }))}
+                          placeholder="e.g. 18.5"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div className="p-4 bg-muted/50 rounded-xl text-center">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">NTRP Rating</p>
+                    <p className="text-2xl font-bold">{profile.ntrpRating || '—'}</p>
+                    {tier && (
+                      <Badge variant="secondary" className={`mt-1 text-xs ${tier.color}`}>
+                        {tier.label}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="p-4 bg-muted/50 rounded-xl text-center">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">UTR Rating</p>
+                    <p className="text-2xl font-bold">{profile.utrRating || '—'}</p>
+                  </div>
+                  <div className="p-4 bg-muted/50 rounded-xl text-center">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Gender</p>
+                    <p className="text-lg font-semibold capitalize">{profile.gender || '—'}</p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Preferences Card */}
+          <Card>
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg">Preferences</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between py-2">
+                <div>
+                  <p className="font-medium">Location-Based Searches</p>
+                  <p className="text-sm text-muted-foreground">Allow others to find you based on distance</p>
+                </div>
+                <Switch
+                  checked={profile.locationVisible}
+                  onCheckedChange={(checked) => {
+                    setProfile(prev => ({ ...prev, locationVisible: checked }));
+                    // Auto-save preference
+                    supabase
+                      .from('profiles')
+                      .update({ location_visible: checked })
+                      .eq('id', currentUser?.id)
+                      .then(() => {
+                        toast({ title: "Preference saved" });
+                      });
+                  }}
+                />
+              </div>
+
+              <div className="flex items-center justify-between py-2">
+                <div>
+                  <p className="font-medium">Show Exact Distance</p>
+                  <p className="text-sm text-muted-foreground">When disabled, others see "Nearby" instead of miles</p>
+                </div>
+                <Switch
+                  checked={profile.showExactDistance}
+                  onCheckedChange={(checked) => {
+                    setProfile(prev => ({ ...prev, showExactDistance: checked }));
+                    // Auto-save preference
+                    supabase
+                      .from('profiles')
+                      .update({ show_exact_distance: checked })
+                      .eq('id', currentUser?.id)
+                      .then(() => {
+                        toast({ title: "Preference saved" });
+                      });
+                  }}
+                />
+              </div>
+
+              <div className="flex items-center justify-between py-2">
+                <div>
+                  <p className="font-medium">Public Profile</p>
+                  <p className="text-sm text-muted-foreground">Allow others to see your stats and skill level</p>
+                </div>
+                <Switch defaultChecked />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Memberships Card */}
+          <Card>
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">Memberships & Associations</CardTitle>
+                <Button variant="link" size="sm" className="text-primary" asChild>
+                  <Link to="/my-locker?tab=community">View All</Link>
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {memberships.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {memberships.slice(0, 4).map((membership) => (
+                    <div 
+                      key={membership.id} 
+                      className="flex items-center gap-3 p-3 bg-muted/50 rounded-xl"
+                    >
+                      <div className="p-2 bg-primary/10 rounded-lg">
+                        <Building2 className="h-5 w-5 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{membership.hoaName}</p>
+                        <p className="text-xs text-muted-foreground capitalize">{membership.role}</p>
+                      </div>
+                      <Badge 
+                        variant="secondary" 
+                        className="bg-green-100 text-green-700 text-xs"
+                      >
+                        Active
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-6 text-muted-foreground">
+                  <Building2 className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                  <p>No community memberships yet</p>
+                  <Button variant="link" asChild className="mt-2">
+                    <Link to="/my-locker?tab=community">Join a Community</Link>
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </TooltipProvider>
   );
