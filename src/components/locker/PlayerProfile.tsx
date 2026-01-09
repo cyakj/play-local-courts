@@ -280,9 +280,9 @@ const PlayerProfile = () => {
 
   return (
     <TooltipProvider>
-      <div className="flex flex-col lg:flex-row gap-6">
+      <div className="flex flex-col lg:flex-row gap-6 w-full">
         {/* Left Sidebar */}
-        <div className="lg:w-72 flex-shrink-0">
+        <div className="lg:w-64 flex-shrink-0">
           <Card className="sticky top-4">
             <CardContent className="pt-6">
               {/* Avatar Section */}
@@ -394,7 +394,7 @@ const PlayerProfile = () => {
         </div>
 
         {/* Right Content Area */}
-        <div className="flex-1 space-y-6">
+        <div className="flex-1 min-w-0 space-y-6">
           {activeSection === 'details' && (
             <>
               {/* Account Details Card */}
