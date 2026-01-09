@@ -3,8 +3,6 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
-  Trophy, 
-  Target,
   TrendingUp,
   Medal
 } from 'lucide-react';
@@ -16,6 +14,61 @@ interface PlayerStats {
   losses: number;
   ladderPositions: { ladderName: string; position: number }[];
 }
+
+// Circular progress component
+const CircularProgress = ({ 
+  value, 
+  max, 
+  label, 
+  sublabel,
+  color = 'stroke-primary' 
+}: { 
+  value: number; 
+  max: number; 
+  label: string; 
+  sublabel?: string;
+  color?: string;
+}) => {
+  const percentage = max > 0 ? (value / max) * 100 : 0;
+  const circumference = 2 * Math.PI * 36; // radius = 36
+  const strokeDashoffset = circumference - (percentage / 100) * circumference;
+  
+  return (
+    <div className="flex flex-col items-center">
+      <div className="relative w-20 h-20">
+        <svg className="w-20 h-20 transform -rotate-90">
+          <circle
+            cx="40"
+            cy="40"
+            r="36"
+            stroke="currentColor"
+            strokeWidth="6"
+            fill="transparent"
+            className="text-muted/30"
+          />
+          <circle
+            cx="40"
+            cy="40"
+            r="36"
+            stroke="currentColor"
+            strokeWidth="6"
+            fill="transparent"
+            strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset}
+            strokeLinecap="round"
+            className={color}
+            style={{ transition: 'stroke-dashoffset 0.5s ease' }}
+          />
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-xl font-bold">{value}</span>
+        </div>
+      </div>
+      <span className="text-sm font-medium mt-2">{label}</span>
+      {sublabel && <span className="text-xs text-muted-foreground">{sublabel}</span>}
+    </div>
+  );
+};
 
 export const PlayerStatsCard = () => {
   const { currentUser } = useAuth();
@@ -99,10 +152,6 @@ export const PlayerStatsCard = () => {
     }
   };
 
-  const winRate = stats.matchesPlayed > 0 
-    ? Math.round((stats.wins / stats.matchesPlayed) * 100) 
-    : 0;
-
   if (loading) {
     return (
       <Card className="animate-pulse">
@@ -110,62 +159,61 @@ export const PlayerStatsCard = () => {
           <div className="h-5 bg-muted rounded w-1/3"></div>
         </CardHeader>
         <CardContent>
-          <div className="h-20 bg-muted rounded"></div>
+          <div className="h-28 bg-muted rounded"></div>
         </CardContent>
       </Card>
     );
   }
 
+  const maxValue = Math.max(stats.matchesPlayed, 20); // Use 20 as baseline for circle
+
   return (
     <Card className="overflow-hidden">
-      <CardHeader className="pb-3 bg-gradient-to-r from-compete/5 to-compete/10">
+      <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
-          <TrendingUp className="h-5 w-5 text-compete" />
+          <TrendingUp className="h-5 w-5 text-primary" />
           Your Performance
         </CardTitle>
       </CardHeader>
-      <CardContent className="pt-4">
-        <div className="grid grid-cols-3 gap-4 mb-4">
-          <div className="text-center p-3 bg-muted/50 rounded-lg">
-            <div className="text-2xl font-bold text-foreground">{stats.matchesPlayed}</div>
-            <div className="text-xs text-muted-foreground">Matches (30d)</div>
-          </div>
-          <div className="text-center p-3 bg-green-50 rounded-lg">
-            <div className="text-2xl font-bold text-green-600">{stats.wins}</div>
-            <div className="text-xs text-muted-foreground">Wins</div>
-          </div>
-          <div className="text-center p-3 bg-muted/50 rounded-lg">
-            <div className="text-2xl font-bold text-muted-foreground">{stats.losses}</div>
-            <div className="text-xs text-muted-foreground">Losses</div>
-          </div>
+      <CardContent className="pt-0">
+        <div className="flex justify-around py-4">
+          <CircularProgress 
+            value={stats.matchesPlayed} 
+            max={maxValue} 
+            label="Matches"
+            sublabel="Last 30 days"
+            color="stroke-primary"
+          />
+          <CircularProgress 
+            value={stats.wins} 
+            max={stats.matchesPlayed || 1} 
+            label="Wins"
+            sublabel={stats.wins > 0 ? `+${stats.wins} from last month` : undefined}
+            color="stroke-green-500"
+          />
+          <CircularProgress 
+            value={stats.losses} 
+            max={stats.matchesPlayed || 1} 
+            label="Losses"
+            sublabel="Steady performance"
+            color="stroke-muted-foreground"
+          />
         </div>
 
-        {stats.matchesPlayed > 0 && (
-          <div className="flex items-center gap-2 p-3 bg-compete/5 rounded-lg mb-4">
-            <Target className="h-4 w-4 text-compete" />
-            <span className="text-sm">Win Rate: <span className="font-bold text-compete">{winRate}%</span></span>
-          </div>
-        )}
-
         {stats.ladderPositions.length > 0 && (
-          <div className="space-y-2">
-            <div className="text-sm font-medium flex items-center gap-2">
+          <div className="border-t pt-4 mt-2">
+            <div className="text-sm font-medium flex items-center gap-2 mb-2">
               <Medal className="h-4 w-4 text-amber-500" />
               Ladder Standings
             </div>
-            {stats.ladderPositions.map((pos, idx) => (
-              <div key={idx} className="flex items-center justify-between p-2 bg-muted/50 rounded text-sm">
-                <span className="truncate">{pos.ladderName}</span>
-                <span className="font-bold text-compete">#{pos.position}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {stats.matchesPlayed === 0 && stats.ladderPositions.length === 0 && (
-          <div className="text-center py-4 text-sm text-muted-foreground">
-            <Trophy className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p>Play matches to track your stats!</p>
+            <div className="space-y-1">
+              {stats.ladderPositions.map((pos, idx) => (
+                <div key={idx} className="flex items-center justify-between p-2 bg-muted/50 rounded text-sm">
+                  <span className="truncate">{pos.ladderName}</span>
+                  <span className="font-bold text-compete">#{pos.position}</span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </CardContent>

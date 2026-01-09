@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveHOA } from '@/contexts/ActiveHOAContext';
@@ -91,21 +90,23 @@ export const CommunitySignals = () => {
 
         {/* Quick links */}
         <div className="space-y-2">
-          <Button asChild variant="ghost" size="sm" className="w-full justify-start">
-            <Link to="/amenity-rules" className="flex items-center gap-2">
-              <FileText className="h-4 w-4 text-muted-foreground" />
-              <span>Rules & Guidelines</span>
-              <ChevronRight className="h-4 w-4 ml-auto" />
-            </Link>
-          </Button>
+          <Link 
+            to="/amenity-rules" 
+            className="flex items-center gap-2 w-full p-2 rounded-lg hover:bg-muted transition-colors text-sm"
+          >
+            <FileText className="h-4 w-4 text-muted-foreground" />
+            <span>Rules & Guidelines</span>
+            <ChevronRight className="h-4 w-4 ml-auto text-muted-foreground" />
+          </Link>
           
-          <Button asChild variant="ghost" size="sm" className="w-full justify-start">
-            <Link to="/leagues-ladders" className="flex items-center gap-2">
-              <Trophy className="h-4 w-4 text-muted-foreground" />
-              <span>View Ladders</span>
-              <ChevronRight className="h-4 w-4 ml-auto" />
-            </Link>
-          </Button>
+          <Link 
+            to="/leagues-ladders" 
+            className="flex items-center gap-2 w-full p-2 rounded-lg hover:bg-muted transition-colors text-sm"
+          >
+            <Trophy className="h-4 w-4 text-muted-foreground" />
+            <span>View Ladders</span>
+            <ChevronRight className="h-4 w-4 ml-auto text-muted-foreground" />
+          </Link>
         </div>
       </CardContent>
     </Card>

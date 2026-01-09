@@ -8,7 +8,7 @@ import { Link, Navigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import PendingApprovalMessage from '../components/PendingApprovalMessage';
-import { WeatherBanner } from '@/components/weather';
+import { WeatherPill } from '@/components/weather/WeatherPill';
 import { useWeather } from '@/hooks/useWeather';
 import { ActiveHOAIndicator } from '@/components/community/ActiveHOAIndicator';
 import { 
@@ -18,7 +18,8 @@ import {
   SuggestedActionsCard,
   ProfileCompletenessCard,
   AdminQuickOverview,
-  CommunitySignals
+  CommunityLinksCard,
+  QuickActionButton
 } from '@/components/dashboard';
 import { UserType } from '../types';
 import { 
@@ -31,8 +32,11 @@ import {
   CheckCircle2,
   XCircle,
   Sparkles,
-  GraduationCap
+  GraduationCap,
+  Bell,
+  Headphones
 } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface MatchRequest {
   id: string;
@@ -133,9 +137,8 @@ const Dashboard = () => {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <div className="relative">
-          <div className="w-16 h-16 border-4 border-green-200 border-t-green-600 rounded-full animate-spin mx-auto"></div>
-          <div className="absolute inset-0 w-16 h-16 border-4 border-transparent border-r-blue-600 rounded-full animate-spin mx-auto" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
-          <Sparkles className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 h-6 w-6 text-green-600" />
+          <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto"></div>
+          <Sparkles className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 h-6 w-6 text-primary" />
         </div>
       </div>
     );
@@ -164,56 +167,79 @@ const Dashboard = () => {
   
   return (
     <div className="space-y-6 animate-fade-scale">
-      {/* Header with Active HOA Indicator */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div className="animate-slide-up">
-          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
-            {isCommunityUser ? 'Dashboard' : 'Tennis Network'}
-          </h1>
-          <p className="text-muted-foreground">
-            {isCommunityUser 
-              ? `Welcome back! Here's what's happening.`
-              : 'Connect, play, and improve your tennis game.'
-            }
-          </p>
+      {/* Top Header Row with Weather Pill */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          {isCommunityUser && <ActiveHOAIndicator />}
         </div>
-        {isCommunityUser && <ActiveHOAIndicator />}
+        <div className="flex items-center gap-3">
+          {isCommunityUser && hoaLocation && (
+            <WeatherPill location={hoaLocation} />
+          )}
+          <Button variant="ghost" size="icon" className="rounded-full">
+            <Bell className="h-5 w-5" />
+          </Button>
+          <Avatar className="h-9 w-9">
+            <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+              {currentUser?.fullName?.charAt(0) || 'U'}
+            </AvatarFallback>
+          </Avatar>
+        </div>
       </div>
 
       {/* Action Required Alerts */}
       <ActionRequiredAlerts />
 
-      {/* Weather Banner for HOA users */}
-      {isCommunityUser && hoaLocation && (
-        <WeatherBanner location={hoaLocation} className="animate-slide-up" />
-      )}
+      {/* Quick Action Buttons Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <QuickActionButton
+          icon={<CalendarCheck className="h-5 w-5" />}
+          title="Reserve"
+          subtitle={isCommunityUser ? "Book a court" : "Find availability"}
+          to={isCommunityUser ? "/reserve-court" : "/my-locker?tab=lessons"}
+          iconBgColor="bg-primary"
+        />
+        <QuickActionButton
+          icon={<Users className="h-5 w-5" />}
+          title="Find Players"
+          subtitle="Browse members"
+          to="/my-locker?tab=find-partner"
+          iconBgColor="bg-primary"
+        />
+        <QuickActionButton
+          icon={<Trophy className="h-5 w-5" />}
+          title="Compete"
+          subtitle="View ladders"
+          to="/leagues-ladders"
+          iconBgColor="bg-compete"
+        />
+      </div>
       
       {/* Main Grid Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column - Status & Awareness */}
+        {/* Left Column - Coming Up & Performance */}
         <div className="lg:col-span-2 space-y-6">
           {/* Upcoming Activity Snapshot */}
           <UpcomingActivitySnapshot forecast={forecast} />
 
           {/* Match Play Requests */}
           {matchRequests.length > 0 && (
-            <Card className="overflow-hidden animate-slide-up">
-              <CardHeader className="pb-3 bg-gradient-to-r from-green-50 to-emerald-50">
+            <Card className="overflow-hidden">
+              <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <Trophy className="h-5 w-5 text-green-600" />
+                  <Trophy className="h-5 w-5 text-primary" />
                   {isCommunityUser ? 'Match Play Requests' : 'Match Invites'}
-                  <span className="ml-auto text-sm font-normal bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                  <span className="ml-auto text-sm font-normal bg-primary/10 text-primary px-2 py-0.5 rounded-full">
                     {matchRequests.length}
                   </span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="pt-4">
+              <CardContent className="pt-0">
                 <div className="space-y-3">
                   {matchRequests.slice(0, 3).map((request) => (
-                    <Card key={request.id} className="p-3 bg-gradient-to-r from-green-50/50 to-blue-50/50 border-l-4 border-l-green-500">
+                    <div key={request.id} className="p-3 rounded-xl border bg-muted/50">
                       <div className="text-sm">
                         <div className="font-medium flex items-center gap-2 mb-2">
-                          <Trophy className="h-4 w-4 text-green-600" />
                           <span className="capitalize">
                             {request.challenger?.full_name} wants to play {request.match_type?.replace('_', ' ')}
                           </span>
@@ -254,93 +280,41 @@ const Dashboard = () => {
                           </Button>
                         </div>
                       </div>
-                    </Card>
+                    </div>
                   ))}
                 </div>
               </CardContent>
             </Card>
           )}
 
-          {/* Quick Actions Row */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Reserve/Find Coach */}
-            <Card className="overflow-hidden hover:shadow-lg transition-all duration-300">
-              <CardHeader className="pb-3 bg-gradient-to-br from-blue-50 to-indigo-50">
-                <CardTitle className="text-base flex items-center gap-2">
-                  {isCommunityUser ? (
-                    <>
-                      <CalendarCheck className="h-5 w-5 text-blue-600" />
-                      Reserve Amenity
-                    </>
-                  ) : (
-                    <>
-                      <GraduationCap className="h-5 w-5 text-blue-600" />
-                      Find a Coach
-                    </>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-4">
-                <Button asChild className="w-full">
-                  <Link to={isCommunityUser ? "/reserve-court" : "/my-locker?tab=lessons"}>
-                    {isCommunityUser ? 'Book Now' : 'Browse Coaches'}
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Find Players */}
-            <Card className="overflow-hidden hover:shadow-lg transition-all duration-300">
-              <CardHeader className="pb-3 bg-gradient-to-br from-green-50 to-emerald-50">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Users className="h-5 w-5 text-green-600" />
-                  Find Players
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-4">
-                <Button asChild variant="outline" className="w-full">
-                  <Link to="/my-locker?tab=find-partner">
-                    Browse Players
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Competitive Play */}
-            <Card className="overflow-hidden hover:shadow-lg transition-all duration-300">
-              <CardHeader className="pb-3 bg-gradient-to-br from-compete/5 to-compete/10">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Trophy className="h-5 w-5 text-compete" />
-                  Compete
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-4">
-                <Button asChild variant="outline" className="w-full border-compete/20 text-compete hover:bg-compete/10">
-                  <Link to="/leagues-ladders">
-                    View Ladders
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+          {/* Player Performance Stats */}
+          <PlayerStatsCard />
         </div>
 
-        {/* Right Column - Progress, Discovery, Admin */}
+        {/* Right Column - Growth & Community */}
         <div className="space-y-6">
-          {/* Player Stats */}
-          <PlayerStatsCard />
-
-          {/* Profile Completeness */}
+          {/* Profile Completeness / Growth */}
           <ProfileCompletenessCard />
 
-          {/* Suggested Actions */}
-          <SuggestedActionsCard />
+          {/* Community Links */}
+          {isCommunityUser && <CommunityLinksCard />}
 
           {/* Admin Overview - Only for HOA admins */}
           {isAdmin && <AdminQuickOverview />}
 
-          {/* Community Signals */}
-          {isCommunityUser && <CommunitySignals />}
+          {/* Support Card */}
+          <Card className="overflow-hidden bg-primary text-primary-foreground">
+            <CardContent className="pt-6">
+              <h3 className="font-semibold mb-1">Need assistance?</h3>
+              <p className="text-sm text-primary-foreground/80 mb-4">
+                Our support team is available 24/7 to help you with bookings and matches.
+              </p>
+              <Button variant="secondary" className="w-full">
+                <Headphones className="h-4 w-4 mr-2" />
+                Contact Support
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
