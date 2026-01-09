@@ -6,6 +6,12 @@ import { getCurrentUserProfile } from '../services/supabaseService';
 import { createDefaultEmailPreferences } from '../services/emailService';
 import { toast } from 'sonner';
 
+const getPublicSiteUrl = () => {
+  const envUrl = (import.meta as any)?.env?.VITE_PUBLIC_SITE_URL as string | undefined;
+  const base = (envUrl || window.location.origin).replace(/\/+$/, '');
+  return base;
+};
+
 interface AuthContextType {
   currentUser: User | null;
   loading: boolean;
@@ -315,7 +321,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('Sending password reset email to:', email);
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: `${getPublicSiteUrl()}/reset-password`,
       });
 
       if (error) {
@@ -380,3 +386,4 @@ export function useAuth() {
   }
   return context;
 }
+
