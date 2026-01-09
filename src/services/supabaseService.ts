@@ -52,14 +52,39 @@ const transformBookingRow = (booking: any, userName?: string, amenityName?: stri
 // User/Profile operations
 export const getCurrentUserProfile = async (): Promise<User | null> => {
   console.log('Getting current user profile...');
-  
-  const { data: { user } } = await supabase.auth.getUser();
+
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError) {
+    console.error('Error getting authenticated user:', userError);
+    return null;
+  }
+
   if (!user) {
     console.log('No authenticated user found');
     return null;
   }
 
   console.log('Authenticated user found:', user.id);
+
+  const meta = ((user as any)?.user_metadata ?? {}) as Record<string, any>;
+  const inferredUserType: UserType = meta?.hoa_role === 'coach'
+    ? UserType.COACH
+    : meta?.hoa_id
+      ? UserType.HOA
+      : UserType.NON_HOA;
+
+  const fallbackUser: User = {
+    id: user.id,
+    fullName: meta?.full_name || 'User',
+    email: user.email || '',
+    phoneNumber: meta?.phone_number,
+    dateOfBirth: meta?.date_of_birth,
+    role: (meta?.hoa_role || UserRole.RESIDENT) as UserRole,
+    status: (meta?.hoa_status || UserStatus.APPROVED) as UserStatus,
+    hoaId: meta?.hoa_id || undefined,
+    userType: inferredUserType,
+    createdAt: new Date().toISOString(),
+  };
 
   const { data: profile, error } = await supabase
     .from('profiles')
@@ -69,14 +94,51 @@ export const getCurrentUserProfile = async (): Promise<User | null> => {
 
   if (error) {
     console.error('Error fetching profile:', error);
-    return null;
+    // Allow the app to proceed (AuthLayout redirect) even if profile RLS is misconfigured.
+    return fallbackUser;
   }
 
   if (!profile) {
-    console.log('No profile found for user:', user.id);
-    return null;
+    console.log('No profile found for user:', user.id, '- attempting to create minimal profile');
+
+    const userTypeValue = inferredUserType;
+
+    const { error: upsertError } = await supabase
+      .from('profiles')
+      .upsert(
+        {
+          id: user.id,
+          full_name: meta?.full_name ?? null,
+          phone_number: meta?.phone_number ?? null,
+          date_of_birth: meta?.date_of_birth ?? null,
+          hoa_id: meta?.hoa_id ?? null,
+          hoa_role: meta?.hoa_role ?? UserRole.RESIDENT,
+          hoa_status: meta?.hoa_status ?? UserStatus.APPROVED,
+          user_type: userTypeValue,
+        },
+        { onConflict: 'id' }
+      );
+
+    if (upsertError) {
+      console.error('Failed to upsert missing profile:', upsertError);
+      return fallbackUser;
+    }
+
+    const { data: refetchedProfile, error: refetchError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (refetchError || !refetchedProfile) {
+      console.error('Failed to refetch profile after upsert:', refetchError);
+      return fallbackUser;
+    }
+
+    console.log('Profile created/refetched successfully:', refetchedProfile);
+    return transformProfileToUser(refetchedProfile, user.email);
   }
-  
+
   console.log('Profile fetched successfully:', profile);
   return transformProfileToUser(profile, user.email);
 };
