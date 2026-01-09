@@ -76,6 +76,7 @@ function App() {
                   <Route path="/my-reservations" element={<MyReservations />} />
                   <Route path="/upcoming" element={<Upcoming />} />
                   <Route path="/manage-amenities" element={<ManageCourts />} />
+                  <Route path="/manage-courts" element={<ManageCourts />} />
                   <Route path="/admin" element={<AdminHub />} />
                   <Route path="/admin/maintenance" element={<MaintenanceReports />} />
                   <Route path="/pending-requests" element={<PendingRequests />} />
@@ -89,8 +90,8 @@ function App() {
                   <Route path="/messages" element={<Messages />} />
                   <Route path="/notifications" element={<Notifications />} />
                   <Route path="/hoa-application" element={<HOAApplication />} />
-                </Route>
                   <Route path="*" element={<NotFound />} />
+                </Route>
                 </Routes>
               </DataProvider>
             </ActiveHOAProvider>
