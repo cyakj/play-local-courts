@@ -207,14 +207,21 @@ export const getHOAById = async (hoaId: string): Promise<HOA | null> => {
 };
 
 export const getPendingUsersByHOAId = async (hoaId: string): Promise<User[]> => {
-  // Fetch pending users from profiles table (legacy flow)
+  // Primary: Fetch pending memberships from hoa_memberships table
+  const { data: membershipData, error: membershipError } = await supabase
+    .from('hoa_memberships')
+    .select('id, user_id, hoa_id, status, created_at')
+    .eq('hoa_id', hoaId)
+    .eq('status', 'pending');
+
+  // Fallback: Fetch pending users from profiles table (legacy flow)
   const { data: profilesData, error: profilesError } = await supabase
     .from('profiles')
     .select('*')
     .eq('hoa_id', hoaId)
     .eq('hoa_status', 'pending');
 
-  // Fetch pending join requests from community_join_requests table
+  // Fallback: Fetch pending join requests from community_join_requests table
   const { data: joinRequestsData, error: joinRequestsError } = await supabase
     .from('community_join_requests')
     .select(`
@@ -230,17 +237,45 @@ export const getPendingUsersByHOAId = async (hoaId: string): Promise<User[]> => 
     .eq('status', 'pending');
 
   const pendingUsers: User[] = [];
+  const seenUserIds = new Set<string>();
 
-  // Add users from profiles table
+  // Add users from hoa_memberships table (primary source)
+  if (membershipData && !membershipError) {
+    for (const membership of membershipData) {
+      if (seenUserIds.has(membership.user_id)) continue;
+      seenUserIds.add(membership.user_id);
+
+      // Fetch the user's profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', membership.user_id)
+        .single();
+
+      if (profile) {
+        pendingUsers.push({
+          ...transformProfileToUser(profile),
+          status: 'pending' as UserStatus,
+          createdAt: membership.created_at
+        });
+      }
+    }
+  }
+
+  // Add users from profiles table (legacy)
   if (profilesData && !profilesError) {
-    pendingUsers.push(...profilesData.map(profile => transformProfileToUser(profile)));
+    for (const profile of profilesData) {
+      if (seenUserIds.has(profile.id)) continue;
+      seenUserIds.add(profile.id);
+      pendingUsers.push(transformProfileToUser(profile));
+    }
   }
 
   // Add users from join requests (fetch their profile info separately)
   if (joinRequestsData && !joinRequestsError) {
     for (const request of joinRequestsData) {
-      // Skip if we already have this user from profiles
-      if (pendingUsers.some(u => u.id === request.user_id)) continue;
+      if (seenUserIds.has(request.user_id)) continue;
+      seenUserIds.add(request.user_id);
 
       // Fetch the user's profile
       const { data: profile } = await supabase
@@ -263,13 +298,51 @@ export const getPendingUsersByHOAId = async (hoaId: string): Promise<User[]> => 
 };
 
 export const approveUser = async (userId: string): Promise<void> => {
-  // First check if there's a pending join request for this user
+  // First check if there's a pending membership in hoa_memberships
+  const { data: pendingMembership } = await supabase
+    .from('hoa_memberships')
+    .select('id, hoa_id')
+    .eq('user_id', userId)
+    .eq('status', 'pending')
+    .maybeSingle();
+
+  if (pendingMembership) {
+    // Use the RPC function to properly approve the membership
+    const { error: rpcError } = await supabase.rpc('approve_hoa_membership', {
+      membership_id: pendingMembership.id
+    });
+
+    if (rpcError) {
+      console.error('Error approving via RPC:', rpcError);
+      // Fallback: directly update hoa_memberships
+      await supabase
+        .from('hoa_memberships')
+        .update({ 
+          status: 'approved',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', pendingMembership.id);
+
+      // Also update community_join_requests for backward compatibility
+      await supabase
+        .from('community_join_requests')
+        .update({ 
+          status: 'approved',
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', userId)
+        .eq('hoa_id', pendingMembership.hoa_id);
+    }
+    return;
+  }
+
+  // Check legacy community_join_requests table
   const { data: joinRequest } = await supabase
     .from('community_join_requests')
     .select('id, hoa_id')
     .eq('user_id', userId)
     .eq('status', 'pending')
-    .single();
+    .maybeSingle();
 
   if (joinRequest) {
     // Update the join request status
@@ -281,14 +354,32 @@ export const approveUser = async (userId: string): Promise<void> => {
       })
       .eq('id', joinRequest.id);
 
-    // Update the user's profile to link them to the HOA
-    await supabase
-      .from('profiles')
-      .update({
-        hoa_id: joinRequest.hoa_id,
-        hoa_status: 'approved'
-      })
-      .eq('id', userId);
+    // Create or update the hoa_membership
+    const { data: existingMembership } = await supabase
+      .from('hoa_memberships')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('hoa_id', joinRequest.hoa_id)
+      .maybeSingle();
+
+    if (existingMembership) {
+      await supabase
+        .from('hoa_memberships')
+        .update({ 
+          status: 'approved',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existingMembership.id);
+    } else {
+      await supabase
+        .from('hoa_memberships')
+        .insert({
+          user_id: userId,
+          hoa_id: joinRequest.hoa_id,
+          role: 'resident',
+          status: 'approved'
+        });
+    }
   } else {
     // Legacy flow - just update the profile status
     await updateUserProfile(userId, { hoa_status: 'approved' });
@@ -296,13 +387,51 @@ export const approveUser = async (userId: string): Promise<void> => {
 };
 
 export const rejectUser = async (userId: string): Promise<void> => {
-  // First check if there's a pending join request for this user
-  const { data: joinRequest } = await supabase
-    .from('community_join_requests')
-    .select('id')
+  // First check if there's a pending membership in hoa_memberships
+  const { data: pendingMembership } = await supabase
+    .from('hoa_memberships')
+    .select('id, hoa_id')
     .eq('user_id', userId)
     .eq('status', 'pending')
-    .single();
+    .maybeSingle();
+
+  if (pendingMembership) {
+    // Use the RPC function to properly reject the membership
+    const { error: rpcError } = await supabase.rpc('reject_hoa_membership', {
+      membership_id: pendingMembership.id
+    });
+
+    if (rpcError) {
+      console.error('Error rejecting via RPC:', rpcError);
+      // Fallback: directly update hoa_memberships
+      await supabase
+        .from('hoa_memberships')
+        .update({ 
+          status: 'rejected',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', pendingMembership.id);
+
+      // Also update community_join_requests for backward compatibility
+      await supabase
+        .from('community_join_requests')
+        .update({ 
+          status: 'rejected',
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', userId)
+        .eq('hoa_id', pendingMembership.hoa_id);
+    }
+    return;
+  }
+
+  // Check legacy community_join_requests table
+  const { data: joinRequest } = await supabase
+    .from('community_join_requests')
+    .select('id, hoa_id')
+    .eq('user_id', userId)
+    .eq('status', 'pending')
+    .maybeSingle();
 
   if (joinRequest) {
     // Update the join request status
@@ -313,6 +442,16 @@ export const rejectUser = async (userId: string): Promise<void> => {
         updated_at: new Date().toISOString()
       })
       .eq('id', joinRequest.id);
+
+    // Also update hoa_memberships if it exists
+    await supabase
+      .from('hoa_memberships')
+      .update({ 
+        status: 'rejected',
+        updated_at: new Date().toISOString()
+      })
+      .eq('user_id', userId)
+      .eq('hoa_id', joinRequest.hoa_id);
   }
 
   // Update the profile status
