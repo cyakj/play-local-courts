@@ -395,319 +395,354 @@ const PlayerProfile = () => {
 
         {/* Right Content Area */}
         <div className="flex-1 space-y-6">
-          {/* Account Details Card */}
-          <Card>
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg">Account Details</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between py-3 border-b">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-muted rounded-lg">
-                    <Mail className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Email Address</p>
-                    <p className="font-medium">{currentUser?.email || 'Not set'}</p>
-                  </div>
-                </div>
-                <Button variant="outline" size="sm" disabled>Change</Button>
-              </div>
-
-              <div className="flex items-center justify-between py-3 border-b">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-muted rounded-lg">
-                    <Phone className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Phone Number</p>
-                    <p className="font-medium">Not set</p>
-                  </div>
-                </div>
-                <Button variant="outline" size="sm" disabled>Edit</Button>
-              </div>
-
-              <div className="flex items-center justify-between py-3">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-muted rounded-lg">
-                    <Lock className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Password</p>
-                    <p className="font-medium">••••••••••••</p>
-                  </div>
-                </div>
-                <Button variant="outline" size="sm" disabled>Update</Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Player Profile Card */}
-          <Card>
-            <CardHeader className="pb-4">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Player Profile</CardTitle>
-                {isEditing && (
-                  <Button size="sm" onClick={handleSave} disabled={loading}>
-                    {loading ? 'Saving...' : 'Save Changes'}
-                  </Button>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              {isEditing ? (
-                <div className="space-y-6">
-                  {/* Editable Fields */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="fullName">Full Name *</Label>
-                      <Input
-                        id="fullName"
-                        value={profile.fullName}
-                        onChange={(e) => setProfile(prev => ({ ...prev, fullName: e.target.value }))}
-                        placeholder="Enter your full name"
-                      />
+          {activeSection === 'details' && (
+            <>
+              {/* Account Details Card */}
+              <Card>
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-lg">Account Details</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center gap-3 py-3 border-b">
+                    <div className="p-2 bg-muted rounded-lg">
+                      <Mail className="h-4 w-4 text-muted-foreground" />
                     </div>
-
                     <div>
-                      <Label htmlFor="dateOfBirth">Date of Birth</Label>
-                      <Input
-                        id="dateOfBirth"
-                        type="date"
-                        value={profile.dateOfBirth}
-                        onChange={(e) => setProfile(prev => ({ ...prev, dateOfBirth: e.target.value }))}
-                      />
+                      <p className="text-sm text-muted-foreground">Email Address</p>
+                      <p className="font-medium">{currentUser?.email || 'Not set'}</p>
                     </div>
+                  </div>
 
+                  <div className="flex items-center gap-3 py-3 border-b">
+                    <div className="p-2 bg-muted rounded-lg">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                    </div>
                     <div>
-                      <Label htmlFor="gender">Gender</Label>
-                      <Select value={profile.gender} onValueChange={(value) => setProfile(prev => ({ ...prev, gender: value }))}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select gender" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="male">Male</SelectItem>
-                          <SelectItem value="female">Female</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                          <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <p className="text-sm text-muted-foreground">Phone Number</p>
+                      <p className="font-medium">Not set</p>
                     </div>
+                  </div>
 
+                  <div className="flex items-center gap-3 py-3">
+                    <div className="p-2 bg-muted rounded-lg">
+                      <Lock className="h-4 w-4 text-muted-foreground" />
+                    </div>
                     <div>
-                      <Label htmlFor="zipCode">ZIP Code</Label>
-                      <Input
-                        id="zipCode"
-                        value={profile.zipCode}
-                        onChange={(e) => setProfile(prev => ({ ...prev, zipCode: e.target.value.replace(/\D/g, '').slice(0, 5) }))}
-                        placeholder="e.g. 90210"
-                        maxLength={5}
-                      />
+                      <p className="text-sm text-muted-foreground">Password</p>
+                      <p className="font-medium">••••••••••••</p>
                     </div>
+                  </div>
+                </CardContent>
+              </Card>
 
-                    {currentUser?.hoaId && (
-                      <div>
-                        <Label htmlFor="homeCourt">Home Court</Label>
-                        <Select value={profile.homeCourtId} onValueChange={(value) => setProfile(prev => ({ ...prev, homeCourtId: value }))}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select home court" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {amenities.map((amenity) => (
-                              <SelectItem key={amenity.id} value={amenity.id}>
-                                {amenity.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+              {/* Player Profile Card */}
+              <Card>
+                <CardHeader className="pb-4">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">Player Profile</CardTitle>
+                    {isEditing && (
+                      <Button size="sm" onClick={handleSave} disabled={loading}>
+                        {loading ? 'Saving...' : 'Save Changes'}
+                      </Button>
                     )}
                   </div>
+                </CardHeader>
+                <CardContent>
+                  {isEditing ? (
+                    <div className="space-y-6">
+                      {/* Editable Fields */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="fullName">Full Name *</Label>
+                          <Input
+                            id="fullName"
+                            value={profile.fullName}
+                            onChange={(e) => setProfile(prev => ({ ...prev, fullName: e.target.value }))}
+                            placeholder="Enter your full name"
+                          />
+                        </div>
 
-                  <div>
-                    <Label htmlFor="bio">Bio</Label>
-                    <Textarea
-                      id="bio"
-                      value={profile.bio}
-                      onChange={(e) => setProfile(prev => ({ ...prev, bio: e.target.value }))}
-                      placeholder="Tell us about yourself..."
-                      rows={3}
-                    />
-                  </div>
+                        <div>
+                          <Label htmlFor="dateOfBirth">Date of Birth</Label>
+                          <Input
+                            id="dateOfBirth"
+                            type="date"
+                            value={profile.dateOfBirth}
+                            onChange={(e) => setProfile(prev => ({ ...prev, dateOfBirth: e.target.value }))}
+                          />
+                        </div>
 
-                  {/* Ratings */}
-                  <div>
-                    <h4 className="font-medium mb-3">Tennis Ratings</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <Label htmlFor="gender">Gender</Label>
+                          <Select value={profile.gender} onValueChange={(value) => setProfile(prev => ({ ...prev, gender: value }))}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select gender" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="male">Male</SelectItem>
+                              <SelectItem value="female">Female</SelectItem>
+                              <SelectItem value="other">Other</SelectItem>
+                              <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div>
+                          <Label htmlFor="zipCode">ZIP Code</Label>
+                          <Input
+                            id="zipCode"
+                            value={profile.zipCode}
+                            onChange={(e) => setProfile(prev => ({ ...prev, zipCode: e.target.value.replace(/\D/g, '').slice(0, 5) }))}
+                            placeholder="e.g. 90210"
+                            maxLength={5}
+                          />
+                        </div>
+
+                        {currentUser?.hoaId && (
+                          <div>
+                            <Label htmlFor="homeCourt">Home Court</Label>
+                            <Select value={profile.homeCourtId} onValueChange={(value) => setProfile(prev => ({ ...prev, homeCourtId: value }))}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select home court" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {amenities.map((amenity) => (
+                                  <SelectItem key={amenity.id} value={amenity.id}>
+                                    {amenity.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                      </div>
+
                       <div>
-                        <Label htmlFor="ntrpRating">NTRP Rating</Label>
-                        <Input
-                          id="ntrpRating"
-                          type="number"
-                          step="0.5"
-                          min="1.0"
-                          max="7.0"
-                          value={profile.ntrpRating || ''}
-                          onChange={(e) => setProfile(prev => ({ ...prev, ntrpRating: e.target.value ? parseFloat(e.target.value) : null }))}
-                          placeholder="e.g. 4.0"
+                        <Label htmlFor="bio">Bio</Label>
+                        <Textarea
+                          id="bio"
+                          value={profile.bio}
+                          onChange={(e) => setProfile(prev => ({ ...prev, bio: e.target.value }))}
+                          placeholder="Tell us about yourself..."
+                          rows={3}
                         />
                       </div>
+
+                      {/* Ratings */}
                       <div>
-                        <Label htmlFor="utrRating">UTR Rating</Label>
-                        <Input
-                          id="utrRating"
-                          type="number"
-                          step="0.1"
-                          min="1"
-                          max="16"
-                          value={profile.utrRating || ''}
-                          onChange={(e) => setProfile(prev => ({ ...prev, utrRating: e.target.value ? parseFloat(e.target.value) : null }))}
-                          placeholder="e.g. 4.5"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="wtnRating">WTN Number</Label>
-                        <Input
-                          id="wtnRating"
-                          type="number"
-                          step="0.1"
-                          min="1"
-                          max="40"
-                          value={profile.wtnRating || ''}
-                          onChange={(e) => setProfile(prev => ({ ...prev, wtnRating: e.target.value ? parseFloat(e.target.value) : null }))}
-                          placeholder="e.g. 18.5"
-                        />
+                        <h4 className="font-medium mb-3">Tennis Ratings</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <Label htmlFor="ntrpRating">NTRP Rating</Label>
+                            <Input
+                              id="ntrpRating"
+                              type="number"
+                              step="0.5"
+                              min="1.0"
+                              max="7.0"
+                              value={profile.ntrpRating || ''}
+                              onChange={(e) => setProfile(prev => ({ ...prev, ntrpRating: e.target.value ? parseFloat(e.target.value) : null }))}
+                              placeholder="e.g. 4.0"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="utrRating">UTR Rating</Label>
+                            <Input
+                              id="utrRating"
+                              type="number"
+                              step="0.1"
+                              min="1"
+                              max="16"
+                              value={profile.utrRating || ''}
+                              onChange={(e) => setProfile(prev => ({ ...prev, utrRating: e.target.value ? parseFloat(e.target.value) : null }))}
+                              placeholder="e.g. 4.5"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="wtnRating">WTN Number</Label>
+                            <Input
+                              id="wtnRating"
+                              type="number"
+                              step="0.1"
+                              min="1"
+                              max="40"
+                              value={profile.wtnRating || ''}
+                              onChange={(e) => setProfile(prev => ({ ...prev, wtnRating: e.target.value ? parseFloat(e.target.value) : null }))}
+                              placeholder="e.g. 18.5"
+                            />
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  <div className="p-4 bg-muted/50 rounded-xl text-center">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">NTRP Rating</p>
-                    <p className="text-2xl font-bold">{profile.ntrpRating || '—'}</p>
-                    {tier && (
-                      <Badge variant="secondary" className={`mt-1 text-xs ${tier.color}`}>
-                        {tier.label}
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="p-4 bg-muted/50 rounded-xl text-center">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">UTR Rating</p>
-                    <p className="text-2xl font-bold">{profile.utrRating || '—'}</p>
-                  </div>
-                  <div className="p-4 bg-muted/50 rounded-xl text-center">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Gender</p>
-                    <p className="text-lg font-semibold capitalize">{profile.gender || '—'}</p>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Preferences Card */}
-          <Card>
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg">Preferences</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between py-2">
-                <div>
-                  <p className="font-medium">Location-Based Searches</p>
-                  <p className="text-sm text-muted-foreground">Allow others to find you based on distance</p>
-                </div>
-                <Switch
-                  checked={profile.locationVisible}
-                  onCheckedChange={(checked) => {
-                    setProfile(prev => ({ ...prev, locationVisible: checked }));
-                    // Auto-save preference
-                    supabase
-                      .from('profiles')
-                      .update({ location_visible: checked })
-                      .eq('id', currentUser?.id)
-                      .then(() => {
-                        toast({ title: "Preference saved" });
-                      });
-                  }}
-                />
-              </div>
-
-              <div className="flex items-center justify-between py-2">
-                <div>
-                  <p className="font-medium">Show Exact Distance</p>
-                  <p className="text-sm text-muted-foreground">When disabled, others see "Nearby" instead of miles</p>
-                </div>
-                <Switch
-                  checked={profile.showExactDistance}
-                  onCheckedChange={(checked) => {
-                    setProfile(prev => ({ ...prev, showExactDistance: checked }));
-                    // Auto-save preference
-                    supabase
-                      .from('profiles')
-                      .update({ show_exact_distance: checked })
-                      .eq('id', currentUser?.id)
-                      .then(() => {
-                        toast({ title: "Preference saved" });
-                      });
-                  }}
-                />
-              </div>
-
-              <div className="flex items-center justify-between py-2">
-                <div>
-                  <p className="font-medium">Public Profile</p>
-                  <p className="text-sm text-muted-foreground">Allow others to see your stats and skill level</p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Memberships Card */}
-          <Card>
-            <CardHeader className="pb-4">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Memberships & Associations</CardTitle>
-                <Button variant="link" size="sm" className="text-primary" asChild>
-                  <Link to="/my-locker?tab=community">View All</Link>
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {memberships.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {memberships.slice(0, 4).map((membership) => (
-                    <div 
-                      key={membership.id} 
-                      className="flex items-center gap-3 p-3 bg-muted/50 rounded-xl"
-                    >
-                      <div className="p-2 bg-primary/10 rounded-lg">
-                        <Building2 className="h-5 w-5 text-primary" />
+                  ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      <div className="p-4 bg-muted/50 rounded-xl text-center">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">NTRP Rating</p>
+                        <p className="text-2xl font-bold">{profile.ntrpRating || '—'}</p>
+                        {tier && (
+                          <Badge variant="secondary" className={`mt-1 text-xs ${tier.color}`}>
+                            {tier.label}
+                          </Badge>
+                        )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{membership.hoaName}</p>
-                        <p className="text-xs text-muted-foreground capitalize">{membership.role}</p>
+                      <div className="p-4 bg-muted/50 rounded-xl text-center">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">UTR Rating</p>
+                        <p className="text-2xl font-bold">{profile.utrRating || '—'}</p>
                       </div>
-                      <Badge 
-                        variant="secondary" 
-                        className="bg-green-100 text-green-700 text-xs"
-                      >
-                        Active
-                      </Badge>
+                      <div className="p-4 bg-muted/50 rounded-xl text-center">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Gender</p>
+                        <p className="text-lg font-semibold capitalize">{profile.gender || '—'}</p>
+                      </div>
                     </div>
-                  ))}
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Memberships Card */}
+              <Card>
+                <CardHeader className="pb-4">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">Memberships & Associations</CardTitle>
+                    <Button variant="link" size="sm" className="text-primary" asChild>
+                      <Link to="/my-locker?tab=community">View All</Link>
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {memberships.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {memberships.slice(0, 4).map((membership) => (
+                        <div 
+                          key={membership.id} 
+                          className="flex items-center gap-3 p-3 bg-muted/50 rounded-xl"
+                        >
+                          <div className="p-2 bg-primary/10 rounded-lg">
+                            <Building2 className="h-5 w-5 text-primary" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">{membership.hoaName}</p>
+                            <p className="text-xs text-muted-foreground capitalize">{membership.role}</p>
+                          </div>
+                          <Badge 
+                            variant="secondary" 
+                            className="bg-green-100 text-green-700 text-xs"
+                          >
+                            Active
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 text-muted-foreground">
+                      <Building2 className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                      <p>No community memberships yet</p>
+                      <Button variant="link" asChild className="mt-2">
+                        <Link to="/my-locker?tab=community">Join a Community</Link>
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </>
+          )}
+
+          {activeSection === 'privacy' && (
+            <Card>
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg">Privacy & Security</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between py-2 border-b">
+                  <div>
+                    <p className="font-medium">Location-Based Searches</p>
+                    <p className="text-sm text-muted-foreground">Allow others to find you based on distance</p>
+                  </div>
+                  <Switch
+                    checked={profile.locationVisible}
+                    onCheckedChange={(checked) => {
+                      setProfile(prev => ({ ...prev, locationVisible: checked }));
+                      supabase
+                        .from('profiles')
+                        .update({ location_visible: checked })
+                        .eq('id', currentUser?.id)
+                        .then(() => {
+                          toast({ title: "Preference saved" });
+                        });
+                    }}
+                  />
                 </div>
-              ) : (
-                <div className="text-center py-6 text-muted-foreground">
-                  <Building2 className="h-10 w-10 mx-auto mb-2 opacity-50" />
-                  <p>No community memberships yet</p>
-                  <Button variant="link" asChild className="mt-2">
-                    <Link to="/my-locker?tab=community">Join a Community</Link>
-                  </Button>
+
+                <div className="flex items-center justify-between py-2 border-b">
+                  <div>
+                    <p className="font-medium">Show Exact Distance</p>
+                    <p className="text-sm text-muted-foreground">When disabled, others see "Nearby" instead of miles</p>
+                  </div>
+                  <Switch
+                    checked={profile.showExactDistance}
+                    onCheckedChange={(checked) => {
+                      setProfile(prev => ({ ...prev, showExactDistance: checked }));
+                      supabase
+                        .from('profiles')
+                        .update({ show_exact_distance: checked })
+                        .eq('id', currentUser?.id)
+                        .then(() => {
+                          toast({ title: "Preference saved" });
+                        });
+                    }}
+                  />
                 </div>
-              )}
-            </CardContent>
-          </Card>
+
+                <div className="flex items-center justify-between py-2">
+                  <div>
+                    <p className="font-medium">Public Profile</p>
+                    <p className="text-sm text-muted-foreground">Allow others to see your stats and skill level</p>
+                  </div>
+                  <Switch defaultChecked />
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {activeSection === 'notifications' && (
+            <Card>
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg">Notification Preferences</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between py-2 border-b">
+                  <div>
+                    <p className="font-medium">Match Requests</p>
+                    <p className="text-sm text-muted-foreground">Get notified when someone wants to play</p>
+                  </div>
+                  <Switch defaultChecked />
+                </div>
+
+                <div className="flex items-center justify-between py-2 border-b">
+                  <div>
+                    <p className="font-medium">Lesson Updates</p>
+                    <p className="text-sm text-muted-foreground">Notifications about lesson bookings and changes</p>
+                  </div>
+                  <Switch defaultChecked />
+                </div>
+
+                <div className="flex items-center justify-between py-2 border-b">
+                  <div>
+                    <p className="font-medium">Community Announcements</p>
+                    <p className="text-sm text-muted-foreground">Updates from your HOA communities</p>
+                  </div>
+                  <Switch defaultChecked />
+                </div>
+
+                <div className="flex items-center justify-between py-2">
+                  <div>
+                    <p className="font-medium">New Messages</p>
+                    <p className="text-sm text-muted-foreground">Get notified when you receive new messages</p>
+                  </div>
+                  <Switch defaultChecked />
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </TooltipProvider>
