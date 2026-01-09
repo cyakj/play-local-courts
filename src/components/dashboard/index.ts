@@ -5,3 +5,5 @@ export { SuggestedActionsCard } from './SuggestedActionsCard';
 export { ProfileCompletenessCard } from './ProfileCompletenessCard';
 export { AdminQuickOverview } from './AdminQuickOverview';
 export { CommunitySignals } from './CommunitySignals';
+export { QuickActionButton } from './QuickActionButton';
+export { CommunityLinksCard } from './CommunityLinksCard';

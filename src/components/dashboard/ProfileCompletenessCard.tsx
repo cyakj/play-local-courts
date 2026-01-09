@@ -6,7 +6,6 @@ import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
-  User, 
   CheckCircle2,
   Circle,
   ChevronRight
@@ -51,21 +50,32 @@ export const ProfileCompletenessCard = () => {
 
         profileItems.push({
           id: 'photo',
-          label: 'Profile photo',
+          label: 'Add profile photo',
           completed: !!profile.avatar_url
         });
 
         profileItems.push({
           id: 'rating',
-          label: 'Skill rating set',
+          label: 'Set skill rating',
           completed: !!profile.ntrp_rating
         });
 
         profileItems.push({
-          id: 'location',
-          label: 'Location added',
-          completed: !!profile.zip_code
+          id: 'ladder',
+          label: 'Join a ladder',
+          completed: false // Will check below
         });
+      }
+
+      // Check if user is in any ladder
+      const { count: ladderCount } = await supabase
+        .from('ladder_teams')
+        .select('id', { count: 'exact' })
+        .or(`player1_id.eq.${currentUser.id},player2_id.eq.${currentUser.id}`);
+
+      const ladderItem = profileItems.find(i => i.id === 'ladder');
+      if (ladderItem) {
+        ladderItem.completed = (ladderCount || 0) > 0;
       }
 
       // For coaches, check availability
@@ -77,7 +87,7 @@ export const ProfileCompletenessCard = () => {
 
         profileItems.push({
           id: 'availability',
-          label: 'Availability set',
+          label: 'Set availability',
           completed: (availCount || 0) > 0
         });
       }
@@ -113,24 +123,21 @@ export const ProfileCompletenessCard = () => {
   return (
     <Card className="overflow-hidden">
       <CardHeader className="pb-3">
-        <CardTitle className="text-lg flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <User className="h-5 w-5 text-primary" />
-            Profile
-          </div>
-          <span className="text-sm font-normal text-muted-foreground">
-            {percentage}% complete
+        <CardTitle className="text-base flex items-center justify-between">
+          <span>Growth</span>
+          <span className="text-sm font-medium text-primary bg-primary/10 px-2 py-0.5 rounded">
+            {percentage}% Complete
           </span>
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-0">
         <Progress value={percentage} className="h-2 mb-4" />
         
-        <div className="space-y-2 mb-4">
+        <div className="space-y-2.5 mb-4">
           {items.map(item => (
             <div key={item.id} className="flex items-center gap-2 text-sm">
               {item.completed ? (
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <CheckCircle2 className="h-4 w-4 text-primary" />
               ) : (
                 <Circle className="h-4 w-4 text-muted-foreground" />
               )}
@@ -141,7 +148,7 @@ export const ProfileCompletenessCard = () => {
           ))}
         </div>
 
-        <Button asChild variant="outline" size="sm" className="w-full">
+        <Button asChild className="w-full bg-primary hover:bg-primary/90">
           <Link to="/my-locker?tab=profile" className="flex items-center gap-1">
             Complete Profile
             <ChevronRight className="h-4 w-4" />

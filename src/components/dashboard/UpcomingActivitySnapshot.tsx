@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
@@ -14,7 +16,7 @@ import {
   Trophy, 
   GraduationCap,
   CalendarCheck,
-  ChevronRight
+  Waves
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -22,10 +24,13 @@ interface UpcomingItem {
   id: string;
   type: 'reservation' | 'lesson' | 'match';
   title: string;
+  subtitle?: string;
   date: string;
   time: string;
   location?: string;
   icon: React.ReactNode;
+  badge?: string;
+  avatars?: string[];
 }
 
 interface UpcomingActivitySnapshotProps {
@@ -65,13 +70,16 @@ export const UpcomingActivitySnapshot = ({ forecast = {} }: UpcomingActivitySnap
         .slice(0, 3);
 
       upcomingBookings.forEach(booking => {
+        const isPool = booking.amenityName?.toLowerCase().includes('pool');
         items.push({
           id: booking.id,
           type: 'reservation',
           title: booking.amenityName,
+          subtitle: booking.amenityName,
           date: booking.date,
           time: booking.startTime,
-          icon: <CalendarCheck className="h-4 w-4 text-blue-600" />
+          icon: isPool ? <Waves className="h-4 w-4" /> : <CalendarCheck className="h-4 w-4" />,
+          badge: 'RESERVATION'
         });
       });
 
@@ -90,11 +98,13 @@ export const UpcomingActivitySnapshot = ({ forecast = {} }: UpcomingActivitySnap
           items.push({
             id: lesson.id,
             type: 'lesson',
-            title: `${lesson.sport} Lesson`,
+            title: 'Personal Training',
+            subtitle: `${lesson.sport} Lesson`,
             date: lesson.preferred_date,
             time: lesson.preferred_time_start,
             location: lesson.location || undefined,
-            icon: <GraduationCap className="h-4 w-4 text-green-600" />
+            icon: <GraduationCap className="h-4 w-4" />,
+            badge: 'LESSON'
           });
         });
       }
@@ -102,7 +112,11 @@ export const UpcomingActivitySnapshot = ({ forecast = {} }: UpcomingActivitySnap
       // Fetch upcoming accepted matches
       const { data: matches } = await supabase
         .from('match_requests')
-        .select('id, date, time_start, location, match_type')
+        .select(`
+          id, date, time_start, location, match_type,
+          challenger:profiles!match_requests_challenger_id_fkey(full_name, avatar_url),
+          opponent:profiles!match_requests_opponent_id_fkey(full_name, avatar_url)
+        `)
         .or(`challenger_id.eq.${currentUser.id},opponent_id.eq.${currentUser.id}`)
         .eq('status', 'accepted')
         .gte('date', format(now, 'yyyy-MM-dd'))
@@ -110,15 +124,19 @@ export const UpcomingActivitySnapshot = ({ forecast = {} }: UpcomingActivitySnap
         .limit(3);
 
       if (matches) {
-        matches.forEach(match => {
+        matches.forEach((match: any) => {
+          const opponent = match.challenger_id === currentUser.id ? match.opponent : match.challenger;
           items.push({
             id: match.id,
             type: 'match',
             title: `${match.match_type?.replace('_', ' ')} Match`,
+            subtitle: opponent?.full_name ? `Vs. ${opponent.full_name}` : undefined,
             date: match.date,
             time: match.time_start,
             location: match.location || undefined,
-            icon: <Trophy className="h-4 w-4 text-compete" />
+            icon: <Trophy className="h-4 w-4" />,
+            badge: 'NEXT MATCH',
+            avatars: [match.challenger?.avatar_url, match.opponent?.avatar_url].filter(Boolean)
           });
         });
       }
@@ -146,6 +164,21 @@ export const UpcomingActivitySnapshot = ({ forecast = {} }: UpcomingActivitySnap
     return `${hour12}:${minutes} ${ampm}`;
   };
 
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr + 'T00:00:00');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    if (date.getTime() === today.getTime()) {
+      return 'Today';
+    } else if (date.getTime() === tomorrow.getTime()) {
+      return 'Tomorrow';
+    }
+    return format(date, 'EEEE');
+  };
+
   if (loading) {
     return (
       <Card className="animate-pulse">
@@ -155,7 +188,7 @@ export const UpcomingActivitySnapshot = ({ forecast = {} }: UpcomingActivitySnap
         <CardContent>
           <div className="space-y-3">
             {[1, 2, 3].map(i => (
-              <div key={i} className="h-12 bg-muted rounded"></div>
+              <div key={i} className="h-20 bg-muted rounded-xl"></div>
             ))}
           </div>
         </CardContent>
@@ -165,41 +198,79 @@ export const UpcomingActivitySnapshot = ({ forecast = {} }: UpcomingActivitySnap
 
   return (
     <Card className="overflow-hidden">
-      <CardHeader className="pb-3 bg-gradient-to-r from-primary/5 to-primary/10">
-        <CardTitle className="text-lg flex items-center gap-2">
-          <Calendar className="h-5 w-5 text-primary" />
-          Coming Up
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-primary" />
+            Coming Up
+          </div>
+          <Link to="/upcoming" className="text-sm font-medium text-primary hover:underline">
+            View All
+          </Link>
         </CardTitle>
       </CardHeader>
-      <CardContent className="pt-4">
+      <CardContent className="pt-0 space-y-3">
         {upcomingItems.length > 0 ? (
-          <div className="space-y-3">
-            {upcomingItems.map((item) => {
-              const weatherData = getWeatherForDate(forecast, item.date);
-              return (
-                <div
-                  key={`${item.type}-${item.id}`}
-                  className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
-                >
-                  <div className="flex-shrink-0 p-2 bg-background rounded-lg">
-                    {item.icon}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sm truncate capitalize">
-                      {item.title}
+          upcomingItems.map((item, index) => {
+            const weatherData = getWeatherForDate(forecast, item.date);
+            const isFirst = index === 0;
+            
+            return (
+              <div
+                key={`${item.type}-${item.id}`}
+                className={`rounded-xl border transition-all ${
+                  isFirst 
+                    ? 'bg-primary text-primary-foreground p-4 border-primary' 
+                    : 'bg-card p-3 border-border hover:border-primary/20'
+                }`}
+              >
+                {isFirst && item.badge && (
+                  <Badge variant="secondary" className="mb-2 bg-primary-foreground/20 text-primary-foreground text-xs">
+                    {item.badge}
+                  </Badge>
+                )}
+                
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className={`font-semibold ${isFirst ? 'text-lg' : 'text-sm'} capitalize`}>
+                      {isFirst ? item.title : item.title}
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    {item.subtitle && (
+                      <div className={`text-sm ${isFirst ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+                        {item.subtitle}
+                      </div>
+                    )}
+                    
+                    <div className={`flex items-center gap-3 mt-2 text-xs ${isFirst ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
                       <span className="flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
-                        {format(new Date(item.date + 'T00:00:00'), 'EEE, MMM d')}
+                        {formatDate(item.date)}, {formatTime12Hour(item.time)}
                       </span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {formatTime12Hour(item.time)}
-                      </span>
+                      {item.location && (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          {item.location}
+                        </span>
+                      )}
                     </div>
                   </div>
-                  {weatherData && (
+                  
+                  {/* Avatars for matches */}
+                  {item.avatars && item.avatars.length > 0 && (
+                    <div className="flex -space-x-2">
+                      {item.avatars.slice(0, 2).map((avatar, idx) => (
+                        <Avatar key={idx} className="w-8 h-8 border-2 border-background">
+                          <AvatarImage src={avatar} />
+                          <AvatarFallback className="bg-muted text-xs">
+                            {idx === 0 ? 'P1' : 'P2'}
+                          </AvatarFallback>
+                        </Avatar>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* Weather badge for non-first items */}
+                  {!isFirst && weatherData && (
                     <WeatherBadge 
                       temperature={weatherData.temperature} 
                       condition={weatherData.condition}
@@ -207,20 +278,14 @@ export const UpcomingActivitySnapshot = ({ forecast = {} }: UpcomingActivitySnap
                     />
                   )}
                 </div>
-              );
-            })}
-            <Button asChild variant="ghost" size="sm" className="w-full mt-2">
-              <Link to="/upcoming" className="flex items-center gap-1">
-                View All
-                <ChevronRight className="h-4 w-4" />
-              </Link>
-            </Button>
-          </div>
+              </div>
+            );
+          })
         ) : (
-          <div className="text-center py-6">
-            <Calendar className="h-10 w-10 mx-auto text-muted-foreground/50 mb-2" />
-            <p className="text-sm text-muted-foreground">No upcoming activities</p>
-            <Button asChild variant="link" size="sm" className="mt-2">
+          <div className="text-center py-8">
+            <Calendar className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
+            <p className="text-sm text-muted-foreground mb-3">No upcoming activities</p>
+            <Button asChild size="sm">
               <Link to="/reserve-court">Book an amenity</Link>
             </Button>
           </div>
