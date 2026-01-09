@@ -34,6 +34,7 @@ import MaintenanceReports from "./pages/MaintenanceReports";
 import UpgradeToCoach from "./pages/UpgradeToCoach";
 import UserProfile from "./pages/UserProfile";
 import Messages from "./pages/Messages";
+import Notifications from "./pages/Notifications";
 import NotFound from "./pages/NotFound";
 import HOAApplication from "./pages/HOAApplication";
 import PlatformReviewerLogin from "./pages/PlatformReviewerLogin";
@@ -86,6 +87,7 @@ function App() {
                   <Route path="/upgrade-to-coach" element={<UpgradeToCoach />} />
                   <Route path="/profile/:id" element={<UserProfile />} />
                   <Route path="/messages" element={<Messages />} />
+                  <Route path="/notifications" element={<Notifications />} />
                   <Route path="/hoa-application" element={<HOAApplication />} />
                 </Route>
                   <Route path="*" element={<NotFound />} />
