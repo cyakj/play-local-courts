@@ -35,6 +35,12 @@
 
     --radius: 0.75rem;
 
+    /* Compete/Ladder purple colors */
+    --compete: 245 58% 51%;
+    --compete-foreground: 0 0% 100%;
+    --compete-light: 245 58% 95%;
+    --compete-muted: 245 30% 70%;
+
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
     --sidebar-primary: 240 5.9% 10%;

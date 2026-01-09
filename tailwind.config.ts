@@ -68,6 +68,12 @@ export default {
 					available: '#4CAF50',
 					booked: '#F44336',
 					maintenance: '#FFC107'
+				},
+				compete: {
+					DEFAULT: 'hsl(var(--compete))',
+					foreground: 'hsl(var(--compete-foreground))',
+					light: 'hsl(var(--compete-light))',
+					muted: 'hsl(var(--compete-muted))'
 				}
 			},
 			borderRadius: {
