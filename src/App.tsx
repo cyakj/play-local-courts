@@ -12,6 +12,7 @@ import MainLayout from "./components/layouts/MainLayout";
 import ReviewerLayout from "./components/layouts/ReviewerLayout";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import ResetPassword from "./pages/ResetPassword";
 import CompleteProfile from "./pages/CompleteProfile";
 import Dashboard from "./pages/Dashboard";
 import CoachDashboard from "./pages/CoachDashboard";
@@ -53,12 +54,13 @@ function App() {
             <ActiveHOAProvider>
               <DataProvider>
                 <Routes>
-                <Route element={<AuthLayout />}>
-                  <Route path="/login" element={<Login />} />
-                  <Route path="/register" element={<Register />} />
-                  <Route path="/complete-profile" element={<CompleteProfile />} />
-                  <Route path="/reviewer/login" element={<PlatformReviewerLogin />} />
-                </Route>
+                  <Route path="/reset-password" element={<ResetPassword />} />
+                  <Route element={<AuthLayout />}>
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/register" element={<Register />} />
+                    <Route path="/complete-profile" element={<CompleteProfile />} />
+                    <Route path="/reviewer/login" element={<PlatformReviewerLogin />} />
+                  </Route>
                 {/* Platform Reviewer Routes - Separate layout with no player navigation */}
                 <Route element={<ReviewerLayout />}>
                   <Route path="/reviewer/dashboard" element={<PlatformReviewerDashboard />} />
