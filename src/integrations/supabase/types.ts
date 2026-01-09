@@ -1105,17 +1105,29 @@ export type Database = {
           auto_approve_registration: boolean | null
           created_at: string
           description: string | null
+          dispute_window_hours: number | null
+          enable_playoffs: boolean | null
+          end_date: string | null
           format: Database["public"]["Enums"]["ladder_format"]
           hoa_id: string | null
           id: string
           image_url: string | null
           is_private: boolean
+          max_age: number | null
           max_ntrp: number | null
+          max_teams: number | null
+          min_age: number | null
           min_ntrp: number | null
           name: string
+          playoff_teams_count: number | null
+          points_per_set: number | null
+          points_per_win: number | null
           registration_deadline: string | null
+          require_score_confirmation: boolean | null
+          scoring_format: string | null
           start_date: string | null
           status: Database["public"]["Enums"]["ladder_status"]
+          tiebreaker_rule: string | null
           updated_at: string
           weekly_deadline_day: number | null
         }
@@ -1124,17 +1136,29 @@ export type Database = {
           auto_approve_registration?: boolean | null
           created_at?: string
           description?: string | null
+          dispute_window_hours?: number | null
+          enable_playoffs?: boolean | null
+          end_date?: string | null
           format?: Database["public"]["Enums"]["ladder_format"]
           hoa_id?: string | null
           id?: string
           image_url?: string | null
           is_private?: boolean
+          max_age?: number | null
           max_ntrp?: number | null
+          max_teams?: number | null
+          min_age?: number | null
           min_ntrp?: number | null
           name: string
+          playoff_teams_count?: number | null
+          points_per_set?: number | null
+          points_per_win?: number | null
           registration_deadline?: string | null
+          require_score_confirmation?: boolean | null
+          scoring_format?: string | null
           start_date?: string | null
           status?: Database["public"]["Enums"]["ladder_status"]
+          tiebreaker_rule?: string | null
           updated_at?: string
           weekly_deadline_day?: number | null
         }
@@ -1143,17 +1167,29 @@ export type Database = {
           auto_approve_registration?: boolean | null
           created_at?: string
           description?: string | null
+          dispute_window_hours?: number | null
+          enable_playoffs?: boolean | null
+          end_date?: string | null
           format?: Database["public"]["Enums"]["ladder_format"]
           hoa_id?: string | null
           id?: string
           image_url?: string | null
           is_private?: boolean
+          max_age?: number | null
           max_ntrp?: number | null
+          max_teams?: number | null
+          min_age?: number | null
           min_ntrp?: number | null
           name?: string
+          playoff_teams_count?: number | null
+          points_per_set?: number | null
+          points_per_win?: number | null
           registration_deadline?: string | null
+          require_score_confirmation?: boolean | null
+          scoring_format?: string | null
           start_date?: string | null
           status?: Database["public"]["Enums"]["ladder_status"]
+          tiebreaker_rule?: string | null
           updated_at?: string
           weekly_deadline_day?: number | null
         }

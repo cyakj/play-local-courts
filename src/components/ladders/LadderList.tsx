@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Trophy, Users, Star, Target, Lock } from 'lucide-react';
 import { Ladder } from '@/pages/LeaguesLadders';
-import { differenceInDays, format, isPast, isFuture } from 'date-fns';
+import { differenceInDays, isFuture } from 'date-fns';
 import { Progress } from '@/components/ui/progress';
 
 interface LadderListProps {
@@ -128,7 +128,8 @@ const LadderList = ({ ladders, onSelectLadder, isLoading, emptyMessage, teamCoun
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
       {ladders.map((ladder) => {
         const teamCount = teamCounts[ladder.id] || 0;
-        const maxTeams = 20; // Default max teams
+        // Use the max_teams from ladder if available, otherwise default to 20
+        const maxTeams = (ladder as any).max_teams || 20;
         const fillPercentage = Math.min((teamCount / maxTeams) * 100, 100);
         const isAlmostFull = fillPercentage >= 80;
         
