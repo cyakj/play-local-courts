@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useWeather } from '@/hooks/useWeather';
 import { WeatherIcon } from './WeatherIcon';
-import { Droplets, Wind, MapPin } from 'lucide-react';
+import { WeatherForecastDialog } from './WeatherForecastDialog';
+import { Droplets, Wind, MapPin, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface WeatherBannerProps {
@@ -11,6 +12,7 @@ interface WeatherBannerProps {
 
 export const WeatherBanner = ({ location, className }: WeatherBannerProps) => {
   const { weather, loading, locationName } = useWeather(location);
+  const [forecastOpen, setForecastOpen] = useState(false);
 
   if (loading) {
     return (
@@ -46,49 +48,64 @@ export const WeatherBanner = ({ location, className }: WeatherBannerProps) => {
   };
 
   return (
-    <div className={cn(
-      "rounded-2xl bg-gradient-to-r p-4 border border-primary/10 shadow-sm overflow-hidden relative",
-      getGradient(),
-      className
-    )}>
-      {/* Decorative circles */}
-      <div className="absolute -right-8 -top-8 w-24 h-24 bg-white/5 rounded-full" />
-      <div className="absolute -right-4 -bottom-4 w-16 h-16 bg-white/5 rounded-full" />
-      
-      <div className="flex items-center justify-between relative z-10">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-white/50 rounded-xl shadow-sm">
-            <WeatherIcon condition={weather.condition} className="h-10 w-10" />
+    <>
+      <button
+        onClick={() => setForecastOpen(true)}
+        className={cn(
+          "w-full text-left rounded-2xl bg-gradient-to-r p-4 border border-primary/10 shadow-sm overflow-hidden relative transition-all hover:shadow-md hover:scale-[1.01] cursor-pointer",
+          getGradient(),
+          className
+        )}
+      >
+        {/* Decorative circles */}
+        <div className="absolute -right-8 -top-8 w-24 h-24 bg-white/5 rounded-full" />
+        <div className="absolute -right-4 -bottom-4 w-16 h-16 bg-white/5 rounded-full" />
+        
+        <div className="flex items-center justify-between relative z-10">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-white/50 rounded-xl shadow-sm">
+              <WeatherIcon condition={weather.condition} className="h-10 w-10" />
+            </div>
+            
+            <div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-0.5">
+                <MapPin className="h-3.5 w-3.5" />
+                <span>{locationName}</span>
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-3xl font-bold">{weather.temperature}°</span>
+                <span className="text-lg text-muted-foreground">F</span>
+              </div>
+              <div className="text-sm text-muted-foreground">{weather.description}</div>
+            </div>
           </div>
           
-          <div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-0.5">
-              <MapPin className="h-3.5 w-3.5" />
-              <span>{locationName}</span>
+          <div className="flex items-center gap-4">
+            <div className="hidden sm:flex flex-col gap-2 text-sm text-muted-foreground">
+              {weather.humidity !== undefined && (
+                <div className="flex items-center gap-2">
+                  <Droplets className="h-4 w-4 text-blue-400" />
+                  <span>{weather.humidity}% humidity</span>
+                </div>
+              )}
+              {weather.windSpeed !== undefined && (
+                <div className="flex items-center gap-2">
+                  <Wind className="h-4 w-4 text-gray-400" />
+                  <span>{weather.windSpeed} mph wind</span>
+                </div>
+              )}
             </div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-3xl font-bold">{weather.temperature}°</span>
-              <span className="text-lg text-muted-foreground">F</span>
-            </div>
-            <div className="text-sm text-muted-foreground">{weather.description}</div>
+            <ChevronRight className="h-5 w-5 text-muted-foreground" />
           </div>
         </div>
-        
-        <div className="hidden sm:flex flex-col gap-2 text-sm text-muted-foreground">
-          {weather.humidity !== undefined && (
-            <div className="flex items-center gap-2">
-              <Droplets className="h-4 w-4 text-blue-400" />
-              <span>{weather.humidity}% humidity</span>
-            </div>
-          )}
-          {weather.windSpeed !== undefined && (
-            <div className="flex items-center gap-2">
-              <Wind className="h-4 w-4 text-gray-400" />
-              <span>{weather.windSpeed} mph wind</span>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+      </button>
+
+      <WeatherForecastDialog
+        open={forecastOpen}
+        onOpenChange={setForecastOpen}
+        location={location}
+        locationName={locationName}
+      />
+    </>
   );
 };
