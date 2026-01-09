@@ -61,28 +61,66 @@ export function ActiveHOAProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const { data, error } = await supabase
+      // First try to get memberships from hoa_memberships table
+      const { data: membershipData, error: membershipError } = await supabase
         .from('hoa_memberships')
-        .select(`
-          id,
-          hoa_id,
-          role,
-          status,
-          is_primary,
-          last_active_at,
-          created_at,
-          hoas (
-            id,
-            name,
-            address
-          )
-        `)
+        .select('id, hoa_id, role, status, is_primary, last_active_at, created_at')
         .eq('user_id', currentUser.id)
         .order('last_active_at', { ascending: false, nullsFirst: false });
 
-      if (error) throw error;
+      let all: HOAMembership[] = [];
 
-      const all = (data || []).map(transformMembership);
+      if (!membershipError && membershipData && membershipData.length > 0) {
+        // Fetch HOA details separately to avoid join issues
+        const hoaIds = [...new Set(membershipData.map(m => m.hoa_id))];
+        const { data: hoaData } = await supabase
+          .from('hoas')
+          .select('id, name, address')
+          .in('id', hoaIds);
+
+        const hoaMap = new Map((hoaData || []).map(h => [h.id, h]));
+
+        all = membershipData.map(row => ({
+          id: row.id,
+          hoaId: row.hoa_id,
+          hoaName: hoaMap.get(row.hoa_id)?.name || 'Unknown Community',
+          hoaAddress: hoaMap.get(row.hoa_id)?.address,
+          role: row.role as 'resident' | 'admin',
+          status: row.status as 'pending' | 'approved' | 'rejected',
+          isPrimary: row.is_primary,
+          lastActiveAt: row.last_active_at,
+          createdAt: row.created_at,
+        }));
+      } else {
+        // Fallback: Check user's profile for hoa_id (legacy support)
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('hoa_id, hoa_role, hoa_status')
+          .eq('id', currentUser.id)
+          .single();
+
+        if (profileData?.hoa_id && profileData.hoa_status === 'approved') {
+          const { data: hoaData } = await supabase
+            .from('hoas')
+            .select('id, name, address')
+            .eq('id', profileData.hoa_id)
+            .single();
+
+          if (hoaData) {
+            all = [{
+              id: `profile-${currentUser.id}`,
+              hoaId: profileData.hoa_id,
+              hoaName: hoaData.name,
+              hoaAddress: hoaData.address,
+              role: profileData.hoa_role === 'admin' ? 'admin' : 'resident',
+              status: 'approved',
+              isPrimary: true,
+              createdAt: new Date().toISOString(),
+            }];
+          }
+        }
+      }
+
       const approved = all.filter(m => m.status === 'approved');
       const pending = all.filter(m => m.status === 'pending');
 
