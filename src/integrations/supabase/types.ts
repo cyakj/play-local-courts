@@ -2142,6 +2142,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_user_hoa_id: { Args: { _user_id: string }; Returns: string }
       grant_admin_role: { Args: { target_user_id: string }; Returns: boolean }
       has_role: {
         Args: {
