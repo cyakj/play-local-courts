@@ -208,10 +208,10 @@ export default function WeeklyCalendarView({
               </div>
             </div>
 
-            {/* Empty state */}
+            {/* Empty state - shown as overlay but doesn't block navigation */}
             {timeSlots.length === 0 && (
-              <div className="absolute inset-0 flex items-center justify-center bg-background/50">
-                <p className="text-muted-foreground text-sm">{emptyMessage}</p>
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <p className="text-muted-foreground text-sm bg-background/80 px-4 py-2 rounded-md">{emptyMessage}</p>
               </div>
             )}
           </div>

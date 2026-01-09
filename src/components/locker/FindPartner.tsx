@@ -353,45 +353,35 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
               const distanceDisplay = getPlayerDistanceDisplay(player);
               
               return (
-                <Card key={player.id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-4">
-                    <div className="flex items-center space-x-3 mb-3">
-                      <Avatar className="h-12 w-12">
+                <Card key={player.id} className="hover:shadow-lg transition-shadow border-border/50">
+                  <CardContent className="p-5">
+                    {/* Player Info Row */}
+                    <div className="flex items-center gap-4 mb-4">
+                      <Avatar className="h-14 w-14 border-2 border-primary/20">
                         <AvatarImage src={player.avatar_url} />
-                        <AvatarFallback>
+                        <AvatarFallback className="bg-primary/10 text-primary font-semibold">
                           {player.full_name?.split(' ').map(n => n[0]).join('').toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                      <div>
-                        <h3 className="font-semibold">{player.full_name}</h3>
-                        <div className="flex gap-2 text-sm text-muted-foreground">
-                          <span>UTR: {player.utr_rating || 'N/A'}</span>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-base truncate">{player.full_name}</h3>
+                        <div className="flex items-center gap-3 mt-1">
+                          <span className="text-sm font-medium text-primary">
+                            UTR: {player.utr_rating || 'N/A'}
+                          </span>
+                          {distanceDisplay && (
+                            <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                              <MapPin className="h-3.5 w-3.5" />
+                              {distanceDisplay}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
-                    
-                    {distanceDisplay && (
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground mb-2">
-                        <MapPin className="h-3 w-3" />
-                        <span>{distanceDisplay}</span>
-                      </div>
-                    )}
-                    
-                    {player.location && (
-                      <p className="text-sm text-muted-foreground mb-2">
-                        {player.location}
-                      </p>
-                    )}
-                    
-                    {player.bio && (
-                      <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-                        {player.bio}
-                      </p>
-                    )}
 
+                    {/* Action Buttons - Stacked Layout */}
                     <div className="flex flex-col gap-2">
                       <Button 
-                        size="sm" 
                         className="w-full"
                         onClick={() => handleSendMatchRequest(player)}
                       >
@@ -399,21 +389,19 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
                       </Button>
                       <div className="flex gap-2">
                         <Button 
-                          size="sm" 
                           variant="outline"
                           className="flex-1"
                           onClick={() => navigate(`/profile/${player.id}`)}
                         >
-                          <User className="h-4 w-4 mr-1" />
-                          Profile
+                          <User className="h-4 w-4 mr-1.5" />
+                          View Profile
                         </Button>
                         <Button 
-                          size="sm" 
                           variant="outline"
                           className="flex-1"
                           onClick={() => navigate(`/messages?user=${player.id}`)}
                         >
-                          <MessageCircle className="h-4 w-4 mr-1" />
+                          <MessageCircle className="h-4 w-4 mr-1.5" />
                           Message
                         </Button>
                       </div>
