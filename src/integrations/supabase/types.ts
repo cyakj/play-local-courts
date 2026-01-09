@@ -2155,6 +2155,10 @@ export type Database = {
         Args: { _target_user_id: string; _user_id: string }
         Returns: boolean
       }
+      is_hoa_admin: {
+        Args: { _hoa_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_in_same_hoa: {
         Args: { _target_user_id: string; _user_id: string }
         Returns: boolean
