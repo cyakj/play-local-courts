@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import LadderList from '@/components/ladders/LadderList';
 import LadderDetails from '@/components/ladders/LadderDetails';
 import LadderDiscovery from '@/components/ladders/LadderDiscovery';
+import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 
 export interface Ladder {
   id: string;
@@ -29,6 +30,14 @@ export interface Ladder {
   auto_approve_registration?: boolean;
   registration_deadline?: string | null;
   image_url?: string | null;
+  max_teams?: number;
+  end_date?: string | null;
+  enable_playoffs?: boolean;
+  playoff_teams_count?: number;
+  scoring_format?: string;
+  points_per_win?: number;
+  points_per_set?: number;
+  tiebreaker_rule?: string;
 }
 
 const LeaguesLadders = () => {
@@ -54,11 +63,23 @@ const LeaguesLadders = () => {
       .from('coaches')
       .select('id')
       .eq('user_id', currentUser.id)
-      .single();
+      .maybeSingle();
     setIsCoach(!!data);
   };
 
   const canManageLadders = isAdmin || isCoach;
+
+  const loadLaddersCallback = useCallback(() => {
+    loadLadders();
+  }, [currentUser?.hoaId]);
+
+  // Real-time subscription for ladder changes (when ladders are deleted/updated)
+  useRealtimeSubscription({
+    table: 'ladders',
+    event: '*',
+    onChange: loadLaddersCallback,
+    enabled: !!currentUser?.hoaId
+  });
 
   useEffect(() => {
     loadLadders();
