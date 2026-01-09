@@ -2,6 +2,7 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { User, HOA, Amenity, Booking, UserStatus, AmenityStatus, TimeSlot } from '../types';
 import { useAuth } from './AuthContext';
+import { useActiveHOA } from './ActiveHOAContext';
 import { toast } from 'sonner';
 import {
   getCurrentUserProfile,
@@ -111,6 +112,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [timeSlotsCache, setTimeSlotsCache] = useState<{[key: string]: TimeSlot[]}>({});
   
   const { currentUser } = useAuth();
+  const { activeHOA } = useActiveHOA();
+  
+  // Use active HOA's ID, falling back to legacy profile hoa_id
+  const effectiveHoaId = activeHOA?.hoaId || currentUser?.hoaId;
+  const isAdmin = activeHOA?.role === 'admin' || currentUser?.role === 'admin';
 
   const refreshDataCallback = useCallback(async () => {
     if (!currentUser) {
@@ -120,12 +126,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     setLoading(true);
     try {
-      if (currentUser.hoaId) {
+      if (effectiveHoaId) {
         const [hoaData, amenitiesData, userBookings, pendingUsersData] = await Promise.all([
-          getHOAById(currentUser.hoaId),
-          getAmenitiesByHOAId(currentUser.hoaId),
+          getHOAById(effectiveHoaId),
+          getAmenitiesByHOAId(effectiveHoaId),
           getUserBookings(currentUser.id),
-          currentUser.role === 'admin' ? getPendingUsersByHOAId(currentUser.hoaId) : Promise.resolve([])
+          isAdmin ? getPendingUsersByHOAId(effectiveHoaId) : Promise.resolve([])
         ]);
         
         setCurrentHOA(hoaData);
@@ -136,6 +142,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         
         // Clear time slots cache when data refreshes
         setTimeSlotsCache({});
+      } else {
+        // No active HOA - clear amenities
+        setCurrentHOA(null);
+        setHOAs([]);
+        setAmenities([]);
+        setPendingUsers([]);
       }
     } catch (error) {
       console.error('Error loading data:', error);
@@ -143,18 +155,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [currentUser]);
+  }, [currentUser, effectiveHoaId, isAdmin]);
 
   const refreshPendingUsersCallback = useCallback(async () => {
-    if (!currentUser?.id || currentUser.role !== 'admin' || !currentUser.hoaId) return;
+    if (!currentUser?.id || !isAdmin || !effectiveHoaId) return;
 
     try {
-      const pendingUsersData = await getPendingUsersByHOAId(currentUser.hoaId);
+      const pendingUsersData = await getPendingUsersByHOAId(effectiveHoaId);
       setPendingUsers(pendingUsersData);
     } catch (error) {
       console.error('Error loading pending users:', error);
     }
-  }, [currentUser?.id, currentUser?.role, currentUser?.hoaId]);
+  }, [currentUser?.id, isAdmin, effectiveHoaId]);
 
   // Real-time subscription for booking updates
   useRealtimeSubscription({
@@ -180,32 +192,39 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   useRealtimeSubscription({
     table: 'community_join_requests',
     event: '*',
-    filter: currentUser?.hoaId ? `hoa_id=eq.${currentUser.hoaId}` : undefined,
+    filter: effectiveHoaId ? `hoa_id=eq.${effectiveHoaId}` : undefined,
     onChange: () => {
       refreshPendingUsersCallback();
     },
-    enabled: !!currentUser?.id && currentUser.role === 'admin' && !!currentUser.hoaId
+    enabled: !!currentUser?.id && isAdmin && !!effectiveHoaId
   });
 
   useRealtimeSubscription({
     table: 'hoa_memberships',
     event: '*',
-    filter: currentUser?.hoaId ? `hoa_id=eq.${currentUser.hoaId}` : undefined,
+    filter: effectiveHoaId ? `hoa_id=eq.${effectiveHoaId}` : undefined,
     onChange: () => {
       refreshPendingUsersCallback();
     },
-    enabled: !!currentUser?.id && currentUser.role === 'admin' && !!currentUser.hoaId
+    enabled: !!currentUser?.id && isAdmin && !!effectiveHoaId
   });
 
   useRealtimeSubscription({
     table: 'profiles',
     event: 'UPDATE',
-    filter: currentUser?.hoaId ? `hoa_id=eq.${currentUser.hoaId}` : undefined,
+    filter: effectiveHoaId ? `hoa_id=eq.${effectiveHoaId}` : undefined,
     onChange: () => {
       refreshPendingUsersCallback();
     },
-    enabled: !!currentUser?.id && currentUser.role === 'admin' && !!currentUser.hoaId
+    enabled: !!currentUser?.id && isAdmin && !!effectiveHoaId
   });
+  
+  // Refresh data when active HOA changes
+  useEffect(() => {
+    if (effectiveHoaId) {
+      refreshDataCallback();
+    }
+  }, [effectiveHoaId]);
 
   // Initialize data when user changes
   useEffect(() => {
