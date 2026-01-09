@@ -212,7 +212,7 @@ export default function PlayerLessonRequestsList({
         {filtered.length === 0 ? (
           <p className="text-center text-muted-foreground py-10">
             {requests.length === 0
-              ? "No lesson requests yet."
+              ? "No sent requests"
               : "No lessons match your filters."}
           </p>
         ) : (
