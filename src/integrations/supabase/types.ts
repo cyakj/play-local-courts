@@ -2102,6 +2102,10 @@ export type Database = {
         }
         Returns: number
       }
+      check_hoa_admin: {
+        Args: { _hoa_id: string; _user_id: string }
+        Returns: boolean
+      }
       create_community: {
         Args: {
           community_address?: string
@@ -2142,7 +2146,6 @@ export type Database = {
           user_id: string
         }[]
       }
-      get_user_hoa_ids: { Args: { _user_id: string }; Returns: string[] }
       grant_admin_role: { Args: { target_user_id: string }; Returns: boolean }
       has_role: {
         Args: {
@@ -2153,10 +2156,6 @@ export type Database = {
       }
       is_admin_in_same_hoa: {
         Args: { _target_user_id: string; _user_id: string }
-        Returns: boolean
-      }
-      is_hoa_admin: {
-        Args: { _hoa_id: string; _user_id: string }
         Returns: boolean
       }
       is_in_same_hoa: {
@@ -2193,7 +2192,6 @@ export type Database = {
         }
         Returns: boolean
       }
-      user_is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "resident" | "coach" | "platform_reviewer"
