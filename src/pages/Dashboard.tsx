@@ -176,19 +176,26 @@ const Dashboard = () => {
           {isCommunityUser && hoaLocation && (
             <WeatherPill location={hoaLocation} />
           )}
-          <Button variant="ghost" size="icon" className="rounded-full">
-            <Bell className="h-5 w-5" />
-          </Button>
-          <Avatar className="h-9 w-9">
-            <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-              {currentUser?.fullName?.charAt(0) || 'U'}
-            </AvatarFallback>
-          </Avatar>
+          <Link to="/notifications">
+            <Button variant="ghost" size="icon" className="rounded-full">
+              <Bell className="h-5 w-5" />
+            </Button>
+          </Link>
+          <Link to="/my-locker">
+            <Avatar className="h-9 w-9 cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all">
+              <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                {currentUser?.fullName?.charAt(0) || 'U'}
+              </AvatarFallback>
+            </Avatar>
+          </Link>
         </div>
       </div>
 
       {/* Action Required Alerts */}
       <ActionRequiredAlerts />
+
+      {/* Dashboard Title */}
+      <h2 className="text-xl font-semibold text-foreground">Dashboard</h2>
 
       {/* Quick Action Buttons Row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -301,20 +308,6 @@ const Dashboard = () => {
 
           {/* Admin Overview - Only for HOA admins */}
           {isAdmin && <AdminQuickOverview />}
-
-          {/* Support Card */}
-          <Card className="overflow-hidden bg-primary text-primary-foreground">
-            <CardContent className="pt-6">
-              <h3 className="font-semibold mb-1">Need assistance?</h3>
-              <p className="text-sm text-primary-foreground/80 mb-4">
-                Our support team is available 24/7 to help you with bookings and matches.
-              </p>
-              <Button variant="secondary" className="w-full">
-                <Headphones className="h-4 w-4 mr-2" />
-                Contact Support
-              </Button>
-            </CardContent>
-          </Card>
         </div>
       </div>
     </div>

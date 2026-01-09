@@ -361,11 +361,11 @@ const Upcoming = () => {
         </p>
       </div>
 
-      <Tabs defaultValue="weekly" className="space-y-6">
+      <Tabs defaultValue="overview" className="space-y-6">
         <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="weekly">Weekly View</TabsTrigger>
           <TabsTrigger value="calendar">Calendar View</TabsTrigger>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
         </TabsList>
 
         <TabsContent value="weekly" className="space-y-4">
