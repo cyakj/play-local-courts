@@ -79,15 +79,19 @@ const ReserveCourt = () => {
     fetchPolicyAgreements();
   }, [currentUser]);
 
-  // Fetch user's maintenance reports
+  // Fetch user's maintenance reports for active HOA only
   useEffect(() => {
     const fetchMyReports = async () => {
-      if (!currentUser) return;
+      if (!currentUser || !activeHOA?.hoaId) {
+        setMyReports([]);
+        return;
+      }
       
       const { data, error } = await supabase
         .from('maintenance_reports')
         .select('id, category, status, created_at, description')
         .eq('reporter_id', currentUser.id)
+        .eq('hoa_id', activeHOA.hoaId)
         .order('created_at', { ascending: false })
         .limit(5);
       
@@ -97,7 +101,7 @@ const ReserveCourt = () => {
     };
     
     fetchMyReports();
-  }, [currentUser, showReportDialog]);
+  }, [currentUser, activeHOA?.hoaId, showReportDialog]);
 
   // Block access if user is not part of any HOA - AFTER all hooks
   if (!hoaLoading && !isHOAUser) {
