@@ -21,6 +21,7 @@ import { toast } from 'sonner';
 import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 import { cn } from '@/lib/utils';
 import { ProfileLink } from '@/components/ui/profile-link';
+import LadderInvitationMessage, { isLadderInvitation } from '@/components/messages/LadderInvitationMessage';
 
 interface Conversation {
   id: string;
@@ -384,6 +385,48 @@ export default function Messages() {
                   <div className="space-y-4">
                     {messages.map((msg) => {
                       const isOwn = msg.sender_id === currentUser?.id;
+                      const invitationData = isLadderInvitation(msg.content);
+                      
+                      // Render ladder invitation as interactive card
+                      if (invitationData && !isOwn) {
+                        return (
+                          <div key={msg.id} className="flex justify-start">
+                            <div className="max-w-[85%]">
+                              <LadderInvitationMessage
+                                invitationData={invitationData}
+                                messageId={msg.id}
+                                senderId={msg.sender_id}
+                                onStatusChange={() => loadMessages(selectedUserId!)}
+                              />
+                              <div className="text-xs text-muted-foreground mt-1 ml-1">
+                                {formatMessageTime(msg.created_at)}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+                      
+                      // Show a simpler view for sent invitations
+                      if (invitationData && isOwn) {
+                        return (
+                          <div key={msg.id} className="flex justify-end">
+                            <div className="max-w-[70%] rounded-lg px-4 py-2 bg-primary/80 text-primary-foreground">
+                              <p className="text-sm">
+                                📨 You sent a ladder partnership invitation for <strong>{invitationData.ladder_name}</strong>
+                              </p>
+                              <div className="flex items-center gap-1 mt-1 text-xs text-primary-foreground/70">
+                                <span>{formatMessageTime(msg.created_at)}</span>
+                                {msg.read_at 
+                                  ? <CheckCheck className="h-3 w-3" />
+                                  : <Check className="h-3 w-3" />
+                                }
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+                      
+                      // Regular message
                       return (
                         <div
                           key={msg.id}
