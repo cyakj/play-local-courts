@@ -33,7 +33,11 @@ const handler = async (req: Request): Promise<Response> => {
     const { token_hash, email_action_type, redirect_to } = email_data;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const confirmLink = `${supabaseUrl}/auth/v1/verify?token=${token_hash}&type=${email_action_type}&redirect_to=${redirect_to}`;
+    if (!supabaseUrl) {
+      throw new Error("Missing SUPABASE_URL env var");
+    }
+
+    const confirmLink = `${supabaseUrl}/auth/v1/verify?token=${encodeURIComponent(token_hash)}&type=${encodeURIComponent(email_action_type)}&redirect_to=${encodeURIComponent(redirect_to)}`;
 
     let subject = "Confirm your email";
     let htmlContent = "";
