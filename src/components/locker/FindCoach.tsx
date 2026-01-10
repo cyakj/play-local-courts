@@ -217,24 +217,17 @@ const FindCoach: React.FC<FindCoachProps> = ({ onBack }) => {
       {/* Header */}
       <div className="bg-card border-b border-border">
         <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              <button 
-                onClick={onBack} 
-                className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                <span className="text-sm">Back</span>
-              </button>
-              <h1 className="text-2xl font-serif font-bold italic text-foreground">
-                Find a Coach
-              </h1>
-            </div>
-            <div className="flex items-center gap-4 text-sm">
-              <button className="text-primary font-medium">Find Coaches</button>
-              <button className="text-muted-foreground hover:text-foreground">How it works</button>
-              <button className="text-muted-foreground hover:text-foreground">Pricing</button>
-            </div>
+          <div className="flex items-center gap-6">
+            <button 
+              onClick={onBack} 
+              className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span className="text-sm">Back</span>
+            </button>
+            <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-green-600 via-emerald-500 to-teal-500 bg-clip-text text-transparent">
+              Find a Coach
+            </h1>
           </div>
         </div>
       </div>
@@ -349,7 +342,32 @@ const FindCoach: React.FC<FindCoachProps> = ({ onBack }) => {
           </p>
           <div className="flex items-center gap-2 text-sm">
             <span className="text-muted-foreground">Sort by:</span>
-            <Select defaultValue="popular">
+            <Select 
+              defaultValue="popular"
+              onValueChange={(value) => {
+                let sorted = [...filteredCoaches];
+                switch (value) {
+                  case 'popular':
+                    // Most Popular = highest rating + most reviews
+                    sorted.sort((a, b) => {
+                      const scoreA = (a.averageRating || 0) * 10 + (a.totalReviews || 0);
+                      const scoreB = (b.averageRating || 0) * 10 + (b.totalReviews || 0);
+                      return scoreB - scoreA;
+                    });
+                    break;
+                  case 'rating':
+                    sorted.sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
+                    break;
+                  case 'price-low':
+                    sorted.sort((a, b) => (a.hourly_rate || 999) - (b.hourly_rate || 999));
+                    break;
+                  case 'newest':
+                    sorted.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+                    break;
+                }
+                setFilteredCoaches(sorted);
+              }}
+            >
               <SelectTrigger className="w-36 h-8 border-0 bg-transparent text-foreground font-medium">
                 <SelectValue />
               </SelectTrigger>

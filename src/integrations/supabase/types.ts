@@ -1101,94 +1101,124 @@ export type Database = {
       }
       ladders: {
         Row: {
+          acceptance_window_hours: number | null
           admin_id: string
           auto_approve_registration: boolean | null
+          challenge_range: number | null
           created_at: string
+          defense_period_days: number | null
           description: string | null
           dispute_window_hours: number | null
           enable_playoffs: boolean | null
           end_date: string | null
           format: Database["public"]["Enums"]["ladder_format"]
+          gender_restriction: string | null
           hoa_id: string | null
           id: string
           image_url: string | null
           is_private: boolean
+          loss_points: number | null
           max_age: number | null
           max_ntrp: number | null
           max_teams: number | null
           min_age: number | null
           min_ntrp: number | null
           name: string
+          participation_points: number | null
+          play_by_deadline_days: number | null
           playoff_teams_count: number | null
           points_per_set: number | null
           points_per_win: number | null
           registration_deadline: string | null
           require_score_confirmation: boolean | null
           scoring_format: string | null
+          scoring_mode: string | null
+          secondary_tiebreaker: string | null
           start_date: string | null
           status: Database["public"]["Enums"]["ladder_status"]
+          third_set_format: string | null
           tiebreaker_rule: string | null
           updated_at: string
           weekly_deadline_day: number | null
         }
         Insert: {
+          acceptance_window_hours?: number | null
           admin_id: string
           auto_approve_registration?: boolean | null
+          challenge_range?: number | null
           created_at?: string
+          defense_period_days?: number | null
           description?: string | null
           dispute_window_hours?: number | null
           enable_playoffs?: boolean | null
           end_date?: string | null
           format?: Database["public"]["Enums"]["ladder_format"]
+          gender_restriction?: string | null
           hoa_id?: string | null
           id?: string
           image_url?: string | null
           is_private?: boolean
+          loss_points?: number | null
           max_age?: number | null
           max_ntrp?: number | null
           max_teams?: number | null
           min_age?: number | null
           min_ntrp?: number | null
           name: string
+          participation_points?: number | null
+          play_by_deadline_days?: number | null
           playoff_teams_count?: number | null
           points_per_set?: number | null
           points_per_win?: number | null
           registration_deadline?: string | null
           require_score_confirmation?: boolean | null
           scoring_format?: string | null
+          scoring_mode?: string | null
+          secondary_tiebreaker?: string | null
           start_date?: string | null
           status?: Database["public"]["Enums"]["ladder_status"]
+          third_set_format?: string | null
           tiebreaker_rule?: string | null
           updated_at?: string
           weekly_deadline_day?: number | null
         }
         Update: {
+          acceptance_window_hours?: number | null
           admin_id?: string
           auto_approve_registration?: boolean | null
+          challenge_range?: number | null
           created_at?: string
+          defense_period_days?: number | null
           description?: string | null
           dispute_window_hours?: number | null
           enable_playoffs?: boolean | null
           end_date?: string | null
           format?: Database["public"]["Enums"]["ladder_format"]
+          gender_restriction?: string | null
           hoa_id?: string | null
           id?: string
           image_url?: string | null
           is_private?: boolean
+          loss_points?: number | null
           max_age?: number | null
           max_ntrp?: number | null
           max_teams?: number | null
           min_age?: number | null
           min_ntrp?: number | null
           name?: string
+          participation_points?: number | null
+          play_by_deadline_days?: number | null
           playoff_teams_count?: number | null
           points_per_set?: number | null
           points_per_win?: number | null
           registration_deadline?: string | null
           require_score_confirmation?: boolean | null
           scoring_format?: string | null
+          scoring_mode?: string | null
+          secondary_tiebreaker?: string | null
           start_date?: string | null
           status?: Database["public"]["Enums"]["ladder_status"]
+          third_set_format?: string | null
           tiebreaker_rule?: string | null
           updated_at?: string
           weekly_deadline_day?: number | null

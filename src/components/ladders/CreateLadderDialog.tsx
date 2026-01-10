@@ -8,8 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ImagePlus, X, Trophy, Settings, Users, Calendar } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { ImagePlus, X, Trophy, Settings, Users, Calendar, Shield, Target } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useActiveHOA } from '@/contexts/ActiveHOAContext';
@@ -21,6 +21,14 @@ interface CreateLadderDialogProps {
   onOpenChange: (open: boolean) => void;
   onLadderCreated: (ladder: Ladder) => void;
 }
+
+// Required field label component
+const RequiredLabel = ({ children, htmlFor }: { children: React.ReactNode; htmlFor?: string }) => (
+  <Label htmlFor={htmlFor} className="flex items-center gap-1">
+    {children}
+    <span className="text-red-500">*</span>
+  </Label>
+);
 
 const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadderDialogProps) => {
   const { currentUser } = useAuth();
@@ -47,6 +55,7 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
     max_ntrp: 'none',
     min_age: '',
     max_age: '',
+    gender_restriction: 'none' as 'none' | 'mens' | 'womens' | 'mixed',
     
     // Structure
     max_teams: '20',
@@ -56,13 +65,26 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
     enable_playoffs: false,
     playoff_teams_count: '4',
     
-    // Scoring
+    // Scoring Mode
+    scoring_mode: 'cumulative' as 'cumulative' | 'challenge',
+    
+    // Scoring (Cumulative mode)
     scoring_format: 'best_of_3',
+    third_set_format: 'super_tiebreak' as 'super_tiebreak' | 'full_set',
     points_per_win: '3',
     points_per_set: '1',
+    participation_points: '0',
+    loss_points: '0',
     tiebreaker_rule: 'head_to_head',
+    secondary_tiebreaker: 'games_won',
     require_score_confirmation: true,
     dispute_window_hours: '48',
+    
+    // Challenge Rules (Challenge mode)
+    challenge_range: '3',
+    acceptance_window_hours: '48',
+    defense_period_days: '3',
+    play_by_deadline_days: '10',
   });
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -102,10 +124,26 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
     return data.publicUrl;
   };
 
+  const validateForm = (): string[] => {
+    const missingFields: string[] = [];
+    
+    if (!formData.name.trim()) missingFields.push('Ladder Name');
+    if (!formData.format) missingFields.push('Format');
+    
+    return missingFields;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser?.id) {
       toast.error('You must be logged in to create a ladder');
+      return;
+    }
+
+    // Validate required fields
+    const missingFields = validateForm();
+    if (missingFields.length > 0) {
+      toast.error(`Please fill out the required fields: ${missingFields.join(', ')}`);
       return;
     }
 
@@ -150,16 +188,26 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
           max_ntrp: formData.max_ntrp !== 'none' ? parseFloat(formData.max_ntrp) : null,
           min_age: formData.min_age ? parseInt(formData.min_age) : null,
           max_age: formData.max_age ? parseInt(formData.max_age) : null,
+          gender_restriction: formData.gender_restriction !== 'none' ? formData.gender_restriction : null,
           max_teams: parseInt(formData.max_teams) || 20,
           auto_approve_registration: formData.auto_approve_registration,
           enable_playoffs: formData.enable_playoffs,
           playoff_teams_count: formData.enable_playoffs ? parseInt(formData.playoff_teams_count) : null,
+          scoring_mode: formData.scoring_mode,
           scoring_format: formData.scoring_format,
+          third_set_format: formData.third_set_format,
           points_per_win: parseInt(formData.points_per_win),
           points_per_set: parseInt(formData.points_per_set),
+          participation_points: parseInt(formData.participation_points),
+          loss_points: parseInt(formData.loss_points),
           tiebreaker_rule: formData.tiebreaker_rule,
+          secondary_tiebreaker: formData.secondary_tiebreaker,
           require_score_confirmation: formData.require_score_confirmation,
           dispute_window_hours: parseInt(formData.dispute_window_hours),
+          challenge_range: parseInt(formData.challenge_range),
+          acceptance_window_hours: parseInt(formData.acceptance_window_hours),
+          defense_period_days: parseInt(formData.defense_period_days),
+          play_by_deadline_days: parseInt(formData.play_by_deadline_days),
         })
         .select()
         .single();
@@ -182,7 +230,7 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
       resetForm();
     } catch (error) {
       console.error('Error creating ladder:', error);
-      toast.error('Failed to create ladder');
+      toast.error('Failed to create ladder. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -202,16 +250,26 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
       max_ntrp: 'none',
       min_age: '',
       max_age: '',
+      gender_restriction: 'none',
       max_teams: '20',
       auto_approve_registration: false,
       enable_playoffs: false,
       playoff_teams_count: '4',
+      scoring_mode: 'cumulative',
       scoring_format: 'best_of_3',
+      third_set_format: 'super_tiebreak',
       points_per_win: '3',
       points_per_set: '1',
+      participation_points: '0',
+      loss_points: '0',
       tiebreaker_rule: 'head_to_head',
+      secondary_tiebreaker: 'games_won',
       require_score_confirmation: true,
       dispute_window_hours: '48',
+      challenge_range: '3',
+      acceptance_window_hours: '48',
+      defense_period_days: '3',
+      play_by_deadline_days: '10',
     });
     setImageFile(null);
     setImagePreview(null);
@@ -219,18 +277,18 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Trophy className="h-5 w-5 text-primary" />
             Create New Ladder
           </DialogTitle>
-          <DialogDescription>Configure your competitive ladder with custom rules and settings</DialogDescription>
+          <DialogDescription>Configure your competitive ladder with custom rules and settings. Fields marked with <span className="text-red-500">*</span> are required.</DialogDescription>
         </DialogHeader>
         
         <form onSubmit={handleSubmit}>
           <Tabs defaultValue="basic" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="basic" className="text-xs">
                 <Trophy className="h-3 w-3 mr-1" />
                 Basic
@@ -244,8 +302,12 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
                 Structure
               </TabsTrigger>
               <TabsTrigger value="scoring" className="text-xs">
-                <Settings className="h-3 w-3 mr-1" />
+                <Target className="h-3 w-3 mr-1" />
                 Scoring
+              </TabsTrigger>
+              <TabsTrigger value="rules" className="text-xs">
+                <Shield className="h-3 w-3 mr-1" />
+                Rules
               </TabsTrigger>
             </TabsList>
 
@@ -293,13 +355,12 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="name">Ladder Name *</Label>
+                <RequiredLabel htmlFor="name">Ladder Name</RequiredLabel>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="e.g., Spring Doubles Championship"
-                  required
                 />
               </div>
 
@@ -315,7 +376,7 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="format">Format *</Label>
+                <RequiredLabel htmlFor="format">Format</RequiredLabel>
                 <Select 
                   value={formData.format} 
                   onValueChange={(value: 'singles' | 'doubles' | 'mixed_doubles') => 
@@ -380,7 +441,40 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
             <TabsContent value="eligibility" className="space-y-4 mt-4">
               <Card>
                 <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium">Gender Restriction</CardTitle>
+                  <CardDescription className="text-xs">Limit participation based on gender</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Select 
+                    value={formData.gender_restriction} 
+                    onValueChange={(value: 'none' | 'mens' | 'womens' | 'mixed') => 
+                      setFormData(prev => ({ ...prev, gender_restriction: value }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Open to All</SelectItem>
+                      <SelectItem value="mens">Men's Only</SelectItem>
+                      <SelectItem value="womens">Women's Only</SelectItem>
+                      <SelectItem value="mixed">Mixed (requires male + female)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {formData.gender_restriction !== 'none' && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {formData.gender_restriction === 'mens' && 'Only male players can register for this ladder.'}
+                      {formData.gender_restriction === 'womens' && 'Only female players can register for this ladder.'}
+                      {formData.gender_restriction === 'mixed' && 'Teams must consist of one male and one female player.'}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium">NTRP Requirements</CardTitle>
+                  <CardDescription className="text-xs">Players MUST meet these requirements to join</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
@@ -576,6 +670,34 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
             <TabsContent value="scoring" className="space-y-4 mt-4">
               <Card>
                 <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium">Ranking Mode</CardTitle>
+                  <CardDescription className="text-xs">How rankings are calculated</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Select 
+                    value={formData.scoring_mode} 
+                    onValueChange={(value: 'cumulative' | 'challenge') => 
+                      setFormData(prev => ({ ...prev, scoring_mode: value }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cumulative">Cumulative Points (round-robin)</SelectItem>
+                      <SelectItem value="challenge">Challenge Mode (leapfrog)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {formData.scoring_mode === 'cumulative' 
+                      ? 'Players earn points for wins. Best for encouraging high volume of play.'
+                      : 'Winners take the loser\'s spot. Traditional ladder format.'}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium">Match Format</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -597,70 +719,255 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {formData.scoring_format === 'best_of_3' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="third_set_format">3rd Set Format</Label>
+                      <Select 
+                        value={formData.third_set_format} 
+                        onValueChange={(value: 'super_tiebreak' | 'full_set') => 
+                          setFormData(prev => ({ ...prev, third_set_format: value }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="super_tiebreak">Super Tiebreak (10-point)</SelectItem>
+                          <SelectItem value="full_set">Full 3rd Set</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
+              {formData.scoring_mode === 'cumulative' && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium">Points System</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="points_per_win">Points per Win</Label>
+                        <Select 
+                          value={formData.points_per_win} 
+                          onValueChange={(value) => 
+                            setFormData(prev => ({ ...prev, points_per_win: value }))
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[1, 2, 3, 4, 5].map(num => (
+                              <SelectItem key={num} value={num.toString()}>{num}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="points_per_set">Bonus Points per Set</Label>
+                        <Select 
+                          value={formData.points_per_set} 
+                          onValueChange={(value) => 
+                            setFormData(prev => ({ ...prev, points_per_set: value }))
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[0, 1, 2].map(num => (
+                              <SelectItem key={num} value={num.toString()}>{num}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="participation_points">Participation Points</Label>
+                        <Select 
+                          value={formData.participation_points} 
+                          onValueChange={(value) => 
+                            setFormData(prev => ({ ...prev, participation_points: value }))
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[0, 1, 2].map(num => (
+                              <SelectItem key={num} value={num.toString()}>{num} per match</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">Points for completing a match</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="loss_points">Loss Points</Label>
+                        <Select 
+                          value={formData.loss_points} 
+                          onValueChange={(value) => 
+                            setFormData(prev => ({ ...prev, loss_points: value }))
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[0, 1].map(num => (
+                              <SelectItem key={num} value={num.toString()}>{num}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">Points for losing (prevents ranking fear)</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="tiebreaker">Primary Tiebreaker</Label>
+                        <Select 
+                          value={formData.tiebreaker_rule} 
+                          onValueChange={(value) => 
+                            setFormData(prev => ({ ...prev, tiebreaker_rule: value }))
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="head_to_head">Head-to-Head</SelectItem>
+                            <SelectItem value="sets_won">Set Percentage</SelectItem>
+                            <SelectItem value="games_won">Game Percentage</SelectItem>
+                            <SelectItem value="matches_played">Most Matches Played</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="secondary_tiebreaker">Secondary Tiebreaker</Label>
+                        <Select 
+                          value={formData.secondary_tiebreaker} 
+                          onValueChange={(value) => 
+                            setFormData(prev => ({ ...prev, secondary_tiebreaker: value }))
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="head_to_head">Head-to-Head</SelectItem>
+                            <SelectItem value="sets_won">Set Percentage</SelectItem>
+                            <SelectItem value="games_won">Game Percentage</SelectItem>
+                            <SelectItem value="matches_played">Most Matches Played</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+
+            {/* Rules Tab */}
+            <TabsContent value="rules" className="space-y-4 mt-4">
+              {formData.scoring_mode === 'challenge' && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium">Challenge Rules</CardTitle>
+                    <CardDescription className="text-xs">Configure how challenges work</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="challenge_range">Challenge Range (spots)</Label>
+                      <Select 
+                        value={formData.challenge_range} 
+                        onValueChange={(value) => 
+                          setFormData(prev => ({ ...prev, challenge_range: value }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[2, 3, 4, 5, 10].map(num => (
+                            <SelectItem key={num} value={num.toString()}>Up to {num} spots above</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">How far up a player can challenge</p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="defense_period_days">Defense Period (days)</Label>
+                      <Select 
+                        value={formData.defense_period_days} 
+                        onValueChange={(value) => 
+                          setFormData(prev => ({ ...prev, defense_period_days: value }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[0, 1, 2, 3, 5, 7].map(num => (
+                            <SelectItem key={num} value={num.toString()}>{num === 0 ? 'No protection' : `${num} days`}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">How long after a match before being challenged again</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium">Points System</CardTitle>
+                  <CardTitle className="text-sm font-medium">Match Deadlines</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="points_per_win">Points per Win</Label>
-                      <Select 
-                        value={formData.points_per_win} 
-                        onValueChange={(value) => 
-                          setFormData(prev => ({ ...prev, points_per_win: value }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {[1, 2, 3, 4, 5].map(num => (
-                            <SelectItem key={num} value={num.toString()}>{num}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="points_per_set">Bonus Points per Set</Label>
-                      <Select 
-                        value={formData.points_per_set} 
-                        onValueChange={(value) => 
-                          setFormData(prev => ({ ...prev, points_per_set: value }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {[0, 1, 2].map(num => (
-                            <SelectItem key={num} value={num.toString()}>{num}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
                   <div className="space-y-2">
-                    <Label htmlFor="tiebreaker">Tiebreaker Rule</Label>
+                    <Label htmlFor="acceptance_window_hours">Acceptance Window</Label>
                     <Select 
-                      value={formData.tiebreaker_rule} 
+                      value={formData.acceptance_window_hours} 
                       onValueChange={(value) => 
-                        setFormData(prev => ({ ...prev, tiebreaker_rule: value }))
+                        setFormData(prev => ({ ...prev, acceptance_window_hours: value }))
                       }
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="head_to_head">Head-to-Head</SelectItem>
-                        <SelectItem value="games_won">Total Games Won</SelectItem>
-                        <SelectItem value="sets_won">Total Sets Won</SelectItem>
+                        <SelectItem value="24">24 hours</SelectItem>
+                        <SelectItem value="48">48 hours</SelectItem>
+                        <SelectItem value="72">72 hours</SelectItem>
                       </SelectContent>
                     </Select>
+                    <p className="text-xs text-muted-foreground">Time to respond to a challenge/match</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="play_by_deadline_days">Play-By Deadline (days)</Label>
+                    <Select 
+                      value={formData.play_by_deadline_days} 
+                      onValueChange={(value) => 
+                        setFormData(prev => ({ ...prev, play_by_deadline_days: value }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[7, 10, 14, 21].map(num => (
+                          <SelectItem key={num} value={num.toString()}>{num} days</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">Time to complete a scheduled match</p>
                   </div>
                 </CardContent>
               </Card>
@@ -682,7 +989,7 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="dispute_window">Dispute Window (hours)</Label>
+                    <Label htmlFor="dispute_window">Dispute Window</Label>
                     <Select 
                       value={formData.dispute_window_hours} 
                       onValueChange={(value) => 
@@ -698,6 +1005,7 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
                         <SelectItem value="72">72 hours</SelectItem>
                       </SelectContent>
                     </Select>
+                    <p className="text-xs text-muted-foreground">Time to dispute a submitted score</p>
                   </div>
                 </CardContent>
               </Card>

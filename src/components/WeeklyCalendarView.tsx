@@ -162,11 +162,12 @@ export default function WeeklyCalendarView({
 
               {/* Day columns */}
               <div className="ml-[80px] grid grid-cols-7 h-full">
-                {weekDates.map((date, dayIndex) => {
+              {weekDates.map((date, dayIndex) => {
                   const daySlots = getSlotsForDay(dayIndex, date);
+                  const isAvailabilityMode = mode === 'availability';
                   
                   return (
-                    <div key={dayIndex} className="relative border-r last:border-r-0">
+                    <div key={dayIndex} className={`relative border-r last:border-r-0 ${isAvailabilityMode ? 'bg-muted/60' : ''}`}>
                       {/* Horizontal grid lines */}
                       {timeLabels.map((_, index) => (
                         <div

@@ -38,6 +38,16 @@ export interface Ladder {
   points_per_win?: number;
   points_per_set?: number;
   tiebreaker_rule?: string;
+  gender_restriction?: string | null;
+  third_set_format?: string;
+  scoring_mode?: string;
+  challenge_range?: number;
+  acceptance_window_hours?: number;
+  defense_period_days?: number;
+  play_by_deadline_days?: number;
+  participation_points?: number;
+  loss_points?: number;
+  secondary_tiebreaker?: string;
 }
 
 const LeaguesLadders = () => {

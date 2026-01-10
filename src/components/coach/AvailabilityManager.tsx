@@ -120,7 +120,7 @@ export default function AvailabilityManager() {
     return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
   };
 
-  // Convert slots to weekly calendar format
+  // Convert slots to weekly calendar format - white slots on grey background
   const weeklyTimeSlots = useMemo(() => {
     return slots.map(slot => ({
       id: slot.id,
@@ -129,7 +129,7 @@ export default function AvailabilityManager() {
       endTime: slot.end_time,
       title: `${formatTimeToAmPm(slot.start_time)} - ${formatTimeToAmPm(slot.end_time)}`,
       subtitle: DAYS_OF_WEEK[slot.day_of_week],
-      color: 'bg-green-500'
+      color: 'bg-white text-foreground border border-border shadow-sm'
     }));
   }, [slots]);
 
