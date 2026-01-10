@@ -326,8 +326,7 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated, editingLadder
             {editingLadder ? 'Edit Ladder' : 'Create New Ladder'}
           </DialogTitle>
           <DialogDescription>
-            {editingLadder ? 'Update your ladder settings and rules.' : 'Configure your competitive ladder with custom rules and settings.'} 
-            Fields marked with <span className="text-red-500">*</span> are required.
+            {editingLadder ? 'Update your ladder settings and rules.' : 'Configure your competitive ladder with custom rules and settings.'}
           </DialogDescription>
         </DialogHeader>
         
@@ -921,53 +920,76 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated, editingLadder
             {/* Rules Tab */}
             <TabsContent value="rules" className="space-y-4 mt-4">
               {formData.scoring_mode === 'challenge' && (
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-medium">Challenge Rules</CardTitle>
-                    <CardDescription className="text-xs">Configure how challenges work</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="challenge_range">Challenge Range (spots)</Label>
-                      <Select 
-                        value={formData.challenge_range} 
-                        onValueChange={(value) => 
-                          setFormData(prev => ({ ...prev, challenge_range: value }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {[2, 3, 4, 5, 10].map(num => (
-                            <SelectItem key={num} value={num.toString()}>Up to {num} spots above</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-muted-foreground">How far up a player can challenge</p>
-                    </div>
+                <>
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm font-medium">Challenge Rules</CardTitle>
+                      <CardDescription className="text-xs">Configure how challenges work</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="challenge_range">Challenge Range (spots)</Label>
+                        <Select 
+                          value={formData.challenge_range} 
+                          onValueChange={(value) => 
+                            setFormData(prev => ({ ...prev, challenge_range: value }))
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[2, 3, 4, 5, 10].map(num => (
+                              <SelectItem key={num} value={num.toString()}>Up to {num} spots above</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">How far up a player can challenge (prevents #50 from challenging #1)</p>
+                      </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="defense_period_days">Defense Period (days)</Label>
-                      <Select 
-                        value={formData.defense_period_days} 
-                        onValueChange={(value) => 
-                          setFormData(prev => ({ ...prev, defense_period_days: value }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {[0, 1, 2, 3, 5, 7].map(num => (
-                            <SelectItem key={num} value={num.toString()}>{num === 0 ? 'No protection' : `${num} days`}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-muted-foreground">How long after a match before being challenged again</p>
-                    </div>
-                  </CardContent>
-                </Card>
+                      <div className="space-y-2">
+                        <Label htmlFor="defense_period_days">Defense/Cooldown Period (days)</Label>
+                        <Select 
+                          value={formData.defense_period_days} 
+                          onValueChange={(value) => 
+                            setFormData(prev => ({ ...prev, defense_period_days: value }))
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[0, 1, 2, 3, 5, 7].map(num => (
+                              <SelectItem key={num} value={num.toString()}>{num === 0 ? 'No protection' : `${num} days`}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Immunity period after a match. Prevents top players from being "pelted" with challenges.
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        🌴 Vacation Mode & Protection
+                      </CardTitle>
+                      <CardDescription className="text-xs">Rules for inactive players</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="bg-muted/50 p-3 rounded-lg text-xs space-y-2">
+                        <p><strong>One-at-a-time Rule:</strong> Players can only be involved in one active challenge at a time.</p>
+                        <p><strong>Vacation Mode:</strong> Players can toggle "inactive" to be hidden from the challenge list and freeze their rank.</p>
+                        <p><strong>Auto-Forfeit:</strong> If a player doesn't respond within the acceptance window, they forfeit and the challenger takes their spot.</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        💡 Players with vacation mode active will show a 🌴 icon and cannot be challenged.
+                      </p>
+                    </CardContent>
+                  </Card>
+                </>
               )}
 
               <Card>
