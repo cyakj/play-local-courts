@@ -18,6 +18,7 @@ const ManageLadders = () => {
   const [ladders, setLadders] = useState<Ladder[]>([]);
   const [selectedLadder, setSelectedLadder] = useState<Ladder | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [editingLadder, setEditingLadder] = useState<Ladder | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Check if user is a coach
@@ -61,9 +62,21 @@ const ManageLadders = () => {
   };
 
   const handleLadderCreated = (newLadder: Ladder) => {
-    setLadders(prev => [newLadder, ...prev]);
+    if (editingLadder) {
+      // Update existing ladder in the list
+      setLadders(prev => prev.map(l => l.id === newLadder.id ? newLadder : l));
+    } else {
+      // Add new ladder to the list
+      setLadders(prev => [newLadder, ...prev]);
+    }
     setShowCreateDialog(false);
-    toast.success('Ladder created successfully!');
+    setEditingLadder(null);
+  };
+
+  const handleEditLadder = (ladder: Ladder, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingLadder(ladder);
+    setShowCreateDialog(true);
   };
 
   const handleDeleteLadder = async (ladderId: string) => {
@@ -221,7 +234,7 @@ const ManageLadders = () => {
                   <Button 
                     size="sm" 
                     variant="outline"
-                    onClick={() => setSelectedLadder(ladder)}
+                    onClick={(e) => handleEditLadder(ladder, e)}
                   >
                     <Edit className="mr-1 h-3 w-3" />
                     Edit
@@ -245,8 +258,12 @@ const ManageLadders = () => {
 
       <CreateLadderDialog
         open={showCreateDialog}
-        onOpenChange={setShowCreateDialog}
+        onOpenChange={(open) => {
+          setShowCreateDialog(open);
+          if (!open) setEditingLadder(null);
+        }}
         onLadderCreated={handleLadderCreated}
+        editingLadder={editingLadder}
       />
     </div>
   );

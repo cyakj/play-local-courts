@@ -27,6 +27,8 @@ export interface Ladder {
   updated_at: string;
   min_ntrp?: number | null;
   max_ntrp?: number | null;
+  min_age?: number | null;
+  max_age?: number | null;
   auto_approve_registration?: boolean;
   registration_deadline?: string | null;
   image_url?: string | null;
@@ -48,6 +50,8 @@ export interface Ladder {
   participation_points?: number;
   loss_points?: number;
   secondary_tiebreaker?: string;
+  require_score_confirmation?: boolean;
+  dispute_window_hours?: number;
 }
 
 const LeaguesLadders = () => {

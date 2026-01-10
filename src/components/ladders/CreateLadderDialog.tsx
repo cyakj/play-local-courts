@@ -20,6 +20,7 @@ interface CreateLadderDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onLadderCreated: (ladder: Ladder) => void;
+  editingLadder?: Ladder | null;
 }
 
 // Required field label component
@@ -30,62 +31,78 @@ const RequiredLabel = ({ children, htmlFor }: { children: React.ReactNode; htmlF
   </Label>
 );
 
-const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadderDialogProps) => {
+const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated, editingLadder }: CreateLadderDialogProps) => {
   const { currentUser } = useAuth();
   const { activeHOA } = useActiveHOA();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [formData, setFormData] = useState({
+
+  const getInitialFormData = (ladder?: Ladder | null) => ({
     // Basic Info
-    name: '',
-    description: '',
-    format: 'doubles' as 'singles' | 'doubles' | 'mixed_doubles',
-    is_private: false,
+    name: ladder?.name || '',
+    description: ladder?.description || '',
+    format: (ladder?.format || 'doubles') as 'singles' | 'doubles' | 'mixed_doubles',
+    is_private: ladder?.is_private || false,
     
     // Dates
-    start_date: '',
-    end_date: '',
-    registration_deadline: '',
-    weekly_deadline_day: 0,
+    start_date: ladder?.start_date || '',
+    end_date: ladder?.end_date || '',
+    registration_deadline: ladder?.registration_deadline || '',
+    weekly_deadline_day: ladder?.weekly_deadline_day || 0,
     
     // Eligibility
-    min_ntrp: 'none',
-    max_ntrp: 'none',
-    min_age: '',
-    max_age: '',
-    gender_restriction: 'none' as 'none' | 'mens' | 'womens' | 'mixed',
+    min_ntrp: ladder?.min_ntrp?.toString() || 'none',
+    max_ntrp: ladder?.max_ntrp?.toString() || 'none',
+    min_age: ladder?.min_age?.toString() || '',
+    max_age: ladder?.max_age?.toString() || '',
+    gender_restriction: (ladder?.gender_restriction || 'none') as 'none' | 'mens' | 'womens' | 'mixed',
     
     // Structure
-    max_teams: '20',
-    auto_approve_registration: false,
+    max_teams: ladder?.max_teams?.toString() || '20',
+    auto_approve_registration: ladder?.auto_approve_registration || false,
     
     // Playoffs
-    enable_playoffs: false,
-    playoff_teams_count: '4',
+    enable_playoffs: ladder?.enable_playoffs || false,
+    playoff_teams_count: ladder?.playoff_teams_count?.toString() || '4',
     
     // Scoring Mode
-    scoring_mode: 'cumulative' as 'cumulative' | 'challenge',
+    scoring_mode: (ladder?.scoring_mode || 'cumulative') as 'cumulative' | 'challenge',
     
     // Scoring (Cumulative mode)
-    scoring_format: 'best_of_3',
-    third_set_format: 'super_tiebreak' as 'super_tiebreak' | 'full_set',
-    points_per_win: '3',
-    points_per_set: '1',
-    participation_points: '0',
-    loss_points: '0',
-    tiebreaker_rule: 'head_to_head',
-    secondary_tiebreaker: 'games_won',
-    require_score_confirmation: true,
-    dispute_window_hours: '48',
+    scoring_format: ladder?.scoring_format || 'best_of_3',
+    third_set_format: (ladder?.third_set_format || 'super_tiebreak') as 'super_tiebreak' | 'full_set',
+    points_per_win: ladder?.points_per_win?.toString() || '3',
+    points_per_set: ladder?.points_per_set?.toString() || '1',
+    participation_points: ladder?.participation_points?.toString() || '0',
+    loss_points: ladder?.loss_points?.toString() || '0',
+    tiebreaker_rule: ladder?.tiebreaker_rule || 'head_to_head',
+    secondary_tiebreaker: ladder?.secondary_tiebreaker || 'games_won',
+    require_score_confirmation: ladder?.require_score_confirmation ?? true,
+    dispute_window_hours: ladder?.dispute_window_hours?.toString() || '48',
     
     // Challenge Rules (Challenge mode)
-    challenge_range: '3',
-    acceptance_window_hours: '48',
-    defense_period_days: '3',
-    play_by_deadline_days: '10',
+    challenge_range: ladder?.challenge_range?.toString() || '3',
+    acceptance_window_hours: ladder?.acceptance_window_hours?.toString() || '48',
+    defense_period_days: ladder?.defense_period_days?.toString() || '3',
+    play_by_deadline_days: ladder?.play_by_deadline_days?.toString() || '10',
   });
+
+  const [formData, setFormData] = useState(getInitialFormData(editingLadder));
+
+  // Update form when editingLadder changes
+  React.useEffect(() => {
+    if (open) {
+      setFormData(getInitialFormData(editingLadder));
+      if (editingLadder?.image_url) {
+        setImagePreview(editingLadder.image_url);
+      } else {
+        setImagePreview(null);
+      }
+      setImageFile(null);
+    }
+  }, [open, editingLadder]);
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -136,7 +153,7 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser?.id) {
-      toast.error('You must be logged in to create a ladder');
+      toast.error('You must be logged in');
       return;
     }
 
@@ -147,7 +164,7 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
       return;
     }
 
-    const hoaId = activeHOA?.hoaId || null;
+    const hoaId = activeHOA?.hoaId || editingLadder?.hoa_id || null;
 
     // Validate NTRP range if provided
     if (formData.min_ntrp !== 'none' && formData.max_ntrp !== 'none') {
@@ -170,47 +187,69 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
 
     setIsSubmitting(true);
     try {
-      const { data, error } = await supabase
-        .from('ladders')
-        .insert({
-          name: formData.name,
-          description: formData.description || null,
-          format: formData.format as any,
-          is_private: formData.is_private,
-          start_date: formData.start_date || null,
-          end_date: formData.end_date || null,
-          registration_deadline: formData.registration_deadline || null,
-          weekly_deadline_day: formData.weekly_deadline_day,
-          admin_id: currentUser.id,
-          hoa_id: hoaId,
-          status: 'setup',
-          min_ntrp: formData.min_ntrp !== 'none' ? parseFloat(formData.min_ntrp) : null,
-          max_ntrp: formData.max_ntrp !== 'none' ? parseFloat(formData.max_ntrp) : null,
-          min_age: formData.min_age ? parseInt(formData.min_age) : null,
-          max_age: formData.max_age ? parseInt(formData.max_age) : null,
-          gender_restriction: formData.gender_restriction !== 'none' ? formData.gender_restriction : null,
-          max_teams: parseInt(formData.max_teams) || 20,
-          auto_approve_registration: formData.auto_approve_registration,
-          enable_playoffs: formData.enable_playoffs,
-          playoff_teams_count: formData.enable_playoffs ? parseInt(formData.playoff_teams_count) : null,
-          scoring_mode: formData.scoring_mode,
-          scoring_format: formData.scoring_format,
-          third_set_format: formData.third_set_format,
-          points_per_win: parseInt(formData.points_per_win),
-          points_per_set: parseInt(formData.points_per_set),
-          participation_points: parseInt(formData.participation_points),
-          loss_points: parseInt(formData.loss_points),
-          tiebreaker_rule: formData.tiebreaker_rule,
-          secondary_tiebreaker: formData.secondary_tiebreaker,
-          require_score_confirmation: formData.require_score_confirmation,
-          dispute_window_hours: parseInt(formData.dispute_window_hours),
-          challenge_range: parseInt(formData.challenge_range),
-          acceptance_window_hours: parseInt(formData.acceptance_window_hours),
-          defense_period_days: parseInt(formData.defense_period_days),
-          play_by_deadline_days: parseInt(formData.play_by_deadline_days),
-        })
-        .select()
-        .single();
+      const ladderData = {
+        name: formData.name,
+        description: formData.description || null,
+        format: formData.format as any,
+        is_private: formData.is_private,
+        start_date: formData.start_date || null,
+        end_date: formData.end_date || null,
+        registration_deadline: formData.registration_deadline || null,
+        weekly_deadline_day: formData.weekly_deadline_day,
+        min_ntrp: formData.min_ntrp !== 'none' ? parseFloat(formData.min_ntrp) : null,
+        max_ntrp: formData.max_ntrp !== 'none' ? parseFloat(formData.max_ntrp) : null,
+        min_age: formData.min_age ? parseInt(formData.min_age) : null,
+        max_age: formData.max_age ? parseInt(formData.max_age) : null,
+        gender_restriction: formData.gender_restriction !== 'none' ? formData.gender_restriction : null,
+        max_teams: parseInt(formData.max_teams) || 20,
+        auto_approve_registration: formData.auto_approve_registration,
+        enable_playoffs: formData.enable_playoffs,
+        playoff_teams_count: formData.enable_playoffs ? parseInt(formData.playoff_teams_count) : null,
+        scoring_mode: formData.scoring_mode,
+        scoring_format: formData.scoring_format,
+        third_set_format: formData.third_set_format,
+        points_per_win: parseInt(formData.points_per_win),
+        points_per_set: parseInt(formData.points_per_set),
+        participation_points: parseInt(formData.participation_points),
+        loss_points: parseInt(formData.loss_points),
+        tiebreaker_rule: formData.tiebreaker_rule,
+        secondary_tiebreaker: formData.secondary_tiebreaker,
+        require_score_confirmation: formData.require_score_confirmation,
+        dispute_window_hours: parseInt(formData.dispute_window_hours),
+        challenge_range: parseInt(formData.challenge_range),
+        acceptance_window_hours: parseInt(formData.acceptance_window_hours),
+        defense_period_days: parseInt(formData.defense_period_days),
+        play_by_deadline_days: parseInt(formData.play_by_deadline_days),
+      };
+
+      let data;
+      let error;
+
+      if (editingLadder) {
+        // Update existing ladder
+        const result = await supabase
+          .from('ladders')
+          .update(ladderData)
+          .eq('id', editingLadder.id)
+          .select()
+          .single();
+        data = result.data;
+        error = result.error;
+      } else {
+        // Create new ladder
+        const result = await supabase
+          .from('ladders')
+          .insert({
+            ...ladderData,
+            admin_id: currentUser.id,
+            hoa_id: hoaId,
+            status: 'setup',
+          })
+          .select()
+          .single();
+        data = result.data;
+        error = result.error;
+      }
 
       if (error) throw error;
 
@@ -227,10 +266,13 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
       }
 
       onLadderCreated(data);
-      resetForm();
+      if (!editingLadder) {
+        resetForm();
+      }
+      toast.success(editingLadder ? 'Ladder updated successfully!' : 'Ladder created successfully!');
     } catch (error) {
-      console.error('Error creating ladder:', error);
-      toast.error('Failed to create ladder. Please try again.');
+      console.error('Error saving ladder:', error);
+      toast.error(editingLadder ? 'Failed to update ladder' : 'Failed to create ladder');
     } finally {
       setIsSubmitting(false);
     }
@@ -281,9 +323,12 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Trophy className="h-5 w-5 text-primary" />
-            Create New Ladder
+            {editingLadder ? 'Edit Ladder' : 'Create New Ladder'}
           </DialogTitle>
-          <DialogDescription>Configure your competitive ladder with custom rules and settings. Fields marked with <span className="text-red-500">*</span> are required.</DialogDescription>
+          <DialogDescription>
+            {editingLadder ? 'Update your ladder settings and rules.' : 'Configure your competitive ladder with custom rules and settings.'} 
+            Fields marked with <span className="text-red-500">*</span> are required.
+          </DialogDescription>
         </DialogHeader>
         
         <form onSubmit={handleSubmit}>
@@ -1021,7 +1066,9 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated }: CreateLadde
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Creating...' : 'Create Ladder'}
+              {isSubmitting 
+                ? (editingLadder ? 'Saving...' : 'Creating...') 
+                : (editingLadder ? 'Save Changes' : 'Create Ladder')}
             </Button>
           </div>
         </form>
