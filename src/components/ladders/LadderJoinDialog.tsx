@@ -85,24 +85,32 @@ const LadderJoinDialog = ({ open, onOpenChange, ladder, userNtrp, onRegistration
 
       setIsSearching(true);
       try {
+        // Use a more flexible search that doesn't require NTRP if ladder has no requirements
         let query = supabase
           .from('profiles')
           .select('id, full_name, username, ntrp_rating, avatar_url')
-          .neq('id', currentUser?.id || '')
-          .or(`full_name.ilike.%${searchQuery}%,username.ilike.%${searchQuery}%`)
-          .limit(10);
+          .neq('id', currentUser?.id || '');
 
-        // Filter by NTRP if ladder has requirements
+        // Search by name (case insensitive)
+        const searchTerm = `%${searchQuery}%`;
+        query = query.or(`full_name.ilike.${searchTerm},username.ilike.${searchTerm}`);
+
+        // Only filter by NTRP if ladder has requirements AND the player has a rating
         if (ladder.min_ntrp) {
-          query = query.gte('ntrp_rating', ladder.min_ntrp);
+          query = query.or(`ntrp_rating.gte.${ladder.min_ntrp},ntrp_rating.is.null`);
         }
         if (ladder.max_ntrp) {
-          query = query.lte('ntrp_rating', ladder.max_ntrp);
+          query = query.or(`ntrp_rating.lte.${ladder.max_ntrp},ntrp_rating.is.null`);
         }
+
+        query = query.limit(20);
 
         const { data, error } = await query;
         if (error) throw error;
-        setSearchResults(data || []);
+        
+        // Filter results to only those with a name
+        const filteredData = (data || []).filter(p => p.full_name || p.username);
+        setSearchResults(filteredData);
         setShowResults(true);
       } catch (error) {
         console.error('Error searching partners:', error);

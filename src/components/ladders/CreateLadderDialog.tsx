@@ -45,6 +45,8 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated, editingLadder
     description: ladder?.description || '',
     format: (ladder?.format || 'doubles') as 'singles' | 'doubles' | 'mixed_doubles',
     is_private: ladder?.is_private || false,
+    city: ladder?.city || '',
+    hoa_only: ladder?.hoa_only || false,
     
     // Dates
     start_date: ladder?.start_date || '',
@@ -66,6 +68,7 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated, editingLadder
     // Playoffs
     enable_playoffs: ladder?.enable_playoffs || false,
     playoff_teams_count: ladder?.playoff_teams_count?.toString() || '4',
+    playoff_format: (ladder?.playoff_format || 'leapfrog') as 'leapfrog' | 'round_robin',
     
     // Scoring Mode
     scoring_mode: (ladder?.scoring_mode || 'cumulative') as 'cumulative' | 'challenge',
@@ -192,6 +195,8 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated, editingLadder
         description: formData.description || null,
         format: formData.format as any,
         is_private: formData.is_private,
+        city: formData.city || null,
+        hoa_only: formData.hoa_only,
         start_date: formData.start_date || null,
         end_date: formData.end_date || null,
         registration_deadline: formData.registration_deadline || null,
@@ -205,6 +210,7 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated, editingLadder
         auto_approve_registration: formData.auto_approve_registration,
         enable_playoffs: formData.enable_playoffs,
         playoff_teams_count: formData.enable_playoffs ? parseInt(formData.playoff_teams_count) : null,
+        playoff_format: formData.playoff_format,
         scoring_mode: formData.scoring_mode,
         scoring_format: formData.scoring_format,
         third_set_format: formData.third_set_format,
@@ -284,6 +290,8 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated, editingLadder
       description: '',
       format: 'doubles',
       is_private: false,
+      city: '',
+      hoa_only: false,
       start_date: '',
       end_date: '',
       registration_deadline: '',
@@ -297,6 +305,7 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated, editingLadder
       auto_approve_registration: false,
       enable_playoffs: false,
       playoff_teams_count: '4',
+      playoff_format: 'leapfrog',
       scoring_mode: 'cumulative',
       scoring_format: 'best_of_3',
       third_set_format: 'super_tiebreak',
@@ -438,6 +447,17 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated, editingLadder
                 </Select>
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="city">City / Location</Label>
+                <Input
+                  id="city"
+                  value={formData.city}
+                  onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
+                  placeholder="e.g., Dorado, PR"
+                />
+                <p className="text-xs text-muted-foreground">Where the ladder takes place (helps players find local ladders)</p>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="start_date">Start Date</Label>
@@ -469,15 +489,36 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated, editingLadder
                 />
               </div>
 
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="is_private"
-                  checked={formData.is_private}
-                  onCheckedChange={(checked) => 
-                    setFormData(prev => ({ ...prev, is_private: checked }))
-                  }
-                />
-                <Label htmlFor="is_private">Private Ladder (invite-only)</Label>
+              <div className="space-y-4 border-t pt-4">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="is_private"
+                    checked={formData.is_private}
+                    onCheckedChange={(checked) => 
+                      setFormData(prev => ({ ...prev, is_private: checked }))
+                    }
+                  />
+                  <div>
+                    <Label htmlFor="is_private">Private Ladder (invite-only)</Label>
+                    <p className="text-xs text-muted-foreground">Only invited players can join</p>
+                  </div>
+                </div>
+
+                {activeHOA?.hoaId && (
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="hoa_only"
+                      checked={formData.hoa_only}
+                      onCheckedChange={(checked) => 
+                        setFormData(prev => ({ ...prev, hoa_only: checked }))
+                      }
+                    />
+                    <div>
+                      <Label htmlFor="hoa_only">HOA Members Only</Label>
+                      <p className="text-xs text-muted-foreground">Only visible to members of your community ({activeHOA.hoaName})</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </TabsContent>
 
@@ -687,23 +728,48 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated, editingLadder
                   </div>
 
                   {formData.enable_playoffs && (
-                    <div className="space-y-2">
-                      <Label htmlFor="playoff_teams">Teams qualifying for playoffs</Label>
-                      <Select 
-                        value={formData.playoff_teams_count} 
-                        onValueChange={(value) => 
-                          setFormData(prev => ({ ...prev, playoff_teams_count: value }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="4">Top 4</SelectItem>
-                          <SelectItem value="8">Top 8</SelectItem>
-                          <SelectItem value="16">Top 16</SelectItem>
-                        </SelectContent>
-                      </Select>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="playoff_format">Playoff Format</Label>
+                        <Select 
+                          value={formData.playoff_format} 
+                          onValueChange={(value: 'leapfrog' | 'round_robin') => 
+                            setFormData(prev => ({ ...prev, playoff_format: value }))
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="leapfrog">Leapfrog (Knockout Bracket)</SelectItem>
+                            <SelectItem value="round_robin">Round Robin</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          {formData.playoff_format === 'leapfrog' 
+                            ? 'Single elimination bracket - losers are out.' 
+                            : 'Everyone plays everyone - highest points wins.'}
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="playoff_teams">Teams qualifying for playoffs</Label>
+                        <Select 
+                          value={formData.playoff_teams_count} 
+                          onValueChange={(value) => 
+                            setFormData(prev => ({ ...prev, playoff_teams_count: value }))
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="4">Top 4</SelectItem>
+                            <SelectItem value="8">Top 8</SelectItem>
+                            <SelectItem value="16">Top 16</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   )}
                 </CardContent>

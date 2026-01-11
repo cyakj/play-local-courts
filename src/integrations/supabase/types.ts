@@ -1105,6 +1105,7 @@ export type Database = {
           admin_id: string
           auto_approve_registration: boolean | null
           challenge_range: number | null
+          city: string | null
           created_at: string
           defense_period_days: number | null
           description: string | null
@@ -1114,6 +1115,7 @@ export type Database = {
           format: Database["public"]["Enums"]["ladder_format"]
           gender_restriction: string | null
           hoa_id: string | null
+          hoa_only: boolean | null
           id: string
           image_url: string | null
           is_private: boolean
@@ -1126,6 +1128,7 @@ export type Database = {
           name: string
           participation_points: number | null
           play_by_deadline_days: number | null
+          playoff_format: string | null
           playoff_teams_count: number | null
           points_per_set: number | null
           points_per_win: number | null
@@ -1146,6 +1149,7 @@ export type Database = {
           admin_id: string
           auto_approve_registration?: boolean | null
           challenge_range?: number | null
+          city?: string | null
           created_at?: string
           defense_period_days?: number | null
           description?: string | null
@@ -1155,6 +1159,7 @@ export type Database = {
           format?: Database["public"]["Enums"]["ladder_format"]
           gender_restriction?: string | null
           hoa_id?: string | null
+          hoa_only?: boolean | null
           id?: string
           image_url?: string | null
           is_private?: boolean
@@ -1167,6 +1172,7 @@ export type Database = {
           name: string
           participation_points?: number | null
           play_by_deadline_days?: number | null
+          playoff_format?: string | null
           playoff_teams_count?: number | null
           points_per_set?: number | null
           points_per_win?: number | null
@@ -1187,6 +1193,7 @@ export type Database = {
           admin_id?: string
           auto_approve_registration?: boolean | null
           challenge_range?: number | null
+          city?: string | null
           created_at?: string
           defense_period_days?: number | null
           description?: string | null
@@ -1196,6 +1203,7 @@ export type Database = {
           format?: Database["public"]["Enums"]["ladder_format"]
           gender_restriction?: string | null
           hoa_id?: string | null
+          hoa_only?: boolean | null
           id?: string
           image_url?: string | null
           is_private?: boolean
@@ -1208,6 +1216,7 @@ export type Database = {
           name?: string
           participation_points?: number | null
           play_by_deadline_days?: number | null
+          playoff_format?: string | null
           playoff_teams_count?: number | null
           points_per_set?: number | null
           points_per_win?: number | null

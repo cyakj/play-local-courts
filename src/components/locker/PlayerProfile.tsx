@@ -534,27 +534,36 @@ const PlayerProfile = () => {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           <div>
                             <Label htmlFor="ntrpRating">NTRP Rating</Label>
-                            <Input
-                              id="ntrpRating"
-                              type="number"
-                              step="0.5"
-                              min="1.0"
-                              max="7.0"
-                              value={profile.ntrpRating || ''}
-                              onChange={(e) => setProfile(prev => ({ ...prev, ntrpRating: e.target.value ? parseFloat(e.target.value) : null }))}
-                              placeholder="e.g. 4.0"
-                            />
+                            <Select 
+                              value={profile.ntrpRating?.toString() || ''} 
+                              onValueChange={(value) => setProfile(prev => ({ 
+                                ...prev, 
+                                ntrpRating: value ? parseFloat(value) : null 
+                              }))}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select NTRP" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="">Not Set</SelectItem>
+                                {[1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0].map(rating => (
+                                  <SelectItem key={rating} value={rating.toString()}>{rating.toFixed(1)}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
                           <div>
                             <Label htmlFor="utrRating">UTR Rating</Label>
                             <Input
                               id="utrRating"
-                              type="number"
-                              step="0.1"
-                              min="1"
-                              max="16"
+                              type="text"
+                              inputMode="decimal"
+                              className="[&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                               value={profile.utrRating || ''}
-                              onChange={(e) => setProfile(prev => ({ ...prev, utrRating: e.target.value ? parseFloat(e.target.value) : null }))}
+                              onChange={(e) => {
+                                const value = e.target.value.replace(/[^\d.]/g, '');
+                                setProfile(prev => ({ ...prev, utrRating: value ? parseFloat(value) : null }));
+                              }}
                               placeholder="e.g. 4.5"
                             />
                           </div>
@@ -562,12 +571,14 @@ const PlayerProfile = () => {
                             <Label htmlFor="wtnRating">WTN Number</Label>
                             <Input
                               id="wtnRating"
-                              type="number"
-                              step="0.1"
-                              min="1"
-                              max="40"
+                              type="text"
+                              inputMode="decimal"
+                              className="[&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                               value={profile.wtnRating || ''}
-                              onChange={(e) => setProfile(prev => ({ ...prev, wtnRating: e.target.value ? parseFloat(e.target.value) : null }))}
+                              onChange={(e) => {
+                                const value = e.target.value.replace(/[^\d.]/g, '');
+                                setProfile(prev => ({ ...prev, wtnRating: value ? parseFloat(value) : null }));
+                              }}
                               placeholder="e.g. 18.5"
                             />
                           </div>

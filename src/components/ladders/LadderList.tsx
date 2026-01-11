@@ -2,8 +2,7 @@ import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Trophy, Users, Star, Target, Lock } from 'lucide-react';
+import { Trophy, Users, Star, Target, Lock, MapPin, Building2 } from 'lucide-react';
 import { Ladder } from '@/pages/LeaguesLadders';
 import { differenceInDays, isFuture } from 'date-fns';
 import { Progress } from '@/components/ui/progress';
@@ -140,21 +139,28 @@ const LadderList = ({ ladders, onSelectLadder, isLoading, emptyMessage, teamCoun
             onClick={() => onSelectLadder(ladder)}
           >
             <CardContent className="p-6">
-              {/* Header with icon/image and status */}
+              {/* Header with image and status */}
               <div className="flex items-start justify-between mb-4">
                 {ladder.image_url ? (
-                  <Avatar className="h-12 w-12 rounded-xl">
-                    <AvatarImage src={ladder.image_url} className="object-cover" />
-                    <AvatarFallback className={`rounded-xl ${getIconBgColor(ladder.format)}`}>
-                      {getFormatIcon(ladder.format)}
-                    </AvatarFallback>
-                  </Avatar>
+                  <div className="h-14 w-14 rounded-xl overflow-hidden shadow-sm">
+                    <img 
+                      src={ladder.image_url} 
+                      alt={ladder.name}
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
                 ) : (
-                  <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${getIconBgColor(ladder.format)}`}>
+                  <div className={`h-14 w-14 rounded-xl flex items-center justify-center ${getIconBgColor(ladder.format)}`}>
                     {getFormatIcon(ladder.format)}
                   </div>
                 )}
                 <div className="flex items-center gap-2">
+                  {(ladder as any).hoa_only && (
+                    <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                      <Building2 className="h-3 w-3 mr-1" />
+                      HOA Only
+                    </Badge>
+                  )}
                   {ladder.is_private && <Lock className="h-4 w-4 text-muted-foreground" />}
                   {getStatusBadge(ladder)}
                 </div>
@@ -164,13 +170,21 @@ const LadderList = ({ ladders, onSelectLadder, isLoading, emptyMessage, teamCoun
               <h3 className="font-bold text-lg mb-1 text-foreground">
                 {ladder.name}
               </h3>
-              <div className="flex items-center gap-1.5 text-sm text-muted-foreground mb-5">
+              <div className="flex items-center gap-1.5 text-sm text-muted-foreground mb-2">
                 <Star className="h-3.5 w-3.5" />
                 <span>{getFormatLabel(ladder.format)}</span>
                 {ladder.min_ntrp && ladder.max_ntrp && (
                   <span className="ml-1">• NTRP {ladder.min_ntrp}-{ladder.max_ntrp}</span>
                 )}
               </div>
+              
+              {/* City location */}
+              {(ladder as any).city && (
+                <div className="flex items-center gap-1 text-sm text-muted-foreground mb-4">
+                  <MapPin className="h-3.5 w-3.5" />
+                  <span>{(ladder as any).city}</span>
+                </div>
+              )}
               
               {/* Progress bar */}
               <Progress 
