@@ -535,17 +535,17 @@ const PlayerProfile = () => {
                           <div>
                             <Label htmlFor="ntrpRating">NTRP Rating</Label>
                             <Select 
-                              value={profile.ntrpRating?.toString() || ''} 
+                              value={profile.ntrpRating?.toString() || 'none'} 
                               onValueChange={(value) => setProfile(prev => ({ 
                                 ...prev, 
-                                ntrpRating: value ? parseFloat(value) : null 
+                                ntrpRating: value === 'none' ? null : parseFloat(value) 
                               }))}
                             >
                               <SelectTrigger>
                                 <SelectValue placeholder="Select NTRP" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="">Not Set</SelectItem>
+                                <SelectItem value="none">Not Set</SelectItem>
                                 {[1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0].map(rating => (
                                   <SelectItem key={rating} value={rating.toString()}>{rating.toFixed(1)}</SelectItem>
                                 ))}
