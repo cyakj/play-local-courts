@@ -6,6 +6,7 @@ import { useSearchParams } from "react-router-dom";
 import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import { LeaveReviewDialog } from "./LeaveReviewDialog";
 import PlayerLessonRequestsList from "./PlayerLessonRequestsList";
+import PlayerAssignments from "./PlayerAssignments";
 
 export const LessonsTab = () => {
   const { currentUser } = useAuth();
@@ -163,6 +164,8 @@ export const LessonsTab = () => {
 
   return (
     <div className="space-y-6">
+      <PlayerAssignments />
+      
       <PlayerLessonRequestsList
         requests={lessonRequests}
         onLeaveReview={handleLeaveReview}
