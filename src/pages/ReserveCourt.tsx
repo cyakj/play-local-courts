@@ -390,7 +390,12 @@ const ReserveCourt = () => {
         </p>
         
         {/* Check Availability Button */}
-        <Button className="w-full mt-6 h-12 rounded-full text-base font-semibold">
+        <Button 
+          className="w-full mt-6 h-12 rounded-full text-base font-semibold"
+          onClick={() => {
+            document.getElementById('amenity-grid')?.scrollIntoView({ behavior: 'smooth' });
+          }}
+        >
           <Calendar className="h-5 w-5 mr-2" />
           Check Availability
         </Button>
@@ -469,7 +474,7 @@ const ReserveCourt = () => {
       )}
 
       {/* Filter Tabs */}
-      <div className="px-4 py-3">
+      <div id="amenity-grid" className="px-4 py-3">
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
           {amenityTypes.map((type) => (
             <button
