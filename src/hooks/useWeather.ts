@@ -115,6 +115,7 @@ export function useWeather(location?: string | null) {
         setLocationName(displayName);
 
         // Fetch weather from Open-Meteo
+        console.time('ExternalAPILatency');
         const response = await fetch(
           `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,weather_code,relative_humidity_2m,wind_speed_10m&daily=temperature_2m_max,weather_code&timezone=America%2FPuerto_Rico&forecast_days=14&temperature_unit=fahrenheit`
         );
@@ -122,6 +123,7 @@ export function useWeather(location?: string | null) {
         if (!response.ok) throw new Error('Weather fetch failed');
 
         const data = await response.json();
+        console.timeEnd('ExternalAPILatency');
 
         // Parse current weather
         const { condition, description } = mapWeatherCode(data.current.weather_code);
