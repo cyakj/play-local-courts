@@ -72,7 +72,7 @@ const Dashboard = () => {
     };
   }, []);
 
-  // Fetch user's zip_code from profiles
+  // Fetch user's zip_code from profiles, fallback to HOA address
   useEffect(() => {
     const fetchUserLocation = async () => {
       if (!currentUser?.id) return;
@@ -84,14 +84,31 @@ const Dashboard = () => {
         .single();
       
       if (data) {
-        setUserZipCode(data.zip_code || data.location || null);
+        // First try user's personal zip_code or location
+        const userLocation = data.zip_code || data.location;
+        if (userLocation) {
+          setUserZipCode(userLocation);
+        } else if (activeHOA?.hoaId) {
+          // Fallback to HOA address for community users
+          const { data: hoaData } = await supabase
+            .from('hoas')
+            .select('address')
+            .eq('id', activeHOA.hoaId)
+            .single();
+          
+          if (hoaData?.address) {
+            // Extract ZIP from address or use address as location
+            const zipMatch = hoaData.address.match(/\b(\d{5})\b/);
+            setUserZipCode(zipMatch ? zipMatch[1] : hoaData.address);
+          }
+        }
       }
     };
     
     fetchUserLocation();
-  }, [currentUser?.id]);
+  }, [currentUser?.id, activeHOA?.hoaId]);
 
-  // Get weather location - only show weather if user has a zip code or home base set
+  // Get weather location - show weather if user has a zip code, location, or HOA address
   const { weather, forecast, loading: weatherLoading, locationName } = useWeather(userZipCode);
 
   useEffect(() => {
