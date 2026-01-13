@@ -66,10 +66,16 @@ const Dashboard = () => {
 
   // Performance: Measure Dashboard render time
   useEffect(() => {
-    console.time('DashboardRender');
-    return () => {
-      console.timeEnd('DashboardRender');
-    };
+    // Start timing on mount
+    const startTime = performance.now();
+    
+    // Use requestAnimationFrame to measure after paint
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const endTime = performance.now();
+        console.log(`DashboardRender: ${(endTime - startTime).toFixed(2)}ms`);
+      });
+    });
   }, []);
 
   // Fetch user's zip_code from profiles, fallback to HOA address
