@@ -64,6 +64,14 @@ const Dashboard = () => {
   const [matchRequests, setMatchRequests] = useState<MatchRequest[]>([]);
   const [userZipCode, setUserZipCode] = useState<string | null>(null);
 
+  // Performance: Measure Dashboard render time
+  useEffect(() => {
+    console.time('DashboardRender');
+    return () => {
+      console.timeEnd('DashboardRender');
+    };
+  }, []);
+
   // Fetch user's zip_code from profiles
   useEffect(() => {
     const fetchUserLocation = async () => {

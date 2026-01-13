@@ -127,12 +127,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     try {
       if (effectiveHoaId) {
+        console.time('CourtGridFetch');
         const [hoaData, amenitiesData, userBookings, pendingUsersData] = await Promise.all([
           getHOAById(effectiveHoaId),
           getAmenitiesByHOAId(effectiveHoaId),
           getUserBookings(currentUser.id),
           isAdmin ? getPendingUsersByHOAId(effectiveHoaId) : Promise.resolve([])
         ]);
+        console.timeEnd('CourtGridFetch');
         
         setCurrentHOA(hoaData);
         if (hoaData) setHOAs([hoaData]);
