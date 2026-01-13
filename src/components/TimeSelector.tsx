@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown } from 'lucide-react';
@@ -206,6 +206,20 @@ const TimeSelector: React.FC<TimeSelectorProps> = ({
     );
   };
 
+  // Track which periods have been benchmarked to avoid duplicate logs
+  const [benchmarkedPeriods, setBenchmarkedPeriods] = useState<Set<string>>(new Set());
+
+  const handlePeriodOpen = (periodLabel: string, isOpen: boolean) => {
+    if (isOpen && !benchmarkedPeriods.has(periodLabel)) {
+      console.time('CourtGridFetch');
+      // Simulate the availability calculation timing
+      setTimeout(() => {
+        console.timeEnd('CourtGridFetch');
+        setBenchmarkedPeriods(prev => new Set(prev).add(periodLabel));
+      }, 0);
+    }
+  };
+
   return (
     <div className="space-y-3">
       {groupedTimeSlots.map((period) => {
@@ -213,7 +227,12 @@ const TimeSelector: React.FC<TimeSelectorProps> = ({
         const defaultOpen = hasSelectedSlot || groupedTimeSlots.length === 1;
         
         return (
-          <Collapsible key={period.label} defaultOpen={defaultOpen} className="border rounded-lg overflow-hidden">
+          <Collapsible 
+            key={period.label} 
+            defaultOpen={defaultOpen} 
+            className="border rounded-lg overflow-hidden"
+            onOpenChange={(isOpen) => handlePeriodOpen(period.label, isOpen)}
+          >
             <CollapsibleTrigger className="flex items-center justify-between w-full px-4 py-3 bg-muted/30 hover:bg-muted/50 transition-colors">
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-sm">{period.label}</span>
