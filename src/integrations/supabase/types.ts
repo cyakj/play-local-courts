@@ -695,6 +695,30 @@ export type Database = {
         }
         Relationships: []
       }
+      email_reminders_sent: {
+        Row: {
+          event_id: string
+          event_type: string
+          id: string
+          sent_at: string | null
+          user_id: string
+        }
+        Insert: {
+          event_id: string
+          event_type: string
+          id?: string
+          sent_at?: string | null
+          user_id: string
+        }
+        Update: {
+          event_id?: string
+          event_type?: string
+          id?: string
+          sent_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       hoa_application_notes: {
         Row: {
           application_id: string
