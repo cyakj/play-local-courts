@@ -130,10 +130,16 @@ const LessonRequestDialog: React.FC<LessonRequestDialogProps> = ({
 
       console.log('Lesson request created successfully:', data);
 
+      // Show detailed confirmation toast
+      const formattedDate = format(date, 'EEEE, MMMM d, yyyy');
       const successMessage = isOutsideAvailability 
         ? `Request sent to ${coachName} for manual review. The time is outside their posted availability.`
         : `Lesson request sent to ${coachName}!`;
-      toast.success(successMessage);
+      
+      toast.success(successMessage, {
+        description: `📅 ${formattedDate} at ${startTime} - ${endTime}\n📍 ${location || 'Location TBD'}\n🎾 ${sport} • ${lessonType}`,
+        duration: 5000,
+      });
       onOpenChange(false);
       
       // Reset form

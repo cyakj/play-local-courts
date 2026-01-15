@@ -87,9 +87,17 @@ const MatchRequestDialog: React.FC<MatchRequestDialogProps> = ({
 
       if (error) throw error;
 
+      // Show detailed confirmation toast
+      const formattedDate = new Date(request.date).toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric'
+      });
+
       toast({
-        title: "Success",
-        description: `Match request sent to ${targetPlayer.full_name}!`
+        title: "✅ Match Request Sent!",
+        description: `Sent to ${targetPlayer.full_name}\n📅 ${formattedDate} at ${request.timeStart}${request.timeEnd ? ` - ${request.timeEnd}` : ''}\n📍 ${request.location || 'Location TBD'}\n🎾 ${formatMatchType(request.matchType)}`,
       });
 
       onOpenChange(false);

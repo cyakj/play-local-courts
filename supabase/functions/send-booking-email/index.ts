@@ -13,15 +13,30 @@ const corsHeaders = {
 };
 
 interface EmailRequest {
-  type: 'booking_confirmation' | 'booking_cancellation' | 'booking_reminder';
-  bookingId: string;
+  type: 'booking_confirmation' | 'booking_cancellation' | 'booking_reminder' | 
+        'lesson_confirmation' | 'lesson_reminder' | 
+        'match_confirmation' | 'match_reminder';
+  bookingId?: string;
+  lessonId?: string;
+  matchId?: string;
+  userId: string;
   userEmail: string;
   userName: string;
-  courtName: string;
+  // Court/Amenity specific
+  courtName?: string;
+  playType?: string;
+  // Lesson specific
+  coachName?: string;
+  sport?: string;
+  lessonType?: string;
+  // Match specific
+  opponentName?: string;
+  matchType?: string;
+  // Common fields
   date: string;
   startTime: string;
-  endTime: string;
-  playType?: string;
+  endTime?: string;
+  location?: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -33,13 +48,13 @@ const handler = async (req: Request): Promise<Response> => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const emailData: EmailRequest = await req.json();
     
-    console.log('Sending email for booking:', emailData.bookingId);
+    console.log('Sending email:', emailData.type, 'for user:', emailData.userId);
 
     // Check user's email preferences
     const { data: preferences } = await supabase
       .from('email_preferences')
       .select('*')
-      .eq('user_id', emailData.bookingId)
+      .eq('user_id', emailData.userId)
       .single();
 
     // Format date and time for display
@@ -62,7 +77,7 @@ const handler = async (req: Request): Promise<Response> => {
           });
         }
         
-        subject = `Court Reservation Confirmed - ${emailData.courtName}`;
+        subject = `✅ Court Reservation Confirmed - ${emailData.courtName}`;
         htmlContent = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h1 style="color: #2563eb;">Court Reservation Confirmed!</h1>
@@ -75,8 +90,8 @@ const handler = async (req: Request): Promise<Response> => {
               <p><strong>Time:</strong> ${emailData.startTime} - ${emailData.endTime}</p>
               <p><strong>Play Type:</strong> ${emailData.playType || 'Singles'}</p>
             </div>
+            <p>📍 You'll receive a reminder 1 hour before your reservation.</p>
             <p>Please arrive on time and bring any necessary equipment. If you need to cancel your reservation, please do so at least 2 hours in advance.</p>
-            <p>Thank you for using our court reservation system!</p>
             <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
             <p style="color: #6b7280; font-size: 14px;">This email was sent automatically. Please do not reply to this email.</p>
           </div>
@@ -119,14 +134,14 @@ const handler = async (req: Request): Promise<Response> => {
           });
         }
         
-        subject = `Reminder: Your Court Reservation Tomorrow - ${emailData.courtName}`;
+        subject = `⏰ Reminder: Court Reservation in 1 Hour - ${emailData.courtName}`;
         htmlContent = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h1 style="color: #059669;">Reminder: Your Court Reservation Tomorrow</h1>
+            <h1 style="color: #059669;">⏰ Your Court Reservation is in 1 Hour!</h1>
             <p>Dear ${emailData.userName},</p>
             <p>This is a friendly reminder about your upcoming court reservation:</p>
             <div style="background-color: #ecfdf5; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #059669;">
-              <h3 style="margin-top: 0; color: #374151;">Tomorrow's Reservation</h3>
+              <h3 style="margin-top: 0; color: #374151;">Upcoming Reservation</h3>
               <p><strong>Court:</strong> ${emailData.courtName}</p>
               <p><strong>Date:</strong> ${formattedDate}</p>
               <p><strong>Time:</strong> ${emailData.startTime} - ${emailData.endTime}</p>
@@ -138,11 +153,135 @@ const handler = async (req: Request): Promise<Response> => {
           </div>
         `;
         break;
+
+      case 'lesson_confirmation':
+        if (preferences && !preferences.lesson_confirmations) {
+          console.log('User has disabled lesson confirmations');
+          return new Response(JSON.stringify({ success: true, skipped: true }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+        
+        subject = `✅ Lesson Confirmed with ${emailData.coachName}`;
+        htmlContent = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1 style="color: #2563eb;">Lesson Confirmed!</h1>
+            <p>Dear ${emailData.userName},</p>
+            <p>Great news! Your lesson with ${emailData.coachName} has been confirmed.</p>
+            <div style="background-color: #dbeafe; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2563eb;">
+              <h3 style="margin-top: 0; color: #374151;">Lesson Details</h3>
+              <p><strong>Coach:</strong> ${emailData.coachName}</p>
+              <p><strong>Sport:</strong> ${emailData.sport}</p>
+              <p><strong>Lesson Type:</strong> ${emailData.lessonType}</p>
+              <p><strong>Date:</strong> ${formattedDate}</p>
+              <p><strong>Time:</strong> ${emailData.startTime}${emailData.endTime ? ` - ${emailData.endTime}` : ''}</p>
+              ${emailData.location ? `<p><strong>Location:</strong> ${emailData.location}</p>` : ''}
+            </div>
+            <p>📍 You'll receive a reminder 1 hour before your lesson.</p>
+            <p>Please arrive a few minutes early to warm up. Have a great session!</p>
+            <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
+            <p style="color: #6b7280; font-size: 14px;">This email was sent automatically. Please do not reply to this email.</p>
+          </div>
+        `;
+        break;
+
+      case 'lesson_reminder':
+        if (preferences && !preferences.lesson_reminders) {
+          console.log('User has disabled lesson reminders');
+          return new Response(JSON.stringify({ success: true, skipped: true }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+        
+        subject = `⏰ Reminder: Lesson with ${emailData.coachName} in 1 Hour`;
+        htmlContent = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1 style="color: #f59e0b;">⏰ Your Lesson is in 1 Hour!</h1>
+            <p>Dear ${emailData.userName},</p>
+            <p>Your lesson with ${emailData.coachName} starts in 1 hour!</p>
+            <div style="background-color: #fef3c7; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+              <h3 style="margin-top: 0; color: #374151;">Lesson Details</h3>
+              <p><strong>Coach:</strong> ${emailData.coachName}</p>
+              <p><strong>Sport:</strong> ${emailData.sport}</p>
+              <p><strong>Time:</strong> ${emailData.startTime}${emailData.endTime ? ` - ${emailData.endTime}` : ''}</p>
+              ${emailData.location ? `<p><strong>Location:</strong> ${emailData.location}</p>` : ''}
+            </div>
+            <p>🎾 Don't forget your equipment and water! Have an awesome lesson!</p>
+            <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
+            <p style="color: #6b7280; font-size: 14px;">This email was sent automatically. Please do not reply to this email.</p>
+          </div>
+        `;
+        break;
+
+      case 'match_confirmation':
+        if (preferences && !preferences.match_confirmations) {
+          console.log('User has disabled match confirmations');
+          return new Response(JSON.stringify({ success: true, skipped: true }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+        
+        subject = `✅ Match Confirmed with ${emailData.opponentName}`;
+        htmlContent = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1 style="color: #7c3aed;">Match Confirmed!</h1>
+            <p>Dear ${emailData.userName},</p>
+            <p>Your match with ${emailData.opponentName} has been confirmed!</p>
+            <div style="background-color: #ede9fe; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #7c3aed;">
+              <h3 style="margin-top: 0; color: #374151;">Match Details</h3>
+              <p><strong>Opponent:</strong> ${emailData.opponentName}</p>
+              <p><strong>Match Type:</strong> ${emailData.matchType}</p>
+              <p><strong>Date:</strong> ${formattedDate}</p>
+              <p><strong>Time:</strong> ${emailData.startTime}${emailData.endTime ? ` - ${emailData.endTime}` : ''}</p>
+              ${emailData.location ? `<p><strong>Location:</strong> ${emailData.location}</p>` : ''}
+            </div>
+            <p>📍 You'll receive a reminder 1 hour before your match.</p>
+            <p>Good luck and have fun! 🎾</p>
+            <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
+            <p style="color: #6b7280; font-size: 14px;">This email was sent automatically. Please do not reply to this email.</p>
+          </div>
+        `;
+        break;
+
+      case 'match_reminder':
+        if (preferences && !preferences.match_reminders) {
+          console.log('User has disabled match reminders');
+          return new Response(JSON.stringify({ success: true, skipped: true }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+        
+        subject = `⏰ Reminder: Match with ${emailData.opponentName} in 1 Hour`;
+        htmlContent = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1 style="color: #7c3aed;">⏰ Your Match is in 1 Hour!</h1>
+            <p>Dear ${emailData.userName},</p>
+            <p>Your match with ${emailData.opponentName} starts in 1 hour!</p>
+            <div style="background-color: #ede9fe; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #7c3aed;">
+              <h3 style="margin-top: 0; color: #374151;">Match Details</h3>
+              <p><strong>Opponent:</strong> ${emailData.opponentName}</p>
+              <p><strong>Match Type:</strong> ${emailData.matchType}</p>
+              <p><strong>Time:</strong> ${emailData.startTime}${emailData.endTime ? ` - ${emailData.endTime}` : ''}</p>
+              ${emailData.location ? `<p><strong>Location:</strong> ${emailData.location}</p>` : ''}
+            </div>
+            <p>🎾 Warm up, stay hydrated, and play your best! Good luck!</p>
+            <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
+            <p style="color: #6b7280; font-size: 14px;">This email was sent automatically. Please do not reply to this email.</p>
+          </div>
+        `;
+        break;
+
+      default:
+        console.log('Unknown email type:', emailData.type);
+        return new Response(JSON.stringify({ error: 'Unknown email type' }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
     }
 
     // Send the email
     const emailResponse = await resend.emails.send({
-      from: "HOA Court System <noreply@resend.dev>",
+      from: "RallyNet <noreply@resend.dev>",
       to: [emailData.userEmail],
       subject: subject,
       html: htmlContent,
@@ -152,7 +291,7 @@ const handler = async (req: Request): Promise<Response> => {
     await supabase
       .from('email_logs')
       .insert({
-        user_id: emailData.bookingId,
+        user_id: emailData.userId,
         email_type: emailData.type,
         recipient_email: emailData.userEmail,
         subject: subject,

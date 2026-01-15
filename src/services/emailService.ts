@@ -8,6 +8,10 @@ export interface EmailPreference {
   booking_reminders: boolean;
   cancellation_notifications: boolean;
   admin_announcements: boolean;
+  lesson_confirmations: boolean;
+  lesson_reminders: boolean;
+  match_confirmations: boolean;
+  match_reminders: boolean;
   created_at?: string;
   updated_at?: string;
 }

@@ -658,6 +658,10 @@ export type Database = {
           cancellation_notifications: boolean
           created_at: string
           id: string
+          lesson_confirmations: boolean | null
+          lesson_reminders: boolean | null
+          match_confirmations: boolean | null
+          match_reminders: boolean | null
           updated_at: string
           user_id: string
         }
@@ -668,6 +672,10 @@ export type Database = {
           cancellation_notifications?: boolean
           created_at?: string
           id?: string
+          lesson_confirmations?: boolean | null
+          lesson_reminders?: boolean | null
+          match_confirmations?: boolean | null
+          match_reminders?: boolean | null
           updated_at?: string
           user_id: string
         }
@@ -678,6 +686,10 @@ export type Database = {
           cancellation_notifications?: boolean
           created_at?: string
           id?: string
+          lesson_confirmations?: boolean | null
+          lesson_reminders?: boolean | null
+          match_confirmations?: boolean | null
+          match_reminders?: boolean | null
           updated_at?: string
           user_id?: string
         }
@@ -2200,6 +2212,10 @@ export type Database = {
           cancellation_notifications: boolean
           created_at: string
           id: string
+          lesson_confirmations: boolean
+          lesson_reminders: boolean
+          match_confirmations: boolean
+          match_reminders: boolean
           updated_at: string
           user_id: string
         }[]
@@ -2217,6 +2233,10 @@ export type Database = {
           cancellation_notifications: boolean
           created_at: string
           id: string
+          lesson_confirmations: boolean
+          lesson_reminders: boolean
+          match_confirmations: boolean
+          match_reminders: boolean
           updated_at: string
           user_id: string
         }[]

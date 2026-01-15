@@ -349,7 +349,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       // - Check other rule constraints
       
       await createBooking(userId, amenityId, date, startTime, endTime, playType);
-      toast.success(`${amenityName} booked successfully for ${playType}`);
+      
+      // Show detailed confirmation toast
+      const formattedDate = new Date(date).toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric'
+      });
+      toast.success(`✅ ${amenityName} Reserved!`, {
+        description: `📅 ${formattedDate}\n⏰ ${startTime} - ${endTime}\n🎾 ${playType}\n\nYou'll receive a reminder 1 hour before.`,
+        duration: 5000,
+      });
       await refreshData();
     } catch (error: any) {
       console.error('Error booking amenity:', error);
