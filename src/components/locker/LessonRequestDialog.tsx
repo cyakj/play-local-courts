@@ -130,6 +130,28 @@ const LessonRequestDialog: React.FC<LessonRequestDialogProps> = ({
 
       console.log('Lesson request created successfully:', data);
 
+      // Send confirmation email
+      if (data && data[0]) {
+        try {
+          await supabase.functions.invoke('send-booking-email', {
+            body: {
+              type: 'lesson_confirmation',
+              lessonId: data[0].id,
+              userId: currentUser.id,
+              date: format(date, 'yyyy-MM-dd'),
+              startTime,
+              endTime,
+              location: location || 'TBD',
+              coachName,
+              sport,
+              lessonType,
+            }
+          });
+        } catch (emailError) {
+          console.error('Failed to send lesson confirmation email:', emailError);
+        }
+      }
+
       // Show detailed confirmation toast
       const formattedDate = format(date, 'EEEE, MMMM d, yyyy');
       const successMessage = isOutsideAvailability 

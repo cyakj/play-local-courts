@@ -72,7 +72,7 @@ const MatchRequestDialog: React.FC<MatchRequestDialogProps> = ({
 
     setLoading(true);
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('match_requests')
         .insert({
           challenger_id: currentUser.id,
@@ -83,9 +83,31 @@ const MatchRequestDialog: React.FC<MatchRequestDialogProps> = ({
           time_end: request.timeEnd || null,
           location: request.location || null,
           status: 'pending'
-        });
+        })
+        .select();
 
       if (error) throw error;
+
+      // Send confirmation email to the challenger
+      if (data && data[0]) {
+        try {
+          await supabase.functions.invoke('send-booking-email', {
+            body: {
+              type: 'match_confirmation',
+              matchId: data[0].id,
+              userId: currentUser.id,
+              date: request.date,
+              startTime: request.timeStart,
+              endTime: request.timeEnd || null,
+              location: request.location || 'TBD',
+              opponentName: targetPlayer.full_name,
+              matchType: formatMatchType(request.matchType),
+            }
+          });
+        } catch (emailError) {
+          console.error('Failed to send match confirmation email:', emailError);
+        }
+      }
 
       // Show detailed confirmation toast
       const formattedDate = new Date(request.date).toLocaleDateString('en-US', {
