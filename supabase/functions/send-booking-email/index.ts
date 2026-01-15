@@ -320,17 +320,6 @@ const handler = async (req: Request): Promise<Response> => {
       html: htmlContent,
     });
 
-    // Log the email attempt
-    await supabase
-      .from('email_logs')
-      .insert({
-        user_id: emailData.userId,
-        email_type: emailData.type,
-        recipient_email: userEmail,
-        subject: subject,
-        status: 'sent'
-      });
-
     console.log("Email sent successfully:", emailResponse);
 
     return new Response(JSON.stringify({ success: true, emailId: emailResponse.id }), {
@@ -340,18 +329,6 @@ const handler = async (req: Request): Promise<Response> => {
 
   } catch (error: any) {
     console.error("Error sending email:", error);
-    
-    // Log the error
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    await supabase
-      .from('email_logs')
-      .insert({
-        email_type: 'error',
-        recipient_email: 'unknown',
-        subject: 'Email send failed',
-        status: 'failed',
-        error_message: error.message
-      });
 
     return new Response(
       JSON.stringify({ error: error.message }),
