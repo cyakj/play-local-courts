@@ -20,8 +20,8 @@ interface EmailRequest {
   lessonId?: string;
   matchId?: string;
   userId: string;
-  userEmail: string;
-  userName: string;
+  userEmail?: string;
+  userName?: string;
   // Court/Amenity specific
   courtName?: string;
   playType?: string;
@@ -49,6 +49,39 @@ const handler = async (req: Request): Promise<Response> => {
     const emailData: EmailRequest = await req.json();
     
     console.log('Sending email:', emailData.type, 'for user:', emailData.userId);
+
+    // Fetch user email and name if not provided
+    let userEmail = emailData.userEmail;
+    let userName = emailData.userName;
+    
+    if (!userEmail || !userName) {
+      // Get user email from auth.users
+      const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(emailData.userId);
+      if (authError) {
+        console.error('Error fetching auth user:', authError);
+      }
+      userEmail = userEmail || authUser?.user?.email;
+      
+      // Get user name from profiles
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', emailData.userId)
+        .single();
+      
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
+      }
+      userName = userName || profile?.full_name || 'Player';
+    }
+
+    if (!userEmail) {
+      console.log('No email address found for user:', emailData.userId);
+      return new Response(JSON.stringify({ success: false, error: 'No email address found' }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
 
     // Check user's email preferences
     const { data: preferences } = await supabase
@@ -81,7 +114,7 @@ const handler = async (req: Request): Promise<Response> => {
         htmlContent = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h1 style="color: #2563eb;">Court Reservation Confirmed!</h1>
-            <p>Dear ${emailData.userName},</p>
+            <p>Dear ${userName},</p>
             <p>Your court reservation has been confirmed. Here are the details:</p>
             <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
               <h3 style="margin-top: 0; color: #374151;">Reservation Details</h3>
@@ -110,7 +143,7 @@ const handler = async (req: Request): Promise<Response> => {
         htmlContent = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h1 style="color: #dc2626;">Court Reservation Cancelled</h1>
-            <p>Dear ${emailData.userName},</p>
+            <p>Dear ${userName},</p>
             <p>Your court reservation has been cancelled. Here were the details:</p>
             <div style="background-color: #fef2f2; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #dc2626;">
               <h3 style="margin-top: 0; color: #374151;">Cancelled Reservation</h3>
@@ -138,7 +171,7 @@ const handler = async (req: Request): Promise<Response> => {
         htmlContent = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h1 style="color: #059669;">⏰ Your Court Reservation is in 1 Hour!</h1>
-            <p>Dear ${emailData.userName},</p>
+            <p>Dear ${userName},</p>
             <p>This is a friendly reminder about your upcoming court reservation:</p>
             <div style="background-color: #ecfdf5; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #059669;">
               <h3 style="margin-top: 0; color: #374151;">Upcoming Reservation</h3>
@@ -166,7 +199,7 @@ const handler = async (req: Request): Promise<Response> => {
         htmlContent = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h1 style="color: #2563eb;">Lesson Confirmed!</h1>
-            <p>Dear ${emailData.userName},</p>
+            <p>Dear ${userName},</p>
             <p>Great news! Your lesson with ${emailData.coachName} has been confirmed.</p>
             <div style="background-color: #dbeafe; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2563eb;">
               <h3 style="margin-top: 0; color: #374151;">Lesson Details</h3>
@@ -197,7 +230,7 @@ const handler = async (req: Request): Promise<Response> => {
         htmlContent = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h1 style="color: #f59e0b;">⏰ Your Lesson is in 1 Hour!</h1>
-            <p>Dear ${emailData.userName},</p>
+            <p>Dear ${userName},</p>
             <p>Your lesson with ${emailData.coachName} starts in 1 hour!</p>
             <div style="background-color: #fef3c7; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
               <h3 style="margin-top: 0; color: #374151;">Lesson Details</h3>
@@ -225,7 +258,7 @@ const handler = async (req: Request): Promise<Response> => {
         htmlContent = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h1 style="color: #7c3aed;">Match Confirmed!</h1>
-            <p>Dear ${emailData.userName},</p>
+            <p>Dear ${userName},</p>
             <p>Your match with ${emailData.opponentName} has been confirmed!</p>
             <div style="background-color: #ede9fe; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #7c3aed;">
               <h3 style="margin-top: 0; color: #374151;">Match Details</h3>
@@ -255,7 +288,7 @@ const handler = async (req: Request): Promise<Response> => {
         htmlContent = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h1 style="color: #7c3aed;">⏰ Your Match is in 1 Hour!</h1>
-            <p>Dear ${emailData.userName},</p>
+            <p>Dear ${userName},</p>
             <p>Your match with ${emailData.opponentName} starts in 1 hour!</p>
             <div style="background-color: #ede9fe; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #7c3aed;">
               <h3 style="margin-top: 0; color: #374151;">Match Details</h3>
@@ -282,7 +315,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Send the email
     const emailResponse = await resend.emails.send({
       from: "RallyNet <noreply@resend.dev>",
-      to: [emailData.userEmail],
+      to: [userEmail],
       subject: subject,
       html: htmlContent,
     });
@@ -293,7 +326,7 @@ const handler = async (req: Request): Promise<Response> => {
       .insert({
         user_id: emailData.userId,
         email_type: emailData.type,
-        recipient_email: emailData.userEmail,
+        recipient_email: userEmail,
         subject: subject,
         status: 'sent'
       });
