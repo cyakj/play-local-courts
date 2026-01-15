@@ -21,6 +21,7 @@ import {
   getMaintenanceForDateAndAmenity,
   setAmenityMaintenance as supabaseSetAmenityMaintenance
 } from '../services/supabaseService';
+import { supabase } from '@/integrations/supabase/client';
 import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 
 interface DataContextType {
@@ -361,6 +362,24 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         description: `📅 ${formattedDate}\n⏰ ${startTime} - ${endTime}\n🎾 ${playType}\n\nYou'll receive a reminder 1 hour before.`,
         duration: 5000,
       });
+
+      // Send booking confirmation email
+      try {
+        await supabase.functions.invoke('send-booking-email', {
+          body: {
+            type: 'booking_confirmation',
+            userId,
+            courtName: amenityName,
+            date,
+            startTime,
+            endTime,
+            playType,
+          }
+        });
+      } catch (emailError) {
+        console.error('Failed to send booking confirmation email:', emailError);
+      }
+
       await refreshData();
     } catch (error: any) {
       console.error('Error booking amenity:', error);
