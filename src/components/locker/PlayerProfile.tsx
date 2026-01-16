@@ -18,7 +18,7 @@ import {
   LogOut, 
   MapPin, 
   User,
-  Shield,
+  Settings,
   Bell,
   Mail,
   Phone,
@@ -37,7 +37,7 @@ import { Amenity } from '../../types';
 import { capitalizeWords } from '@/lib/textUtils';
 import { isValidZipCode } from '@/lib/zipCodeUtils';
 import { format } from 'date-fns';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 interface ProfileData {
   fullName: string;
@@ -54,11 +54,12 @@ interface ProfileData {
   showExactDistance: boolean;
 }
 
-type ActiveSection = 'details' | 'privacy' | 'notifications';
+type ActiveSection = 'details' | 'notifications';
 
 const PlayerProfile = () => {
   const { currentUser, logout } = useAuth();
   const { memberships, activeHOA } = useActiveHOA();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -360,15 +361,11 @@ const PlayerProfile = () => {
                   Profile Details
                 </button>
                 <button
-                  onClick={() => setActiveSection('privacy')}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                    activeSection === 'privacy' 
-                      ? 'bg-primary/10 text-primary font-medium' 
-                      : 'text-muted-foreground hover:bg-muted'
-                  }`}
+                  onClick={() => navigate('/settings')}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:bg-muted transition-colors"
                 >
-                  <Shield className="h-4 w-4" />
-                  Privacy & Security
+                  <Settings className="h-4 w-4" />
+                  Settings
                 </button>
                 <button
                   onClick={() => setActiveSection('notifications')}
@@ -657,62 +654,6 @@ const PlayerProfile = () => {
             </>
           )}
 
-          {activeSection === 'privacy' && (
-            <Card>
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg">Privacy & Security</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between py-2 border-b">
-                  <div>
-                    <p className="font-medium">Location-Based Searches</p>
-                    <p className="text-sm text-muted-foreground">Allow others to find you based on distance</p>
-                  </div>
-                  <Switch
-                    checked={profile.locationVisible}
-                    onCheckedChange={(checked) => {
-                      setProfile(prev => ({ ...prev, locationVisible: checked }));
-                      supabase
-                        .from('profiles')
-                        .update({ location_visible: checked })
-                        .eq('id', currentUser?.id)
-                        .then(() => {
-                          toast({ title: "Preference saved" });
-                        });
-                    }}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between py-2 border-b">
-                  <div>
-                    <p className="font-medium">Show Exact Distance</p>
-                    <p className="text-sm text-muted-foreground">When disabled, others see "Nearby" instead of miles</p>
-                  </div>
-                  <Switch
-                    checked={profile.showExactDistance}
-                    onCheckedChange={(checked) => {
-                      setProfile(prev => ({ ...prev, showExactDistance: checked }));
-                      supabase
-                        .from('profiles')
-                        .update({ show_exact_distance: checked })
-                        .eq('id', currentUser?.id)
-                        .then(() => {
-                          toast({ title: "Preference saved" });
-                        });
-                    }}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between py-2">
-                  <div>
-                    <p className="font-medium">Public Profile</p>
-                    <p className="text-sm text-muted-foreground">Allow others to see your stats and skill level</p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-              </CardContent>
-            </Card>
-          )}
 
           {activeSection === 'notifications' && (
             <Card>
