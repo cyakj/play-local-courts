@@ -22,6 +22,8 @@ export interface PrivacyFormData {
   locationVisible: boolean;
   showExactDistance: boolean;
   publicProfile: boolean;
+  hideContactUntilConfirmed: boolean;
+  showActivityStatus: boolean;
 }
 
 export interface CoachFormData {
@@ -68,6 +70,8 @@ export const useSettingsForm = () => {
     locationVisible: true,
     showExactDistance: true,
     publicProfile: true,
+    hideContactUntilConfirmed: false,
+    showActivityStatus: true,
   });
 
   const [coach, setCoach] = useState<CoachFormData>({
@@ -113,7 +117,9 @@ export const useSettingsForm = () => {
         const privacyFormData: PrivacyFormData = {
           locationVisible: profileData.location_visible !== false,
           showExactDistance: profileData.show_exact_distance !== false,
-          publicProfile: true, // Default as this field may not exist yet
+          publicProfile: true,
+          hideContactUntilConfirmed: profileData.hide_contact_until_confirmed === true,
+          showActivityStatus: profileData.show_activity_status !== false,
         };
 
         setProfile(profileFormData);
@@ -212,6 +218,8 @@ export const useSettingsForm = () => {
           phone_number: profile.phoneNumber || null,
           location_visible: privacy.locationVisible,
           show_exact_distance: privacy.showExactDistance,
+          hide_contact_until_confirmed: privacy.hideContactUntilConfirmed,
+          show_activity_status: privacy.showActivityStatus,
           updated_at: new Date().toISOString(),
         })
         .eq('id', currentUser.id);

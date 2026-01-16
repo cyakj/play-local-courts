@@ -1,15 +1,12 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 import { 
-  User, 
   Shield, 
   Bell, 
-  Users,
-  Settings,
-  Briefcase
+  Settings
 } from 'lucide-react';
 
-export type SettingsSection = 'account' | 'profile' | 'privacy' | 'notifications' | 'match-finder';
+export type SettingsSection = 'account' | 'privacy' | 'notifications';
 
 interface SettingsNavigationProps {
   activeSection: SettingsSection;
@@ -19,10 +16,8 @@ interface SettingsNavigationProps {
 
 const navigationItems = [
   { id: 'account' as const, label: 'Account', icon: Settings, description: 'Email, phone, password' },
-  { id: 'profile' as const, label: 'Profile', icon: User, description: 'Personal & tennis info' },
   { id: 'privacy' as const, label: 'Privacy', icon: Shield, description: 'Location & visibility' },
   { id: 'notifications' as const, label: 'Notifications', icon: Bell, description: 'Email & in-app alerts' },
-  { id: 'match-finder' as const, label: 'Match Finder', icon: Users, description: 'Play preferences' },
 ];
 
 const SettingsNavigation: React.FC<SettingsNavigationProps> = ({
@@ -30,20 +25,7 @@ const SettingsNavigation: React.FC<SettingsNavigationProps> = ({
   onSectionChange,
   isCoach
 }) => {
-  const items = isCoach 
-    ? [...navigationItems.slice(0, 2), 
-       { id: 'profile' as const, label: 'Profile & Coaching', icon: Briefcase, description: 'Personal & business info' },
-       ...navigationItems.slice(3)]
-    : navigationItems;
-
-  // Ensure profile item is correctly merged for coaches
-  const displayItems = isCoach
-    ? navigationItems.map(item => 
-        item.id === 'profile' 
-          ? { ...item, label: 'Profile & Coaching', icon: Briefcase, description: 'Personal & business info' }
-          : item
-      )
-    : navigationItems;
+  const displayItems = navigationItems;
 
   return (
     <>

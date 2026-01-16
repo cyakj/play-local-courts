@@ -1827,6 +1827,7 @@ export type Database = {
           date_of_birth: string | null
           full_name: string | null
           gender: string | null
+          hide_contact_until_confirmed: boolean | null
           hoa_id: string | null
           hoa_role: string | null
           hoa_status: string | null
@@ -1840,6 +1841,7 @@ export type Database = {
           phone_number: string | null
           referred_by: string | null
           role: Database["public"]["Enums"]["user_role"] | null
+          show_activity_status: boolean | null
           show_exact_distance: boolean | null
           updated_at: string | null
           user_type: string | null
@@ -1856,6 +1858,7 @@ export type Database = {
           date_of_birth?: string | null
           full_name?: string | null
           gender?: string | null
+          hide_contact_until_confirmed?: boolean | null
           hoa_id?: string | null
           hoa_role?: string | null
           hoa_status?: string | null
@@ -1869,6 +1872,7 @@ export type Database = {
           phone_number?: string | null
           referred_by?: string | null
           role?: Database["public"]["Enums"]["user_role"] | null
+          show_activity_status?: boolean | null
           show_exact_distance?: boolean | null
           updated_at?: string | null
           user_type?: string | null
@@ -1885,6 +1889,7 @@ export type Database = {
           date_of_birth?: string | null
           full_name?: string | null
           gender?: string | null
+          hide_contact_until_confirmed?: boolean | null
           hoa_id?: string | null
           hoa_role?: string | null
           hoa_status?: string | null
@@ -1898,6 +1903,7 @@ export type Database = {
           phone_number?: string | null
           referred_by?: string | null
           role?: Database["public"]["Enums"]["user_role"] | null
+          show_activity_status?: boolean | null
           show_exact_distance?: boolean | null
           updated_at?: string | null
           user_type?: string | null

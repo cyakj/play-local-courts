@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
@@ -19,10 +18,6 @@ import {
   MapPin, 
   User,
   Settings,
-  Bell,
-  Mail,
-  Phone,
-  Lock,
   Pencil,
   Eye,
   Camera,
@@ -54,8 +49,6 @@ interface ProfileData {
   showExactDistance: boolean;
 }
 
-type ActiveSection = 'details' | 'notifications';
-
 const PlayerProfile = () => {
   const { currentUser, logout } = useAuth();
   const { memberships, activeHOA } = useActiveHOA();
@@ -65,7 +58,6 @@ const PlayerProfile = () => {
   const [uploading, setUploading] = useState(false);
   const [amenities, setAmenities] = useState<Amenity[]>([]);
   const [isEditing, setIsEditing] = useState(false);
-  const [activeSection, setActiveSection] = useState<ActiveSection>('details');
   const [memberSince, setMemberSince] = useState<string | null>(null);
   const [profile, setProfile] = useState<ProfileData>({
     fullName: '',
@@ -350,33 +342,11 @@ const PlayerProfile = () => {
               {/* Navigation Menu */}
               <nav className="space-y-1">
                 <button
-                  onClick={() => setActiveSection('details')}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                    activeSection === 'details' 
-                      ? 'bg-primary/10 text-primary font-medium' 
-                      : 'text-muted-foreground hover:bg-muted'
-                  }`}
-                >
-                  <User className="h-4 w-4" />
-                  Profile Details
-                </button>
-                <button
                   onClick={() => navigate('/settings')}
                   className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:bg-muted transition-colors"
                 >
                   <Settings className="h-4 w-4" />
                   Settings
-                </button>
-                <button
-                  onClick={() => setActiveSection('notifications')}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                    activeSection === 'notifications' 
-                      ? 'bg-primary/10 text-primary font-medium' 
-                      : 'text-muted-foreground hover:bg-muted'
-                  }`}
-                >
-                  <Bell className="h-4 w-4" />
-                  Notifications
                 </button>
                 <button
                   onClick={handleLogout}
@@ -392,48 +362,8 @@ const PlayerProfile = () => {
 
         {/* Right Content Area */}
         <div className="flex-1 min-w-0 space-y-6">
-          {activeSection === 'details' && (
-            <>
-              {/* Account Details Card */}
-              <Card>
-                <CardHeader className="pb-4">
-                  <CardTitle className="text-lg">Account Details</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center gap-3 py-3 border-b">
-                    <div className="p-2 bg-muted rounded-lg">
-                      <Mail className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Email Address</p>
-                      <p className="font-medium">{currentUser?.email || 'Not set'}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3 py-3 border-b">
-                    <div className="p-2 bg-muted rounded-lg">
-                      <Phone className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Phone Number</p>
-                      <p className="font-medium">Not set</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3 py-3">
-                    <div className="p-2 bg-muted rounded-lg">
-                      <Lock className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Password</p>
-                      <p className="font-medium">••••••••••••</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Player Profile Card */}
-              <Card>
+          {/* Player Profile Card */}
+          <Card>
                 <CardHeader className="pb-4">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg">Player Profile</CardTitle>
@@ -651,50 +581,6 @@ const PlayerProfile = () => {
                   )}
                 </CardContent>
               </Card>
-            </>
-          )}
-
-
-          {activeSection === 'notifications' && (
-            <Card>
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg">Notification Preferences</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between py-2 border-b">
-                  <div>
-                    <p className="font-medium">Match Requests</p>
-                    <p className="text-sm text-muted-foreground">Get notified when someone wants to play</p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-
-                <div className="flex items-center justify-between py-2 border-b">
-                  <div>
-                    <p className="font-medium">Lesson Updates</p>
-                    <p className="text-sm text-muted-foreground">Notifications about lesson bookings and changes</p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-
-                <div className="flex items-center justify-between py-2 border-b">
-                  <div>
-                    <p className="font-medium">Community Announcements</p>
-                    <p className="text-sm text-muted-foreground">Updates from your HOA communities</p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-
-                <div className="flex items-center justify-between py-2">
-                  <div>
-                    <p className="font-medium">New Messages</p>
-                    <p className="text-sm text-muted-foreground">Get notified when you receive new messages</p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </div>
       </div>
     </TooltipProvider>

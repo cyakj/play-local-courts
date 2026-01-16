@@ -3,15 +3,12 @@ import { Settings as SettingsIcon } from 'lucide-react';
 import { useSettingsForm } from '@/hooks/useSettingsForm';
 import SettingsNavigation, { SettingsSection } from '@/components/settings/SettingsNavigation';
 import AccountSection from '@/components/settings/AccountSection';
-import ProfileSection from '@/components/settings/ProfileSection';
 import PrivacySection from '@/components/settings/PrivacySection';
 import NotificationsSection from '@/components/settings/NotificationsSection';
-import MatchFinderSection from '@/components/settings/MatchFinderSection';
 import SaveChangesFooter from '@/components/settings/SaveChangesFooter';
 
 const Settings = () => {
   const [activeSection, setActiveSection] = useState<SettingsSection>('account');
-  const [matchFinderHasChanges, setMatchFinderHasChanges] = useState(false);
 
   const {
     loading,
@@ -22,13 +19,9 @@ const Settings = () => {
     setProfile,
     privacy,
     setPrivacy,
-    coach,
-    setCoach,
     saveChanges,
     discardChanges,
   } = useSettingsForm();
-
-  const combinedHasChanges = hasChanges || matchFinderHasChanges;
 
   if (loading) {
     return (
@@ -45,22 +38,10 @@ const Settings = () => {
     switch (activeSection) {
       case 'account':
         return <AccountSection profile={profile} setProfile={setProfile} />;
-      case 'profile':
-        return (
-          <ProfileSection
-            profile={profile}
-            setProfile={setProfile}
-            coach={coach}
-            setCoach={setCoach}
-            isCoach={isCoach}
-          />
-        );
       case 'privacy':
         return <PrivacySection privacy={privacy} setPrivacy={setPrivacy} />;
       case 'notifications':
         return <NotificationsSection />;
-      case 'match-finder':
-        return <MatchFinderSection onHasChanges={setMatchFinderHasChanges} />;
       default:
         return null;
     }
@@ -98,7 +79,7 @@ const Settings = () => {
 
       {/* Sticky Save Footer */}
       <SaveChangesFooter
-        hasChanges={combinedHasChanges}
+        hasChanges={hasChanges}
         saving={saving}
         onSave={saveChanges}
         onDiscard={discardChanges}
