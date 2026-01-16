@@ -40,6 +40,7 @@ import NotFound from "./pages/NotFound";
 import HOAApplication from "./pages/HOAApplication";
 import PlatformReviewerLogin from "./pages/PlatformReviewerLogin";
 import PlatformReviewerDashboard from "./pages/PlatformReviewerDashboard";
+import Settings from "./pages/Settings";
 
 const queryClient = new QueryClient();
 
@@ -87,6 +88,7 @@ function App() {
                   <Route path="/leagues-ladders" element={<LeaguesLadders />} />
                   <Route path="/manage-ladders" element={<ManageLadders />} />
                   <Route path="/email-settings" element={<EmailSettings />} />
+                  <Route path="/settings" element={<Settings />} />
                   <Route path="/upgrade-to-coach" element={<UpgradeToCoach />} />
                   <Route path="/profile/:id" element={<UserProfile />} />
                   <Route path="/messages" element={<Messages />} />
