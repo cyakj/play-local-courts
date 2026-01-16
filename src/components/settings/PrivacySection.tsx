@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { MapPin, Eye, Globe } from 'lucide-react';
+import { MapPin, Eye, Globe, ShieldCheck, Activity } from 'lucide-react';
 import { PrivacyFormData } from '@/hooks/useSettingsForm';
 
 interface PrivacySectionProps {
@@ -68,6 +68,42 @@ const PrivacySection: React.FC<PrivacySectionProps> = ({ privacy, setPrivacy }) 
           <Switch
             checked={privacy.publicProfile}
             onCheckedChange={(checked) => setPrivacy(prev => ({ ...prev, publicProfile: checked }))}
+            className="data-[state=unchecked]:bg-muted data-[state=checked]:bg-primary"
+          />
+        </div>
+
+        {/* Contact Obfuscation */}
+        <div className="flex items-center justify-between py-4 px-4 rounded-xl hover:bg-muted/30 transition-colors">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-muted rounded-xl">
+              <ShieldCheck className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div>
+              <Label className="font-medium cursor-pointer">Hide Contact Until Match Confirmed</Label>
+              <p className="text-sm text-muted-foreground">Email/phone only revealed after both parties agree to play</p>
+            </div>
+          </div>
+          <Switch
+            checked={privacy.hideContactUntilConfirmed}
+            onCheckedChange={(checked) => setPrivacy(prev => ({ ...prev, hideContactUntilConfirmed: checked }))}
+            className="data-[state=unchecked]:bg-muted data-[state=checked]:bg-primary"
+          />
+        </div>
+
+        {/* Activity Status */}
+        <div className="flex items-center justify-between py-4 px-4 rounded-xl hover:bg-muted/30 transition-colors">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-muted rounded-xl">
+              <Activity className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div>
+              <Label className="font-medium cursor-pointer">Show Activity Status</Label>
+              <p className="text-sm text-muted-foreground">Let others see when you're online or last active</p>
+            </div>
+          </div>
+          <Switch
+            checked={privacy.showActivityStatus}
+            onCheckedChange={(checked) => setPrivacy(prev => ({ ...prev, showActivityStatus: checked }))}
             className="data-[state=unchecked]:bg-muted data-[state=checked]:bg-primary"
           />
         </div>
