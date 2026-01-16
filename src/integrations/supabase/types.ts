@@ -1835,6 +1835,7 @@ export type Database = {
           is_verified: boolean | null
           location: string | null
           location_visible: boolean | null
+          notification_preferences: Json | null
           ntrp_rating: number | null
           phone_number: string | null
           referred_by: string | null
@@ -1863,6 +1864,7 @@ export type Database = {
           is_verified?: boolean | null
           location?: string | null
           location_visible?: boolean | null
+          notification_preferences?: Json | null
           ntrp_rating?: number | null
           phone_number?: string | null
           referred_by?: string | null
@@ -1891,6 +1893,7 @@ export type Database = {
           is_verified?: boolean | null
           location?: string | null
           location_visible?: boolean | null
+          notification_preferences?: Json | null
           ntrp_rating?: number | null
           phone_number?: string | null
           referred_by?: string | null
