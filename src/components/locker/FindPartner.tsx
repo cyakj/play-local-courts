@@ -387,22 +387,22 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
                       >
                         Send Match Request
                       </Button>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 min-w-0">
                         <Button 
                           variant="outline"
-                          className="flex-1"
+                          className="flex-1 min-w-0"
                           onClick={() => navigate(`/profile/${player.id}`)}
                         >
-                          <User className="h-4 w-4 mr-1.5" />
-                          View Profile
+                          <User className="h-4 w-4 shrink-0 mr-1.5" />
+                          <span className="truncate">View Profile</span>
                         </Button>
                         <Button 
                           variant="outline"
-                          className="flex-1"
+                          className="flex-1 min-w-0"
                           onClick={() => navigate(`/messages?user=${player.id}`)}
                         >
-                          <MessageCircle className="h-4 w-4 mr-1.5" />
-                          Message
+                          <MessageCircle className="h-4 w-4 shrink-0 mr-1.5" />
+                          <span className="truncate">Message</span>
                         </Button>
                       </div>
                     </div>
