@@ -530,7 +530,7 @@ const PlayerProfile = () => {
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <a
-                                    href={`https://www.worldtennisnumber.com/search${profile.fullName ? `?name=${encodeURIComponent(profile.fullName)}` : ''}`}
+                                    href="https://worldtennisnumber.com/eng/player-search"
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="text-primary hover:text-primary/80 transition-colors"
