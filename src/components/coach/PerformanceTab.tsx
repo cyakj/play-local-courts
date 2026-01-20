@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import {
   DollarSign,
-  TrendingUp,
   TrendingDown,
   Clock,
   AlertTriangle,
@@ -12,36 +11,39 @@ import {
   CalendarX,
   Bell,
   XCircle,
+  Banknote,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // Mock data for the weekly performance dashboard
 const mockPerformanceData = {
-  weeklyRevenue: {
-    value: 2960,
-    delta: 14,
-    trend: 'up' as const,
+  potentialRevenue: {
+    value: 2625,
+    helper: 'Max revenue if fully booked',
+  },
+  bookedRevenue: {
+    value: 2362.50,
+    helper: 'Scheduled sessions this week',
   },
   revenueLeftOnTable: {
-    value: 430,
+    value: 262.50,
     status: 'High Risk',
   },
   utilization: {
-    value: 88,
+    value: 90,
     status: 'Optimal',
   },
   scheduledHours: {
-    value: 32.5,
-    label: 'Core hours',
+    value: 31.5,
+    helper: 'Booked this week',
   },
   unscheduledHours: {
-    value: 2.5,
-    label: 'Available',
+    value: 3.5,
+    helper: 'Available capacity',
   },
   averageYield: {
     value: 75,
-    delta: 5,
-    trend: 'up' as const,
+    helper: 'Revenue per booked hour',
   },
   cancellations: {
     rate: 12,
@@ -49,13 +51,12 @@ const mockPerformanceData = {
     thisWeek: 3,
   },
   noShows: {
-    today: 1,
     thisWeek: 2,
   },
   revenueCapture: {
-    percentage: 74,
-    captured: 360,
-    potential: 485,
+    percentage: 90,
+    captured: 2362.50,
+    potential: 2625,
     mix: {
       private: 50,
       semiPrivate: 30,
@@ -67,9 +68,7 @@ const mockPerformanceData = {
 interface KPICardProps {
   title: string;
   value: string | number;
-  label?: string;
-  delta?: number;
-  trend?: 'up' | 'down';
+  helper?: string;
   status?: string;
   statusType?: 'success' | 'warning' | 'danger';
   icon: React.ReactNode;
@@ -78,9 +77,7 @@ interface KPICardProps {
 const KPICard: React.FC<KPICardProps> = ({
   title,
   value,
-  label,
-  delta,
-  trend,
+  helper,
   status,
   statusType = 'success',
   icon,
@@ -104,17 +101,7 @@ const KPICard: React.FC<KPICardProps> = ({
           <div className="space-y-2">
             <p className="text-sm font-medium text-muted-foreground">{title}</p>
             <p className="text-3xl font-bold tracking-tight">{value}</p>
-            {label && <p className="text-xs text-muted-foreground">{label}</p>}
-            {delta !== undefined && (
-              <div className={cn(
-                'inline-flex items-center gap-1 text-sm font-medium px-2 py-0.5 rounded-full',
-                trend === 'up' ? 'text-emerald-700 bg-emerald-100' : 'text-red-700 bg-red-100'
-              )}>
-                {trend === 'up' ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                {trend === 'up' ? '+' : '-'}{Math.abs(delta)}%
-                <span className="text-xs ml-1">vs last week</span>
-              </div>
-            )}
+            {helper && <p className="text-xs text-muted-foreground">{helper}</p>}
             {status && (
               <div className={cn(
                 'inline-flex items-center text-xs font-medium px-2 py-1 rounded-full',
@@ -146,50 +133,62 @@ const PerformanceTab: React.FC = () => {
       {/* Primary KPI Grid */}
       <div>
         <h2 className="text-lg font-semibold mb-4 text-foreground">Weekly Performance</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <KPICard
-            title="Weekly Revenue"
-            value={`$${data.weeklyRevenue.value.toLocaleString()}`}
-            delta={data.weeklyRevenue.delta}
-            trend={data.weeklyRevenue.trend}
+            title="Potential Revenue"
+            value={`$${data.potentialRevenue.value.toLocaleString()}`}
+            helper={data.potentialRevenue.helper}
+            statusType="success"
+            icon={<Banknote className="h-6 w-6" />}
+          />
+          <KPICard
+            title="Booked Revenue"
+            value={`$${data.bookedRevenue.value.toLocaleString()}`}
+            helper={data.bookedRevenue.helper}
             statusType="success"
             icon={<DollarSign className="h-6 w-6" />}
           />
           <KPICard
-            title="Revenue Left on Table"
-            value={`$${data.revenueLeftOnTable.value}`}
+            title="Left on Table"
+            value={`$${data.revenueLeftOnTable.value.toLocaleString()}`}
             status={data.revenueLeftOnTable.status}
             statusType="danger"
-            icon={<AlertTriangle className="h-6 w-6" />}
+            icon={<TrendingDown className="h-6 w-6" />}
           />
           <KPICard
-            title="Utilization %"
+            title="Utilization"
             value={`${data.utilization.value}%`}
             status={data.utilization.status}
             statusType="success"
             icon={<Target className="h-6 w-6" />}
           />
+        </div>
+      </div>
+
+      {/* Capacity Metrics (Secondary KPIs) */}
+      <div>
+        <h2 className="text-lg font-semibold mb-4 text-foreground">Capacity Metrics</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <KPICard
             title="Scheduled Hours"
             value={`${data.scheduledHours.value} hrs`}
-            label={data.scheduledHours.label}
+            helper={data.scheduledHours.helper}
             statusType="success"
             icon={<Calendar className="h-6 w-6" />}
           />
           <KPICard
             title="Unscheduled Hours"
             value={`${data.unscheduledHours.value} hrs`}
-            label={data.unscheduledHours.label}
+            helper={data.unscheduledHours.helper}
             statusType="warning"
             icon={<Clock className="h-6 w-6" />}
           />
           <KPICard
-            title="Average Yield"
-            value={`$${data.averageYield.value} / hr`}
-            delta={data.averageYield.delta}
-            trend={data.averageYield.trend}
+            title="Avg Yield"
+            value={`$${data.averageYield.value}/hr`}
+            helper={data.averageYield.helper}
             statusType="success"
-            icon={<TrendingUp className="h-6 w-6" />}
+            icon={<DollarSign className="h-6 w-6" />}
           />
         </div>
       </div>
@@ -203,7 +202,7 @@ const PerformanceTab: React.FC = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-white rounded-xl p-4 border border-red-200 shadow-sm">
               <div className="flex items-center gap-2 mb-2">
                 <CalendarX className="h-4 w-4 text-red-500" />
@@ -221,16 +220,9 @@ const PerformanceTab: React.FC = () => {
             <div className="bg-white rounded-xl p-4 border border-red-200 shadow-sm">
               <div className="flex items-center gap-2 mb-2">
                 <XCircle className="h-4 w-4 text-red-500" />
-                <span className="text-sm font-medium text-muted-foreground">This Week</span>
+                <span className="text-sm font-medium text-muted-foreground">Cancellations This Week</span>
               </div>
               <p className="text-2xl font-bold text-red-600">{data.cancellations.thisWeek}</p>
-            </div>
-            <div className="bg-white rounded-xl p-4 border border-red-200 shadow-sm">
-              <div className="flex items-center gap-2 mb-2">
-                <AlertTriangle className="h-4 w-4 text-red-500" />
-                <span className="text-sm font-medium text-muted-foreground">No-Shows Today</span>
-              </div>
-              <p className="text-2xl font-bold text-red-600">{data.noShows.today}</p>
             </div>
             <div className="bg-white rounded-xl p-4 border border-red-200 shadow-sm">
               <div className="flex items-center gap-2 mb-2">
@@ -284,20 +276,19 @@ const PerformanceTab: React.FC = () => {
                 </div>
               </div>
               <p className="mt-4 text-center text-sm text-muted-foreground">
-                <span className="font-semibold text-foreground">${data.revenueCapture.captured}</span>
+                <span className="font-semibold text-foreground">${data.revenueCapture.captured.toLocaleString()}</span>
                 {' of '}
-                <span className="font-semibold text-foreground">${data.revenueCapture.potential}</span>
-                {' potential revenue'}
+                <span className="font-semibold text-foreground">${data.revenueCapture.potential.toLocaleString()}</span>
               </p>
             </div>
 
             {/* Revenue Mix */}
             <div className="space-y-4">
-              <h4 className="font-medium text-sm text-muted-foreground">Revenue Mix</h4>
+              <h4 className="font-medium text-sm text-muted-foreground">Session Mix Breakdown</h4>
               <div className="space-y-3">
                 <div className="space-y-1.5">
                   <div className="flex justify-between text-sm">
-                    <span>Private Lessons</span>
+                    <span>Private</span>
                     <span className="font-medium">{data.revenueCapture.mix.private}%</span>
                   </div>
                   <Progress value={data.revenueCapture.mix.private} className="h-3 bg-blue-100" />
