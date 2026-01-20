@@ -460,7 +460,22 @@ const PlayerProfile = () => {
                         <h4 className="font-medium mb-3">Tennis Ratings</h4>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           <div>
-                            <Label htmlFor="ntrpRating">NTRP Rating</Label>
+                            <div className="flex items-center gap-1.5 mb-1.5">
+                              <Label htmlFor="ntrpRating" className="mb-0">NTRP Rating</Label>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <a
+                                    href={`https://www.usta.com/en/home/play/player-search.html${profile.fullName ? `?searchText=${encodeURIComponent(profile.fullName)}` : ''}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-primary hover:text-primary/80 transition-colors"
+                                  >
+                                    <ExternalLink className="h-3.5 w-3.5" />
+                                  </a>
+                                </TooltipTrigger>
+                                <TooltipContent>Look up on USTA</TooltipContent>
+                              </Tooltip>
+                            </div>
                             <Select 
                               value={profile.ntrpRating?.toString() || 'none'} 
                               onValueChange={(value) => setProfile(prev => ({ 
@@ -480,7 +495,22 @@ const PlayerProfile = () => {
                             </Select>
                           </div>
                           <div>
-                            <Label htmlFor="utrRating">UTR Rating</Label>
+                            <div className="flex items-center gap-1.5 mb-1.5">
+                              <Label htmlFor="utrRating" className="mb-0">UTR Rating</Label>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <a
+                                    href={`https://app.utrsports.net/search${profile.fullName ? `?query=${encodeURIComponent(profile.fullName)}` : ''}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-primary hover:text-primary/80 transition-colors"
+                                  >
+                                    <ExternalLink className="h-3.5 w-3.5" />
+                                  </a>
+                                </TooltipTrigger>
+                                <TooltipContent>Look up on UTR</TooltipContent>
+                              </Tooltip>
+                            </div>
                             <Input
                               id="utrRating"
                               type="text"
@@ -495,7 +525,22 @@ const PlayerProfile = () => {
                             />
                           </div>
                           <div>
-                            <Label htmlFor="wtnRating">WTN Number</Label>
+                            <div className="flex items-center gap-1.5 mb-1.5">
+                              <Label htmlFor="wtnRating" className="mb-0">WTN Number</Label>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <a
+                                    href={`https://www.worldtennisnumber.com/search${profile.fullName ? `?name=${encodeURIComponent(profile.fullName)}` : ''}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-primary hover:text-primary/80 transition-colors"
+                                  >
+                                    <ExternalLink className="h-3.5 w-3.5" />
+                                  </a>
+                                </TooltipTrigger>
+                                <TooltipContent>Look up on WTN</TooltipContent>
+                              </Tooltip>
+                            </div>
                             <Input
                               id="wtnRating"
                               type="text"
