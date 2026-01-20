@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import AvailabilityManager from '../components/coach/AvailabilityManager';
 import { PaymentsTab } from '../components/coach/PaymentsTab';
 import LessonRequestsTable from '../components/coach/LessonRequestsTable';
+import PerformanceTab from '../components/coach/PerformanceTab';
 import { WeatherBanner } from '@/components/weather';
 const CoachDashboard = () => {
   const navigate = useNavigate();
@@ -237,10 +238,11 @@ const CoachDashboard = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="requests">Requests</TabsTrigger>
           <TabsTrigger value="availability">Availability</TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
+          <TabsTrigger value="performance">Performance</TabsTrigger>
         </TabsList>
 
         <TabsContent value="requests" className="space-y-4">
@@ -257,6 +259,10 @@ const CoachDashboard = () => {
 
         <TabsContent value="payments" className="space-y-4">
           <PaymentsTab />
+        </TabsContent>
+
+        <TabsContent value="performance" className="space-y-4">
+          <PerformanceTab />
         </TabsContent>
       </Tabs>
     </div>
