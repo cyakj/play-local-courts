@@ -26,8 +26,10 @@ const Login = () => {
     setIsLoading(true);
     
     try {
-      // Clear any stale session before attempting login to prevent token refresh storms
-      await supabase.auth.signOut();
+      // Clear any stale LOCAL session before attempting login.
+      // IMPORTANT: avoid global signOut() here because it can revoke server sessions
+      // and immediately invalidate the new session created by signIn.
+      await supabase.auth.signOut({ scope: 'local' });
       await login(email, password);
       // Redirection is handled by the AuthLayout component
     } catch (err: any) {
