@@ -26,6 +26,8 @@ const Login = () => {
     setIsLoading(true);
     
     try {
+      // Clear any stale session before attempting login to prevent token refresh storms
+      await supabase.auth.signOut();
       await login(email, password);
       // Redirection is handled by the AuthLayout component
     } catch (err: any) {
