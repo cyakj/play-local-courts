@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { User, HOA, Amenity, Booking, UserRole, UserStatus, UserType, ProfileRow, HOARow, AmenityRow, BookingRow } from '../types';
 import { shouldSendEmail } from './emailService';
 
@@ -50,13 +51,20 @@ const transformBookingRow = (booking: any, userName?: string, amenityName?: stri
 });
 
 // User/Profile operations
-export const getCurrentUserProfile = async (): Promise<User | null> => {
+export const getCurrentUserProfile = async (userOverride?: SupabaseUser | null): Promise<User | null> => {
   console.log('Getting current user profile...');
 
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError) {
-    console.error('Error getting authenticated user:', userError);
-    return null;
+  let user = userOverride ?? null;
+  let userEmail: string | undefined = user?.email || undefined;
+
+  if (!user) {
+    const { data: { user: authUser }, error: userError } = await supabase.auth.getUser();
+    if (userError) {
+      console.error('Error getting authenticated user:', userError);
+      return null;
+    }
+    user = authUser;
+    userEmail = authUser?.email || undefined;
   }
 
   if (!user) {
@@ -76,7 +84,7 @@ export const getCurrentUserProfile = async (): Promise<User | null> => {
   const fallbackUser: User = {
     id: user.id,
     fullName: meta?.full_name || 'User',
-    email: user.email || '',
+    email: userEmail || '',
     phoneNumber: meta?.phone_number,
     dateOfBirth: meta?.date_of_birth,
     role: (meta?.hoa_role || UserRole.RESIDENT) as UserRole,
@@ -136,11 +144,11 @@ export const getCurrentUserProfile = async (): Promise<User | null> => {
     }
 
     console.log('Profile created/refetched successfully:', refetchedProfile);
-    return transformProfileToUser(refetchedProfile, user.email);
+    return transformProfileToUser(refetchedProfile, userEmail);
   }
 
   console.log('Profile fetched successfully:', profile);
-  return transformProfileToUser(profile, user.email);
+  return transformProfileToUser(profile, userEmail);
 };
 
 export const getAllHOAs = async (): Promise<HOA[]> => {

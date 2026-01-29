@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useRef } from 'react';
 import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { User, UserRole, UserStatus, UserType } from '../types';
 import { supabase } from '@/integrations/supabase/client';
@@ -34,7 +34,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [userRoles, setUserRoles] = useState<string[]>([]);
 
+  // Prevent overlapping profile loads (avoids refresh-token race conditions)
+  const profileLoadSeqRef = useRef(0);
+  const mountedRef = useRef(true);
+
   useEffect(() => {
+    mountedRef.current = true;
     console.log('Setting up auth state listener...');
     
     // Set up auth state listener
@@ -42,23 +47,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (event, session) => {
         console.log('Auth state changed:', event, session?.user?.id);
         setSession(session);
+
+        // Token refresh events can happen frequently; no need to re-fetch profile/roles every time.
+        if (event === 'TOKEN_REFRESHED') {
+          setLoading(false);
+          return;
+        }
         
         if (session?.user) {
           console.log('User authenticated, fetching profile...');
-          // Use setTimeout to avoid potential recursive issues
+          const seq = ++profileLoadSeqRef.current;
+
+          // Use setTimeout to avoid potential recursive issues and allow session persistence to settle
           setTimeout(async () => {
+            if (!mountedRef.current || seq !== profileLoadSeqRef.current) return;
             try {
-              const userProfile = await getCurrentUserProfile();
+              // IMPORTANT: use the session user directly (avoids calling auth.getUser() during auth change)
+              const userProfile = await getCurrentUserProfile(session.user);
               console.log('User profile fetched:', userProfile);
-              setCurrentUser(userProfile);
+              if (mountedRef.current && seq === profileLoadSeqRef.current) {
+                setCurrentUser(userProfile);
+              }
               
               // Fetch user roles from user_roles table
-              const { data: rolesData } = await supabase
+              const { data: rolesData, error: rolesError } = await supabase
                 .from('user_roles')
                 .select('role')
                 .eq('user_id', session.user.id);
-              
-              setUserRoles(rolesData?.map(r => r.role) || []);
+
+              if (rolesError) {
+                console.warn('Error fetching user roles:', rolesError);
+              }
+              if (mountedRef.current && seq === profileLoadSeqRef.current) {
+                setUserRoles(rolesData?.map(r => r.role) || []);
+              }
 
               // Complete coach setup after first authenticated session
               const userMeta = (session.user as any)?.user_metadata;
@@ -121,10 +143,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               }
             } catch (error) {
               console.error('Error fetching user profile:', error);
-              setCurrentUser(null);
-              setUserRoles([]);
+              if (mountedRef.current && seq === profileLoadSeqRef.current) {
+                setCurrentUser(null);
+                setUserRoles([]);
+              }
             } finally {
-              setLoading(false);
+              if (mountedRef.current && seq === profileLoadSeqRef.current) {
+                setLoading(false);
+              }
             }
           }, 0);
         } else {
@@ -144,7 +170,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mountedRef.current = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const login = async (email: string, password: string) => {
