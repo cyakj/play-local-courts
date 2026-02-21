@@ -1,15 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { Button } from '@/components/ui/button';
-import { Link } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { 
-  CheckCircle2,
-  Circle,
-  ChevronRight
-} from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useMode } from "@/contexts/ModeContext";
+import { CheckCircle2, Circle, ChevronRight } from "lucide-react";
 
 interface ProfileItem {
   id: string;
@@ -19,82 +16,54 @@ interface ProfileItem {
 
 export const ProfileCompletenessCard = () => {
   const { currentUser, isCoach } = useAuth();
+  const { isHOAMode } = useMode();
   const [items, setItems] = useState<ProfileItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (currentUser) {
-      checkProfileCompleteness();
-    }
-  }, [currentUser, isCoach]);
+    if (currentUser) checkProfileCompleteness();
+  }, [currentUser, isCoach, isHOAMode]);
 
   const checkProfileCompleteness = async () => {
     if (!currentUser) return;
-    
     try {
       const profileItems: ProfileItem[] = [];
-
-      // Get profile data
       const { data: profile } = await supabase
-        .from('profiles')
-        .select('avatar_url, ntrp_rating, bio, zip_code, full_name')
-        .eq('id', currentUser.id)
+        .from("profiles")
+        .select("avatar_url, ntrp_rating, bio, zip_code, full_name")
+        .eq("id", currentUser.id)
         .single();
 
       if (profile) {
-        profileItems.push({
-          id: 'name',
-          label: 'Full name added',
-          completed: !!profile.full_name
-        });
-
-        profileItems.push({
-          id: 'photo',
-          label: 'Add profile photo',
-          completed: !!profile.avatar_url
-        });
-
-        profileItems.push({
-          id: 'rating',
-          label: 'Set skill rating',
-          completed: !!profile.ntrp_rating
-        });
-
-        profileItems.push({
-          id: 'ladder',
-          label: 'Join a ladder',
-          completed: false // Will check below
-        });
+        profileItems.push({ id: "name", label: "Full name added", completed: !!profile.full_name });
+        profileItems.push({ id: "photo", label: "Add profile photo", completed: !!profile.avatar_url });
+        // Tennis-only items hidden in HOA mode
+        if (!isHOAMode) {
+          profileItems.push({ id: "rating", label: "Set skill rating", completed: !!profile.ntrp_rating });
+          profileItems.push({ id: "ladder", label: "Join a ladder", completed: false });
+        }
       }
 
-      // Check if user is in any ladder
-      const { count: ladderCount } = await supabase
-        .from('ladder_teams')
-        .select('id', { count: 'exact' })
-        .or(`player1_id.eq.${currentUser.id},player2_id.eq.${currentUser.id}`);
-
-      const ladderItem = profileItems.find(i => i.id === 'ladder');
-      if (ladderItem) {
-        ladderItem.completed = (ladderCount || 0) > 0;
+      if (!isHOAMode) {
+        const { count: ladderCount } = await supabase
+          .from("ladder_teams")
+          .select("id", { count: "exact" })
+          .or(`player1_id.eq.${currentUser.id},player2_id.eq.${currentUser.id}`);
+        const ladderItem = profileItems.find(i => i.id === "ladder");
+        if (ladderItem) ladderItem.completed = (ladderCount || 0) > 0;
       }
 
-      // For coaches, check availability
       if (isCoach) {
         const { count: availCount } = await supabase
-          .from('coach_availability')
-          .select('id', { count: 'exact' })
-          .eq('coach_id', currentUser.id);
-
-        profileItems.push({
-          id: 'availability',
-          label: 'Set availability',
-          completed: (availCount || 0) > 0
-        });
+          .from("coach_availability")
+          .select("id", { count: "exact" })
+          .eq("coach_id", currentUser.id);
+        profileItems.push({ id: "availability", label: "Set availability", completed: (availCount || 0) > 0 });
       }
 
       setItems(profileItems);
     } catch (error) {
-      console.error('Error checking profile completeness:', error);
+      console.error("Error checking profile completeness:", error);
     } finally {
       setLoading(false);
     }
@@ -104,18 +73,13 @@ export const ProfileCompletenessCard = () => {
   const totalCount = items.length;
   const percentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
-  // Don't show if profile is complete
   if (!loading && percentage === 100) return null;
 
   if (loading) {
     return (
       <Card className="animate-pulse">
-        <CardHeader className="pb-3">
-          <div className="h-5 bg-muted rounded w-1/3"></div>
-        </CardHeader>
-        <CardContent>
-          <div className="h-16 bg-muted rounded"></div>
-        </CardContent>
+        <CardHeader className="pb-3"><div className="h-5 bg-muted rounded w-1/3"></div></CardHeader>
+        <CardContent><div className="h-16 bg-muted rounded"></div></CardContent>
       </Card>
     );
   }
@@ -124,7 +88,7 @@ export const ProfileCompletenessCard = () => {
     <Card className="overflow-hidden">
       <CardHeader className="pb-3">
         <CardTitle className="text-base flex items-center justify-between">
-          <span>Growth</span>
+          <span>Profile</span>
           <span className="text-sm font-medium text-primary bg-primary/10 px-2 py-0.5 rounded">
             {percentage}% Complete
           </span>
@@ -132,7 +96,6 @@ export const ProfileCompletenessCard = () => {
       </CardHeader>
       <CardContent className="pt-0">
         <Progress value={percentage} className="h-2 mb-4" />
-        
         <div className="space-y-2.5 mb-4">
           {items.map(item => (
             <div key={item.id} className="flex items-center gap-2 text-sm">
@@ -141,17 +104,13 @@ export const ProfileCompletenessCard = () => {
               ) : (
                 <Circle className="h-4 w-4 text-muted-foreground" />
               )}
-              <span className={item.completed ? 'text-muted-foreground line-through' : ''}>
-                {item.label}
-              </span>
+              <span className={item.completed ? "text-muted-foreground line-through" : ""}>{item.label}</span>
             </div>
           ))}
         </div>
-
         <Button asChild className="w-full bg-primary hover:bg-primary/90">
           <Link to="/my-locker?tab=profile" className="flex items-center gap-1">
-            Complete Profile
-            <ChevronRight className="h-4 w-4" />
+            Complete Profile<ChevronRight className="h-4 w-4" />
           </Link>
         </Button>
       </CardContent>

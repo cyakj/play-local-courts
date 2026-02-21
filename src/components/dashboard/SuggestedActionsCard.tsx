@@ -4,10 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { 
-  Lightbulb, 
-  Users, 
-  Trophy, 
+import { useMode } from '@/contexts/ModeContext';
+import {
+  Lightbulb,
+  Users,
+  Trophy,
   Clock,
   Camera,
   Target,
@@ -23,8 +24,12 @@ interface Suggestion {
   priority: number;
 }
 
+// Flag a suggestion as requiring the Tennis Coming Soon modal instead of a Link
+const TENNIS_SUGGESTION_IDS = ['join_ladder'];
+
 export const SuggestedActionsCard = () => {
   const { currentUser, isCoach } = useAuth();
+  const { triggerTennisComingSoon } = useMode();
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
 
   useEffect(() => {
@@ -143,22 +148,46 @@ export const SuggestedActionsCard = () => {
       </CardHeader>
       <CardContent className="pt-4">
         <div className="space-y-3">
-          {suggestions.map(suggestion => (
-            <Link
-              key={suggestion.id}
-              to={suggestion.link}
-              className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors group"
-            >
-              <div className="flex-shrink-0 p-2 bg-background rounded-lg">
-                {suggestion.icon}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-medium text-sm">{suggestion.title}</div>
-                <div className="text-xs text-muted-foreground">{suggestion.description}</div>
-              </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
-            </Link>
-          ))}
+          {suggestions.map(suggestion => {
+            const isTennis = TENNIS_SUGGESTION_IDS.includes(suggestion.id);
+            const inner = (
+              <>
+                <div className="flex-shrink-0 p-2 bg-background rounded-lg">
+                  {suggestion.icon}
+                </div>
+                <div className="flex-1 min-w-0 text-left">
+                  <div className="font-medium text-sm flex items-center gap-2">
+                    {suggestion.title}
+                    {isTennis && (
+                      <span className="text-[10px] font-semibold text-amber-500 bg-amber-50 border border-amber-200 rounded-full px-1.5 py-px leading-tight">
+                        Soon
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-muted-foreground">{suggestion.description}</div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+              </>
+            );
+
+            return isTennis ? (
+              <button
+                key={suggestion.id}
+                onClick={triggerTennisComingSoon}
+                className="w-full flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-amber-50 transition-colors group"
+              >
+                {inner}
+              </button>
+            ) : (
+              <Link
+                key={suggestion.id}
+                to={suggestion.link}
+                className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors group"
+              >
+                {inner}
+              </Link>
+            );
+          })}
         </div>
       </CardContent>
     </Card>

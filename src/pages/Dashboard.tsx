@@ -22,20 +22,20 @@ import {
   QuickActionButton
 } from '@/components/dashboard';
 import { UserType } from '../types';
-import { 
-  Users, 
-  Calendar, 
-  CalendarCheck, 
-  Trophy, 
-  MapPin, 
+import {
+  Users,
+  Calendar,
+  CalendarCheck,
+  Trophy,
+  MapPin,
   Clock,
   CheckCircle2,
   XCircle,
   Sparkles,
-  GraduationCap,
   Bell,
-  Headphones
+  FileText,
 } from 'lucide-react';
+import { useMode } from '../contexts/ModeContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface MatchRequest {
@@ -54,6 +54,7 @@ const Dashboard = () => {
   const { currentUser, isAdmin, isPending, isCoach, isPlatformReviewer } = useAuth();
   const { toast } = useToast();
   const { activeHOA } = useActiveHOA();
+  const { triggerTennisComingSoon } = useMode();
   const { 
     bookings,
     pendingUsers,
@@ -256,24 +257,33 @@ const Dashboard = () => {
         <QuickActionButton
           icon={<CalendarCheck className="h-5 w-5" />}
           title="Reserve"
-          subtitle={isCommunityUser ? "Book a court" : "Find availability"}
+          subtitle={isCommunityUser ? "Book an amenity" : "Find availability"}
           to={isCommunityUser ? "/reserve-court" : "/my-locker?tab=lessons"}
           iconBgColor="bg-primary"
         />
         <QuickActionButton
-          icon={<Users className="h-5 w-5" />}
-          title="Find Players"
-          subtitle="Browse members"
-          to="/my-locker?tab=find-partner"
+          icon={<FileText className="h-5 w-5" />}
+          title="Rules & Docs"
+          subtitle="Policies & guidelines"
+          to="/amenity-rules"
           iconBgColor="bg-primary"
         />
-        <QuickActionButton
-          icon={<Trophy className="h-5 w-5" />}
-          title="Compete"
-          subtitle="View ladders"
-          to="/leagues-ladders"
-          iconBgColor="bg-compete"
-        />
+        {/* Tennis "Compete" is Coming Soon — button triggers modal, does not navigate */}
+        <button
+          onClick={triggerTennisComingSoon}
+          className="flex items-center gap-3 p-4 rounded-xl border border-border bg-card hover:shadow-md hover:border-amber-300 transition-all group text-left"
+        >
+          <div className="flex-shrink-0 p-2.5 rounded-lg text-white bg-gray-300 relative">
+            <Trophy className="h-5 w-5" />
+            <span className="absolute -top-1.5 -right-1.5 text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-300 rounded-full px-1 py-px leading-tight">
+              Soon
+            </span>
+          </div>
+          <div>
+            <div className="font-medium text-sm text-muted-foreground group-hover:text-amber-600 transition-colors">Compete</div>
+            <div className="text-xs text-muted-foreground">TennisX coming soon</div>
+          </div>
+        </button>
       </div>
       
       {/* Main Grid Layout */}
