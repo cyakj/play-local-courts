@@ -25,7 +25,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useActiveHOA } from '../../contexts/ActiveHOAContext';
-import { useMode } from '../../contexts/ModeContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getAmenitiesByHOAId } from '../../services/supabaseService';
@@ -53,7 +52,6 @@ interface ProfileData {
 const PlayerProfile = () => {
   const { currentUser, logout } = useAuth();
   const { memberships, activeHOA } = useActiveHOA();
-  const { isHOAMode } = useMode();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -457,130 +455,123 @@ const PlayerProfile = () => {
                         />
                       </div>
 
-                      {/* Tennis Ratings — hidden in HOA mode */}
-                      {!isHOAMode && (
-                        <div>
-                          <h4 className="font-medium mb-3">Tennis Ratings</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                              <div className="flex items-center gap-1.5 mb-1.5">
-                                <Label htmlFor="ntrpRating" className="mb-0">NTRP Rating</Label>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <a
-                                      href={`https://www.usta.com/en/home/play/player-search.html${profile.fullName ? `?searchText=${encodeURIComponent(profile.fullName)}` : ''}`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-primary hover:text-primary/80 transition-colors"
-                                    >
-                                      <ExternalLink className="h-3.5 w-3.5" />
-                                    </a>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Look up on USTA</TooltipContent>
-                                </Tooltip>
-                              </div>
-                              <Select
-                                value={profile.ntrpRating?.toString() || 'none'}
-                                onValueChange={(value) => setProfile(prev => ({
-                                  ...prev,
-                                  ntrpRating: value === 'none' ? null : parseFloat(value)
-                                }))}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select NTRP" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="none">Not Set</SelectItem>
-                                  {[1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0].map(rating => (
-                                    <SelectItem key={rating} value={rating.toString()}>{rating.toFixed(1)}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                      {/* Ratings */}
+                      <div>
+                        <h4 className="font-medium mb-3">Tennis Ratings</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <div className="flex items-center gap-1.5 mb-1.5">
+                              <Label htmlFor="ntrpRating" className="mb-0">NTRP Rating</Label>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <a
+                                    href={`https://www.usta.com/en/home/play/player-search.html${profile.fullName ? `?searchText=${encodeURIComponent(profile.fullName)}` : ''}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-primary hover:text-primary/80 transition-colors"
+                                  >
+                                    <ExternalLink className="h-3.5 w-3.5" />
+                                  </a>
+                                </TooltipTrigger>
+                                <TooltipContent>Look up on USTA</TooltipContent>
+                              </Tooltip>
                             </div>
-                            <div>
-                              <div className="flex items-center gap-1.5 mb-1.5">
-                                <Label htmlFor="utrRating" className="mb-0">UTR Rating</Label>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <a
-                                      href={`https://app.utrsports.net/search${profile.fullName ? `?query=${encodeURIComponent(profile.fullName)}` : ''}`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-primary hover:text-primary/80 transition-colors"
-                                    >
-                                      <ExternalLink className="h-3.5 w-3.5" />
-                                    </a>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Look up on UTR</TooltipContent>
-                                </Tooltip>
-                              </div>
-                              <Input
-                                id="utrRating"
-                                type="text"
-                                inputMode="decimal"
-                                className="[&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                                value={profile.utrRating || ''}
-                                onChange={(e) => {
-                                  const value = e.target.value.replace(/[^\d.]/g, '');
-                                  setProfile(prev => ({ ...prev, utrRating: value ? parseFloat(value) : null }));
-                                }}
-                                placeholder="e.g. 4.5"
-                              />
+                            <Select 
+                              value={profile.ntrpRating?.toString() || 'none'} 
+                              onValueChange={(value) => setProfile(prev => ({ 
+                                ...prev, 
+                                ntrpRating: value === 'none' ? null : parseFloat(value) 
+                              }))}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select NTRP" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">Not Set</SelectItem>
+                                {[1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0].map(rating => (
+                                  <SelectItem key={rating} value={rating.toString()}>{rating.toFixed(1)}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-1.5 mb-1.5">
+                              <Label htmlFor="utrRating" className="mb-0">UTR Rating</Label>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <a
+                                    href={`https://app.utrsports.net/search${profile.fullName ? `?query=${encodeURIComponent(profile.fullName)}` : ''}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-primary hover:text-primary/80 transition-colors"
+                                  >
+                                    <ExternalLink className="h-3.5 w-3.5" />
+                                  </a>
+                                </TooltipTrigger>
+                                <TooltipContent>Look up on UTR</TooltipContent>
+                              </Tooltip>
                             </div>
-                            <div>
-                              <div className="flex items-center gap-1.5 mb-1.5">
-                                <Label htmlFor="wtnRating" className="mb-0">WTN Number</Label>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <a
-                                      href="https://worldtennisnumber.com/eng/player-search"
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-primary hover:text-primary/80 transition-colors"
-                                    >
-                                      <ExternalLink className="h-3.5 w-3.5" />
-                                    </a>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Look up on WTN</TooltipContent>
-                                </Tooltip>
-                              </div>
-                              <Input
-                                id="wtnRating"
-                                type="text"
-                                inputMode="decimal"
-                                className="[&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                                value={profile.wtnRating || ''}
-                                onChange={(e) => {
-                                  const value = e.target.value.replace(/[^\d.]/g, '');
-                                  setProfile(prev => ({ ...prev, wtnRating: value ? parseFloat(value) : null }));
-                                }}
-                                placeholder="e.g. 18.5"
-                              />
+                            <Input
+                              id="utrRating"
+                              type="text"
+                              inputMode="decimal"
+                              className="[&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                              value={profile.utrRating || ''}
+                              onChange={(e) => {
+                                const value = e.target.value.replace(/[^\d.]/g, '');
+                                setProfile(prev => ({ ...prev, utrRating: value ? parseFloat(value) : null }));
+                              }}
+                              placeholder="e.g. 4.5"
+                            />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-1.5 mb-1.5">
+                              <Label htmlFor="wtnRating" className="mb-0">WTN Number</Label>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <a
+                                    href="https://worldtennisnumber.com/eng/player-search"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-primary hover:text-primary/80 transition-colors"
+                                  >
+                                    <ExternalLink className="h-3.5 w-3.5" />
+                                  </a>
+                                </TooltipTrigger>
+                                <TooltipContent>Look up on WTN</TooltipContent>
+                              </Tooltip>
                             </div>
+                            <Input
+                              id="wtnRating"
+                              type="text"
+                              inputMode="decimal"
+                              className="[&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                              value={profile.wtnRating || ''}
+                              onChange={(e) => {
+                                const value = e.target.value.replace(/[^\d.]/g, '');
+                                setProfile(prev => ({ ...prev, wtnRating: value ? parseFloat(value) : null }));
+                              }}
+                              placeholder="e.g. 18.5"
+                            />
                           </div>
                         </div>
-                      )}
+                      </div>
                     </div>
                   ) : (
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      {/* Tennis rating tiles — hidden in HOA mode */}
-                      {!isHOAMode && (
-                        <>
-                          <div className="p-4 bg-muted/50 rounded-xl text-center">
-                            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">NTRP Rating</p>
-                            <p className="text-2xl font-bold">{profile.ntrpRating || '—'}</p>
-                            {tier && (
-                              <Badge variant="secondary" className={`mt-1 text-xs ${tier.color}`}>
-                                {tier.label}
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="p-4 bg-muted/50 rounded-xl text-center">
-                            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">UTR Rating</p>
-                            <p className="text-2xl font-bold">{profile.utrRating || '—'}</p>
-                          </div>
-                        </>
-                      )}
+                      <div className="p-4 bg-muted/50 rounded-xl text-center">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">NTRP Rating</p>
+                        <p className="text-2xl font-bold">{profile.ntrpRating || '—'}</p>
+                        {tier && (
+                          <Badge variant="secondary" className={`mt-1 text-xs ${tier.color}`}>
+                            {tier.label}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="p-4 bg-muted/50 rounded-xl text-center">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">UTR Rating</p>
+                        <p className="text-2xl font-bold">{profile.utrRating || '—'}</p>
+                      </div>
                       <div className="p-4 bg-muted/50 rounded-xl text-center">
                         <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Gender</p>
                         <p className="text-lg font-semibold capitalize">{profile.gender || '—'}</p>

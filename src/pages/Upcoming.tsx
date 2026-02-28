@@ -3,7 +3,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
-import { useMode } from '../contexts/ModeContext';
 import { supabase } from '../integrations/supabase/client';
 import CalendarSection from '../components/upcoming/CalendarSection';
 import UpcomingReservations from '../components/upcoming/UpcomingReservations';
@@ -18,7 +17,6 @@ import { startOfWeek } from 'date-fns';
 const Upcoming = () => {
   const { currentUser } = useAuth();
   const { bookings } = useData();
-  const { isHOAMode } = useMode();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 0 }));
@@ -36,10 +34,10 @@ const Upcoming = () => {
     return bookingDateTime > now;
   });
 
-  // Load lessons — gated behind tennis mode
+  // Load lessons for ALL users (including accepted status)
   useEffect(() => {
     const loadUpcomingLessons = async () => {
-      if (!currentUser?.id || isHOAMode) return;
+      if (!currentUser?.id) return;
 
       try {
         // Fetch lesson requests with accepted or confirmed status
@@ -87,10 +85,10 @@ const Upcoming = () => {
     loadUpcomingLessons();
   }, [currentUser?.id]);
 
-  // Load upcoming matches — gated behind tennis mode
+  // Load upcoming matches
   useEffect(() => {
     const loadUpcomingMatches = async () => {
-      if (!currentUser?.id || isHOAMode) return;
+      if (!currentUser?.id) return;
 
       try {
         const { data: matches } = await supabase
@@ -115,10 +113,10 @@ const Upcoming = () => {
     loadUpcomingMatches();
   }, [currentUser?.id]);
 
-  // Load accepted match requests — gated behind tennis mode
+  // Load accepted match requests
   useEffect(() => {
     const loadAcceptedMatchRequests = async () => {
-      if (!currentUser?.id || isHOAMode) return;
+      if (!currentUser?.id) return;
 
       try {
         const { data: matchRequests } = await supabase
@@ -142,10 +140,10 @@ const Upcoming = () => {
     loadAcceptedMatchRequests();
   }, [currentUser?.id]);
 
-  // Load upcoming ladder matches — gated behind tennis mode
+  // Load upcoming ladder matches
   useEffect(() => {
     const loadUpcomingLadderMatches = async () => {
-      if (!currentUser?.id || isHOAMode) return;
+      if (!currentUser?.id) return;
 
       try {
         const { data: ladderMatches } = await supabase
@@ -410,11 +408,9 @@ const Upcoming = () => {
         <TabsContent value="overview" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {!isNonHOA && <UpcomingReservations upcomingReservations={upcomingReservations} />}
-            {/* Match sessions — hidden in HOA mode */}
-            {!isHOAMode && <UpcomingMatchSessions upcomingMatchSessions={upcomingMatchSessions} />}
+            <UpcomingMatchSessions upcomingMatchSessions={upcomingMatchSessions} />
           </div>
-          {/* Lessons panel — hidden in HOA mode */}
-          {!isHOAMode && isNonHOA && upcomingLessons.length > 0 && (
+          {isNonHOA && upcomingLessons.length > 0 && (
             <div className="bg-card rounded-lg p-6">
               <h3 className="text-lg font-semibold mb-4">Upcoming Lessons</h3>
               <div className="space-y-3">

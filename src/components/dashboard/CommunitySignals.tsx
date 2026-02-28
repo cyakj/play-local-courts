@@ -3,10 +3,9 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveHOA } from '@/contexts/ActiveHOAContext';
-import { useMode } from '@/contexts/ModeContext';
-import {
-  Users,
-  Trophy,
+import { 
+  Users, 
+  Trophy, 
   FileText,
   ChevronRight,
   Sparkles
@@ -20,7 +19,6 @@ interface CommunityActivity {
 
 export const CommunitySignals = () => {
   const { activeHOA, isHOAUser } = useActiveHOA();
-  const { triggerTennisComingSoon } = useMode();
   const [activity, setActivity] = useState<CommunityActivity>({
     newPlayersThisWeek: 0,
     upcomingLadders: 0
@@ -101,17 +99,14 @@ export const CommunitySignals = () => {
             <ChevronRight className="h-4 w-4 ml-auto text-muted-foreground" />
           </Link>
           
-          <button
-            onClick={triggerTennisComingSoon}
-            className="flex items-center gap-2 w-full p-2 rounded-lg hover:bg-amber-50 transition-colors text-sm"
+          <Link 
+            to="/leagues-ladders" 
+            className="flex items-center gap-2 w-full p-2 rounded-lg hover:bg-muted transition-colors text-sm"
           >
-            <Trophy className="h-4 w-4 text-gray-300" />
-            <span className="text-muted-foreground">View Ladders</span>
-            <span className="ml-1 text-[10px] font-semibold text-amber-500 bg-amber-50 border border-amber-200 rounded-full px-1.5 py-px leading-tight">
-              Soon
-            </span>
+            <Trophy className="h-4 w-4 text-muted-foreground" />
+            <span>View Ladders</span>
             <ChevronRight className="h-4 w-4 ml-auto text-muted-foreground" />
-          </button>
+          </Link>
         </div>
       </CardContent>
     </Card>
