@@ -21,7 +21,8 @@ import {
   Pencil,
   Eye,
   Camera,
-  Building2
+  Building2,
+  FileText
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useActiveHOA } from '../../contexts/ActiveHOAContext';
@@ -32,6 +33,7 @@ import { Amenity } from '../../types';
 import { capitalizeWords } from '@/lib/textUtils';
 import { isValidZipCode } from '@/lib/zipCodeUtils';
 import { format } from 'date-fns';
+import PlayingPreferencesCard from './PlayingPreferencesCard';
 import { Link, useNavigate } from 'react-router-dom';
 
 interface ProfileData {
@@ -47,6 +49,7 @@ interface ProfileData {
   zipCode: string;
   locationVisible: boolean;
   showExactDistance: boolean;
+  preferredCourtLocations: string;
 }
 
 const PlayerProfile = () => {
@@ -71,7 +74,8 @@ const PlayerProfile = () => {
     wtnRating: null,
     zipCode: '',
     locationVisible: true,
-    showExactDistance: true
+    showExactDistance: true,
+    preferredCourtLocations: ''
   });
 
   useEffect(() => {
@@ -106,7 +110,8 @@ const PlayerProfile = () => {
           wtnRating: data.wtn_rating,
           zipCode: data.zip_code || '',
           locationVisible: data.location_visible !== false,
-          showExactDistance: data.show_exact_distance !== false
+          showExactDistance: data.show_exact_distance !== false,
+          preferredCourtLocations: data.preferred_court_locations || ''
         });
         if (data.created_at) {
           setMemberSince(format(new Date(data.created_at), 'MMM yyyy'));
@@ -166,7 +171,8 @@ const PlayerProfile = () => {
           wtn_rating: profile.wtnRating,
           zip_code: profile.zipCode || null,
           location_visible: profile.locationVisible,
-          show_exact_distance: profile.showExactDistance
+          show_exact_distance: profile.showExactDistance,
+          preferred_court_locations: profile.preferredCourtLocations || null
         })
         .eq('id', currentUser.id);
       
@@ -445,13 +451,25 @@ const PlayerProfile = () => {
                       </div>
 
                       <div>
-                        <Label htmlFor="bio">Bio</Label>
+                        <Label htmlFor="bio">About Me (max 150 characters)</Label>
                         <Textarea
                           id="bio"
                           value={profile.bio}
-                          onChange={(e) => setProfile(prev => ({ ...prev, bio: e.target.value }))}
+                          onChange={(e) => setProfile(prev => ({ ...prev, bio: e.target.value.slice(0, 150) }))}
                           placeholder="Tell us about yourself..."
-                          rows={3}
+                          rows={2}
+                          maxLength={150}
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">{profile.bio.length}/150</p>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="courtLocations">Preferred Court Locations</Label>
+                        <Input
+                          id="courtLocations"
+                          value={profile.preferredCourtLocations || ''}
+                          onChange={(e) => setProfile(prev => ({ ...prev, preferredCourtLocations: e.target.value }))}
+                          placeholder="e.g. Central Park, Riverside Courts"
                         />
                       </div>
 
@@ -580,6 +598,9 @@ const PlayerProfile = () => {
                   )}
                 </CardContent>
               </Card>
+
+              {/* Playing Preferences Card */}
+              {currentUser && <PlayingPreferencesCard userId={currentUser.id} />}
 
               {/* Memberships Card */}
               <Card>

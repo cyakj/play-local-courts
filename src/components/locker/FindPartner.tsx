@@ -1,25 +1,28 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ArrowLeft, MessageCircle, User, MapPin } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { ArrowLeft, MessageCircle, User, MapPin, SlidersHorizontal, X } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import MatchRequestDialog from './MatchRequestDialog';
 import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 import { getDistanceBetweenZips, formatDistance } from '@/lib/zipCodeUtils';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface Player {
   id: string;
   full_name: string;
   avatar_url?: string;
   utr_rating?: number;
+  ntrp_rating?: number;
   location?: string;
   bio?: string;
   zip_code?: string;
@@ -51,6 +54,7 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
   const [myPreferences, setMyPreferences] = useState<MatchPrefs | null>(null);
   const [allPreferences, setAllPreferences] = useState<MatchPrefs[]>([]);
   const [myZipCode, setMyZipCode] = useState<string | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   
   // Filter states
   const [utrRange, setUtrRange] = useState([1, 15]);
@@ -63,7 +67,6 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
     loadPlayers();
   }, [currentUser]);
 
-  // Real-time subscription for profile updates (new players, profile changes)
   useRealtimeSubscription({
     table: 'profiles',
     event: '*',
@@ -83,16 +86,13 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
 
   const loadMyProfile = async () => {
     if (!currentUser) return;
-    
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('zip_code')
         .eq('id', currentUser.id)
         .single();
-      
       if (error) throw error;
-      
       if (data?.zip_code) {
         setMyZipCode(data.zip_code);
         setUseDistanceFilter(true);
@@ -104,60 +104,66 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
 
   const loadPlayers = async () => {
     if (!currentUser) return;
-
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, avatar_url, utr_rating, location, bio, zip_code, location_visible, show_exact_distance')
+        .select('id, full_name, avatar_url, utr_rating, ntrp_rating, location, bio, zip_code, location_visible, show_exact_distance')
         .neq('id', currentUser.id)
         .not('full_name', 'is', null);
-
       if (error) throw error;
       setPlayers(data || []);
     } catch (error) {
       console.error('Error loading players:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load players",
-        variant: "destructive"
-      });
+      toast({ title: "Error", description: "Failed to load players", variant: "destructive" });
     }
   };
 
   const loadPreferences = async () => {
     if (!currentUser) return;
-
     try {
-      // Load my preferences
       const { data: myPrefs } = await supabase
         .from('match_preferences')
         .select('user_id, looking_to_play, match_types, preferred_times, preferred_days')
         .eq('user_id', currentUser.id)
         .single();
-
       setMyPreferences(myPrefs);
 
-      // Load all other users' preferences who are looking to play
       const { data: allPrefs } = await supabase
         .from('match_preferences')
         .select('user_id, looking_to_play, match_types, preferred_times, preferred_days')
         .eq('looking_to_play', true)
         .neq('user_id', currentUser.id);
-
       setAllPreferences(allPrefs || []);
     } catch (error) {
       console.error('Error loading preferences:', error);
     }
   };
 
-  // Helper to check if two arrays have at least one common element
-  const hasOverlap = (arr1: string[], arr2: string[]) => {
-    return arr1.some(item => arr2.includes(item));
+  const hasOverlap = (arr1: string[], arr2: string[]) => arr1.some(item => arr2.includes(item));
+
+  const getOverlapSummary = (playerId: string): string | null => {
+    if (!myPreferences) return null;
+    const prefs = allPreferences.find(p => p.user_id === playerId);
+    if (!prefs) return null;
+
+    const parts: string[] = [];
+    const matchOverlap = myPreferences.match_types.filter(t => prefs.match_types.includes(t));
+    if (matchOverlap.length > 0) parts.push(matchOverlap.map(t => t.replace('_', ' ')).join(', '));
+    
+    const dayOverlap = myPreferences.preferred_days.filter(d => prefs.preferred_days.includes(d));
+    if (dayOverlap.length > 0) {
+      const dayAbbrevs: Record<string, string> = { monday: 'Mon', tuesday: 'Tue', wednesday: 'Wed', thursday: 'Thu', friday: 'Fri', saturday: 'Sat', sunday: 'Sun' };
+      parts.push(dayOverlap.map(d => dayAbbrevs[d] || d).join('/'));
+    }
+
+    const timeOverlap = myPreferences.preferred_times.filter(t => prefs.preferred_times.includes(t));
+    if (timeOverlap.length > 0) parts.push(timeOverlap.join(', '));
+
+    return parts.length > 0 ? parts.join(' · ') : null;
   };
 
   const filterPlayers = () => {
     let filtered = players.map(player => {
-      // Calculate distance for each player
       let distance: number | null = null;
       if (myZipCode && player.zip_code && player.location_visible !== false) {
         distance = getDistanceBetweenZips(myZipCode, player.zip_code);
@@ -165,80 +171,50 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
       return { ...player, distance };
     });
 
-    // Filter by location visibility (opt-out)
     filtered = filtered.filter(player => player.location_visible !== false);
 
-    // Filter by match preferences - strict overlap on all categories
     if (myPreferences) {
       filtered = filtered.filter(player => {
         const playerPrefs = allPreferences.find(p => p.user_id === player.id);
-        
-        // Player must be actively looking to play
-        if (!playerPrefs || !playerPrefs.looking_to_play) {
-          return false;
-        }
-
-        // Must have at least one match_type overlap
-        if (!hasOverlap(myPreferences.match_types, playerPrefs.match_types)) {
-          return false;
-        }
-
-        // Must have at least one preferred_day overlap
+        if (!playerPrefs || !playerPrefs.looking_to_play) return false;
+        if (!hasOverlap(myPreferences.match_types, playerPrefs.match_types)) return false;
         if (myPreferences.preferred_days.length > 0 && playerPrefs.preferred_days.length > 0) {
-          if (!hasOverlap(myPreferences.preferred_days, playerPrefs.preferred_days)) {
-            return false;
-          }
+          if (!hasOverlap(myPreferences.preferred_days, playerPrefs.preferred_days)) return false;
         }
-
-        // Must have at least one preferred_time overlap
         if (myPreferences.preferred_times.length > 0 && playerPrefs.preferred_times.length > 0) {
-          if (!hasOverlap(myPreferences.preferred_times, playerPrefs.preferred_times)) {
-            return false;
-          }
+          if (!hasOverlap(myPreferences.preferred_times, playerPrefs.preferred_times)) return false;
         }
-
         return true;
       });
     } else {
-      // If no preferences set, show players who are looking to play
       filtered = filtered.filter(player => {
         const playerPrefs = allPreferences.find(p => p.user_id === player.id);
         return playerPrefs?.looking_to_play === true;
       });
     }
 
-    // Filter by distance if enabled and user has ZIP code
     if (useDistanceFilter && myZipCode) {
       filtered = filtered.filter(player => {
-        if (player.distance === null) return true; // Include players without distance data
+        if (player.distance === null) return true;
         return player.distance <= maxDistance;
       });
     }
 
-    // Filter by UTR range - include players with no UTR rating (null)
     filtered = filtered.filter(player => {
-      if (player.utr_rating === null || player.utr_rating === undefined) {
-        return true;
-      }
+      if (player.utr_rating === null || player.utr_rating === undefined) return true;
       return player.utr_rating >= utrRange[0] && player.utr_rating <= utrRange[1];
     });
 
-    // Filter by location text
     if (location) {
       filtered = filtered.filter(player => 
         player.location?.toLowerCase().includes(location.toLowerCase())
       );
     }
 
-    // Sort by distance first, then by name
     filtered.sort((a, b) => {
-      // Players with distance come first, sorted by distance
-      if (a.distance !== null && b.distance !== null) {
-        return a.distance - b.distance;
-      }
+      if (a.distance !== null && b.distance !== null) return a.distance - b.distance;
       if (a.distance !== null) return -1;
       if (b.distance !== null) return 1;
-      // Then alphabetically
       return (a.full_name || '').localeCompare(b.full_name || '');
     });
 
@@ -251,179 +227,159 @@ const FindPartner = ({ onBack }: FindPartnerProps) => {
   };
 
   const getPlayerDistanceDisplay = (player: Player) => {
-    if (!myZipCode || !player.zip_code || player.location_visible === false) {
-      return null;
-    }
-    
+    if (!myZipCode || !player.zip_code || player.location_visible === false) return null;
     return formatDistance(player.distance, player.show_exact_distance !== false);
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center gap-4 mb-6">
-        <Button onClick={onBack} variant="ghost" size="sm">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Locker
-        </Button>
-        <h1 className="text-3xl font-bold">Find a Partner</h1>
+    <div className="px-4 py-4 max-w-2xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Button onClick={onBack} variant="ghost" size="icon" className="h-11 w-11">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-xl font-bold">Find a Partner</h1>
+        </div>
+        <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
+          <CollapsibleTrigger asChild>
+            <Button variant="outline" size="icon" className="h-11 w-11">
+              {filtersOpen ? <X className="h-5 w-5" /> : <SlidersHorizontal className="h-5 w-5" />}
+            </Button>
+          </CollapsibleTrigger>
+        </Collapsible>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Filters Sidebar */}
-        <div className="lg:col-span-1">
-          <Card>
-            <CardHeader>
-              <CardTitle>Filters</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Distance Filter */}
+      {/* Collapsible Filters */}
+      <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <CollapsibleContent>
+          <Card className="mb-4">
+            <CardContent className="p-4 space-y-5">
               {myZipCode && (
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label>Max Distance: {maxDistance} miles</Label>
-                  </div>
-                  <div className="px-2">
-                    <Slider
-                      value={[maxDistance]}
-                      onValueChange={(value) => setMaxDistance(value[0])}
-                      max={50}
-                      min={1}
-                      step={1}
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Showing players within {maxDistance} miles
-                  </p>
+                  <Label className="text-sm">Max Distance: {maxDistance} mi</Label>
+                  <Slider value={[maxDistance]} onValueChange={(v) => setMaxDistance(v[0])} max={50} min={1} step={1} />
                 </div>
               )}
-
               {!myZipCode && (
-                <div className="p-3 bg-muted rounded-lg text-sm">
-                  <p className="text-muted-foreground">
-                    Add a ZIP code to your profile to filter by distance
-                  </p>
-                </div>
+                <p className="text-sm text-muted-foreground bg-muted p-3 rounded-lg">Add a ZIP code to your profile to filter by distance</p>
               )}
-
-              {/* UTR Range */}
               <div className="space-y-2">
-                <Label>UTR Range: {utrRange[0]} - {utrRange[1]}</Label>
-                <div className="px-2">
-                  <Slider
-                    value={utrRange}
-                    onValueChange={setUtrRange}
-                    max={15}
-                    min={1}
-                    step={0.5}
-                  />
-                </div>
+                <Label className="text-sm">UTR Range: {utrRange[0]} – {utrRange[1]}</Label>
+                <Slider value={utrRange} onValueChange={setUtrRange} max={15} min={1} step={0.5} />
               </div>
-
-              {/* NTRP Range */}
               <div className="space-y-2">
-                <Label>NTRP Range: {ntrpRange[0]} - {ntrpRange[1]}</Label>
-                <div className="px-2">
-                  <Slider
-                    value={ntrpRange}
-                    onValueChange={setNtrpRange}
-                    max={7}
-                    min={1}
-                    step={0.5}
-                  />
-                </div>
+                <Label className="text-sm">NTRP Range: {ntrpRange[0]} – {ntrpRange[1]}</Label>
+                <Slider value={ntrpRange} onValueChange={setNtrpRange} max={7} min={1} step={0.5} />
               </div>
-
-              {/* Location Text */}
               <div className="space-y-2">
-                <Label>Location</Label>
-                <Input
-                  placeholder="Enter location..."
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                />
+                <Label className="text-sm">Location</Label>
+                <Input placeholder="City or area..." value={location} onChange={(e) => setLocation(e.target.value)} />
               </div>
             </CardContent>
           </Card>
-        </div>
+        </CollapsibleContent>
+      </Collapsible>
 
-        {/* Players Grid */}
-        <div className="lg:col-span-3">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filteredPlayers.map((player) => {
-              const distanceDisplay = getPlayerDistanceDisplay(player);
-              
-              return (
-                <Card key={player.id} className="hover:shadow-lg transition-shadow border-border/50">
-                  <CardContent className="p-5">
-                    {/* Player Info Row */}
-                    <div className="flex items-center gap-4 mb-4">
-                      <Avatar className="h-14 w-14 border-2 border-primary/20">
-                        <AvatarImage src={player.avatar_url} />
-                        <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-                          {player.full_name?.split(' ').map(n => n[0]).join('').toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-base truncate">{player.full_name}</h3>
-                        <div className="flex items-center gap-3 mt-1">
-                          <span className="text-sm font-medium text-primary">
-                            UTR: {player.utr_rating || 'N/A'}
-                          </span>
-                          {distanceDisplay && (
-                            <span className="flex items-center gap-1 text-sm text-muted-foreground">
-                              <MapPin className="h-3.5 w-3.5" />
-                              {distanceDisplay}
-                            </span>
-                          )}
-                        </div>
-                      </div>
+      {/* Results count */}
+      <p className="text-sm text-muted-foreground mb-3">{filteredPlayers.length} player{filteredPlayers.length !== 1 ? 's' : ''} found</p>
+
+      {/* Player Cards - Vertical List */}
+      <div className="space-y-3">
+        {filteredPlayers.map((player) => {
+          const distanceDisplay = getPlayerDistanceDisplay(player);
+          const overlapSummary = getOverlapSummary(player.id);
+          const playerPrefs = allPreferences.find(p => p.user_id === player.id);
+          
+          return (
+            <Card key={player.id} className="hover:shadow-md transition-shadow">
+              <CardContent className="p-4">
+                {/* Player Info */}
+                <div className="flex items-start gap-3 mb-3">
+                  <Avatar className="h-14 w-14 border-2 border-primary/20 shrink-0">
+                    <AvatarImage src={player.avatar_url} />
+                    <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                      {player.full_name?.split(' ').map(n => n[0]).join('').toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-base truncate">{player.full_name}</h3>
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                      {player.utr_rating && (
+                        <Badge variant="secondary" className="text-xs">UTR {player.utr_rating}</Badge>
+                      )}
+                      {player.ntrp_rating && (
+                        <Badge variant="outline" className="text-xs">NTRP {player.ntrp_rating}</Badge>
+                      )}
+                      {distanceDisplay && (
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <MapPin className="h-3 w-3" />
+                          {distanceDisplay}
+                        </span>
+                      )}
                     </div>
-
-                    {/* Action Buttons - Stacked Layout */}
-                    <div className="flex flex-col gap-2">
-                      <Button 
-                        className="w-full"
-                        onClick={() => handleSendMatchRequest(player)}
-                      >
-                        Send Match Request
-                      </Button>
-                      <div className="flex gap-2 min-w-0">
-                        <Button 
-                          variant="outline"
-                          className="flex-1 min-w-0"
-                          onClick={() => navigate(`/profile/${player.id}`)}
-                        >
-                          <User className="h-4 w-4 shrink-0 mr-1.5" />
-                          <span className="truncate">View Profile</span>
-                        </Button>
-                        <Button 
-                          variant="outline"
-                          className="flex-1 min-w-0"
-                          onClick={() => navigate(`/messages?user=${player.id}`)}
-                        >
-                          <MessageCircle className="h-4 w-4 shrink-0 mr-1.5" />
-                          <span className="truncate">Message</span>
-                        </Button>
+                    {/* Match type preferences */}
+                    {playerPrefs && playerPrefs.match_types.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {playerPrefs.match_types.map(t => (
+                          <Badge key={t} variant="secondary" className="text-[10px] capitalize bg-primary/10 text-primary">
+                            {t.replace('_', ' ')}
+                          </Badge>
+                        ))}
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+                    )}
+                    {/* Availability overlap */}
+                    {overlapSummary && (
+                      <p className="text-xs text-green-600 mt-1.5 font-medium">
+                        ✓ {overlapSummary}
+                      </p>
+                    )}
+                  </div>
+                </div>
 
-          {filteredPlayers.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">No players match your current filters.</p>
-              {myZipCode && maxDistance < 25 && (
-                <p className="text-sm text-muted-foreground mt-2">
-                  Try increasing your distance range to see more players.
-                </p>
-              )}
-            </div>
+                {/* Action Buttons */}
+                <div className="space-y-2">
+                  <Button 
+                    className="w-full h-11"
+                    onClick={() => handleSendMatchRequest(player)}
+                  >
+                    Send Match Request
+                  </Button>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline"
+                      className="flex-1 h-11"
+                      onClick={() => navigate(`/profile/${player.id}`)}
+                    >
+                      <User className="h-4 w-4 mr-1.5" />
+                      View Profile
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      className="flex-1 h-11"
+                      onClick={() => navigate(`/messages?user=${player.id}`)}
+                    >
+                      <MessageCircle className="h-4 w-4 mr-1.5" />
+                      Message
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      {filteredPlayers.length === 0 && (
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">No players match your current filters.</p>
+          {myZipCode && maxDistance < 25 && (
+            <p className="text-sm text-muted-foreground mt-2">
+              Try increasing your distance range to see more players.
+            </p>
           )}
         </div>
-      </div>
+      )}
 
       {selectedPlayer && showMatchRequest && (
         <MatchRequestDialog
