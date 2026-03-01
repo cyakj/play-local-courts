@@ -45,20 +45,29 @@ const CompetePlayerView = ({ onSelectCompetition }: CompetePlayerViewProps) => {
     }
 
     try {
-      // 1. Find competitions where user is on a team
+      // 1. Find competitions where user is on a team OR has registered (including pending partner flow)
       const { data: myTeams } = await supabase
         .from('ladder_teams')
         .select('ladder_id, id, total_points')
         .or(`player1_id.eq.${currentUser.id},player2_id.eq.${currentUser.id}`);
 
-      const myLadderIds = myTeams?.map(t => t.ladder_id) || [];
+      const teamLadderIds = myTeams?.map(t => t.ladder_id) || [];
+
+      const { data: myRegistrations } = await supabase
+        .from('ladder_registration_requests')
+        .select('ladder_id')
+        .or(`player_id.eq.${currentUser.id},partner_id.eq.${currentUser.id}`)
+        .in('status', ['pending', 'pending_partner', 'approved']);
+
+      const registrationLadderIds = myRegistrations?.map(r => r.ladder_id) || [];
+      const myParticipantLadderIds = Array.from(new Set([...teamLadderIds, ...registrationLadderIds]));
 
       let myComps: Competition[] = [];
-      if (myLadderIds.length > 0) {
+      if (myParticipantLadderIds.length > 0) {
         const { data } = await supabase
           .from('ladders')
           .select('*')
-          .in('id', myLadderIds)
+          .in('id', myParticipantLadderIds)
           .in('status', ['active', 'setup']);
         myComps = (data || []) as Competition[];
       }
@@ -105,11 +114,11 @@ const CompetePlayerView = ({ onSelectCompetition }: CompetePlayerViewProps) => {
         query = query.eq('hoa_id', currentUser.hoaId);
       }
       const { data: available } = await query.order('created_at', { ascending: false });
-      const filtered = (available || []).filter(a => !myLadderIds.includes(a.id)) as Competition[];
+      const filtered = (available || []).filter(a => !myParticipantLadderIds.includes(a.id)) as Competition[];
       setAvailableCompetitions(filtered);
 
       // 3. Load team counts
-      const allIds = [...myLadderIds, ...filtered.map(f => f.id)];
+      const allIds = Array.from(new Set([...myParticipantLadderIds, ...filtered.map(f => f.id)]));
       if (allIds.length > 0) {
         const { data: teams } = await supabase
           .from('ladder_teams')
