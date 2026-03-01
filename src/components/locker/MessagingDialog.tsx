@@ -248,6 +248,19 @@ const MessagingDialog = ({ open, onOpenChange, hasUnreadMessages, onMarkAsRead }
       );
 
       setMessages(messagesWithSender);
+      
+      // Find the first unread message index to scroll to it
+      const firstUnreadIdx = messagesWithSender.findIndex(
+        (m) => m.sender_id === selectedPlayer.id && !(m as any).read_at
+      );
+      if (firstUnreadIdx > 0) {
+        setTimeout(() => {
+          const el = document.getElementById(`msg-unread-divider`);
+          el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 150);
+      } else {
+        scrollToBottom();
+      }
     } catch (error) {
       console.error('Error loading messages:', error);
       toast({
@@ -372,64 +385,71 @@ const MessagingDialog = ({ open, onOpenChange, hasUnreadMessages, onMarkAsRead }
             <div className="w-full flex flex-col">
               <ScrollArea className="flex-1 p-4">
                 <div className="space-y-4">
-                  {messages.map((message) => {
-                    const isOwn = message.sender_id === currentUser?.id;
-                    const invitationData = isLadderInvitation(message.content);
-
-                    // Render ladder invitation as interactive card (received)
-                    if (invitationData && !isOwn) {
-                      return (
-                        <div key={message.id} className="flex justify-start">
-                          <div className="max-w-[85%]">
-                            <LadderInvitationMessage
-                              invitationData={invitationData}
-                              messageId={message.id}
-                              senderId={message.sender_id}
-                              onStatusChange={() => loadMessages()}
-                            />
-                            <p className="text-xs text-muted-foreground mt-1 ml-1">
-                              {formatMessageTime(message.created_at)}
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    }
-
-                    // Show a simpler view for sent invitations
-                    if (invitationData && isOwn) {
-                      return (
-                        <div key={message.id} className="flex justify-end">
-                          <div className="max-w-xs lg:max-w-md rounded-lg px-4 py-2 bg-primary/80 text-primary-foreground">
-                            <p className="text-sm">
-                              📨 You sent a ladder partnership invitation for <strong>{invitationData.ladder_name}</strong>
-                            </p>
-                            <p className="text-xs opacity-70 mt-1">
-                              {formatMessageTime(message.created_at)}
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    }
-
-                    // Regular message
-                    return (
-                      <div
-                        key={message.id}
-                        className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
-                      >
-                        <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                          isOwn
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-muted'
-                        }`}>
-                          <p className="text-sm">{message.content}</p>
-                          <p className="text-xs opacity-70 mt-1">
-                            {formatMessageTime(message.created_at)}
-                          </p>
-                        </div>
-                      </div>
+                  {(() => {
+                    // Find the first unread message from the other person
+                    const firstUnreadIdx = messages.findIndex(
+                      (m) => m.sender_id === selectedPlayer?.id && !(m as any).read_at
                     );
-                  })}
+
+                    return messages.map((message, idx) => {
+                      const isOwn = message.sender_id === currentUser?.id;
+                      const invitationData = isLadderInvitation(message.content);
+                      const showNewDivider = idx === firstUnreadIdx && firstUnreadIdx > 0;
+
+                      return (
+                        <React.Fragment key={message.id}>
+                          {showNewDivider && (
+                            <div id="msg-unread-divider" className="flex items-center gap-3 py-1">
+                              <div className="flex-1 h-px bg-primary/40" />
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-primary">New</span>
+                              <div className="flex-1 h-px bg-primary/40" />
+                            </div>
+                          )}
+
+                          {/* Render ladder invitation as interactive card (received) */}
+                          {invitationData && !isOwn ? (
+                            <div className="flex justify-start">
+                              <div className="max-w-[85%]">
+                                <LadderInvitationMessage
+                                  invitationData={invitationData}
+                                  messageId={message.id}
+                                  senderId={message.sender_id}
+                                  onStatusChange={() => loadMessages()}
+                                />
+                                <p className="text-xs text-muted-foreground mt-1 ml-1">
+                                  {formatMessageTime(message.created_at)}
+                                </p>
+                              </div>
+                            </div>
+                          ) : invitationData && isOwn ? (
+                            <div className="flex justify-end">
+                              <div className="max-w-xs lg:max-w-md rounded-lg px-4 py-2 bg-primary/80 text-primary-foreground">
+                                <p className="text-sm">
+                                  📨 You sent a ladder partnership invitation for <strong>{invitationData.ladder_name}</strong>
+                                </p>
+                                <p className="text-xs opacity-70 mt-1">
+                                  {formatMessageTime(message.created_at)}
+                                </p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                              <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                                isOwn
+                                  ? 'bg-primary text-primary-foreground'
+                                  : 'bg-muted'
+                              }`}>
+                                <p className="text-sm">{message.content}</p>
+                                <p className="text-xs opacity-70 mt-1">
+                                  {formatMessageTime(message.created_at)}
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                        </React.Fragment>
+                      );
+                    });
+                  })()}
                   <div ref={messagesEndRef} />
                 </div>
               </ScrollArea>

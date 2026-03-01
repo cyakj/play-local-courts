@@ -7,6 +7,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import LadderJoinDialog from '@/components/ladders/LadderJoinDialog';
+import { Competition } from '@/components/compete/types';
 
 interface LadderInvitationData {
   type: 'ladder_partner_invitation';
@@ -34,13 +36,42 @@ const LadderInvitationMessage = ({
   const navigate = useNavigate();
   const [isProcessing, setIsProcessing] = useState(false);
   const [status, setStatus] = useState<'pending' | 'accepted' | 'declined'>('pending');
+  const [showJoinDialog, setShowJoinDialog] = useState(false);
+  const [ladderData, setLadderData] = useState<Competition | null>(null);
+  const [userNtrp, setUserNtrp] = useState<number | null>(null);
+
+  const handleSignUp = async () => {
+    try {
+      // Fetch the full ladder data for the join dialog
+      const { data: ladder, error } = await supabase
+        .from('ladders')
+        .select('*')
+        .eq('id', invitationData.ladder_id)
+        .single();
+
+      if (error) throw error;
+
+      // Fetch user NTRP
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('ntrp_rating')
+        .eq('id', currentUser?.id)
+        .single();
+
+      setLadderData(ladder as unknown as Competition);
+      setUserNtrp(profile?.ntrp_rating || null);
+      setShowJoinDialog(true);
+    } catch (error: any) {
+      console.error('Error fetching ladder:', error);
+      toast.error('Could not load ladder details');
+    }
+  };
 
   const handleAccept = async () => {
     if (!currentUser) return;
     
     setIsProcessing(true);
     try {
-      // Get the registration request
       const { data: request, error: fetchError } = await supabase
         .from('ladder_registration_requests')
         .select('*')
@@ -49,7 +80,6 @@ const LadderInvitationMessage = ({
 
       if (fetchError) throw fetchError;
 
-      // Check if ladder has auto-approval
       const { data: ladder, error: ladderError } = await supabase
         .from('ladders')
         .select('auto_approve_registration')
@@ -59,7 +89,6 @@ const LadderInvitationMessage = ({
       if (ladderError) throw ladderError;
 
       if (ladder.auto_approve_registration) {
-        // Auto-approve: Create the team directly
         const { error: teamError } = await supabase
           .from('ladder_teams')
           .insert({
@@ -71,13 +100,11 @@ const LadderInvitationMessage = ({
 
         if (teamError) throw teamError;
 
-        // Delete the registration request
         await supabase
           .from('ladder_registration_requests')
           .delete()
           .eq('id', invitationData.registration_request_id);
       } else {
-        // Update registration request to pending (for admin approval)
         const { error: updateError } = await supabase
           .from('ladder_registration_requests')
           .update({ 
@@ -89,7 +116,6 @@ const LadderInvitationMessage = ({
         if (updateError) throw updateError;
       }
 
-      // Update ladder invitation status
       await supabase
         .from('ladder_invitations')
         .update({ status: 'accepted' })
@@ -97,7 +123,6 @@ const LadderInvitationMessage = ({
         .eq('invited_user_id', currentUser.id)
         .eq('invited_by', senderId);
 
-      // Send confirmation message back
       await supabase
         .from('messages')
         .insert({
@@ -122,7 +147,6 @@ const LadderInvitationMessage = ({
     
     setIsProcessing(true);
     try {
-      // Update ladder invitation status
       await supabase
         .from('ladder_invitations')
         .update({ status: 'declined' })
@@ -130,7 +154,6 @@ const LadderInvitationMessage = ({
         .eq('invited_user_id', currentUser.id)
         .eq('invited_by', senderId);
 
-      // Update registration request
       await supabase
         .from('ladder_registration_requests')
         .update({ 
@@ -139,7 +162,6 @@ const LadderInvitationMessage = ({
         })
         .eq('id', invitationData.registration_request_id);
 
-      // Send decline message
       await supabase
         .from('messages')
         .insert({
@@ -160,12 +182,12 @@ const LadderInvitationMessage = ({
   };
 
   const viewLadder = () => {
-    navigate(`/compete?ladder=${invitationData.ladder_id}`);
+    navigate(`/leagues-ladders`);
   };
 
   if (status === 'accepted') {
     return (
-      <Card className="bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
+      <Card className="border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30">
         <CardContent className="p-4">
           <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
             <Check className="h-5 w-5" />
@@ -193,69 +215,93 @@ const LadderInvitationMessage = ({
   }
 
   return (
-    <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
-      <CardHeader className="pb-2">
-        <div className="flex items-center gap-2">
-          <div className="p-2 rounded-full bg-primary/10">
-            <Trophy className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <CardTitle className="text-base">Ladder Partnership Invitation</CardTitle>
-            <CardDescription>From {invitationData.inviter_name}</CardDescription>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
+    <>
+      <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+        <CardHeader className="pb-2">
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className="bg-background">
-              <Users className="h-3 w-3 mr-1" />
-              Doubles
-            </Badge>
-            <span className="font-medium">{invitationData.ladder_name}</span>
+            <div className="p-2 rounded-full bg-primary/10">
+              <Trophy className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-base">Ladder Partnership Invitation</CardTitle>
+              <CardDescription>From {invitationData.inviter_name}</CardDescription>
+            </div>
           </div>
-          <p className="text-sm text-muted-foreground">
-            {invitationData.inviter_name} wants you to join their team 
-            <span className="font-medium"> "{invitationData.team_name}"</span>
-          </p>
-        </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="bg-background">
+                <Users className="h-3 w-3 mr-1" />
+                Doubles
+              </Badge>
+              <span className="font-medium">{invitationData.ladder_name}</span>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {invitationData.inviter_name} wants you to join their team 
+              <span className="font-medium"> "{invitationData.team_name}"</span>
+            </p>
+          </div>
 
-        <div className="flex flex-col sm:flex-row gap-2">
-          <Button 
-            onClick={handleAccept} 
-            disabled={isProcessing}
-            className="flex-1"
-          >
-            <Check className="h-4 w-4 mr-2" />
-            {isProcessing ? 'Processing...' : 'Accept & Join'}
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={handleDecline}
-            disabled={isProcessing}
-            className="flex-1"
-          >
-            <X className="h-4 w-4 mr-2" />
-            Decline
-          </Button>
-        </div>
-        
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={viewLadder}
-          className="w-full"
-        >
-          View Ladder Details
-        </Button>
-      </CardContent>
-    </Card>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button 
+              onClick={handleAccept} 
+              disabled={isProcessing}
+              className="flex-1"
+            >
+              <Check className="h-4 w-4 mr-2" />
+              {isProcessing ? 'Processing...' : 'Accept & Join'}
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={handleDecline}
+              disabled={isProcessing}
+              className="flex-1"
+            >
+              <X className="h-4 w-4 mr-2" />
+              Decline
+            </Button>
+          </div>
+          
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={viewLadder}
+              className="flex-1"
+            >
+              View Ladder Details
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleSignUp}
+              className="flex-1"
+            >
+              Sign Up Independently
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {showJoinDialog && ladderData && (
+        <LadderJoinDialog
+          open={showJoinDialog}
+          onOpenChange={setShowJoinDialog}
+          ladder={ladderData}
+          userNtrp={userNtrp}
+          onRegistrationComplete={() => {
+            setShowJoinDialog(false);
+            onStatusChange?.();
+          }}
+        />
+      )}
+    </>
   );
 };
 
 export default LadderInvitationMessage;
 
-// Helper to check if a message content is a ladder invitation
 export const isLadderInvitation = (content: string): LadderInvitationData | null => {
   try {
     const parsed = JSON.parse(content);
