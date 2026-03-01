@@ -35,10 +35,14 @@ const CompetePlayerView = ({ onSelectCompetition }: CompetePlayerViewProps) => {
   const [creatorProfiles, setCreatorProfiles] = useState<Record<string, { name: string; role: string }>>({});
   const [filter, setFilter] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
+  const hasLoadedOnce = React.useRef(false);
 
   const loadData = useCallback(async () => {
     if (!currentUser?.id) return;
-    setIsLoading(true);
+    // Only show full loading skeleton on initial load, not realtime refreshes
+    if (!hasLoadedOnce.current) {
+      setIsLoading(true);
+    }
 
     try {
       // 1. Find competitions where user is on a team
@@ -282,7 +286,11 @@ const CompetePlayerView = ({ onSelectCompetition }: CompetePlayerViewProps) => {
             <Card className="border-0 shadow-sm col-span-full">
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <AlertCircle className="h-8 w-8 text-muted-foreground mb-2" />
-                <p className="text-sm text-muted-foreground">No competitions found matching your filters.</p>
+                <p className="text-sm text-muted-foreground">
+                  {availableCompetitions.length === 0
+                    ? "You've joined all available competitions. Check back later for new ones!"
+                    : "No competitions found matching your filters."}
+                </p>
               </CardContent>
             </Card>
           ) : (
