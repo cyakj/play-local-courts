@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, UserPlus, Trophy, Calendar, MessageSquare } from 'lucide-react';
+import { ArrowLeft, UserPlus, Trophy, Calendar, MessageSquare, Swords } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -31,9 +31,13 @@ const CompetitionDetailPlayer = ({ competition, onBack }: Props) => {
   const [showJoinDialog, setShowJoinDialog] = useState(false);
   const [showNtrpAlert, setShowNtrpAlert] = useState(false);
   const [eligibilityIssue, setEligibilityIssue] = useState<string | null>(null);
-  const [playerProfiles, setPlayerProfiles] = useState<Record<string, string>>({});
+  const [playerProfiles, setPlayerProfiles] = useState<Record<string, { name: string; community: string; rating: number | null }>>({});
+  const [creatorName, setCreatorName] = useState<string>('');
+  const [creatorRole, setCreatorRole] = useState<string>('');
 
   const isActive = competition.status === 'active';
+  const isSetup = competition.status === 'setup';
+  const isLadder = competition.scoring_mode === 'challenge';
 
   const loadTeams = useCallback(async () => {
     setIsLoading(true);
@@ -45,13 +49,30 @@ const CompetitionDetailPlayer = ({ competition, onBack }: Props) => {
         .order('total_points', { ascending: false });
       setTeams((data || []) as CompetitionTeam[]);
 
-      // Load player names
       const playerIds = new Set<string>();
       data?.forEach(t => { playerIds.add(t.player1_id); if (t.player2_id) playerIds.add(t.player2_id); });
       if (playerIds.size > 0) {
-        const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', Array.from(playerIds));
-        const map: Record<string, string> = {};
-        profiles?.forEach(p => { map[p.id] = p.full_name || 'Unknown'; });
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name, ntrp_rating, hoa_id')
+          .in('id', Array.from(playerIds));
+        
+        // Get HOA names
+        const hoaIds = new Set(profiles?.map(p => p.hoa_id).filter(Boolean) as string[]);
+        let hoaMap: Record<string, string> = {};
+        if (hoaIds.size > 0) {
+          const { data: hoas } = await supabase.from('hoas').select('id, name').in('id', Array.from(hoaIds));
+          hoas?.forEach(h => { hoaMap[h.id] = h.name; });
+        }
+
+        const map: Record<string, { name: string; community: string; rating: number | null }> = {};
+        profiles?.forEach(p => {
+          map[p.id] = {
+            name: p.full_name || 'Unknown',
+            community: p.hoa_id ? (hoaMap[p.hoa_id] || '') : '',
+            rating: p.ntrp_rating,
+          };
+        });
         setPlayerProfiles(map);
       }
     } catch (error) {
@@ -60,6 +81,22 @@ const CompetitionDetailPlayer = ({ competition, onBack }: Props) => {
       setIsLoading(false);
     }
   }, [competition.id]);
+
+  const loadCreator = useCallback(async () => {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', competition.admin_id)
+      .single();
+    setCreatorName(profile?.full_name || 'Unknown');
+
+    const { data: roles } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', competition.admin_id);
+    const userRoles = roles?.map(r => r.role) || [];
+    setCreatorRole(userRoles.includes('admin') ? 'HOA Admin' : userRoles.includes('coach') ? 'Coach' : '');
+  }, [competition.admin_id]);
 
   const checkUserStatus = useCallback(async () => {
     if (!currentUser?.id) return;
@@ -77,7 +114,6 @@ const CompetitionDetailPlayer = ({ competition, onBack }: Props) => {
       .eq('player_id', currentUser.id).eq('status', 'pending').limit(1);
     setHasPendingRequest((requestData?.length || 0) > 0);
 
-    // Check eligibility
     let issue: string | null = null;
     if (competition.min_ntrp && profile?.ntrp_rating && profile.ntrp_rating < competition.min_ntrp) {
       issue = `Your NTRP rating of ${profile.ntrp_rating} does not meet the minimum requirement of ${competition.min_ntrp}`;
@@ -89,11 +125,10 @@ const CompetitionDetailPlayer = ({ competition, onBack }: Props) => {
     setEligibilityIssue(issue);
   }, [currentUser?.id, competition]);
 
-  useEffect(() => { loadTeams(); checkUserStatus(); }, [loadTeams, checkUserStatus]);
-
+  useEffect(() => { loadTeams(); checkUserStatus(); loadCreator(); }, [loadTeams, checkUserStatus, loadCreator]);
   useRealtimeSubscription({ table: 'ladder_teams', event: '*', filter: `ladder_id=eq.${competition.id}`, onChange: loadTeams, enabled: true });
 
-  const canSignUp = !isOnTeam && !hasPendingRequest && !eligibilityIssue && (competition.status === 'setup' || competition.status === 'active');
+  const canSignUp = !isOnTeam && !hasPendingRequest && !eligibilityIssue && (isSetup || isActive);
 
   const handleJoinClick = () => {
     if ((competition.min_ntrp || competition.max_ntrp) && !userNtrp) {
@@ -103,50 +138,48 @@ const CompetitionDetailPlayer = ({ competition, onBack }: Props) => {
     setShowJoinDialog(true);
   };
 
-  const statusLabel = competition.status === 'setup' ? 'Open for Registration' : competition.status === 'active' ? 'Active' : 'Completed';
+  const statusLabel = isSetup ? 'Open for Registration' : isActive ? 'Active' : 'Completed';
+
+  // Determine default tab based on status and enrollment
+  const defaultTab = isActive && isOnTeam ? 'leaderboard' : isActive ? 'leaderboard' : 'rules';
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-24">
       <Button variant="ghost" onClick={onBack} className="min-h-[44px]">
         <ArrowLeft className="mr-2 h-4 w-4" /> Back
       </Button>
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <h1 className="text-2xl font-bold text-foreground">{competition.name}</h1>
-          <div className="flex flex-wrap items-center gap-2 mt-1">
-            <Badge className={competition.status === 'active' ? 'bg-emerald-100 text-emerald-700 border-0' : 'bg-muted text-muted-foreground border-0'}>
-              {statusLabel}
-            </Badge>
-            <span className="text-sm text-muted-foreground capitalize">{competition.format.replace('_', ' ')}</span>
-            {competition.city && <span className="text-sm text-muted-foreground">· {competition.city}</span>}
-          </div>
-          {competition.description && <p className="text-sm text-muted-foreground mt-2">{competition.description}</p>}
+      <div className="space-y-2">
+        <h1 className="text-2xl font-bold text-foreground">{competition.name}</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge className={isActive ? 'bg-emerald-100 text-emerald-700 border-0' : isSetup ? 'bg-blue-100 text-blue-700 border-0' : 'bg-muted text-muted-foreground border-0'}>
+            {statusLabel}
+          </Badge>
+          <Badge variant="outline" className="text-xs">
+            {isLadder ? <Swords className="h-3 w-3 mr-0.5" /> : <Trophy className="h-3 w-3 mr-0.5" />}
+            {isLadder ? 'Ladder' : 'Round Robin'}
+          </Badge>
+          <span className="text-sm text-muted-foreground capitalize">{competition.format.replace('_', ' ')}</span>
+          {competition.city && <span className="text-sm text-muted-foreground">· {competition.city}</span>}
         </div>
+        {creatorName && (
+          <p className="text-sm text-muted-foreground">
+            Created by <span className="font-medium text-foreground">{creatorName}</span>
+            {creatorRole && <span className="text-compete ml-1">({creatorRole})</span>}
+          </p>
+        )}
+        {competition.description && <p className="text-sm text-muted-foreground">{competition.description}</p>}
+      </div>
 
-        <div className="flex gap-2 flex-shrink-0">
-          {isOnTeam && <Badge variant="secondary" className="px-3 py-2 min-h-[44px] flex items-center">You're Registered</Badge>}
-          {hasPendingRequest && <Badge variant="outline" className="px-3 py-2 min-h-[44px] flex items-center">Registration Pending</Badge>}
-          {!isOnTeam && !hasPendingRequest && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span>
-                    <Button onClick={handleJoinClick} disabled={!canSignUp} className="bg-compete hover:bg-compete/90 text-compete-foreground min-h-[44px]">
-                      <UserPlus className="mr-2 h-4 w-4" /> Sign Up
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                {eligibilityIssue && <TooltipContent><p className="max-w-xs text-sm">{eligibilityIssue}</p></TooltipContent>}
-              </Tooltip>
-            </TooltipProvider>
-          )}
-        </div>
+      {/* Registration status badges */}
+      <div className="flex gap-2">
+        {isOnTeam && <Badge variant="secondary" className="px-3 py-2 min-h-[44px] flex items-center">You're Registered</Badge>}
+        {hasPendingRequest && <Badge variant="outline" className="px-3 py-2 min-h-[44px] flex items-center">Registration Pending</Badge>}
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue={isActive ? 'leaderboard' : 'rules'} className="w-full">
+      <Tabs defaultValue={defaultTab} className="w-full">
         <TabsList className="bg-card border-0 shadow-sm p-1 h-auto w-full overflow-x-auto">
           {isActive && (
             <>
@@ -185,21 +218,29 @@ const CompetitionDetailPlayer = ({ competition, onBack }: Props) => {
                 <p className="text-sm text-muted-foreground text-center py-8">No players registered yet.</p>
               ) : (
                 <div className="space-y-2">
-                  {teams.map((team, idx) => (
-                    <div key={team.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs font-bold text-muted-foreground w-6">#{idx + 1}</span>
-                        <div>
-                          <p className="text-sm font-medium">{team.team_name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {playerProfiles[team.player1_id] || 'Player'}
-                            {team.player2_id && ` & ${playerProfiles[team.player2_id] || 'Partner'}`}
-                          </p>
+                  {teams.map((team, idx) => {
+                    const p1 = playerProfiles[team.player1_id];
+                    const p2 = team.player2_id ? playerProfiles[team.player2_id] : null;
+                    return (
+                      <div key={team.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="text-xs font-bold text-muted-foreground w-6 flex-shrink-0">#{idx + 1}</span>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate">{team.team_name}</p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {p1?.name || 'Player'}
+                              {p2 && ` & ${p2.name}`}
+                            </p>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              {p1?.community && <span>{p1.community}</span>}
+                              {p1?.rating && <span>NTRP {p1.rating}</span>}
+                            </div>
+                          </div>
                         </div>
+                        {isActive && <Badge variant="secondary" className="text-xs flex-shrink-0">{team.total_points} pts</Badge>}
                       </div>
-                      {isActive && <Badge variant="secondary" className="text-xs">{team.total_points} pts</Badge>}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
@@ -207,9 +248,62 @@ const CompetitionDetailPlayer = ({ competition, onBack }: Props) => {
         </TabsContent>
 
         <TabsContent value="rules" className="mt-4">
-          <LadderRules />
+          <Card className="border-0 shadow-sm">
+            <CardHeader><CardTitle className="text-base">Competition Rules</CardTitle></CardHeader>
+            <CardContent>
+              <div className="grid gap-3 sm:grid-cols-2 text-sm">
+                <div><span className="text-muted-foreground">Format:</span> <span className="font-medium capitalize">{competition.format.replace('_', ' ')}</span></div>
+                <div><span className="text-muted-foreground">Type:</span> <span className="font-medium">{isLadder ? 'Ladder' : 'Round Robin'}</span></div>
+                <div><span className="text-muted-foreground">Scoring:</span> <span className="font-medium capitalize">{competition.scoring_format?.replace('_', ' ') || 'Best of 3'}</span></div>
+                <div><span className="text-muted-foreground">3rd Set:</span> <span className="font-medium capitalize">{competition.third_set_format?.replace('_', ' ') || 'Super Tiebreak'}</span></div>
+                <div><span className="text-muted-foreground">Points/Win:</span> <span className="font-medium">{competition.points_per_win || 3}</span></div>
+                {competition.loss_points ? <div><span className="text-muted-foreground">Loss Points:</span> <span className="font-medium">{competition.loss_points}</span></div> : null}
+                {competition.min_ntrp && <div><span className="text-muted-foreground">NTRP Range:</span> <span className="font-medium">{competition.min_ntrp}-{competition.max_ntrp}</span></div>}
+                {competition.gender_restriction && <div><span className="text-muted-foreground">Gender:</span> <span className="font-medium capitalize">{competition.gender_restriction.replace('_', ' ')}</span></div>}
+                <div><span className="text-muted-foreground">Max Players:</span> <span className="font-medium">{competition.max_teams || 20}</span></div>
+                {competition.play_by_deadline_days && <div><span className="text-muted-foreground">Play-by Deadline:</span> <span className="font-medium">{competition.play_by_deadline_days} days</span></div>}
+                {competition.acceptance_window_hours && <div><span className="text-muted-foreground">Acceptance Window:</span> <span className="font-medium">{competition.acceptance_window_hours}h</span></div>}
+                <div><span className="text-muted-foreground">Score Confirmation:</span> <span className="font-medium">{competition.require_score_confirmation ? 'Required' : 'Not required'}</span></div>
+                {competition.city && <div><span className="text-muted-foreground">Location:</span> <span className="font-medium">{competition.city}</span></div>}
+                {competition.start_date && <div><span className="text-muted-foreground">Start Date:</span> <span className="font-medium">{competition.start_date}</span></div>}
+                {competition.end_date && <div><span className="text-muted-foreground">End Date:</span> <span className="font-medium">{competition.end_date}</span></div>}
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Fixed Sign Up Button at bottom */}
+      {!isOnTeam && !hasPendingRequest && (isSetup || isActive) && (
+        <div className="fixed bottom-20 left-0 right-0 p-4 bg-background/80 backdrop-blur-sm border-t border-border z-20">
+          <div className="container mx-auto max-w-lg">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="w-full block">
+                    <Button
+                      onClick={handleJoinClick}
+                      disabled={!canSignUp}
+                      className={`w-full min-h-[48px] text-base font-medium ${
+                        canSignUp
+                          ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                          : 'bg-muted text-muted-foreground cursor-not-allowed'
+                      }`}
+                    >
+                      <UserPlus className="mr-2 h-5 w-5" /> Sign Up
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {eligibilityIssue && (
+                  <TooltipContent side="top" className="max-w-xs">
+                    <p className="text-sm">{eligibilityIssue}</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        </div>
+      )}
 
       <LadderJoinDialog
         open={showJoinDialog} onOpenChange={setShowJoinDialog}
