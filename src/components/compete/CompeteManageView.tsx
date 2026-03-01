@@ -20,6 +20,7 @@ const CompeteManageView = ({ onSelectCompetition, onManageCompetition, onCreateN
   const { currentUser } = useAuth();
   const [competitions, setCompetitions] = useState<Competition[]>([]);
   const [teamCounts, setTeamCounts] = useState<Record<string, number>>({});
+  const [playerCounts, setPlayerCounts] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
 
   const loadData = useCallback(async () => {
@@ -36,13 +37,48 @@ const CompeteManageView = ({ onSelectCompetition, onManageCompetition, onCreateN
 
       const allIds = comps.map(c => c.id);
       if (allIds.length > 0) {
+        // Count confirmed teams
         const { data: teams } = await supabase
           .from('ladder_teams')
-          .select('ladder_id')
+          .select('ladder_id, player1_id, player2_id')
           .in('ladder_id', allIds);
-        const counts: Record<string, number> = {};
-        teams?.forEach(t => { counts[t.ladder_id] = (counts[t.ladder_id] || 0) + 1; });
-        setTeamCounts(counts);
+        const tCounts: Record<string, number> = {};
+        const pCounts: Record<string, number> = {};
+        
+        // Initialize
+        allIds.forEach(id => { tCounts[id] = 0; pCounts[id] = 0; });
+        
+        // Count teams and players from confirmed teams
+        teams?.forEach(t => {
+          tCounts[t.ladder_id] = (tCounts[t.ladder_id] || 0) + 1;
+          pCounts[t.ladder_id] = (pCounts[t.ladder_id] || 0) + 1;
+          if (t.player2_id) pCounts[t.ladder_id] = (pCounts[t.ladder_id] || 0) + 1;
+        });
+        
+        // Count players from pending registration requests (not yet on a team)
+        const { data: reqs } = await supabase
+          .from('ladder_registration_requests')
+          .select('ladder_id, player_id, partner_id, status')
+          .in('ladder_id', allIds)
+          .in('status', ['pending', 'pending_partner']);
+        
+        // Collect confirmed player IDs per ladder to avoid double-counting
+        const confirmedPlayers: Record<string, Set<string>> = {};
+        allIds.forEach(id => { confirmedPlayers[id] = new Set(); });
+        teams?.forEach(t => {
+          confirmedPlayers[t.ladder_id].add(t.player1_id);
+          if (t.player2_id) confirmedPlayers[t.ladder_id].add(t.player2_id);
+        });
+        
+        reqs?.forEach(r => {
+          if (!confirmedPlayers[r.ladder_id].has(r.player_id)) {
+            pCounts[r.ladder_id] = (pCounts[r.ladder_id] || 0) + 1;
+            confirmedPlayers[r.ladder_id].add(r.player_id);
+          }
+        });
+        
+        setTeamCounts(tCounts);
+        setPlayerCounts(pCounts);
       }
     } catch (error) {
       console.error('Error loading manage data:', error);
@@ -136,7 +172,8 @@ const CompeteManageView = ({ onSelectCompetition, onManageCompetition, onCreateN
                     <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
                       <span className="flex items-center gap-0.5">
                         <Users className="h-3 w-3" />
-                        {teamCounts[comp.id] || 0}/{comp.max_teams || 20} players
+                        {playerCounts[comp.id] || 0} players registered
+                        {(comp.format === 'doubles' || comp.format === 'mixed_doubles') && ` · ${teamCounts[comp.id] || 0} teams confirmed`}
                       </span>
                       {comp.registration_deadline && (
                         <span className="flex items-center gap-0.5">

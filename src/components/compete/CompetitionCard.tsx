@@ -11,10 +11,12 @@ interface CompetitionCardProps {
   competition: Competition;
   onSelect: (c: Competition) => void;
   teamCount?: number;
+  playerCount?: number;
   creatorName?: string;
   creatorRole?: string;
   actionLabel?: string;
   showCreator?: boolean;
+  isAdminView?: boolean;
 }
 
 const formatLabel = (f: string) => {
@@ -44,9 +46,11 @@ const iconBg = (f: string) => {
   }
 };
 
-const CompetitionCard = ({ competition, onSelect, teamCount = 0, creatorName, creatorRole, actionLabel, showCreator }: CompetitionCardProps) => {
+const CompetitionCard = ({ competition, onSelect, teamCount = 0, playerCount, creatorName, creatorRole, actionLabel, showCreator, isAdminView }: CompetitionCardProps) => {
   const maxTeams = competition.max_teams || 20;
-  const fillPct = Math.min((teamCount / maxTeams) * 100, 100);
+  const isDoubles = competition.format === 'doubles' || competition.format === 'mixed_doubles';
+  const displayCount = playerCount ?? teamCount;
+  const fillPct = Math.min((displayCount / maxTeams) * 100, 100);
 
   const statusBadge = () => {
     if (competition.status === 'active') return <Badge className="bg-emerald-100 text-emerald-700 border-0 text-xs">Active</Badge>;
@@ -111,7 +115,10 @@ const CompetitionCard = ({ competition, onSelect, teamCount = 0, creatorName, cr
 
         <Progress value={fillPct} className="h-1.5 mb-2 bg-muted" />
         <div className="flex items-center justify-between text-xs mb-3">
-          <span className="text-muted-foreground">{teamCount}/{maxTeams} Players</span>
+          <span className="text-muted-foreground">
+            {displayCount} players registered
+            {isAdminView && isDoubles && ` · ${teamCount} teams confirmed`}
+          </span>
           {fillPct >= 80 && <span className="text-primary font-medium italic">Almost Full!</span>}
         </div>
 

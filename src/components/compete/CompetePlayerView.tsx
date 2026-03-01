@@ -30,6 +30,7 @@ const CompetePlayerView = ({ onSelectCompetition }: CompetePlayerViewProps) => {
   const [myCompetitions, setMyCompetitions] = useState<Competition[]>([]);
   const [availableCompetitions, setAvailableCompetitions] = useState<Competition[]>([]);
   const [teamCounts, setTeamCounts] = useState<Record<string, number>>({});
+  const [playerCounts, setPlayerCounts] = useState<Record<string, number>>({});
   const [myTeamInfo, setMyTeamInfo] = useState<Record<string, { rank: number; nextOpponent: string | null; nextDeadline: string | null }>>({});
   const [creatorProfiles, setCreatorProfiles] = useState<Record<string, { name: string; role: string }>>({});
   const [filter, setFilter] = useState('all');
@@ -108,11 +109,41 @@ const CompetePlayerView = ({ onSelectCompetition }: CompetePlayerViewProps) => {
       if (allIds.length > 0) {
         const { data: teams } = await supabase
           .from('ladder_teams')
-          .select('ladder_id')
+          .select('ladder_id, player1_id, player2_id')
           .in('ladder_id', allIds);
-        const counts: Record<string, number> = {};
-        teams?.forEach(t => { counts[t.ladder_id] = (counts[t.ladder_id] || 0) + 1; });
-        setTeamCounts(counts);
+        const tCounts: Record<string, number> = {};
+        const pCounts: Record<string, number> = {};
+        allIds.forEach(id => { tCounts[id] = 0; pCounts[id] = 0; });
+        
+        teams?.forEach(t => {
+          tCounts[t.ladder_id] = (tCounts[t.ladder_id] || 0) + 1;
+          pCounts[t.ladder_id] = (pCounts[t.ladder_id] || 0) + 1;
+          if (t.player2_id) pCounts[t.ladder_id] = (pCounts[t.ladder_id] || 0) + 1;
+        });
+        
+        // Add pending registrations
+        const { data: reqs } = await supabase
+          .from('ladder_registration_requests')
+          .select('ladder_id, player_id')
+          .in('ladder_id', allIds)
+          .in('status', ['pending', 'pending_partner']);
+        
+        const confirmedPlayers: Record<string, Set<string>> = {};
+        allIds.forEach(id => { confirmedPlayers[id] = new Set(); });
+        teams?.forEach(t => {
+          confirmedPlayers[t.ladder_id].add(t.player1_id);
+          if (t.player2_id) confirmedPlayers[t.ladder_id].add(t.player2_id);
+        });
+        
+        reqs?.forEach(r => {
+          if (!confirmedPlayers[r.ladder_id].has(r.player_id)) {
+            pCounts[r.ladder_id] = (pCounts[r.ladder_id] || 0) + 1;
+            confirmedPlayers[r.ladder_id].add(r.player_id);
+          }
+        });
+        
+        setTeamCounts(tCounts);
+        setPlayerCounts(pCounts);
       }
 
       // 4. Load creator profiles for available competitions
@@ -263,6 +294,7 @@ const CompetePlayerView = ({ onSelectCompetition }: CompetePlayerViewProps) => {
                   competition={comp}
                   onSelect={onSelectCompetition}
                   teamCount={teamCounts[comp.id] || 0}
+                  playerCount={playerCounts[comp.id] || 0}
                   creatorName={creator?.name}
                   creatorRole={creator?.role}
                   showCreator
