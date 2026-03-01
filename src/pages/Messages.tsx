@@ -328,7 +328,7 @@ export default function Messages() {
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground truncate">
-                        {conv.last_message}
+                        {isLadderInvitation(conv.last_message) ? '📨 Ladder partnership invitation' : conv.last_message}
                       </p>
                     </div>
                     {conv.unread_count > 0 && (
