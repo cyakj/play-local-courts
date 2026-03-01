@@ -7,11 +7,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
-import { Search, Send, ArrowLeft } from 'lucide-react';
+import { Search, Send, ArrowLeft, Check, CheckCheck } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
+import LadderInvitationMessage, { isLadderInvitation } from '@/components/messages/LadderInvitationMessage';
 
 interface Player {
   id: string;
@@ -371,23 +372,64 @@ const MessagingDialog = ({ open, onOpenChange, hasUnreadMessages, onMarkAsRead }
             <div className="w-full flex flex-col">
               <ScrollArea className="flex-1 p-4">
                 <div className="space-y-4">
-                  {messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={`flex ${message.sender_id === currentUser?.id ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                        message.sender_id === currentUser?.id
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted'
-                      }`}>
-                        <p className="text-sm">{message.content}</p>
-                        <p className="text-xs opacity-70 mt-1">
-                          {formatMessageTime(message.created_at)}
-                        </p>
+                  {messages.map((message) => {
+                    const isOwn = message.sender_id === currentUser?.id;
+                    const invitationData = isLadderInvitation(message.content);
+
+                    // Render ladder invitation as interactive card (received)
+                    if (invitationData && !isOwn) {
+                      return (
+                        <div key={message.id} className="flex justify-start">
+                          <div className="max-w-[85%]">
+                            <LadderInvitationMessage
+                              invitationData={invitationData}
+                              messageId={message.id}
+                              senderId={message.sender_id}
+                              onStatusChange={() => loadMessages()}
+                            />
+                            <p className="text-xs text-muted-foreground mt-1 ml-1">
+                              {formatMessageTime(message.created_at)}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // Show a simpler view for sent invitations
+                    if (invitationData && isOwn) {
+                      return (
+                        <div key={message.id} className="flex justify-end">
+                          <div className="max-w-xs lg:max-w-md rounded-lg px-4 py-2 bg-primary/80 text-primary-foreground">
+                            <p className="text-sm">
+                              📨 You sent a ladder partnership invitation for <strong>{invitationData.ladder_name}</strong>
+                            </p>
+                            <p className="text-xs opacity-70 mt-1">
+                              {formatMessageTime(message.created_at)}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // Regular message
+                    return (
+                      <div
+                        key={message.id}
+                        className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                          isOwn
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted'
+                        }`}>
+                          <p className="text-sm">{message.content}</p>
+                          <p className="text-xs opacity-70 mt-1">
+                            {formatMessageTime(message.created_at)}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                   <div ref={messagesEndRef} />
                 </div>
               </ScrollArea>
