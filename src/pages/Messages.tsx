@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -186,6 +186,19 @@ export default function Messages() {
 
       if (error) throw error;
       setMessages(data || []);
+
+      // Scroll to first unread or bottom
+      const firstUnreadIdx = (data || []).findIndex(
+        (m) => m.sender_id === userId && !m.read_at
+      );
+      if (firstUnreadIdx > 0) {
+        setTimeout(() => {
+          const el = document.getElementById('msg-new-divider');
+          el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 150);
+      } else {
+        scrollToBottom();
+      }
 
       // Mark messages as read
       await supabase
@@ -383,82 +396,80 @@ export default function Messages() {
               <CardContent className="flex-1 overflow-hidden p-0">
                 <ScrollArea className="h-full p-4">
                   <div className="space-y-4">
-                    {messages.map((msg) => {
-                      const isOwn = msg.sender_id === currentUser?.id;
-                      const invitationData = isLadderInvitation(msg.content);
-                      
-                      // Render ladder invitation as interactive card
-                      if (invitationData && !isOwn) {
-                        return (
-                          <div key={msg.id} className="flex justify-start">
-                            <div className="max-w-[85%]">
-                              <LadderInvitationMessage
-                                invitationData={invitationData}
-                                messageId={msg.id}
-                                senderId={msg.sender_id}
-                                onStatusChange={() => loadMessages(selectedUserId!)}
-                              />
-                              <div className="text-xs text-muted-foreground mt-1 ml-1">
-                                {formatMessageTime(msg.created_at)}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      }
-                      
-                      // Show a simpler view for sent invitations
-                      if (invitationData && isOwn) {
-                        return (
-                          <div key={msg.id} className="flex justify-end">
-                            <div className="max-w-[70%] rounded-lg px-4 py-2 bg-primary/80 text-primary-foreground">
-                              <p className="text-sm">
-                                📨 You sent a ladder partnership invitation for <strong>{invitationData.ladder_name}</strong>
-                              </p>
-                              <div className="flex items-center gap-1 mt-1 text-xs text-primary-foreground/70">
-                                <span>{formatMessageTime(msg.created_at)}</span>
-                                {msg.read_at 
-                                  ? <CheckCheck className="h-3 w-3" />
-                                  : <Check className="h-3 w-3" />
-                                }
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      }
-                      
-                      // Regular message
-                      return (
-                        <div
-                          key={msg.id}
-                          className={cn(
-                            "flex",
-                            isOwn ? "justify-end" : "justify-start"
-                          )}
-                        >
-                          <div
-                            className={cn(
-                              "max-w-[70%] rounded-lg px-4 py-2",
-                              isOwn 
-                                ? "bg-primary text-primary-foreground" 
-                                : "bg-muted"
-                            )}
-                          >
-                            <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                            <div className={cn(
-                              "flex items-center gap-1 mt-1 text-xs",
-                              isOwn ? "text-primary-foreground/70" : "text-muted-foreground"
-                            )}>
-                              <span>{formatMessageTime(msg.created_at)}</span>
-                              {isOwn && (
-                                msg.read_at 
-                                  ? <CheckCheck className="h-3 w-3" />
-                                  : <Check className="h-3 w-3" />
-                              )}
-                            </div>
-                          </div>
-                        </div>
+                    {(() => {
+                      const firstUnreadIdx = messages.findIndex(
+                        (m) => m.sender_id === selectedUserId && !m.read_at
                       );
-                    })}
+
+                      return messages.map((msg, idx) => {
+                        const isOwn = msg.sender_id === currentUser?.id;
+                        const invitationData = isLadderInvitation(msg.content);
+                        const showNewDivider = idx === firstUnreadIdx && firstUnreadIdx > 0;
+
+                        return (
+                          <React.Fragment key={msg.id}>
+                            {showNewDivider && (
+                              <div id="msg-new-divider" className="flex items-center gap-3 py-1">
+                                <div className="flex-1 h-px bg-primary/40" />
+                                <span className="text-[10px] font-semibold uppercase tracking-wider text-primary">New</span>
+                                <div className="flex-1 h-px bg-primary/40" />
+                              </div>
+                            )}
+
+                            {invitationData && !isOwn ? (
+                              <div className="flex justify-start">
+                                <div className="max-w-[85%]">
+                                  <LadderInvitationMessage
+                                    invitationData={invitationData}
+                                    messageId={msg.id}
+                                    senderId={msg.sender_id}
+                                    onStatusChange={() => loadMessages(selectedUserId!)}
+                                  />
+                                  <div className="text-xs text-muted-foreground mt-1 ml-1">
+                                    {formatMessageTime(msg.created_at)}
+                                  </div>
+                                </div>
+                              </div>
+                            ) : invitationData && isOwn ? (
+                              <div className="flex justify-end">
+                                <div className="max-w-[70%] rounded-lg px-4 py-2 bg-primary/80 text-primary-foreground">
+                                  <p className="text-sm">
+                                    📨 You sent a ladder partnership invitation for <strong>{invitationData.ladder_name}</strong>
+                                  </p>
+                                  <div className="flex items-center gap-1 mt-1 text-xs text-primary-foreground/70">
+                                    <span>{formatMessageTime(msg.created_at)}</span>
+                                    {msg.read_at 
+                                      ? <CheckCheck className="h-3 w-3" />
+                                      : <Check className="h-3 w-3" />
+                                    }
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className={cn("flex", isOwn ? "justify-end" : "justify-start")}>
+                                <div className={cn(
+                                  "max-w-[70%] rounded-lg px-4 py-2",
+                                  isOwn ? "bg-primary text-primary-foreground" : "bg-muted"
+                                )}>
+                                  <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                                  <div className={cn(
+                                    "flex items-center gap-1 mt-1 text-xs",
+                                    isOwn ? "text-primary-foreground/70" : "text-muted-foreground"
+                                  )}>
+                                    <span>{formatMessageTime(msg.created_at)}</span>
+                                    {isOwn && (
+                                      msg.read_at 
+                                        ? <CheckCheck className="h-3 w-3" />
+                                        : <Check className="h-3 w-3" />
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </React.Fragment>
+                        );
+                      });
+                    })()}
                     <div ref={messagesEndRef} />
                   </div>
                 </ScrollArea>
