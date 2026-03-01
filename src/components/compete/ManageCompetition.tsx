@@ -3,14 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, PlayCircle, StopCircle, Users, Settings } from 'lucide-react';
+import { ArrowLeft, PlayCircle, StopCircle, Users, Settings, Trash2, Info } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { Competition, CompetitionTeam } from './types';
 import LadderLeaderboard from '@/components/ladders/LadderLeaderboard';
 import LadderMatches from '@/components/ladders/LadderMatches';
-import LadderTeams from '@/components/ladders/LadderTeams';
 import RegistrationRequests from '@/components/ladders/RegistrationRequests';
 import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 
@@ -20,9 +19,17 @@ interface Props {
   onUpdated: () => void;
 }
 
+interface PlayerProfile {
+  id: string;
+  full_name: string | null;
+  username: string | null;
+  ntrp_rating: number | null;
+}
+
 const ManageCompetition = ({ competition, onBack, onUpdated }: Props) => {
   const { currentUser } = useAuth();
   const [teams, setTeams] = useState<CompetitionTeam[]>([]);
+  const [profiles, setProfiles] = useState<Record<string, PlayerProfile>>({});
   const [isLoading, setIsLoading] = useState(true);
 
   const isActive = competition.status === 'active';
@@ -33,7 +40,27 @@ const ManageCompetition = ({ competition, onBack, onUpdated }: Props) => {
     const { data } = await supabase
       .from('ladder_teams').select('*').eq('ladder_id', competition.id)
       .order('total_points', { ascending: false });
-    setTeams((data || []) as CompetitionTeam[]);
+    const teamsData = (data || []) as CompetitionTeam[];
+    setTeams(teamsData);
+
+    // Load profiles for all players
+    const playerIds = new Set<string>();
+    teamsData.forEach(t => {
+      playerIds.add(t.player1_id);
+      if (t.player2_id) playerIds.add(t.player2_id);
+    });
+
+    if (playerIds.size > 0) {
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, full_name, username, ntrp_rating')
+        .in('id', Array.from(playerIds));
+      
+      const profileMap: Record<string, PlayerProfile> = {};
+      (profilesData || []).forEach((p: any) => { profileMap[p.id] = p; });
+      setProfiles(profileMap);
+    }
+
     setIsLoading(false);
   }, [competition.id]);
 
@@ -62,6 +89,28 @@ const ManageCompetition = ({ competition, onBack, onUpdated }: Props) => {
     } catch (error) {
       toast.error('Failed to end competition');
     }
+  };
+
+  const handleRemoveTeam = async (teamId: string, teamName: string) => {
+    if (!confirm(`Remove "${teamName}" from this competition?`)) return;
+    try {
+      const { error } = await supabase.from('ladder_teams').delete().eq('id', teamId);
+      if (error) throw error;
+      toast.success(`${teamName} removed`);
+      loadTeams();
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to remove player');
+    }
+  };
+
+  const getPlayerName = (playerId: string) => {
+    const p = profiles[playerId];
+    return p?.full_name || p?.username || 'Unknown';
+  };
+
+  const getPlayerRating = (playerId: string) => {
+    return profiles[playerId]?.ntrp_rating;
   };
 
   const statusLabel = isSetup ? 'Open for Registration' : isActive ? 'Active' : 'Completed';
@@ -106,9 +155,7 @@ const ManageCompetition = ({ competition, onBack, onUpdated }: Props) => {
             </>
           )}
           <TabsTrigger value="players" className="data-[state=active]:bg-foreground data-[state=active]:text-background rounded-lg px-3 py-2 text-xs flex-1">Players</TabsTrigger>
-          {!competition.auto_approve_registration && (
-            <TabsTrigger value="requests" className="data-[state=active]:bg-foreground data-[state=active]:text-background rounded-lg px-3 py-2 text-xs flex-1">Requests</TabsTrigger>
-          )}
+          <TabsTrigger value="requests" className="data-[state=active]:bg-foreground data-[state=active]:text-background rounded-lg px-3 py-2 text-xs flex-1">Requests</TabsTrigger>
           <TabsTrigger value="settings" className="data-[state=active]:bg-foreground data-[state=active]:text-background rounded-lg px-3 py-2 text-xs flex-1">Settings</TabsTrigger>
         </TabsList>
 
@@ -124,18 +171,71 @@ const ManageCompetition = ({ competition, onBack, onUpdated }: Props) => {
         )}
 
         <TabsContent value="players" className="mt-4">
-          <LadderTeams ladder={competition as any} teams={teams} onTeamsUpdated={loadTeams} isAdmin={true} />
+          <Card className="border-0 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Users className="h-4 w-4" /> Registered Players ({teams.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {teams.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Users className="h-12 w-12 text-muted-foreground mb-4" />
+                  <p className="text-lg font-medium text-muted-foreground">No players registered yet</p>
+                  <p className="text-sm text-muted-foreground">Players can join from the Browse view.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {teams.map((team) => {
+                    const rating = getPlayerRating(team.player1_id);
+                    return (
+                      <div key={team.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium truncate">{team.team_name}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {getPlayerName(team.player1_id)}
+                            {competition.format === 'doubles' && team.player2_id && (
+                              <> & {getPlayerName(team.player2_id)}</>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                            {rating && <span>NTRP {rating}</span>}
+                            <span>{team.wins}W-{team.losses}L</span>
+                            <span>{team.total_points} pts</span>
+                          </div>
+                        </div>
+                        {(isSetup || isActive) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveTeam(team.id, team.team_name)}
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10 min-h-[44px]"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
-        {!competition.auto_approve_registration && (
-          <TabsContent value="requests" className="mt-4">
-            <RegistrationRequests
-              ladderId={competition.id}
-              ladderFormat={competition.format}
-              onRequestProcessed={loadTeams}
-            />
-          </TabsContent>
-        )}
+        <TabsContent value="requests" className="mt-4">
+          {competition.auto_approve_registration && (
+            <div className="flex items-start gap-2 p-3 mb-4 rounded-lg bg-muted/50 text-sm text-muted-foreground">
+              <Info className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>Auto-approve is enabled. New registrations are automatically accepted.</span>
+            </div>
+          )}
+          <RegistrationRequests
+            ladderId={competition.id}
+            ladderFormat={competition.format}
+            onRequestProcessed={loadTeams}
+          />
+        </TabsContent>
 
         <TabsContent value="settings" className="mt-4">
           <Card className="border-0 shadow-sm">
