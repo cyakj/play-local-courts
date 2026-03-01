@@ -1,37 +1,22 @@
 
 
-## Problem
+## Issues and Fixes
 
-The admin's **Manage Competition** screen (for "Sea Champs") is using the old `LadderTeams` component which shows an **"Add Team"** button for admins to manually add players. This is wrong for the intended flow where **players sign up themselves** via the player view, and admins only **review/approve registrations**.
+### 1. "View Ladder Details" navigates to wrong place
+Currently navigates to `/leagues-ladders` (the list). Should navigate directly to the competition detail page with the Rules tab selected.
 
-The current admin Players tab should NOT have an "Add Team" button. Instead it should:
-- Show registered players/teams in a read-only list
-- Allow admins to **remove** players if needed
-- Direct player registration through the **player-facing Sign Up flow** (which already exists in `CompetitionDetailPlayer` + `LadderJoinDialog`)
+**Fix**: Change `LadderInvitationMessage.viewLadder()` to use a query param or state, e.g., `navigate('/leagues-ladders', { state: { openCompetitionId: invitationData.ladder_id, defaultTab: 'rules' } })`. Then in the Compete player view, check for this navigation state to auto-open the correct competition detail with the Rules tab.
 
-## Plan
+### 2. "Registered Players (1)" but shows "No players registered yet"
+The count (`totalPlayerCount`) includes pending registration requests, but the player list only renders from `teams` array. When a player accepted an invite and a team was created, they appear in `teams`. But if only a registration request exists (no team yet), the count increments but nothing renders.
 
-### 1. Replace `LadderTeams` usage in `ManageCompetition.tsx`
+**Fix**: Also fetch profiles for pending registration requests and display them alongside teams in the Players tab. Sort all displayed players by NTRP descending (highest first).
 
-Replace the `LadderTeams` component in the admin's Players tab with a **custom inline players list** that:
-- Shows all registered teams/players with their name, rating, and record
-- Provides a **Remove** button for each player (admin capability)
-- Does NOT have an "Add Team" button (players self-register)
-- Shows an empty state: "No players registered yet. Players can join from the Browse view."
+### 3. Invitation message still shows Accept/Decline after already accepted
+`LadderInvitationMessage` initializes `status` as `'pending'` every render. It never checks the actual DB status of the invitation.
 
-### 2. Ensure the Requests tab is always visible for admin
+**Fix**: On mount, query `ladder_invitations` for the current invitation status. If already `accepted` or `declined`, initialize `status` accordingly so it renders the post-action card instead of the action buttons.
 
-Currently the Requests tab only shows when `auto_approve_registration` is false. It should always be visible so admins can see registration activity. When auto-approve is on, show a note that registrations are auto-approved.
-
-### 3. No changes to player flow
-
-The player signup flow (`CompetitionDetailPlayer` → `LadderJoinDialog`) is already correct and separate from the admin view.
-
-### Technical Details
-
-- **File modified**: `src/components/compete/ManageCompetition.tsx`
-  - Remove import of `LadderTeams`
-  - Build inline players list with remove capability in the Players tab
-  - Always show Requests tab (remove conditional)
-  - Fetch player profile names for display
+### 4. Player cards sorted by NTRP
+Display individual player cards (avatar, name, community, NTRP badge) sorted highest NTRP first, matching the reference screenshot style.
 
