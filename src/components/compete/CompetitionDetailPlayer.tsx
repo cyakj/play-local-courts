@@ -39,6 +39,7 @@ const CompetitionDetailPlayer = ({ competition, onBack }: Props) => {
   const [partnerProfile, setPartnerProfile] = useState<PartnerProfile | null>(null);
   const [partnerRegRequestId, setPartnerRegRequestId] = useState<string | null>(null);
   const [partnerInvitationId, setPartnerInvitationId] = useState<string | null>(null);
+  const [totalPlayerCount, setTotalPlayerCount] = useState(0);
   const isActive = competition.status === 'active';
   const isSetup = competition.status === 'setup';
   const isLadder = competition.scoring_mode === 'challenge';
@@ -79,6 +80,21 @@ const CompetitionDetailPlayer = ({ competition, onBack }: Props) => {
         });
         setPlayerProfiles(map);
       }
+
+      // Count total players including pending registrations
+      let totalPlayers = playerIds.size;
+      const { data: pendingReqs } = await supabase
+        .from('ladder_registration_requests')
+        .select('player_id')
+        .eq('ladder_id', competition.id)
+        .in('status', ['pending', 'pending_partner']);
+      pendingReqs?.forEach(r => {
+        if (!playerIds.has(r.player_id)) {
+          totalPlayers++;
+          playerIds.add(r.player_id);
+        }
+      });
+      setTotalPlayerCount(totalPlayers);
     } catch (error) {
       console.error('Error loading teams:', error);
     } finally {
@@ -234,6 +250,7 @@ const CompetitionDetailPlayer = ({ competition, onBack }: Props) => {
   useEffect(() => { loadTeams(); checkUserStatus(); loadCreator(); }, [loadTeams, checkUserStatus, loadCreator]);
   useRealtimeSubscription({ table: 'ladder_teams', event: '*', filter: `ladder_id=eq.${competition.id}`, onChange: loadTeams, enabled: true });
   useRealtimeSubscription({ table: 'ladder_invitations', event: '*', filter: `ladder_id=eq.${competition.id}`, onChange: checkUserStatus, enabled: true });
+  useRealtimeSubscription({ table: 'ladder_registration_requests', event: '*', filter: `ladder_id=eq.${competition.id}`, onChange: loadTeams, enabled: true });
 
   const canSignUp = !isOnTeam && !hasPendingRequest && !eligibilityIssue && !partnerState && (isSetup || isActive);
 
@@ -331,7 +348,7 @@ const CompetitionDetailPlayer = ({ competition, onBack }: Props) => {
 
         <TabsContent value="players" className="mt-4">
           <Card className="border-0 shadow-sm">
-            <CardHeader><CardTitle className="text-base">Registered Players ({teams.length})</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base">Registered Players ({totalPlayerCount})</CardTitle></CardHeader>
             <CardContent>
               {teams.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8">No players registered yet.</p>
