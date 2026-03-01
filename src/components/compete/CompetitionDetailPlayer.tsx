@@ -15,6 +15,7 @@ import LadderJoinDialog from '@/components/ladders/LadderJoinDialog';
 import NtrpRequiredAlert from '@/components/ladders/NtrpRequiredAlert';
 import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import PartnerStatusBanner, { PartnerState, PartnerProfile } from './PartnerStatusBanner';
 
 interface Props {
   competition: Competition;
@@ -34,7 +35,10 @@ const CompetitionDetailPlayer = ({ competition, onBack }: Props) => {
   const [playerProfiles, setPlayerProfiles] = useState<Record<string, { name: string; community: string; rating: number | null }>>({});
   const [creatorName, setCreatorName] = useState<string>('');
   const [creatorRole, setCreatorRole] = useState<string>('');
-
+  const [partnerState, setPartnerState] = useState<PartnerState>(null);
+  const [partnerProfile, setPartnerProfile] = useState<PartnerProfile | null>(null);
+  const [partnerRegRequestId, setPartnerRegRequestId] = useState<string | null>(null);
+  const [partnerInvitationId, setPartnerInvitationId] = useState<string | null>(null);
   const isActive = competition.status === 'active';
   const isSetup = competition.status === 'setup';
   const isLadder = competition.scoring_mode === 'challenge';
@@ -105,14 +109,35 @@ const CompetitionDetailPlayer = ({ competition, onBack }: Props) => {
     setUserNtrp(profile?.ntrp_rating || null);
 
     const { data: teamData } = await supabase
-      .from('ladder_teams').select('id').eq('ladder_id', competition.id)
+      .from('ladder_teams').select('id, player1_id, player2_id').eq('ladder_id', competition.id)
       .or(`player1_id.eq.${currentUser.id},player2_id.eq.${currentUser.id}`).limit(1);
-    setIsOnTeam((teamData?.length || 0) > 0);
+    const onTeam = (teamData?.length || 0) > 0;
+    setIsOnTeam(onTeam);
 
     const { data: requestData } = await supabase
-      .from('ladder_registration_requests').select('id').eq('ladder_id', competition.id)
-      .eq('player_id', currentUser.id).eq('status', 'pending').limit(1);
+      .from('ladder_registration_requests').select('id, looking_for_partner, partner_id, status').eq('ladder_id', competition.id)
+      .eq('player_id', currentUser.id).in('status', ['pending', 'pending_partner']).limit(1);
     setHasPendingRequest((requestData?.length || 0) > 0);
+
+    // Check partner status for doubles competitions
+    const isDoubles = competition.format === 'doubles' || competition.format === 'mixed_doubles';
+    if (isDoubles && !onTeam) {
+      await loadPartnerStatus(currentUser.id, requestData);
+    } else if (onTeam && isDoubles) {
+      // Team confirmed - find partner
+      const team = teamData?.[0];
+      if (team) {
+        const partnerId = team.player1_id === currentUser.id ? team.player2_id : team.player1_id;
+        if (partnerId) {
+          const pProfile = await loadPartnerProfile(partnerId);
+          setPartnerProfile(pProfile);
+          setPartnerState('confirmed');
+        }
+      }
+    } else {
+      setPartnerState(null);
+      setPartnerProfile(null);
+    }
 
     let issue: string | null = null;
     if (competition.min_ntrp && profile?.ntrp_rating && profile.ntrp_rating < competition.min_ntrp) {
@@ -125,10 +150,92 @@ const CompetitionDetailPlayer = ({ competition, onBack }: Props) => {
     setEligibilityIssue(issue);
   }, [currentUser?.id, competition]);
 
+  const loadPartnerProfile = async (userId: string): Promise<PartnerProfile | null> => {
+    const { data: p } = await supabase
+      .from('profiles')
+      .select('id, full_name, avatar_url, ntrp_rating, hoa_id')
+      .eq('id', userId)
+      .single();
+    if (!p) return null;
+    let community = '';
+    if (p.hoa_id) {
+      const { data: hoa } = await supabase.from('hoas').select('name').eq('id', p.hoa_id).single();
+      community = hoa?.name || '';
+    }
+    return { id: p.id, full_name: p.full_name, avatar_url: p.avatar_url, ntrp_rating: p.ntrp_rating, community };
+  };
+
+  const loadPartnerStatus = async (userId: string, myRequests: any[] | null) => {
+    // State 1: Looking for partner
+    if (myRequests && myRequests.length > 0) {
+      const req = myRequests[0];
+      setPartnerRegRequestId(req.id);
+
+      if (req.looking_for_partner && !req.partner_id) {
+        setPartnerState('looking');
+        setPartnerProfile(null);
+        setPartnerInvitationId(null);
+        return;
+      }
+
+      // State 2: Request sent (I invited someone)
+      if (req.partner_id && req.status === 'pending_partner') {
+        const { data: inv } = await supabase
+          .from('ladder_invitations')
+          .select('id')
+          .eq('ladder_id', competition.id)
+          .eq('invited_by', userId)
+          .eq('invited_user_id', req.partner_id)
+          .eq('status', 'pending')
+          .limit(1);
+        const pProfile = await loadPartnerProfile(req.partner_id);
+        setPartnerProfile(pProfile);
+        setPartnerState('request_sent');
+        setPartnerInvitationId(inv?.[0]?.id || null);
+        return;
+      }
+    }
+
+    // State 3: Request received (someone invited me)
+    const { data: incomingInvites } = await supabase
+      .from('ladder_invitations')
+      .select('id, invited_by, ladder_id')
+      .eq('ladder_id', competition.id)
+      .eq('invited_user_id', userId)
+      .eq('status', 'pending')
+      .limit(1);
+
+    if (incomingInvites && incomingInvites.length > 0) {
+      const inv = incomingInvites[0];
+      // Find the registration request from the inviter
+      const { data: inviterReq } = await supabase
+        .from('ladder_registration_requests')
+        .select('id')
+        .eq('ladder_id', competition.id)
+        .eq('player_id', inv.invited_by)
+        .eq('partner_id', userId)
+        .limit(1);
+
+      const pProfile = await loadPartnerProfile(inv.invited_by);
+      setPartnerProfile(pProfile);
+      setPartnerState('request_received');
+      setPartnerInvitationId(inv.id);
+      setPartnerRegRequestId(inviterReq?.[0]?.id || null);
+      return;
+    }
+
+    // No partner activity
+    setPartnerState(null);
+    setPartnerProfile(null);
+    setPartnerRegRequestId(null);
+    setPartnerInvitationId(null);
+  };
+
   useEffect(() => { loadTeams(); checkUserStatus(); loadCreator(); }, [loadTeams, checkUserStatus, loadCreator]);
   useRealtimeSubscription({ table: 'ladder_teams', event: '*', filter: `ladder_id=eq.${competition.id}`, onChange: loadTeams, enabled: true });
+  useRealtimeSubscription({ table: 'ladder_invitations', event: '*', filter: `ladder_id=eq.${competition.id}`, onChange: checkUserStatus, enabled: true });
 
-  const canSignUp = !isOnTeam && !hasPendingRequest && !eligibilityIssue && (isSetup || isActive);
+  const canSignUp = !isOnTeam && !hasPendingRequest && !eligibilityIssue && !partnerState && (isSetup || isActive);
 
   const handleJoinClick = () => {
     if ((competition.min_ntrp || competition.max_ntrp) && !userNtrp) {
@@ -172,10 +279,22 @@ const CompetitionDetailPlayer = ({ competition, onBack }: Props) => {
         {competition.description && <p className="text-sm text-muted-foreground">{competition.description}</p>}
       </div>
 
+      {/* Partner Status Banner - shown directly on competition page */}
+      {partnerState && (
+        <PartnerStatusBanner
+          state={partnerState}
+          partnerProfile={partnerProfile}
+          registrationRequestId={partnerRegRequestId}
+          invitationId={partnerInvitationId}
+          competitionId={competition.id}
+          onStatusChange={checkUserStatus}
+        />
+      )}
+
       {/* Registration status badges */}
       <div className="flex gap-2">
-        {isOnTeam && <Badge variant="secondary" className="px-3 py-2 min-h-[44px] flex items-center">You're Registered</Badge>}
-        {hasPendingRequest && <Badge variant="outline" className="px-3 py-2 min-h-[44px] flex items-center">Registration Pending</Badge>}
+        {isOnTeam && !partnerState && <Badge variant="secondary" className="px-3 py-2 min-h-[44px] flex items-center">You're Registered</Badge>}
+        {hasPendingRequest && !partnerState && <Badge variant="outline" className="px-3 py-2 min-h-[44px] flex items-center">Registration Pending</Badge>}
       </div>
 
       {/* Tabs */}
@@ -308,7 +427,7 @@ const CompetitionDetailPlayer = ({ competition, onBack }: Props) => {
       <LadderJoinDialog
         open={showJoinDialog} onOpenChange={setShowJoinDialog}
         ladder={competition as any} userNtrp={userNtrp}
-        onRegistrationComplete={() => { onBack(); }}
+        onRegistrationComplete={() => { checkUserStatus(); loadTeams(); }}
       />
       <NtrpRequiredAlert open={showNtrpAlert} onOpenChange={setShowNtrpAlert} />
     </div>
