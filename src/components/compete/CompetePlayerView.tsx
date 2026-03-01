@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Trophy, Calendar, ChevronRight, AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Trophy, Calendar, ChevronRight, AlertCircle, Swords, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -19,9 +20,9 @@ const FILTERS = [
   { label: 'All', value: 'all' },
   { label: 'Ladders', value: 'ladder' },
   { label: 'Round Robins', value: 'round_robin' },
-  { label: 'Community', value: 'community' },
+  { label: 'Community Only', value: 'community' },
   { label: 'Public', value: 'public' },
-  { label: 'Open', value: 'open' },
+  { label: 'Open Registration', value: 'open' },
 ];
 
 const CompetePlayerView = ({ onSelectCompetition }: CompetePlayerViewProps) => {
@@ -30,6 +31,7 @@ const CompetePlayerView = ({ onSelectCompetition }: CompetePlayerViewProps) => {
   const [availableCompetitions, setAvailableCompetitions] = useState<Competition[]>([]);
   const [teamCounts, setTeamCounts] = useState<Record<string, number>>({});
   const [myTeamInfo, setMyTeamInfo] = useState<Record<string, { rank: number; nextOpponent: string | null; nextDeadline: string | null }>>({});
+  const [creatorProfiles, setCreatorProfiles] = useState<Record<string, { name: string; role: string }>>({});
   const [filter, setFilter] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
 
@@ -45,7 +47,7 @@ const CompetePlayerView = ({ onSelectCompetition }: CompetePlayerViewProps) => {
         .or(`player1_id.eq.${currentUser.id},player2_id.eq.${currentUser.id}`);
 
       const myLadderIds = myTeams?.map(t => t.ladder_id) || [];
-      
+
       let myComps: Competition[] = [];
       if (myLadderIds.length > 0) {
         const { data } = await supabase
@@ -57,7 +59,7 @@ const CompetePlayerView = ({ onSelectCompetition }: CompetePlayerViewProps) => {
       }
       setMyCompetitions(myComps);
 
-      // Build rank info for my competitions
+      // Build rank and next match info
       const teamInfo: Record<string, { rank: number; nextOpponent: string | null; nextDeadline: string | null }> = {};
       for (const comp of myComps) {
         const { data: allTeams } = await supabase
@@ -69,7 +71,6 @@ const CompetePlayerView = ({ onSelectCompetition }: CompetePlayerViewProps) => {
         const myTeam = allTeams?.find(t => t.player1_id === currentUser.id || t.player2_id === currentUser.id);
         const rank = myTeam ? (allTeams?.indexOf(myTeam) || 0) + 1 : 0;
 
-        // Find next upcoming match
         let nextOpponent: string | null = null;
         let nextDeadline: string | null = null;
         if (myTeam) {
@@ -93,16 +94,12 @@ const CompetePlayerView = ({ onSelectCompetition }: CompetePlayerViewProps) => {
       }
       setMyTeamInfo(teamInfo);
 
-      // 2. Load available competitions (from user's HOA + public ones)
+      // 2. Load available competitions
       let query = supabase.from('ladders').select('*').in('status', ['setup', 'active']);
-      
       if (currentUser.hoaId) {
-        // User can see their HOA's ladders
         query = query.eq('hoa_id', currentUser.hoaId);
       }
-
       const { data: available } = await query.order('created_at', { ascending: false });
-      // Filter out ones user is already in
       const filtered = (available || []).filter(a => !myLadderIds.includes(a.id)) as Competition[];
       setAvailableCompetitions(filtered);
 
@@ -117,6 +114,27 @@ const CompetePlayerView = ({ onSelectCompetition }: CompetePlayerViewProps) => {
         teams?.forEach(t => { counts[t.ladder_id] = (counts[t.ladder_id] || 0) + 1; });
         setTeamCounts(counts);
       }
+
+      // 4. Load creator profiles for available competitions
+      const creatorIds = new Set(filtered.map(f => f.admin_id));
+      if (creatorIds.size > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', Array.from(creatorIds));
+        const { data: roles } = await supabase
+          .from('user_roles')
+          .select('user_id, role')
+          .in('user_id', Array.from(creatorIds));
+
+        const creatorMap: Record<string, { name: string; role: string }> = {};
+        profiles?.forEach(p => {
+          const userRoles = roles?.filter(r => r.user_id === p.id).map(r => r.role) || [];
+          const displayRole = userRoles.includes('admin') ? 'HOA Admin' : userRoles.includes('coach') ? 'Coach' : '';
+          creatorMap[p.id] = { name: p.full_name || 'Unknown', role: displayRole };
+        });
+        setCreatorProfiles(creatorMap);
+      }
     } catch (error) {
       console.error('Error loading compete data:', error);
       toast.error('Failed to load competitions');
@@ -126,20 +144,13 @@ const CompetePlayerView = ({ onSelectCompetition }: CompetePlayerViewProps) => {
   }, [currentUser?.id, currentUser?.hoaId]);
 
   useEffect(() => { loadData(); }, [loadData]);
-
-  useRealtimeSubscription({
-    table: 'ladders',
-    event: '*',
-    onChange: loadData,
-    enabled: !!currentUser?.id
-  });
+  useRealtimeSubscription({ table: 'ladders', event: '*', onChange: loadData, enabled: !!currentUser?.id });
 
   const filteredAvailable = availableCompetitions.filter(c => {
     if (filter === 'all') return true;
     if (filter === 'community') return c.hoa_only;
     if (filter === 'public') return !c.hoa_only && !c.is_private;
     if (filter === 'open') return c.status === 'setup';
-    // ladder vs round_robin - for now all are round_robin by scoring_mode
     if (filter === 'ladder') return c.scoring_mode === 'challenge';
     if (filter === 'round_robin') return c.scoring_mode !== 'challenge';
     return true;
@@ -159,7 +170,7 @@ const CompetePlayerView = ({ onSelectCompetition }: CompetePlayerViewProps) => {
 
   return (
     <div className="space-y-8">
-      {/* My Active Competitions */}
+      {/* TOP HALF — My Active Competitions */}
       <section>
         <h2 className="text-lg font-bold text-foreground mb-4">My Active Competitions</h2>
         {myCompetitions.length === 0 ? (
@@ -168,8 +179,9 @@ const CompetePlayerView = ({ onSelectCompetition }: CompetePlayerViewProps) => {
               <div className="h-14 w-14 bg-compete-light rounded-2xl flex items-center justify-center mb-3">
                 <Trophy className="h-7 w-7 text-compete" />
               </div>
+              <p className="font-medium text-foreground mb-1">Not competing yet</p>
               <p className="text-sm text-muted-foreground max-w-xs">
-                You are not in any active competitions yet. Browse below to join one.
+                You are not competing in anything yet. Browse below to find a competition to join.
               </p>
             </CardContent>
           </Card>
@@ -177,19 +189,30 @@ const CompetePlayerView = ({ onSelectCompetition }: CompetePlayerViewProps) => {
           <div className="space-y-3">
             {myCompetitions.map(comp => {
               const info = myTeamInfo[comp.id];
+              const isLadder = comp.scoring_mode === 'challenge';
               return (
-                <Card key={comp.id} className="border-0 shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => onSelectCompetition(comp)}>
+                <Card
+                  key={comp.id}
+                  className="border-0 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => onSelectCompetition(comp)}
+                >
                   <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <h3 className="font-semibold text-sm truncate">{comp.name}</h3>
+                          <Badge variant="outline" className="text-xs">
+                            {isLadder ? <Swords className="h-3 w-3 mr-0.5" /> : <Trophy className="h-3 w-3 mr-0.5" />}
+                            {isLadder ? 'Ladder' : 'Round Robin'}
+                          </Badge>
                           <Badge className="bg-emerald-100 text-emerald-700 border-0 text-xs flex-shrink-0">
                             {comp.status === 'active' ? 'Active' : 'Registration'}
                           </Badge>
                         </div>
                         <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                          {info?.rank > 0 && <span className="font-medium text-compete">Rank #{info.rank}</span>}
+                          {info?.rank > 0 && (
+                            <span className="font-medium text-compete">Rank #{info.rank}</span>
+                          )}
                           {info?.nextOpponent && (
                             <span>Next: vs {info.nextOpponent}</span>
                           )}
@@ -201,7 +224,14 @@ const CompetePlayerView = ({ onSelectCompetition }: CompetePlayerViewProps) => {
                           )}
                         </div>
                       </div>
-                      <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="min-h-[44px] text-xs flex-shrink-0"
+                        onClick={(e) => { e.stopPropagation(); onSelectCompetition(comp); }}
+                      >
+                        View
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -211,11 +241,11 @@ const CompetePlayerView = ({ onSelectCompetition }: CompetePlayerViewProps) => {
         )}
       </section>
 
-      {/* Available to Join */}
+      {/* BOTTOM HALF — Available to Join */}
       <section>
         <h2 className="text-lg font-bold text-foreground mb-4">Available to Join</h2>
         <FilterChips filters={FILTERS} activeFilter={filter} onChange={setFilter} />
-        
+
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mt-4">
           {filteredAvailable.length === 0 ? (
             <Card className="border-0 shadow-sm col-span-full">
@@ -225,15 +255,20 @@ const CompetePlayerView = ({ onSelectCompetition }: CompetePlayerViewProps) => {
               </CardContent>
             </Card>
           ) : (
-            filteredAvailable.map(comp => (
-              <CompetitionCard
-                key={comp.id}
-                competition={comp}
-                onSelect={onSelectCompetition}
-                teamCount={teamCounts[comp.id] || 0}
-                showCreator
-              />
-            ))
+            filteredAvailable.map(comp => {
+              const creator = creatorProfiles[comp.admin_id];
+              return (
+                <CompetitionCard
+                  key={comp.id}
+                  competition={comp}
+                  onSelect={onSelectCompetition}
+                  teamCount={teamCounts[comp.id] || 0}
+                  creatorName={creator?.name}
+                  creatorRole={creator?.role}
+                  showCreator
+                />
+              );
+            })
           )}
         </div>
       </section>
