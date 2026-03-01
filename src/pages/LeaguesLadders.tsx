@@ -1,24 +1,47 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLocation } from 'react-router-dom';
 import { Competition } from '@/components/compete/types';
 import CompetePlayerView from '@/components/compete/CompetePlayerView';
 import CompeteManageView from '@/components/compete/CompeteManageView';
 import CompetitionDetailPlayer from '@/components/compete/CompetitionDetailPlayer';
 import ManageCompetition from '@/components/compete/ManageCompetition';
 import CreateCompetitionWizard from '@/components/compete/CreateCompetitionWizard';
+import { supabase } from '@/integrations/supabase/client';
 
 export type { Competition as Ladder } from '@/components/compete/types';
 
 type ViewState =
   | { mode: 'list' }
-  | { mode: 'view'; competition: Competition }
+  | { mode: 'view'; competition: Competition; defaultTab?: string }
   | { mode: 'manage'; competition: Competition }
   | { mode: 'create' };
 
 const LeaguesLadders = () => {
   const { isAdmin, isCoach } = useAuth();
+  const location = useLocation();
   const [view, setView] = useState<ViewState>({ mode: 'list' });
   const [activeTab, setActiveTab] = useState<'compete' | 'manage'>('compete');
+
+  // Handle deep-link navigation from invitation messages
+  useEffect(() => {
+    const state = location.state as { openCompetitionId?: string; defaultTab?: string } | null;
+    if (state?.openCompetitionId) {
+      const loadAndOpen = async () => {
+        const { data } = await supabase
+          .from('ladders')
+          .select('*')
+          .eq('id', state.openCompetitionId!)
+          .single();
+        if (data) {
+          setView({ mode: 'view', competition: data as unknown as Competition, defaultTab: state.defaultTab });
+        }
+      };
+      loadAndOpen();
+      // Clear state so back navigation doesn't re-trigger
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   const isAdminOrCoach = isAdmin || isCoach;
 
@@ -42,6 +65,7 @@ const LeaguesLadders = () => {
           <CompetitionDetailPlayer
             competition={view.competition}
             onBack={() => setView({ mode: 'list' })}
+            defaultTab={view.defaultTab}
           />
         </div>
       </div>
