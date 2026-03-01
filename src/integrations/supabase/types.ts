@@ -1839,6 +1839,7 @@ export type Database = {
           notification_preferences: Json | null
           ntrp_rating: number | null
           phone_number: string | null
+          preferred_court_locations: string | null
           referred_by: string | null
           role: Database["public"]["Enums"]["user_role"] | null
           show_activity_status: boolean | null
@@ -1870,6 +1871,7 @@ export type Database = {
           notification_preferences?: Json | null
           ntrp_rating?: number | null
           phone_number?: string | null
+          preferred_court_locations?: string | null
           referred_by?: string | null
           role?: Database["public"]["Enums"]["user_role"] | null
           show_activity_status?: boolean | null
@@ -1901,6 +1903,7 @@ export type Database = {
           notification_preferences?: Json | null
           ntrp_rating?: number | null
           phone_number?: string | null
+          preferred_court_locations?: string | null
           referred_by?: string | null
           role?: Database["public"]["Enums"]["user_role"] | null
           show_activity_status?: boolean | null

@@ -3,10 +3,11 @@ import { cn } from '@/lib/utils';
 import { 
   Shield, 
   Bell, 
-  Settings
+  Settings,
+  LifeBuoy
 } from 'lucide-react';
 
-export type SettingsSection = 'account' | 'privacy' | 'notifications';
+export type SettingsSection = 'account' | 'privacy' | 'notifications' | 'help';
 
 interface SettingsNavigationProps {
   activeSection: SettingsSection;
@@ -17,7 +18,8 @@ interface SettingsNavigationProps {
 const navigationItems = [
   { id: 'account' as const, label: 'Account', icon: Settings, description: 'Email, phone, password' },
   { id: 'privacy' as const, label: 'Privacy', icon: Shield, description: 'Location & visibility' },
-  { id: 'notifications' as const, label: 'Notifications', icon: Bell, description: 'Email & in-app alerts' },
+  { id: 'notifications' as const, label: 'Notifications', icon: Bell, description: 'In-app alerts' },
+  { id: 'help' as const, label: 'Help & Support', icon: LifeBuoy, description: 'FAQ, terms, contact' },
 ];
 
 const SettingsNavigation: React.FC<SettingsNavigationProps> = ({
@@ -25,14 +27,12 @@ const SettingsNavigation: React.FC<SettingsNavigationProps> = ({
   onSectionChange,
   isCoach
 }) => {
-  const displayItems = navigationItems;
-
   return (
     <>
       {/* Desktop Side Navigation */}
       <nav className="hidden lg:block w-64 flex-shrink-0">
         <div className="sticky top-4 space-y-1">
-          {displayItems.map((item) => {
+          {navigationItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeSection === item.id;
             
@@ -66,7 +66,7 @@ const SettingsNavigation: React.FC<SettingsNavigationProps> = ({
       {/* Mobile Top Tabs */}
       <div className="lg:hidden w-full overflow-x-auto pb-2 mb-4 -mx-4 px-4">
         <div className="flex gap-2 min-w-max">
-          {displayItems.map((item) => {
+          {navigationItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeSection === item.id;
             

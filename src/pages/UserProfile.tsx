@@ -17,6 +17,7 @@ import {
   User
 } from 'lucide-react';
 import { toast } from 'sonner';
+import PlayingPreferencesCard from '@/components/locker/PlayingPreferencesCard';
 
 interface ProfileData {
   id: string;
@@ -32,6 +33,7 @@ interface ProfileData {
   gender: string | null;
   user_type: string | null;
   created_at: string | null;
+  preferred_court_locations: string | null;
 }
 
 interface CoachData {
@@ -292,6 +294,13 @@ export default function UserProfile() {
               </div>
             )}
 
+            {profile.preferred_court_locations && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Preferred Courts</span>
+                <span className="text-right">{profile.preferred_court_locations}</span>
+              </div>
+            )}
+
             {profile.created_at && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Member Since</span>
@@ -336,6 +345,9 @@ export default function UserProfile() {
             )}
           </CardContent>
         </Card>
+
+        {/* Playing Preferences */}
+        {id && <PlayingPreferencesCard userId={id} />}
 
         {/* Coach Info (if applicable) */}
         {isCoach && coachData && (

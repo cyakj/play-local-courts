@@ -20,6 +20,9 @@ const AccountSection: React.FC<AccountSectionProps> = ({ profile, setProfile }) 
   const [editingPhone, setEditingPhone] = useState(false);
   const [phoneInput, setPhoneInput] = useState(profile.phoneNumber);
   const [savingPhone, setSavingPhone] = useState(false);
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [emailInput, setEmailInput] = useState(currentUser?.email || '');
+  const [savingEmail, setSavingEmail] = useState(false);
 
   const handleSavePhone = async () => {
     if (!currentUser) return;
@@ -45,6 +48,34 @@ const AccountSection: React.FC<AccountSectionProps> = ({ profile, setProfile }) 
       });
     } finally {
       setSavingPhone(false);
+    }
+  };
+
+  const handleSaveEmail = async () => {
+    if (!emailInput || !emailInput.includes('@')) {
+      toast({ title: "Invalid email", description: "Please enter a valid email address", variant: "destructive" });
+      return;
+    }
+
+    setSavingEmail(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ email: emailInput });
+      if (error) throw error;
+
+      setEditingEmail(false);
+      toast({
+        title: "Confirmation email sent",
+        description: "Check both your old and new email to confirm the change"
+      });
+    } catch (error: any) {
+      console.error('Error updating email:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update email",
+        variant: "destructive"
+      });
+    } finally {
+      setSavingEmail(false);
     }
   };
 
@@ -81,18 +112,58 @@ const AccountSection: React.FC<AccountSectionProps> = ({ profile, setProfile }) 
       <CardContent className="space-y-6">
         {/* Email */}
         <div className="flex items-center justify-between py-4 border-b">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-1">
             <div className="p-3 bg-muted rounded-xl">
               <Mail className="h-5 w-5 text-muted-foreground" />
             </div>
-            <div>
+            <div className="flex-1">
               <Label className="text-sm text-muted-foreground">Email Address</Label>
-              <p className="font-medium">{currentUser?.email || 'Not set'}</p>
+              {editingEmail ? (
+                <div className="flex items-center gap-2 mt-1">
+                  <Input
+                    type="email"
+                    value={emailInput}
+                    onChange={(e) => setEmailInput(e.target.value)}
+                    placeholder="you@example.com"
+                    className="max-w-[250px]"
+                  />
+                  <Button 
+                    size="icon" 
+                    variant="ghost"
+                    onClick={handleSaveEmail}
+                    disabled={savingEmail}
+                  >
+                    <Check className="h-4 w-4 text-green-600" />
+                  </Button>
+                  <Button 
+                    size="icon" 
+                    variant="ghost"
+                    onClick={() => {
+                      setEditingEmail(false);
+                      setEmailInput(currentUser?.email || '');
+                    }}
+                  >
+                    <X className="h-4 w-4 text-red-600" />
+                  </Button>
+                </div>
+              ) : (
+                <p className="font-medium">{currentUser?.email || 'Not set'}</p>
+              )}
             </div>
           </div>
-          <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
-            Cannot be changed
-          </span>
+          {!editingEmail && (
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => {
+                setEmailInput(currentUser?.email || '');
+                setEditingEmail(true);
+              }}
+            >
+              <Pencil className="h-4 w-4 mr-1" />
+              Edit
+            </Button>
+          )}
         </div>
 
         {/* Phone */}

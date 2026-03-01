@@ -5,6 +5,7 @@ import SettingsNavigation, { SettingsSection } from '@/components/settings/Setti
 import AccountSection from '@/components/settings/AccountSection';
 import PrivacySection from '@/components/settings/PrivacySection';
 import NotificationsSection from '@/components/settings/NotificationsSection';
+import HelpSupportSection from '@/components/settings/HelpSupportSection';
 import SaveChangesFooter from '@/components/settings/SaveChangesFooter';
 
 const Settings = () => {
@@ -42,6 +43,8 @@ const Settings = () => {
         return <PrivacySection privacy={privacy} setPrivacy={setPrivacy} />;
       case 'notifications':
         return <NotificationsSection />;
+      case 'help':
+        return <HelpSupportSection />;
       default:
         return null;
     }
