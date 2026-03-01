@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -35,10 +35,32 @@ const LadderInvitationMessage = ({
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [isProcessing, setIsProcessing] = useState(false);
-  const [status, setStatus] = useState<'pending' | 'accepted' | 'declined'>('pending');
+  const [status, setStatus] = useState<'pending' | 'accepted' | 'declined' | 'loading'>('loading');
   const [showJoinDialog, setShowJoinDialog] = useState(false);
   const [ladderData, setLadderData] = useState<Competition | null>(null);
   const [userNtrp, setUserNtrp] = useState<number | null>(null);
+
+  // Check actual DB status on mount
+  useEffect(() => {
+    const checkInvitationStatus = async () => {
+      if (!currentUser?.id) { setStatus('pending'); return; }
+      try {
+        const { data } = await supabase
+          .from('ladder_invitations')
+          .select('status')
+          .eq('ladder_id', invitationData.ladder_id)
+          .eq('invited_user_id', currentUser.id)
+          .eq('invited_by', senderId)
+          .maybeSingle();
+        if (data?.status === 'accepted') setStatus('accepted');
+        else if (data?.status === 'declined') setStatus('declined');
+        else setStatus('pending');
+      } catch {
+        setStatus('pending');
+      }
+    };
+    checkInvitationStatus();
+  }, [currentUser?.id, invitationData.ladder_id, senderId]);
 
   const handleSignUp = async () => {
     try {
@@ -182,8 +204,18 @@ const LadderInvitationMessage = ({
   };
 
   const viewLadder = () => {
-    navigate(`/leagues-ladders`);
+    navigate('/leagues-ladders', { state: { openCompetitionId: invitationData.ladder_id, defaultTab: 'rules' } });
   };
+
+  if (status === 'loading') {
+    return (
+      <Card className="border-border/50">
+        <CardContent className="p-4">
+          <p className="text-sm text-muted-foreground text-center">Loading invitation...</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (status === 'accepted') {
     return (

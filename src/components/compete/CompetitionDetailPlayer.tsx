@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -20,9 +21,10 @@ import PartnerStatusBanner, { PartnerState, PartnerProfile } from './PartnerStat
 interface Props {
   competition: Competition;
   onBack: () => void;
+  defaultTab?: string;
 }
 
-const CompetitionDetailPlayer = ({ competition, onBack }: Props) => {
+const CompetitionDetailPlayer = ({ competition, onBack, defaultTab: defaultTabProp }: Props) => {
   const { currentUser } = useAuth();
   const [teams, setTeams] = useState<CompetitionTeam[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -32,9 +34,10 @@ const CompetitionDetailPlayer = ({ competition, onBack }: Props) => {
   const [showJoinDialog, setShowJoinDialog] = useState(false);
   const [showNtrpAlert, setShowNtrpAlert] = useState(false);
   const [eligibilityIssue, setEligibilityIssue] = useState<string | null>(null);
-  const [playerProfiles, setPlayerProfiles] = useState<Record<string, { name: string; community: string; rating: number | null }>>({});
-  const [creatorName, setCreatorName] = useState<string>('');
+  const [playerProfiles, setPlayerProfiles] = useState<Record<string, { name: string; community: string; rating: number | null; avatar_url?: string | null }>>({});
+  const [pendingPlayerIds, setPendingPlayerIds] = useState<string[]>([]);
   const [creatorRole, setCreatorRole] = useState<string>('');
+  const [creatorName, setCreatorName] = useState<string>('');
   const [partnerState, setPartnerState] = useState<PartnerState>(null);
   const [partnerProfile, setPartnerProfile] = useState<PartnerProfile | null>(null);
   const [partnerRegRequestId, setPartnerRegRequestId] = useState<string | null>(null);
@@ -56,10 +59,24 @@ const CompetitionDetailPlayer = ({ competition, onBack }: Props) => {
 
       const playerIds = new Set<string>();
       data?.forEach(t => { playerIds.add(t.player1_id); if (t.player2_id) playerIds.add(t.player2_id); });
+      // Also fetch pending registration player IDs
+      const { data: pendingReqs } = await supabase
+        .from('ladder_registration_requests')
+        .select('player_id, partner_id')
+        .eq('ladder_id', competition.id)
+        .in('status', ['pending', 'pending_partner']);
+      
+      const pendingIds: string[] = [];
+      pendingReqs?.forEach(r => {
+        if (!playerIds.has(r.player_id)) { playerIds.add(r.player_id); pendingIds.push(r.player_id); }
+        if (r.partner_id && !playerIds.has(r.partner_id)) { playerIds.add(r.partner_id); pendingIds.push(r.partner_id); }
+      });
+      setPendingPlayerIds(pendingIds);
+
       if (playerIds.size > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
-          .select('id, full_name, ntrp_rating, hoa_id')
+          .select('id, full_name, ntrp_rating, hoa_id, avatar_url')
           .in('id', Array.from(playerIds));
         
         // Get HOA names
@@ -70,31 +87,20 @@ const CompetitionDetailPlayer = ({ competition, onBack }: Props) => {
           hoas?.forEach(h => { hoaMap[h.id] = h.name; });
         }
 
-        const map: Record<string, { name: string; community: string; rating: number | null }> = {};
+        const map: Record<string, { name: string; community: string; rating: number | null; avatar_url?: string | null }> = {};
         profiles?.forEach(p => {
           map[p.id] = {
             name: p.full_name || 'Unknown',
             community: p.hoa_id ? (hoaMap[p.hoa_id] || '') : '',
             rating: p.ntrp_rating,
+            avatar_url: p.avatar_url,
           };
         });
         setPlayerProfiles(map);
       }
 
-      // Count total players including pending registrations
-      let totalPlayers = playerIds.size;
-      const { data: pendingReqs } = await supabase
-        .from('ladder_registration_requests')
-        .select('player_id')
-        .eq('ladder_id', competition.id)
-        .in('status', ['pending', 'pending_partner']);
-      pendingReqs?.forEach(r => {
-        if (!playerIds.has(r.player_id)) {
-          totalPlayers++;
-          playerIds.add(r.player_id);
-        }
-      });
-      setTotalPlayerCount(totalPlayers);
+      // Total player count is simply playerIds.size (already includes pending)
+      setTotalPlayerCount(playerIds.size);
     } catch (error) {
       console.error('Error loading teams:', error);
     } finally {
@@ -264,8 +270,8 @@ const CompetitionDetailPlayer = ({ competition, onBack }: Props) => {
 
   const statusLabel = isSetup ? 'Open for Registration' : isActive ? 'Active' : 'Completed';
 
-  // Determine default tab based on status and enrollment
-  const defaultTab = isActive && isOnTeam ? 'leaderboard' : isActive ? 'leaderboard' : 'rules';
+  // Determine default tab based on prop or status and enrollment
+  const defaultTab = defaultTabProp || (isActive && isOnTeam ? 'leaderboard' : isActive ? 'leaderboard' : 'rules');
 
   return (
     <div className="space-y-4 pb-24">
@@ -350,35 +356,48 @@ const CompetitionDetailPlayer = ({ competition, onBack }: Props) => {
           <Card className="border-0 shadow-sm">
             <CardHeader><CardTitle className="text-base">Registered Players ({totalPlayerCount})</CardTitle></CardHeader>
             <CardContent>
-              {teams.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">No players registered yet.</p>
-              ) : (
-                <div className="space-y-2">
-                  {teams.map((team, idx) => {
-                    const p1 = playerProfiles[team.player1_id];
-                    const p2 = team.player2_id ? playerProfiles[team.player2_id] : null;
-                    return (
-                      <div key={team.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <span className="text-xs font-bold text-muted-foreground w-6 flex-shrink-0">#{idx + 1}</span>
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium truncate">{team.team_name}</p>
-                            <p className="text-xs text-muted-foreground truncate">
-                              {p1?.name || 'Player'}
-                              {p2 && ` & ${p2.name}`}
-                            </p>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              {p1?.community && <span>{p1.community}</span>}
-                              {p1?.rating && <span>NTRP {p1.rating}</span>}
-                            </div>
-                          </div>
+              {(() => {
+                // Collect all unique player IDs from teams + pending registrations
+                const allPlayerIds = new Set<string>();
+                teams.forEach(t => { allPlayerIds.add(t.player1_id); if (t.player2_id) allPlayerIds.add(t.player2_id); });
+                pendingPlayerIds.forEach(id => allPlayerIds.add(id));
+
+                if (allPlayerIds.size === 0) {
+                  return <p className="text-sm text-muted-foreground text-center py-8">No players registered yet.</p>;
+                }
+
+                // Build player list sorted by NTRP descending
+                const players = Array.from(allPlayerIds)
+                  .map(id => ({ id, ...playerProfiles[id] }))
+                  .filter(p => p.name)
+                  .sort((a, b) => (b.rating || 0) - (a.rating || 0));
+
+                return (
+                  <div className="space-y-2">
+                    {players.map(player => (
+                      <div key={player.id} className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                        <Avatar className="h-10 w-10 flex-shrink-0">
+                          <AvatarImage src={player.avatar_url || undefined} alt={player.name} />
+                          <AvatarFallback className="text-xs font-medium">
+                            {player.name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{player.name}</p>
+                          {player.community && (
+                            <p className="text-xs text-muted-foreground truncate">{player.community}</p>
+                          )}
                         </div>
-                        {isActive && <Badge variant="secondary" className="text-xs flex-shrink-0">{team.total_points} pts</Badge>}
+                        {player.rating && (
+                          <Badge variant="secondary" className="text-xs flex-shrink-0">
+                            NTRP {player.rating}
+                          </Badge>
+                        )}
                       </div>
-                    );
-                  })}
-                </div>
-              )}
+                    ))}
+                  </div>
+                );
+              })()}
             </CardContent>
           </Card>
         </TabsContent>
