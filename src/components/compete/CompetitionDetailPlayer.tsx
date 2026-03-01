@@ -308,7 +308,7 @@ const CompetitionDetailPlayer = ({ competition, onBack }: Props) => {
       <LadderJoinDialog
         open={showJoinDialog} onOpenChange={setShowJoinDialog}
         ladder={competition as any} userNtrp={userNtrp}
-        onRegistrationComplete={() => { checkUserStatus(); loadTeams(); }}
+        onRegistrationComplete={() => { onBack(); }}
       />
       <NtrpRequiredAlert open={showNtrpAlert} onOpenChange={setShowNtrpAlert} />
     </div>

@@ -236,6 +236,7 @@ const LadderJoinDialog = ({ open, onOpenChange, ladder, userNtrp, onRegistration
         }
       }
 
+      onOpenChange(false);
       onRegistrationComplete();
     } catch (error: any) {
       console.error('Error joining ladder:', error);
