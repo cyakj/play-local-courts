@@ -353,53 +353,119 @@ const CompetitionDetailPlayer = ({ competition, onBack, defaultTab: defaultTabPr
         )}
 
         <TabsContent value="players" className="mt-4">
-          <Card className="border-0 shadow-sm">
-            <CardHeader><CardTitle className="text-base">Registered Players ({totalPlayerCount})</CardTitle></CardHeader>
-            <CardContent>
-              {(() => {
-                // Collect all unique player IDs from teams + pending registrations
-                const allPlayerIds = new Set<string>();
-                teams.forEach(t => { allPlayerIds.add(t.player1_id); if (t.player2_id) allPlayerIds.add(t.player2_id); });
-                pendingPlayerIds.forEach(id => allPlayerIds.add(id));
+          {(() => {
+            const isDoubles = competition.format === 'doubles' || competition.format === 'mixed_doubles';
 
-                if (allPlayerIds.size === 0) {
-                  return <p className="text-sm text-muted-foreground text-center py-8">No players registered yet.</p>;
-                }
-
-                // Build player list sorted by NTRP descending
-                const players = Array.from(allPlayerIds)
-                  .map(id => ({ id, ...playerProfiles[id] }))
-                  .filter(p => p.name)
-                  .sort((a, b) => (b.rating || 0) - (a.rating || 0));
-
-                return (
-                  <div className="space-y-2">
-                    {players.map(player => (
-                      <div key={player.id} className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                        <Avatar className="h-10 w-10 flex-shrink-0">
-                          <AvatarImage src={player.avatar_url || undefined} alt={player.name} />
-                          <AvatarFallback className="text-xs font-medium">
-                            {player.name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{player.name}</p>
-                          {player.community && (
-                            <p className="text-xs text-muted-foreground truncate">{player.community}</p>
-                          )}
-                        </div>
-                        {player.rating && (
-                          <Badge variant="secondary" className="text-xs flex-shrink-0">
-                            NTRP {player.rating}
-                          </Badge>
-                        )}
-                      </div>
-                    ))}
+            // Build player card renderer
+            const PlayerCard = ({ playerId }: { playerId: string }) => {
+              const player = playerProfiles[playerId];
+              if (!player) return null;
+              return (
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                  <Avatar className="h-10 w-10 flex-shrink-0">
+                    <AvatarImage src={player.avatar_url || undefined} alt={player.name} />
+                    <AvatarFallback className="text-xs font-medium">
+                      {player.name?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{player.name}</p>
+                    {player.community && (
+                      <p className="text-xs text-muted-foreground truncate">{player.community}</p>
+                    )}
                   </div>
-                );
-              })()}
-            </CardContent>
-          </Card>
+                  {player.rating && (
+                    <Badge variant="secondary" className="text-xs flex-shrink-0">
+                      NTRP {player.rating}
+                    </Badge>
+                  )}
+                </div>
+              );
+            };
+
+            if (isDoubles) {
+              // Doubles: split into Registered Teams and Unpaired Players
+              const confirmedTeams = teams.filter(t => t.player2_id); // both players present
+              const teamPlayerIds = new Set<string>();
+              confirmedTeams.forEach(t => { teamPlayerIds.add(t.player1_id); if (t.player2_id) teamPlayerIds.add(t.player2_id); });
+
+              // Unpaired = on a team with no partner, or in pending registration
+              const soloTeamPlayers = teams.filter(t => !t.player2_id).map(t => t.player1_id);
+              const unpairedIds = new Set([...soloTeamPlayers, ...pendingPlayerIds]);
+              // Remove anyone already on a confirmed team
+              teamPlayerIds.forEach(id => unpairedIds.delete(id));
+
+              const unpairedPlayers = Array.from(unpairedIds)
+                .map(id => ({ id, ...(playerProfiles[id] || {}) }))
+                .filter(p => p.name)
+                .sort((a, b) => ((b as any).rating || 0) - ((a as any).rating || 0));
+
+              const totalPlayers = teamPlayerIds.size + unpairedIds.size;
+
+              return (
+                <div className="space-y-4">
+                  {/* Registered Teams */}
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader><CardTitle className="text-base">Registered Teams ({confirmedTeams.length})</CardTitle></CardHeader>
+                    <CardContent>
+                      {confirmedTeams.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-6">No confirmed teams yet.</p>
+                      ) : (
+                        <div className="space-y-3">
+                          {confirmedTeams.map(team => (
+                            <div key={team.id} className="rounded-lg border border-border/50 p-3 space-y-2">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{team.team_name}</p>
+                              <PlayerCard playerId={team.player1_id} />
+                              {team.player2_id && <PlayerCard playerId={team.player2_id} />}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Unpaired Players */}
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader><CardTitle className="text-base">Unpaired Players ({unpairedPlayers.length})</CardTitle></CardHeader>
+                    <CardContent>
+                      {unpairedPlayers.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-6">All players are paired up!</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {unpairedPlayers.map(p => <PlayerCard key={p.id} playerId={p.id} />)}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              );
+            }
+
+            // Singles: flat list sorted by NTRP
+            const allPlayerIds = new Set<string>();
+            teams.forEach(t => { allPlayerIds.add(t.player1_id); if (t.player2_id) allPlayerIds.add(t.player2_id); });
+            pendingPlayerIds.forEach(id => allPlayerIds.add(id));
+
+            const players = Array.from(allPlayerIds)
+              .map(id => ({ id, ...(playerProfiles[id] || {}) }))
+              .filter(p => p.name)
+              .sort((a, b) => ((b as any).rating || 0) - ((a as any).rating || 0));
+
+            return (
+              <Card className="border-0 shadow-sm">
+                <CardHeader><CardTitle className="text-base">Registered Players ({players.length})</CardTitle></CardHeader>
+                <CardContent>
+                  {players.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">No players registered yet.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {players.map(p => <PlayerCard key={p.id} playerId={p.id} />)}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })()}
         </TabsContent>
 
         <TabsContent value="rules" className="mt-4">
