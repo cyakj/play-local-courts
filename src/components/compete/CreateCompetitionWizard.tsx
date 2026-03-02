@@ -31,7 +31,7 @@ const defaultForm: WizardFormData = {
   weekly_deadline_day: 0, challenge_range: '3', enable_playoffs: false, playoff_teams_count: '4',
   scoring_mode: 'cumulative', scoring_format: 'best_of_3', third_set_format: 'super_tiebreak',
   points_per_win: '3', points_per_set: '1', loss_points: '0',
-  tiebreaker_rule: 'head_to_head', secondary_tiebreaker: 'games_won',
+  tiebreaker_rule: 'head_to_head', secondary_tiebreaker: 'games_won', tertiary_tiebreaker: 'sets_percentage',
   acceptance_window_hours: '48', play_by_deadline_days: '10',
   require_score_confirmation: true, dispute_window_hours: '48',
   no_show_policy: 'forfeit', additional_rules: '',
@@ -171,7 +171,7 @@ const CreateCompetitionWizard = ({ onBack, onCreated, initialData }: Props) => {
       {step === 0 && (
         <div className="grid gap-4 sm:grid-cols-2">
           <Card className={`border-2 cursor-pointer transition-all ${form.competitionType === 'ladder' ? 'border-compete shadow-md' : 'border-transparent hover:border-muted'}`}
-            onClick={() => set('competitionType', 'ladder')}>
+            onClick={() => setForm(prev => ({ ...prev, competitionType: 'ladder', tiebreaker_rule: 'head_to_head', secondary_tiebreaker: 'games_won', tertiary_tiebreaker: 'sets_percentage' }))}>
             <CardContent className="p-6 text-center">
               <Swords className="h-10 w-10 mx-auto mb-3 text-compete" />
               <h3 className="font-bold text-lg mb-2">Ladder</h3>
@@ -179,7 +179,7 @@ const CreateCompetitionWizard = ({ onBack, onCreated, initialData }: Props) => {
             </CardContent>
           </Card>
           <Card className={`border-2 cursor-pointer transition-all ${form.competitionType === 'round_robin' ? 'border-compete shadow-md' : 'border-transparent hover:border-muted'}`}
-            onClick={() => set('competitionType', 'round_robin')}>
+            onClick={() => setForm(prev => ({ ...prev, competitionType: 'round_robin', tiebreaker_rule: 'head_to_head', secondary_tiebreaker: 'games_won', tertiary_tiebreaker: 'sets_percentage' }))}>
             <CardContent className="p-6 text-center">
               <Trophy className="h-10 w-10 mx-auto mb-3 text-compete" />
               <h3 className="font-bold text-lg mb-2">Round Robin</h3>
@@ -282,32 +282,73 @@ const CreateCompetitionWizard = ({ onBack, onCreated, initialData }: Props) => {
           <div><Label>Scoring Format</Label>
             <Select value={form.scoring_format} onValueChange={v => set('scoring_format', v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value="best_of_3">Best of 3 Sets</SelectItem><SelectItem value="best_of_1">Best of 1 Set</SelectItem><SelectItem value="pro_set">8-Game Pro Set</SelectItem></SelectContent>
+              <SelectContent>
+                <SelectItem value="best_of_3">Best of 3 Sets</SelectItem>
+                <SelectItem value="best_of_1">Best of 1 Set</SelectItem>
+                <SelectItem value="pro_set">8-Game Pro Set</SelectItem>
+              </SelectContent>
             </Select>
           </div>
           <div><Label>Third Set Format</Label>
             <Select value={form.third_set_format} onValueChange={v => set('third_set_format', v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value="full_set">Full Third Set</SelectItem><SelectItem value="super_tiebreak">Super Tiebreak</SelectItem><SelectItem value="match_tiebreak">Match Tiebreak</SelectItem></SelectContent>
+              <SelectContent>
+                <SelectItem value="full_set">Full Third Set</SelectItem>
+                <SelectItem value="super_tiebreak">Super Tiebreak (10-point)</SelectItem>
+                <SelectItem value="match_tiebreak">Match Tiebreak</SelectItem>
+              </SelectContent>
             </Select>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div><Label>Points per Win</Label><Input type="number" value={form.points_per_win} onChange={e => set('points_per_win', e.target.value)} /></div>
-            <div><Label>Bonus Points per Set</Label><Input type="number" value={form.points_per_set} onChange={e => set('points_per_set', e.target.value)} /></div>
-            <div><Label>Loss Points</Label><Input type="number" value={form.loss_points} onChange={e => set('loss_points', e.target.value)} /></div>
-          </div>
+
+          {/* Ladder-only: points fields */}
+          {isLadder && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div><Label>Points per Win</Label><Input type="number" value={form.points_per_win} onChange={e => set('points_per_win', e.target.value)} /></div>
+              <div><Label>Bonus Points per Set Won</Label><Input type="number" value={form.points_per_set} onChange={e => set('points_per_set', e.target.value)} /></div>
+              <div>
+                <Label>Loss Points</Label>
+                <Input type="number" value={form.loss_points} onChange={e => set('loss_points', e.target.value)} />
+                <p className="text-xs text-muted-foreground mt-1">Optional — award points for losses to encourage participation.</p>
+              </div>
+            </div>
+          )}
+
           <div><Label>Primary Tiebreaker</Label>
             <Select value={form.tiebreaker_rule} onValueChange={v => set('tiebreaker_rule', v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value="head_to_head">Head-to-Head</SelectItem><SelectItem value="game_percentage">Game Percentage</SelectItem></SelectContent>
+              <SelectContent>
+                <SelectItem value="head_to_head">{isLadder ? 'Head-to-Head' : 'Head-to-Head Record'}</SelectItem>
+                <SelectItem value="game_percentage">Game{isLadder ? '' : 's Won'} Percentage</SelectItem>
+              </SelectContent>
             </Select>
           </div>
           <div><Label>Secondary Tiebreaker</Label>
             <Select value={form.secondary_tiebreaker} onValueChange={v => set('secondary_tiebreaker', v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value="games_won">Games Won</SelectItem><SelectItem value="sets_won">Sets Won</SelectItem></SelectContent>
+              <SelectContent>
+                <SelectItem value="games_won">{isLadder ? 'Games Won' : 'Games Won Percentage'}</SelectItem>
+                <SelectItem value="sets_won">{isLadder ? 'Sets Won' : 'Sets Won Percentage'}</SelectItem>
+              </SelectContent>
             </Select>
           </div>
+
+          {/* Round Robin-only: tertiary tiebreaker */}
+          {!isLadder && (
+            <>
+              <div><Label>Tertiary Tiebreaker</Label>
+                <Select value={form.tertiary_tiebreaker || 'sets_percentage'} onValueChange={v => set('tertiary_tiebreaker', v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sets_percentage">Sets Won Percentage</SelectItem>
+                    <SelectItem value="games_percentage">Games Won Percentage</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <p className="text-xs text-muted-foreground bg-muted/50 p-3 rounded-lg">
+                Round robin standings are determined by win/loss record. Tiebreakers are applied in order when two or more players have identical records.
+              </p>
+            </>
+          )}
         </div>
       )}
 

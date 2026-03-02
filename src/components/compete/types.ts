@@ -126,6 +126,7 @@ export interface WizardFormData {
   loss_points: string;
   tiebreaker_rule: string;
   secondary_tiebreaker: string;
+  tertiary_tiebreaker: string;
   
   // Step 6 - Rules
   acceptance_window_hours: string;
