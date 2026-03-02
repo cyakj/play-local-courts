@@ -10,7 +10,6 @@ export interface Competition {
   start_date: string | null;
   end_date: string | null;
   registration_deadline: string | null;
-  weekly_deadline_day: number | null;
   min_ntrp: number | null;
   max_ntrp: number | null;
   min_age: number | null;
@@ -122,7 +121,6 @@ export interface WizardFormData {
   auto_approve_registration: boolean;
   
   // Step 4 - Structure (Ladder)
-  weekly_deadline_day: number;
   challenge_range: string;
   enable_playoffs: boolean;
   playoff_teams_count: string;

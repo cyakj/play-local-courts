@@ -133,11 +133,6 @@ const ManageLadders = () => {
     );
   }
 
-  const getDayName = (day: number | null) => {
-    if (day === null) return 'Not set';
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    return days[day] || 'Not set';
-  };
 
   return (
     <div className="container mx-auto p-6">
@@ -226,9 +221,6 @@ const ManageLadders = () => {
                       <span>Registration closes: {format(new Date((ladder as any).registration_deadline), 'MMM d, yyyy')}</span>
                     </div>
                   )}
-                  <div className="text-xs">
-                    Weekly deadline: {getDayName(ladder.weekly_deadline_day)}
-                  </div>
                 </div>
                 <div className="flex gap-2 mt-4" onClick={e => e.stopPropagation()}>
                   <Button 
