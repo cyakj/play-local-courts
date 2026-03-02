@@ -179,6 +179,35 @@ const LadderJoinDialog = ({ open, onOpenChange, ladder, userNtrp, onRegistration
     try {
       // For doubles with a partner selected, we need to send an invitation
       if (isDoubles && selectedPartner && !lookingForPartner) {
+        // Check for existing pending invitation from this user for this ladder
+        const { data: existingInvite } = await supabase
+          .from('ladder_invitations')
+          .select('id')
+          .eq('ladder_id', ladder.id)
+          .eq('invited_by', currentUser.id)
+          .eq('status', 'pending')
+          .maybeSingle();
+
+        if (existingInvite) {
+          toast.error('You already have a pending partner invitation for this competition. Cancel it first before inviting someone else.');
+          setIsSubmitting(false);
+          return;
+        }
+
+        // Check if this person already has a pending invitation for this ladder
+        const { data: targetInvite } = await supabase
+          .from('ladder_invitations')
+          .select('id')
+          .eq('ladder_id', ladder.id)
+          .eq('invited_user_id', selectedPartner.id)
+          .eq('status', 'pending')
+          .maybeSingle();
+
+        if (targetInvite) {
+          toast.error(`${selectedPartner.full_name || 'This player'} already has a pending invitation for this competition.`);
+          setIsSubmitting(false);
+          return;
+        }
         // Create registration request with pending partner
         const { data: requestData, error } = await supabase
           .from('ladder_registration_requests')

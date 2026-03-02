@@ -67,8 +67,7 @@ const CompetePlayerView = ({ onSelectCompetition }: CompetePlayerViewProps) => {
         const { data } = await supabase
           .from('ladders')
           .select('*')
-          .in('id', myParticipantLadderIds)
-          .in('status', ['active', 'setup']);
+          .in('id', myParticipantLadderIds);
         myComps = (data || []) as Competition[];
       }
       setMyCompetitions(myComps);
