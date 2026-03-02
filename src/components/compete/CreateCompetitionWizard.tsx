@@ -112,7 +112,7 @@ const CreateCompetitionWizard = ({ onBack, onCreated, initialData }: Props) => {
         min_players_required: form.min_players_required ? parseInt(form.min_players_required) : null,
         admin_id: currentUser.id,
         hoa_id: hoaId,
-        status: 'setup' as const,
+        status: (asDraft ? 'setup' : 'active') as any,
       };
 
       const { data, error } = await supabase.from('ladders').insert([ladderData]).select().single();
@@ -244,12 +244,12 @@ const CreateCompetitionWizard = ({ onBack, onCreated, initialData }: Props) => {
             </Select>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div><Label>Min NTRP</Label><Input type="number" step="0.5" min="1.5" max="7" value={form.min_ntrp} onChange={e => set('min_ntrp', e.target.value)} placeholder="e.g., 3.0" /></div>
-            <div><Label>Max NTRP</Label><Input type="number" step="0.5" min="1.5" max="7" value={form.max_ntrp} onChange={e => set('max_ntrp', e.target.value)} placeholder="e.g., 4.5" /></div>
+            <div><Label>Min NTRP</Label><Input type="number" step="0.5" min="1.5" max="7" value={form.min_ntrp} onChange={e => set('min_ntrp', e.target.value)} onBlur={e => { const v = parseFloat(e.target.value); if (!isNaN(v)) set('min_ntrp', String(Math.round(v * 2) / 2)); }} placeholder="e.g., 3.0" /></div>
+            <div><Label>Max NTRP</Label><Input type="number" step="0.5" min="1.5" max="7" value={form.max_ntrp} onChange={e => set('max_ntrp', e.target.value)} onBlur={e => { const v = parseFloat(e.target.value); if (!isNaN(v)) set('max_ntrp', String(Math.round(v * 2) / 2)); }} placeholder="e.g., 4.5" /></div>
             <div><Label>Min Age</Label><Input type="number" value={form.min_age} onChange={e => set('min_age', e.target.value)} placeholder="Optional" /></div>
             <div><Label>Max Age</Label><Input type="number" value={form.max_age} onChange={e => set('max_age', e.target.value)} placeholder="Optional" /></div>
           </div>
-          <div><Label>Max Players/Teams</Label><Input type="number" value={form.max_teams} onChange={e => set('max_teams', e.target.value)} /></div>
+          <div><Label>{form.format === 'singles' ? 'Max Players' : 'Max Teams'}</Label><Input type="number" value={form.max_teams} onChange={e => set('max_teams', e.target.value)} /></div>
           <div className="flex items-center justify-between py-2">
             <Label>Auto-approve registrations</Label>
             <Switch checked={form.auto_approve_registration} onCheckedChange={v => set('auto_approve_registration', v)} />
@@ -279,7 +279,7 @@ const CreateCompetitionWizard = ({ onBack, onCreated, initialData }: Props) => {
           {form.enable_playoffs && (
             <div><Label>Playoff Teams Count</Label><Input type="number" min="2" max="16" value={form.playoff_teams_count} onChange={e => set('playoff_teams_count', e.target.value)} /></div>
           )}
-          <div><Label>Minimum Players Required</Label>
+          <div><Label>{form.format === 'singles' ? 'Minimum Players Required' : 'Minimum Teams Required'}</Label>
             <Input type="number" min="2" value={form.min_players_required} onChange={e => set('min_players_required', e.target.value)} placeholder="Optional — admin notified if not met" />
             <p className="text-xs text-muted-foreground mt-1">If set, the admin will be notified 48 hours before the registration deadline if the minimum is not reached.</p>
           </div>
@@ -402,14 +402,14 @@ const CreateCompetitionWizard = ({ onBack, onCreated, initialData }: Props) => {
                 {form.city && <div><span className="text-muted-foreground">Location:</span> <span className="font-medium">{form.city}</span></div>}
                 {form.start_date && <div><span className="text-muted-foreground">Start:</span> <span className="font-medium">{form.start_date}</span></div>}
                 {form.end_date && <div><span className="text-muted-foreground">End:</span> <span className="font-medium">{form.end_date}</span></div>}
-                <div><span className="text-muted-foreground">Max Players:</span> <span className="font-medium">{form.max_teams}</span></div>
+                <div><span className="text-muted-foreground">{form.format === 'singles' ? 'Max Players' : 'Max Teams'}:</span> <span className="font-medium">{form.max_teams}</span></div>
                 <div><span className="text-muted-foreground">Scoring:</span> <span className="font-medium capitalize">{form.scoring_format.replace('_', ' ')}</span></div>
                 <div><span className="text-muted-foreground">Points/Win:</span> <span className="font-medium">{form.points_per_win}</span></div>
                 {form.min_ntrp && <div><span className="text-muted-foreground">NTRP:</span> <span className="font-medium">{form.min_ntrp}-{form.max_ntrp}</span></div>}
                 <div><span className="text-muted-foreground">Auto-approve:</span> <span className="font-medium">{form.auto_approve_registration ? 'Yes' : 'No'}</span></div>
                 <div><span className="text-muted-foreground">No-Show Policy:</span> <span className="font-medium capitalize">{form.no_show_policy}</span></div>
                 <div><span className="text-muted-foreground">Max Freeze Days:</span> <span className="font-medium">{form.max_freeze_days}</span></div>
-                {form.min_players_required && <div><span className="text-muted-foreground">Min Players:</span> <span className="font-medium">{form.min_players_required}</span></div>}
+                {form.min_players_required && <div><span className="text-muted-foreground">{form.format === 'singles' ? 'Min Players' : 'Min Teams'}:</span> <span className="font-medium">{form.min_players_required}</span></div>}
               </div>
               {form.description && <div><span className="text-muted-foreground">Description:</span> <p className="mt-1">{form.description}</p></div>}
               {form.additional_rules && <div><span className="text-muted-foreground">Additional Rules:</span> <p className="mt-1">{form.additional_rules}</p></div>}
