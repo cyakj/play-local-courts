@@ -35,6 +35,7 @@ const defaultForm: WizardFormData = {
   acceptance_window_hours: '48', play_by_deadline_days: '10',
   require_score_confirmation: true, dispute_window_hours: '48',
   no_show_policy: 'forfeit', additional_rules: '',
+  max_freeze_days: '30', min_players_required: '',
 };
 
 const CreateCompetitionWizard = ({ onBack, onCreated, initialData }: Props) => {
@@ -107,6 +108,8 @@ const CreateCompetitionWizard = ({ onBack, onCreated, initialData }: Props) => {
         challenge_range: parseInt(form.challenge_range),
         acceptance_window_hours: parseInt(form.acceptance_window_hours),
         play_by_deadline_days: parseInt(form.play_by_deadline_days),
+        max_freeze_days: parseInt(form.max_freeze_days) || 30,
+        min_players_required: form.min_players_required ? parseInt(form.min_players_required) : null,
         admin_id: currentUser.id,
         hoa_id: hoaId,
         status: 'setup' as const,
@@ -251,6 +254,9 @@ const CreateCompetitionWizard = ({ onBack, onCreated, initialData }: Props) => {
             <Label>Auto-approve registrations</Label>
             <Switch checked={form.auto_approve_registration} onCheckedChange={v => set('auto_approve_registration', v)} />
           </div>
+          <p className="text-xs text-muted-foreground bg-muted/50 p-3 rounded-lg">
+            Player ratings are verified at the time of registration only. Players who are already registered will not be affected by rating changes during the competition.
+          </p>
         </div>
       )}
 
@@ -273,6 +279,10 @@ const CreateCompetitionWizard = ({ onBack, onCreated, initialData }: Props) => {
           {form.enable_playoffs && (
             <div><Label>Playoff Teams Count</Label><Input type="number" min="2" max="16" value={form.playoff_teams_count} onChange={e => set('playoff_teams_count', e.target.value)} /></div>
           )}
+          <div><Label>Minimum Players Required</Label>
+            <Input type="number" min="2" value={form.min_players_required} onChange={e => set('min_players_required', e.target.value)} placeholder="Optional — admin notified if not met" />
+            <p className="text-xs text-muted-foreground mt-1">If set, the admin will be notified 48 hours before the registration deadline if the minimum is not reached.</p>
+          </div>
         </div>
       )}
 
@@ -370,6 +380,10 @@ const CreateCompetitionWizard = ({ onBack, onCreated, initialData }: Props) => {
               <SelectContent><SelectItem value="warning">Warning</SelectItem><SelectItem value="forfeit">Forfeit</SelectItem><SelectItem value="disqualification">Disqualification</SelectItem></SelectContent>
             </Select>
           </div>
+          <div><Label>Maximum Freeze Days</Label>
+            <Input type="number" min="0" max="90" value={form.max_freeze_days} onChange={e => set('max_freeze_days', e.target.value)} />
+            <p className="text-xs text-muted-foreground mt-1">Maximum number of days a player can freeze their participation per season.</p>
+          </div>
           <div><Label>Additional Rules</Label><Textarea value={form.additional_rules} onChange={e => set('additional_rules', e.target.value)} rows={3} placeholder="Any extra rules..." /></div>
         </div>
       )}
@@ -394,6 +408,8 @@ const CreateCompetitionWizard = ({ onBack, onCreated, initialData }: Props) => {
                 {form.min_ntrp && <div><span className="text-muted-foreground">NTRP:</span> <span className="font-medium">{form.min_ntrp}-{form.max_ntrp}</span></div>}
                 <div><span className="text-muted-foreground">Auto-approve:</span> <span className="font-medium">{form.auto_approve_registration ? 'Yes' : 'No'}</span></div>
                 <div><span className="text-muted-foreground">No-Show Policy:</span> <span className="font-medium capitalize">{form.no_show_policy}</span></div>
+                <div><span className="text-muted-foreground">Max Freeze Days:</span> <span className="font-medium">{form.max_freeze_days}</span></div>
+                {form.min_players_required && <div><span className="text-muted-foreground">Min Players:</span> <span className="font-medium">{form.min_players_required}</span></div>}
               </div>
               {form.description && <div><span className="text-muted-foreground">Description:</span> <p className="mt-1">{form.description}</p></div>}
               {form.additional_rules && <div><span className="text-muted-foreground">Additional Rules:</span> <p className="mt-1">{form.additional_rules}</p></div>}
