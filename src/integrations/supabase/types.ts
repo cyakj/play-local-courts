@@ -2339,6 +2339,10 @@ export type Database = {
         }
         Returns: number
       }
+      can_create_ladder: {
+        Args: { _admin_id: string; _hoa_id: string }
+        Returns: boolean
+      }
       can_view_ladder: { Args: { _ladder_id: string }; Returns: boolean }
       check_hoa_admin: {
         Args: { _hoa_id: string; _user_id: string }
