@@ -130,9 +130,10 @@ const CreateCompetitionWizard = ({ onBack, onCreated, initialData }: Props) => {
 
       toast.success(asDraft ? 'Saved as draft!' : 'Competition published!');
       onCreated(data as Competition);
-    } catch (error) {
-      console.error(error);
-      toast.error('Failed to create competition');
+    } catch (error: any) {
+      console.error('Competition creation error:', error);
+      const msg = error?.message || error?.code || 'Unknown error';
+      toast.error(`Failed to create competition: ${msg}`);
     } finally {
       setIsSubmitting(false);
     }
