@@ -74,59 +74,93 @@ const CreateCompetitionWizard = ({ onBack, onCreated, initialData }: Props) => {
     if (!currentUser?.id) return;
     setIsSubmitting(true);
     try {
-      // Get the fresh auth session to ensure admin_id matches auth.uid() for RLS
+      // Get the fresh auth session
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user?.id) {
         toast.error('Your session has expired. Please log in again.');
+        setIsSubmitting(false);
         return;
       }
-      const authUserId = session.user.id;
 
       const hoaId = activeHOA?.hoaId || null;
-      const ladderData = {
-        name: form.name,
-        description: form.description || null,
-        format: form.format as any,
-        is_private: form.visibility === 'private',
-        city: form.city || null,
-        hoa_only: form.visibility === 'community',
-        start_date: form.start_date || null,
-        end_date: form.end_date || null,
-        registration_deadline: form.registration_deadline || null,
-        min_ntrp: form.min_ntrp ? parseFloat(form.min_ntrp) : null,
-        max_ntrp: form.max_ntrp ? parseFloat(form.max_ntrp) : null,
-        min_age: form.min_age ? parseInt(form.min_age) : null,
-        max_age: form.max_age ? parseInt(form.max_age) : null,
-        gender_restriction: form.gender_restriction !== 'none' ? form.gender_restriction : null,
-        max_teams: parseInt(form.max_teams) || 20,
-        auto_approve_registration: form.auto_approve_registration,
-        enable_playoffs: form.enable_playoffs,
-        playoff_teams_count: form.enable_playoffs ? parseInt(form.playoff_teams_count) : null,
-        scoring_mode: form.competitionType === 'ladder' ? 'challenge' : 'cumulative',
-        scoring_format: form.scoring_format,
-        third_set_format: form.third_set_format,
-        points_per_win: parseInt(form.points_per_win),
-        points_per_set: parseInt(form.points_per_set),
-        loss_points: parseInt(form.loss_points),
-        tiebreaker_rule: form.tiebreaker_rule,
-        secondary_tiebreaker: form.secondary_tiebreaker,
-        require_score_confirmation: form.require_score_confirmation,
-        dispute_window_hours: parseInt(form.dispute_window_hours),
-        challenge_range: parseInt(form.challenge_range),
-        acceptance_window_hours: parseInt(form.acceptance_window_hours),
-        play_by_deadline_days: parseInt(form.play_by_deadline_days),
-        max_freeze_days: parseInt(form.max_freeze_days) || 30,
-        min_players_required: form.min_players_required ? parseInt(form.min_players_required) : null,
-        admin_id: authUserId,
-        hoa_id: hoaId,
-        status: (asDraft ? 'setup' : 'active') as any,
-      };
 
-      const { data, error } = await supabase.from('ladders').insert([ladderData]).select().single();
-      if (error) throw error;
+      // Preflight permission check
+      const { data: permCheck, error: permError } = await supabase.rpc('check_competition_create_permission', {
+        _hoa_id: hoaId,
+      });
+
+      if (permError) {
+        console.error('Preflight check failed:', permError);
+        toast.error('Could not verify your permissions. Please try again.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      const perm = permCheck as any;
+      if (!perm?.can_create) {
+        const reasons: string[] = [];
+        if (!perm?.has_admin_role && !perm?.has_coach_role && !perm?.has_coach_profile) {
+          reasons.push('You do not have an admin or coach role.');
+        }
+        if (hoaId && !perm?.has_approved_admin_membership) {
+          reasons.push('You are not an approved admin of the selected community.');
+        }
+        toast.error(`Permission denied: ${reasons.join(' ') || 'Unable to create competitions with your current account.'}`);
+        console.error('Permission check details:', perm);
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Use server-side RPC to create — forces admin_id = auth.uid() on server
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('create_competition_ladder', {
+        _name: form.name,
+        _description: form.description || null,
+        _format: form.format as any,
+        _is_private: form.visibility === 'private',
+        _city: form.city || null,
+        _hoa_only: form.visibility === 'community',
+        _hoa_id: hoaId,
+        _start_date: form.start_date || null,
+        _end_date: form.end_date || null,
+        _registration_deadline: form.registration_deadline || null,
+        _min_ntrp: form.min_ntrp ? parseFloat(form.min_ntrp) : null,
+        _max_ntrp: form.max_ntrp ? parseFloat(form.max_ntrp) : null,
+        _min_age: form.min_age ? parseInt(form.min_age) : null,
+        _max_age: form.max_age ? parseInt(form.max_age) : null,
+        _gender_restriction: form.gender_restriction !== 'none' ? form.gender_restriction : null,
+        _max_teams: parseInt(form.max_teams) || 20,
+        _auto_approve_registration: form.auto_approve_registration,
+        _enable_playoffs: form.enable_playoffs,
+        _playoff_teams_count: form.enable_playoffs ? parseInt(form.playoff_teams_count) : 4,
+        _scoring_mode: form.competitionType === 'ladder' ? 'challenge' : 'cumulative',
+        _scoring_format: form.scoring_format,
+        _third_set_format: form.third_set_format,
+        _points_per_win: parseInt(form.points_per_win),
+        _points_per_set: parseInt(form.points_per_set),
+        _loss_points: parseInt(form.loss_points),
+        _tiebreaker_rule: form.tiebreaker_rule,
+        _secondary_tiebreaker: form.secondary_tiebreaker,
+        _require_score_confirmation: form.require_score_confirmation,
+        _dispute_window_hours: parseInt(form.dispute_window_hours),
+        _challenge_range: parseInt(form.challenge_range),
+        _acceptance_window_hours: parseInt(form.acceptance_window_hours),
+        _play_by_deadline_days: parseInt(form.play_by_deadline_days),
+        _max_freeze_days: parseInt(form.max_freeze_days) || 30,
+        _min_players_required: form.min_players_required ? parseInt(form.min_players_required) : null,
+        _status: (asDraft ? 'setup' : 'active') as any,
+      });
+
+      if (rpcError) {
+        console.error('Competition creation RPC error:', rpcError);
+        toast.error(`Failed to create competition: ${rpcError.message}`);
+        setIsSubmitting(false);
+        return;
+      }
+
+      const data = rpcResult as any;
 
       // Upload image
-      if (form.imageFile && data) {
+      if (form.imageFile && data?.id) {
         const ext = form.imageFile.name.split('.').pop();
         const path = `ladder-images/${data.id}.${ext}`;
         await supabase.storage.from('avatars').upload(path, form.imageFile, { upsert: true });
@@ -139,8 +173,7 @@ const CreateCompetitionWizard = ({ onBack, onCreated, initialData }: Props) => {
       onCreated(data as Competition);
     } catch (error: any) {
       console.error('Competition creation error:', error);
-      const msg = error?.message || error?.code || 'Unknown error';
-      toast.error(`Failed to create competition: ${msg}`);
+      toast.error(`Failed to create competition: ${error?.message || 'Unknown error'}`);
     } finally {
       setIsSubmitting(false);
     }

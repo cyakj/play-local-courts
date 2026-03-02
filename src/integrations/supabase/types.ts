@@ -2348,6 +2348,10 @@ export type Database = {
         Args: { _admin_id: string; _hoa_id: string; _ladder_id: string }
         Returns: boolean
       }
+      check_competition_create_permission: {
+        Args: { _hoa_id?: string }
+        Returns: Json
+      }
       check_hoa_admin: {
         Args: { _hoa_id: string; _user_id: string }
         Returns: boolean
@@ -2361,6 +2365,46 @@ export type Database = {
           logo_url?: string
         }
         Returns: string
+      }
+      create_competition_ladder: {
+        Args: {
+          _acceptance_window_hours?: number
+          _auto_approve_registration?: boolean
+          _challenge_range?: number
+          _city?: string
+          _description?: string
+          _dispute_window_hours?: number
+          _enable_playoffs?: boolean
+          _end_date?: string
+          _format?: Database["public"]["Enums"]["ladder_format"]
+          _gender_restriction?: string
+          _hoa_id?: string
+          _hoa_only?: boolean
+          _is_private?: boolean
+          _loss_points?: number
+          _max_age?: number
+          _max_freeze_days?: number
+          _max_ntrp?: number
+          _max_teams?: number
+          _min_age?: number
+          _min_ntrp?: number
+          _min_players_required?: number
+          _name: string
+          _play_by_deadline_days?: number
+          _playoff_teams_count?: number
+          _points_per_set?: number
+          _points_per_win?: number
+          _registration_deadline?: string
+          _require_score_confirmation?: boolean
+          _scoring_format?: string
+          _scoring_mode?: string
+          _secondary_tiebreaker?: string
+          _start_date?: string
+          _status?: Database["public"]["Enums"]["ladder_status"]
+          _third_set_format?: string
+          _tiebreaker_rule?: string
+        }
+        Returns: Json
       }
       create_default_email_preferences: {
         Args: { target_user_id: string }
