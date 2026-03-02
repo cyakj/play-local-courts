@@ -52,7 +52,6 @@ const competitionToWizardData = (comp: Competition): Partial<WizardFormData> => 
   hoa_only: comp.hoa_only || false,
   max_teams: (comp.max_teams || 20).toString(),
   auto_approve_registration: comp.auto_approve_registration || false,
-  weekly_deadline_day: comp.weekly_deadline_day || 0,
   challenge_range: (comp.challenge_range || 3).toString(),
   enable_playoffs: comp.enable_playoffs || false,
   playoff_teams_count: (comp.playoff_teams_count || 4).toString(),

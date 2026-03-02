@@ -52,7 +52,6 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated, editingLadder
     start_date: ladder?.start_date || '',
     end_date: ladder?.end_date || '',
     registration_deadline: ladder?.registration_deadline || '',
-    weekly_deadline_day: ladder?.weekly_deadline_day || 0,
     
     // Eligibility
     min_ntrp: ladder?.min_ntrp?.toString() || 'none',
@@ -200,7 +199,6 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated, editingLadder
         start_date: formData.start_date || null,
         end_date: formData.end_date || null,
         registration_deadline: formData.registration_deadline || null,
-        weekly_deadline_day: formData.weekly_deadline_day,
         min_ntrp: formData.min_ntrp !== 'none' ? parseFloat(formData.min_ntrp) : null,
         max_ntrp: formData.max_ntrp !== 'none' ? parseFloat(formData.max_ntrp) : null,
         min_age: formData.min_age ? parseInt(formData.min_age) : null,
@@ -295,7 +293,6 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated, editingLadder
       start_date: '',
       end_date: '',
       registration_deadline: '',
-      weekly_deadline_day: 0,
       min_ntrp: 'none',
       max_ntrp: 'none',
       min_age: '',
@@ -675,28 +672,6 @@ const CreateLadderDialog = ({ open, onOpenChange, onLadderCreated, editingLadder
                     </Select>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="deadline_day">Weekly Match Deadline</Label>
-                    <Select 
-                      value={formData.weekly_deadline_day.toString()} 
-                      onValueChange={(value) => 
-                        setFormData(prev => ({ ...prev, weekly_deadline_day: parseInt(value) }))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="0">Sunday</SelectItem>
-                        <SelectItem value="1">Monday</SelectItem>
-                        <SelectItem value="2">Tuesday</SelectItem>
-                        <SelectItem value="3">Wednesday</SelectItem>
-                        <SelectItem value="4">Thursday</SelectItem>
-                        <SelectItem value="5">Friday</SelectItem>
-                        <SelectItem value="6">Saturday</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
 
                   <div className="flex items-center space-x-2">
                     <Switch

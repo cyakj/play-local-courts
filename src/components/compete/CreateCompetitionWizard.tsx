@@ -28,7 +28,7 @@ const defaultForm: WizardFormData = {
   start_date: '', end_date: '', registration_deadline: '', visibility: 'public',
   format: 'doubles', gender_restriction: 'none', min_ntrp: '', max_ntrp: '',
   min_age: '', max_age: '', hoa_only: false, max_teams: '20', auto_approve_registration: false,
-  weekly_deadline_day: 0, challenge_range: '3', enable_playoffs: false, playoff_teams_count: '4',
+  challenge_range: '3', enable_playoffs: false, playoff_teams_count: '4',
   scoring_mode: 'cumulative', scoring_format: 'best_of_3', third_set_format: 'super_tiebreak',
   points_per_win: '3', points_per_set: '1', loss_points: '0',
   tiebreaker_rule: 'head_to_head', secondary_tiebreaker: 'games_won', tertiary_tiebreaker: 'sets_percentage',
@@ -85,7 +85,6 @@ const CreateCompetitionWizard = ({ onBack, onCreated, initialData }: Props) => {
         start_date: form.start_date || null,
         end_date: form.end_date || null,
         registration_deadline: form.registration_deadline || null,
-        weekly_deadline_day: form.weekly_deadline_day,
         min_ntrp: form.min_ntrp ? parseFloat(form.min_ntrp) : null,
         max_ntrp: form.max_ntrp ? parseFloat(form.max_ntrp) : null,
         min_age: form.min_age ? parseInt(form.min_age) : null,
@@ -264,12 +263,6 @@ const CreateCompetitionWizard = ({ onBack, onCreated, initialData }: Props) => {
       {/* Step 3: Structure */}
       {step === 3 && (
         <div className="space-y-4">
-          <div><Label>Weekly Match Deadline Day</Label>
-            <Select value={String(form.weekly_deadline_day)} onValueChange={v => set('weekly_deadline_day', parseInt(v))}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].map((d,i) => <SelectItem key={i} value={String(i)}>{d}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
           {isLadder && (
             <div><Label>Challenge Range (rungs above)</Label><Input type="number" min="1" max="10" value={form.challenge_range} onChange={e => set('challenge_range', e.target.value)} /></div>
           )}
