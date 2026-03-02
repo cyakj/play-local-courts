@@ -17,6 +17,7 @@ import { WizardFormData, Competition } from './types';
 interface Props {
   onBack: () => void;
   onCreated: (c: Competition) => void;
+  initialData?: Partial<WizardFormData>;
 }
 
 const STEPS = ['Format', 'Basic Info', 'Eligibility', 'Structure', 'Scoring', 'Rules', 'Review'];
@@ -36,11 +37,11 @@ const defaultForm: WizardFormData = {
   no_show_policy: 'forfeit', additional_rules: '',
 };
 
-const CreateCompetitionWizard = ({ onBack, onCreated }: Props) => {
+const CreateCompetitionWizard = ({ onBack, onCreated, initialData }: Props) => {
   const { currentUser, isAdmin, isCoach } = useAuth();
   const { activeHOA } = useActiveHOA();
-  const [step, setStep] = useState(0);
-  const [form, setForm] = useState<WizardFormData>(defaultForm);
+  const [step, setStep] = useState(initialData?.competitionType ? 1 : 0);
+  const [form, setForm] = useState<WizardFormData>({ ...defaultForm, ...initialData });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);

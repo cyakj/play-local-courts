@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocation } from 'react-router-dom';
-import { Competition } from '@/components/compete/types';
+import { Competition, WizardFormData } from '@/components/compete/types';
 import CompetePlayerView from '@/components/compete/CompetePlayerView';
 import CompeteManageView from '@/components/compete/CompeteManageView';
 import CompetitionDetailPlayer from '@/components/compete/CompetitionDetailPlayer';
@@ -15,7 +15,7 @@ type ViewState =
   | { mode: 'list' }
   | { mode: 'view'; competition: Competition; defaultTab?: string }
   | { mode: 'manage'; competition: Competition }
-  | { mode: 'create' };
+  | { mode: 'create'; initialData?: Partial<WizardFormData> };
 
 const LeaguesLadders = () => {
   const { isAdmin, isCoach } = useAuth();
@@ -52,6 +52,7 @@ const LeaguesLadders = () => {
           <CreateCompetitionWizard
             onBack={() => setView({ mode: 'list' })}
             onCreated={() => { setView({ mode: 'list' }); setActiveTab('manage'); }}
+            initialData={view.initialData}
           />
         </div>
       </div>
@@ -134,7 +135,7 @@ const LeaguesLadders = () => {
           <CompeteManageView
             onSelectCompetition={(c) => setView({ mode: 'view', competition: c })}
             onManageCompetition={(c) => setView({ mode: 'manage', competition: c })}
-            onCreateNew={() => setView({ mode: 'create' })}
+            onCreateNew={(initialData) => setView({ mode: 'create', initialData })}
           />
         )}
       </div>
