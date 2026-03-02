@@ -574,6 +574,50 @@ export type Database = {
           },
         ]
       }
+      competition_notifications: {
+        Row: {
+          competition_id: string
+          created_at: string
+          id: string
+          is_read: boolean | null
+          message: string
+          metadata: Json | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          competition_id: string
+          created_at?: string
+          id?: string
+          is_read?: boolean | null
+          message: string
+          metadata?: Json | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          competition_id?: string
+          created_at?: string
+          id?: string
+          is_read?: boolean | null
+          message?: string
+          metadata?: Json | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competition_notifications_competition_id_fkey"
+            columns: ["competition_id"]
+            isOneToOne: false
+            referencedRelation: "ladders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       court_maintenance: {
         Row: {
           court_id: string
@@ -942,12 +986,23 @@ export type Database = {
           created_at: string
           deadline_date: string | null
           dispute_reason: string | null
+          extension_days: number | null
+          extension_reason: string | null
+          extension_requested_by: string | null
+          extension_status: string | null
           id: string
+          is_retirement: boolean | null
+          is_void: boolean | null
+          is_walkover: boolean | null
           ladder_id: string
+          original_deadline_date: string | null
           playoff_stage: Database["public"]["Enums"]["playoff_stage"] | null
           points_awarded: number | null
+          retired_by_team_id: string | null
           round_number: number | null
           scheduled_date: string | null
+          score_photo_url_team1: string | null
+          score_photo_url_team2: string | null
           status: Database["public"]["Enums"]["match_status"]
           submitted_at: string | null
           submitted_by: string | null
@@ -965,12 +1020,23 @@ export type Database = {
           created_at?: string
           deadline_date?: string | null
           dispute_reason?: string | null
+          extension_days?: number | null
+          extension_reason?: string | null
+          extension_requested_by?: string | null
+          extension_status?: string | null
           id?: string
+          is_retirement?: boolean | null
+          is_void?: boolean | null
+          is_walkover?: boolean | null
           ladder_id: string
+          original_deadline_date?: string | null
           playoff_stage?: Database["public"]["Enums"]["playoff_stage"] | null
           points_awarded?: number | null
+          retired_by_team_id?: string | null
           round_number?: number | null
           scheduled_date?: string | null
+          score_photo_url_team1?: string | null
+          score_photo_url_team2?: string | null
           status?: Database["public"]["Enums"]["match_status"]
           submitted_at?: string | null
           submitted_by?: string | null
@@ -988,12 +1054,23 @@ export type Database = {
           created_at?: string
           deadline_date?: string | null
           dispute_reason?: string | null
+          extension_days?: number | null
+          extension_reason?: string | null
+          extension_requested_by?: string | null
+          extension_status?: string | null
           id?: string
+          is_retirement?: boolean | null
+          is_void?: boolean | null
+          is_walkover?: boolean | null
           ladder_id?: string
+          original_deadline_date?: string | null
           playoff_stage?: Database["public"]["Enums"]["playoff_stage"] | null
           points_awarded?: number | null
+          retired_by_team_id?: string | null
           round_number?: number | null
           scheduled_date?: string | null
+          score_photo_url_team1?: string | null
+          score_photo_url_team2?: string | null
           status?: Database["public"]["Enums"]["match_status"]
           submitted_at?: string | null
           submitted_by?: string | null
@@ -1013,6 +1090,13 @@ export type Database = {
             columns: ["ladder_id"]
             isOneToOne: false
             referencedRelation: "ladders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ladder_matches_retired_by_team_id_fkey"
+            columns: ["retired_by_team_id"]
+            isOneToOne: false
+            referencedRelation: "ladder_teams"
             referencedColumns: ["id"]
           },
           {
@@ -1091,39 +1175,60 @@ export type Database = {
       ladder_teams: {
         Row: {
           created_at: string
+          dispute_strikes: number | null
+          freeze_end_date: string | null
+          freeze_start_date: string | null
           games_played: number
           id: string
+          is_frozen: boolean | null
+          is_withdrawn: boolean | null
           ladder_id: string
           losses: number
           player1_id: string
           player2_id: string | null
           team_name: string
           total_points: number
+          walkover_losses: number | null
           wins: number
+          withdrawn_at: string | null
         }
         Insert: {
           created_at?: string
+          dispute_strikes?: number | null
+          freeze_end_date?: string | null
+          freeze_start_date?: string | null
           games_played?: number
           id?: string
+          is_frozen?: boolean | null
+          is_withdrawn?: boolean | null
           ladder_id: string
           losses?: number
           player1_id: string
           player2_id?: string | null
           team_name: string
           total_points?: number
+          walkover_losses?: number | null
           wins?: number
+          withdrawn_at?: string | null
         }
         Update: {
           created_at?: string
+          dispute_strikes?: number | null
+          freeze_end_date?: string | null
+          freeze_start_date?: string | null
           games_played?: number
           id?: string
+          is_frozen?: boolean | null
+          is_withdrawn?: boolean | null
           ladder_id?: string
           losses?: number
           player1_id?: string
           player2_id?: string | null
           team_name?: string
           total_points?: number
+          walkover_losses?: number | null
           wins?: number
+          withdrawn_at?: string | null
         }
         Relationships: [
           {
@@ -1157,10 +1262,12 @@ export type Database = {
           is_private: boolean
           loss_points: number | null
           max_age: number | null
+          max_freeze_days: number | null
           max_ntrp: number | null
           max_teams: number | null
           min_age: number | null
           min_ntrp: number | null
+          min_players_required: number | null
           name: string
           participation_points: number | null
           play_by_deadline_days: number | null
@@ -1170,6 +1277,7 @@ export type Database = {
           points_per_win: number | null
           registration_deadline: string | null
           require_score_confirmation: boolean | null
+          score_photo_required: boolean | null
           scoring_format: string | null
           scoring_mode: string | null
           secondary_tiebreaker: string | null
@@ -1201,10 +1309,12 @@ export type Database = {
           is_private?: boolean
           loss_points?: number | null
           max_age?: number | null
+          max_freeze_days?: number | null
           max_ntrp?: number | null
           max_teams?: number | null
           min_age?: number | null
           min_ntrp?: number | null
+          min_players_required?: number | null
           name: string
           participation_points?: number | null
           play_by_deadline_days?: number | null
@@ -1214,6 +1324,7 @@ export type Database = {
           points_per_win?: number | null
           registration_deadline?: string | null
           require_score_confirmation?: boolean | null
+          score_photo_required?: boolean | null
           scoring_format?: string | null
           scoring_mode?: string | null
           secondary_tiebreaker?: string | null
@@ -1245,10 +1356,12 @@ export type Database = {
           is_private?: boolean
           loss_points?: number | null
           max_age?: number | null
+          max_freeze_days?: number | null
           max_ntrp?: number | null
           max_teams?: number | null
           min_age?: number | null
           min_ntrp?: number | null
+          min_players_required?: number | null
           name?: string
           participation_points?: number | null
           play_by_deadline_days?: number | null
@@ -1258,6 +1371,7 @@ export type Database = {
           points_per_win?: number | null
           registration_deadline?: string | null
           require_score_confirmation?: boolean | null
+          score_photo_required?: boolean | null
           scoring_format?: string | null
           scoring_mode?: string | null
           secondary_tiebreaker?: string | null

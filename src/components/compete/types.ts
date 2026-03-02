@@ -41,6 +41,9 @@ export interface Competition {
   city: string | null;
   hoa_only: boolean | null;
   playoff_format: string | null;
+  max_freeze_days: number | null;
+  min_players_required: number | null;
+  score_photo_required: boolean | null;
 }
 
 // Re-export as Ladder for backward compatibility
@@ -57,6 +60,13 @@ export interface CompetitionTeam {
   losses: number;
   games_played: number;
   created_at: string;
+  is_frozen: boolean;
+  freeze_start_date: string | null;
+  freeze_end_date: string | null;
+  walkover_losses: number;
+  dispute_strikes: number;
+  is_withdrawn: boolean;
+  withdrawn_at: string | null;
 }
 
 export interface CompetitionMatch {
@@ -135,4 +145,8 @@ export interface WizardFormData {
   dispute_window_hours: string;
   no_show_policy: string;
   additional_rules: string;
+  max_freeze_days: string;
+  
+  // Step 4 - Structure (additional)
+  min_players_required: string;
 }
