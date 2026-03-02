@@ -2339,6 +2339,7 @@ export type Database = {
         }
         Returns: number
       }
+      can_view_ladder: { Args: { _ladder_id: string }; Returns: boolean }
       check_hoa_admin: {
         Args: { _hoa_id: string; _user_id: string }
         Returns: boolean
@@ -2407,6 +2408,7 @@ export type Database = {
         Args: { _target_user_id: string; _user_id: string }
         Returns: boolean
       }
+      is_ladder_admin: { Args: { _ladder_id: string }; Returns: boolean }
       migrate_existing_hoa_memberships: { Args: never; Returns: undefined }
       reject_hoa_membership: {
         Args: { membership_id: string }
