@@ -74,6 +74,14 @@ const CreateCompetitionWizard = ({ onBack, onCreated, initialData }: Props) => {
     if (!currentUser?.id) return;
     setIsSubmitting(true);
     try {
+      // Get the fresh auth session to ensure admin_id matches auth.uid() for RLS
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user?.id) {
+        toast.error('Your session has expired. Please log in again.');
+        return;
+      }
+      const authUserId = session.user.id;
+
       const hoaId = activeHOA?.hoaId || null;
       const ladderData = {
         name: form.name,
@@ -109,7 +117,7 @@ const CreateCompetitionWizard = ({ onBack, onCreated, initialData }: Props) => {
         play_by_deadline_days: parseInt(form.play_by_deadline_days),
         max_freeze_days: parseInt(form.max_freeze_days) || 30,
         min_players_required: form.min_players_required ? parseInt(form.min_players_required) : null,
-        admin_id: currentUser.id,
+        admin_id: authUserId,
         hoa_id: hoaId,
         status: (asDraft ? 'setup' : 'active') as any,
       };
