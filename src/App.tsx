@@ -32,6 +32,7 @@ import LeaguesLadders from "./pages/LeaguesLadders";
 import ManageLadders from "./pages/ManageLadders";
 import EmailSettings from "./pages/EmailSettings";
 import MaintenanceReports from "./pages/MaintenanceReports";
+import MyReports from "./pages/MyReports";
 import UpgradeToCoach from "./pages/UpgradeToCoach";
 import UserProfile from "./pages/UserProfile";
 import Messages from "./pages/Messages";
