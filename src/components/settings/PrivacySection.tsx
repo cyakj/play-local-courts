@@ -4,6 +4,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { MapPin, Eye, Globe, ShieldCheck, Activity } from 'lucide-react';
 import { PrivacyFormData } from '@/hooks/useSettingsForm';
+import { TENNIS_FEATURES_ENABLED } from '@/config/featureFlags';
 
 interface PrivacySectionProps {
   privacy: PrivacyFormData;
@@ -18,7 +19,8 @@ const PrivacySection: React.FC<PrivacySectionProps> = ({ privacy, setPrivacy }) 
         <CardDescription>Control how your information is shared with others</CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
-        {/* Location-Based Searches */}
+        {/* Location-Based Searches - tennis feature */}
+        {TENNIS_FEATURES_ENABLED && (
         <div className="flex items-center justify-between py-4 px-4 rounded-xl hover:bg-muted/30 transition-colors">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-muted rounded-xl">
@@ -35,8 +37,10 @@ const PrivacySection: React.FC<PrivacySectionProps> = ({ privacy, setPrivacy }) 
             className="data-[state=unchecked]:bg-muted data-[state=checked]:bg-primary"
           />
         </div>
+        )}
 
-        {/* Show Exact Distance */}
+        {/* Show Exact Distance - tennis feature */}
+        {TENNIS_FEATURES_ENABLED && (
         <div className="flex items-center justify-between py-4 px-4 rounded-xl hover:bg-muted/30 transition-colors">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-muted rounded-xl">
@@ -53,6 +57,7 @@ const PrivacySection: React.FC<PrivacySectionProps> = ({ privacy, setPrivacy }) 
             className="data-[state=unchecked]:bg-muted data-[state=checked]:bg-primary"
           />
         </div>
+        )}
 
         {/* Public Profile */}
         <div className="flex items-center justify-between py-4 px-4 rounded-xl hover:bg-muted/30 transition-colors">
@@ -72,7 +77,8 @@ const PrivacySection: React.FC<PrivacySectionProps> = ({ privacy, setPrivacy }) 
           />
         </div>
 
-        {/* Contact Obfuscation */}
+        {/* Contact Obfuscation - tennis feature */}
+        {TENNIS_FEATURES_ENABLED && (
         <div className="flex items-center justify-between py-4 px-4 rounded-xl hover:bg-muted/30 transition-colors">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-muted rounded-xl">
@@ -89,6 +95,7 @@ const PrivacySection: React.FC<PrivacySectionProps> = ({ privacy, setPrivacy }) 
             className="data-[state=unchecked]:bg-muted data-[state=checked]:bg-primary"
           />
         </div>
+        )}
 
         {/* Activity Status */}
         <div className="flex items-center justify-between py-4 px-4 rounded-xl hover:bg-muted/30 transition-colors">

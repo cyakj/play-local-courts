@@ -153,7 +153,7 @@ export const ProfileCompletenessCard = () => {
         </div>
 
         <Button asChild className="w-full bg-primary hover:bg-primary/90">
-          <Link to="/my-locker?tab=profile" className="flex items-center gap-1">
+          <Link to="/my-home?tab=profile" className="flex items-center gap-1">
             Complete Profile
             <ChevronRight className="h-4 w-4" />
           </Link>

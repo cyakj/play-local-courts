@@ -134,10 +134,10 @@ const MyLocker = () => {
           </div>
           <div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-pink-600 bg-clip-text text-transparent">
-              {isNonHOA ? 'My Hub' : 'My Locker'}
+              {TENNIS_FEATURES_ENABLED ? (isNonHOA ? 'My Hub' : 'My Locker') : 'My Home'}
             </h1>
             <p className="text-muted-foreground">
-              {isNonHOA ? 'Your personal hub' : 'Your community hub & profile'}
+              {TENNIS_FEATURES_ENABLED ? (isNonHOA ? 'Your personal hub' : 'Your community hub & profile') : 'Your home and community profile'}
             </p>
           </div>
         </div>

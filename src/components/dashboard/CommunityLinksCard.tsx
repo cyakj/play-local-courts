@@ -2,6 +2,7 @@ import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Link } from 'react-router-dom';
 import { useActiveHOA } from '@/contexts/ActiveHOAContext';
+import { TENNIS_FEATURES_ENABLED } from '@/config/featureFlags';
 import { 
   FileText, 
   Trophy, 
@@ -29,12 +30,13 @@ export const CommunityLinksCard = () => {
       subtitle: 'POLICY UPDATED',
       to: '/amenity-rules'
     },
-    {
+    // Ladders link - tennis feature only
+    ...(TENNIS_FEATURES_ENABLED ? [{
       icon: <Trophy className="h-4 w-4" />,
       title: 'View All Ladders',
       subtitle: 'ACTIVE COMPETITIONS',
       to: '/leagues-ladders'
-    }
+    }] : [])
   ];
 
   return (

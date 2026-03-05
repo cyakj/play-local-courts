@@ -55,9 +55,9 @@ const BottomNavigation = () => {
     }
 
     items.push({
-      path: '/my-locker',
+      path: '/my-home',
       icon: Users,
-      label: 'My Locker',
+      label: TENNIS_FEATURES_ENABLED ? 'My Locker' : 'My Home',
       color: 'text-indigo-600'
     });
 

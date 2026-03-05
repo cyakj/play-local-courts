@@ -23,7 +23,7 @@ const NtrpRequiredAlert = ({ open, onOpenChange }: NtrpRequiredAlertProps) => {
   const handleGoToProfile = () => {
     onOpenChange(false);
     // Navigate to My Locker with profile tab active
-    navigate('/my-locker?tab=profile');
+    navigate('/my-home?tab=profile');
   };
 
   return (

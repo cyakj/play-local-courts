@@ -54,7 +54,7 @@ export const SuggestedActionsCard = () => {
             icon: <Camera className="h-4 w-4 text-blue-600" />,
             title: 'Add a profile photo',
             description: 'Help others recognize you',
-            link: '/my-locker?tab=profile',
+            link: '/my-home?tab=profile',
             priority: 1
           });
         }
@@ -65,7 +65,7 @@ export const SuggestedActionsCard = () => {
             icon: <Target className="h-4 w-4 text-green-600" />,
             title: 'Set your skill rating',
             description: 'Find better matched opponents',
-            link: '/my-locker?tab=profile',
+            link: '/my-home?tab=profile',
             priority: 2
           });
         }
@@ -102,7 +102,7 @@ export const SuggestedActionsCard = () => {
             icon: <Users className="h-4 w-4 text-primary" />,
             title: 'Find players near you',
             description: 'Set your match preferences',
-            link: '/my-locker?tab=find-partner',
+            link: '/my-home?tab=find-partner',
             priority: 4
           });
         }

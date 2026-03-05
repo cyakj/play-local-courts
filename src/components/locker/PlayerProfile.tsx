@@ -373,7 +373,7 @@ const PlayerProfile = () => {
           <Card>
                 <CardHeader className="pb-4">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">Player Profile</CardTitle>
+                    <CardTitle className="text-lg">{TENNIS_FEATURES_ENABLED ? 'Player Profile' : 'My Profile'}</CardTitle>
                     {isEditing && (
                       <Button size="sm" onClick={handleSave} disabled={loading}>
                         {loading ? 'Saving...' : 'Save Changes'}
@@ -615,7 +615,7 @@ const PlayerProfile = () => {
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg">Memberships & Associations</CardTitle>
                     <Button variant="link" size="sm" className="text-primary" asChild>
-                      <Link to="/my-locker?tab=community">View All</Link>
+                      <Link to="/my-home?tab=community">View All</Link>
                     </Button>
                   </div>
                 </CardHeader>
@@ -648,7 +648,7 @@ const PlayerProfile = () => {
                       <Building2 className="h-10 w-10 mx-auto mb-2 opacity-50" />
                       <p>No community memberships yet</p>
                       <Button variant="link" asChild className="mt-2">
-                        <Link to="/my-locker?tab=community">Join a Community</Link>
+                        <Link to="/my-home?tab=community">Join a Community</Link>
                       </Button>
                     </div>
                   )}

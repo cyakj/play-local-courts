@@ -67,7 +67,7 @@ const Notifications = () => {
               description: `${lesson.lesson_type} ${lesson.sport} lesson on ${new Date(lesson.preferred_date + 'T00:00:00').toLocaleDateString()}`,
               date: lesson.preferred_date,
               time: lesson.preferred_time_start,
-              link: '/my-locker?tab=lessons',
+              link: '/my-home?tab=lessons',
               isNew: lesson.status === 'pending'
             });
           });
