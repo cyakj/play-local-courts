@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { TENNIS_FEATURES_ENABLED } from '@/config/featureFlags';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -474,6 +475,7 @@ const PlayerProfile = () => {
                       </div>
 
                       {/* Ratings */}
+                      {TENNIS_FEATURES_ENABLED && (
                       <div>
                         <h4 className="font-medium mb-3">Tennis Ratings</h4>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -574,22 +576,27 @@ const PlayerProfile = () => {
                           </div>
                         </div>
                       </div>
+                      )}
                     </div>
                   ) : (
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      <div className="p-4 bg-muted/50 rounded-xl text-center">
-                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">NTRP Rating</p>
-                        <p className="text-2xl font-bold">{profile.ntrpRating || '—'}</p>
-                        {tier && (
-                          <Badge variant="secondary" className={`mt-1 text-xs ${tier.color}`}>
-                            {tier.label}
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="p-4 bg-muted/50 rounded-xl text-center">
-                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">UTR Rating</p>
-                        <p className="text-2xl font-bold">{profile.utrRating || '—'}</p>
-                      </div>
+                      {TENNIS_FEATURES_ENABLED && (
+                        <>
+                          <div className="p-4 bg-muted/50 rounded-xl text-center">
+                            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">NTRP Rating</p>
+                            <p className="text-2xl font-bold">{profile.ntrpRating || '—'}</p>
+                            {tier && (
+                              <Badge variant="secondary" className={`mt-1 text-xs ${tier.color}`}>
+                                {tier.label}
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="p-4 bg-muted/50 rounded-xl text-center">
+                            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">UTR Rating</p>
+                            <p className="text-2xl font-bold">{profile.utrRating || '—'}</p>
+                          </div>
+                        </>
+                      )}
                       <div className="p-4 bg-muted/50 rounded-xl text-center">
                         <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Gender</p>
                         <p className="text-lg font-semibold capitalize">{profile.gender || '—'}</p>
@@ -599,8 +606,8 @@ const PlayerProfile = () => {
                 </CardContent>
               </Card>
 
-              {/* Playing Preferences Card */}
-              {currentUser && <PlayingPreferencesCard userId={currentUser.id} />}
+              {/* Playing Preferences Card - only when tennis features enabled */}
+              {TENNIS_FEATURES_ENABLED && currentUser && <PlayingPreferencesCard userId={currentUser.id} />}
 
               {/* Memberships Card */}
               <Card>

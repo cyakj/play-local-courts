@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { NotificationContainer } from "@/components/ui/notification-banner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ActiveHOAProvider } from "./contexts/ActiveHOAContext";
 import { DataProvider } from "./contexts/DataContext";
@@ -44,6 +44,7 @@ import Settings from "./pages/Settings";
 import FAQ from "./pages/FAQ";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
+import { TENNIS_FEATURES_ENABLED } from "./config/featureFlags";
 
 const queryClient = new QueryClient();
 
@@ -73,10 +74,30 @@ function App() {
                 <Route element={<MainLayout />}>
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/coach-dashboard" element={<CoachDashboard />} />
-                  <Route path="/coach-schedule" element={<CoachSchedule />} />
-                  <Route path="/coach-clients" element={<CoachClients />} />
-                  <Route path="/coach-reviews" element={<CoachReviews />} />
+                  
+                  {/* Coach routes - redirect to dashboard when tennis features disabled */}
+                  {TENNIS_FEATURES_ENABLED ? (
+                    <>
+                      <Route path="/coach-dashboard" element={<CoachDashboard />} />
+                      <Route path="/coach-schedule" element={<CoachSchedule />} />
+                      <Route path="/coach-clients" element={<CoachClients />} />
+                      <Route path="/coach-reviews" element={<CoachReviews />} />
+                      <Route path="/upgrade-to-coach" element={<UpgradeToCoach />} />
+                      <Route path="/leagues-ladders" element={<LeaguesLadders />} />
+                      <Route path="/manage-ladders" element={<ManageLadders />} />
+                    </>
+                  ) : (
+                    <>
+                      <Route path="/coach-dashboard" element={<Navigate to="/" replace />} />
+                      <Route path="/coach-schedule" element={<Navigate to="/" replace />} />
+                      <Route path="/coach-clients" element={<Navigate to="/" replace />} />
+                      <Route path="/coach-reviews" element={<Navigate to="/" replace />} />
+                      <Route path="/upgrade-to-coach" element={<Navigate to="/" replace />} />
+                      <Route path="/leagues-ladders" element={<Navigate to="/" replace />} />
+                      <Route path="/manage-ladders" element={<Navigate to="/" replace />} />
+                    </>
+                  )}
+                  
                   <Route path="/reserve-court" element={<ReserveCourt />} />
                   <Route path="/reserve-facilities" element={<ReserveFacilities />} />
                   <Route path="/my-reservations" element={<MyReservations />} />
@@ -88,11 +109,8 @@ function App() {
                   <Route path="/pending-requests" element={<PendingRequests />} />
                   <Route path="/amenity-rules" element={<AmenityRules />} />
                   <Route path="/my-locker" element={<MyLocker />} />
-                  <Route path="/leagues-ladders" element={<LeaguesLadders />} />
-                  <Route path="/manage-ladders" element={<ManageLadders />} />
                   <Route path="/email-settings" element={<EmailSettings />} />
                   <Route path="/settings" element={<Settings />} />
-                  <Route path="/upgrade-to-coach" element={<UpgradeToCoach />} />
                   <Route path="/profile/:id" element={<UserProfile />} />
                   <Route path="/messages" element={<Messages />} />
                   <Route path="/notifications" element={<Notifications />} />

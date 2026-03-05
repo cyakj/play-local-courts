@@ -11,6 +11,7 @@ import {
   updateEmailPreference,
   EmailPreference 
 } from '../services/emailService';
+import { TENNIS_FEATURES_ENABLED } from '@/config/featureFlags';
 
 const EmailPreferences = () => {
   const { currentUser } = useAuth();
@@ -34,7 +35,6 @@ const EmailPreferences = () => {
       if (userPreferences) {
         setPreferences(userPreferences);
       } else {
-        // Create default preferences if none exist
         const defaultPreferences = await createDefaultEmailPreferences(currentUser.id);
         setPreferences(defaultPreferences);
       }
@@ -170,77 +170,82 @@ const EmailPreferences = () => {
           />
         </div>
 
-        <div className="border-t pt-6 mt-6">
-          <h3 className="font-medium mb-4">Lesson Notifications</h3>
-          
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="lesson-confirmations">Lesson Confirmations</Label>
-                <p className="text-sm text-gray-500">
-                  Receive emails when your lesson requests are confirmed
-                </p>
+        {/* Lesson & Match notifications only when tennis features are enabled */}
+        {TENNIS_FEATURES_ENABLED && (
+          <>
+            <div className="border-t pt-6 mt-6">
+              <h3 className="font-medium mb-4">Lesson Notifications</h3>
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="lesson-confirmations">Lesson Confirmations</Label>
+                    <p className="text-sm text-gray-500">
+                      Receive emails when your lesson requests are confirmed
+                    </p>
+                  </div>
+                  <Switch
+                    id="lesson-confirmations"
+                    checked={preferences.lesson_confirmations}
+                    onCheckedChange={(checked) => handleUpdatePreference('lesson_confirmations', checked)}
+                    disabled={saving}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="lesson-reminders">Lesson Reminders</Label>
+                    <p className="text-sm text-gray-500">
+                      Receive reminder emails 1 hour before your lessons
+                    </p>
+                  </div>
+                  <Switch
+                    id="lesson-reminders"
+                    checked={preferences.lesson_reminders}
+                    onCheckedChange={(checked) => handleUpdatePreference('lesson_reminders', checked)}
+                    disabled={saving}
+                  />
+                </div>
               </div>
-              <Switch
-                id="lesson-confirmations"
-                checked={preferences.lesson_confirmations}
-                onCheckedChange={(checked) => handleUpdatePreference('lesson_confirmations', checked)}
-                disabled={saving}
-              />
             </div>
 
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="lesson-reminders">Lesson Reminders</Label>
-                <p className="text-sm text-gray-500">
-                  Receive reminder emails 1 hour before your lessons
-                </p>
-              </div>
-              <Switch
-                id="lesson-reminders"
-                checked={preferences.lesson_reminders}
-                onCheckedChange={(checked) => handleUpdatePreference('lesson_reminders', checked)}
-                disabled={saving}
-              />
-            </div>
-          </div>
-        </div>
+            <div className="border-t pt-6 mt-6">
+              <h3 className="font-medium mb-4">Match Notifications</h3>
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="match-confirmations">Match Confirmations</Label>
+                    <p className="text-sm text-gray-500">
+                      Receive emails when your match requests are confirmed
+                    </p>
+                  </div>
+                  <Switch
+                    id="match-confirmations"
+                    checked={preferences.match_confirmations}
+                    onCheckedChange={(checked) => handleUpdatePreference('match_confirmations', checked)}
+                    disabled={saving}
+                  />
+                </div>
 
-        <div className="border-t pt-6 mt-6">
-          <h3 className="font-medium mb-4">Match Notifications</h3>
-          
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="match-confirmations">Match Confirmations</Label>
-                <p className="text-sm text-gray-500">
-                  Receive emails when your match requests are confirmed
-                </p>
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="match-reminders">Match Reminders</Label>
+                    <p className="text-sm text-gray-500">
+                      Receive reminder emails 1 hour before your matches
+                    </p>
+                  </div>
+                  <Switch
+                    id="match-reminders"
+                    checked={preferences.match_reminders}
+                    onCheckedChange={(checked) => handleUpdatePreference('match_reminders', checked)}
+                    disabled={saving}
+                  />
+                </div>
               </div>
-              <Switch
-                id="match-confirmations"
-                checked={preferences.match_confirmations}
-                onCheckedChange={(checked) => handleUpdatePreference('match_confirmations', checked)}
-                disabled={saving}
-              />
             </div>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="match-reminders">Match Reminders</Label>
-                <p className="text-sm text-gray-500">
-                  Receive reminder emails 1 hour before your matches
-                </p>
-              </div>
-              <Switch
-                id="match-reminders"
-                checked={preferences.match_reminders}
-                onCheckedChange={(checked) => handleUpdatePreference('match_reminders', checked)}
-                disabled={saving}
-              />
-            </div>
-          </div>
-        </div>
+          </>
+        )}
       </CardContent>
     </Card>
   );

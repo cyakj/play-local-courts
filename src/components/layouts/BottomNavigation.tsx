@@ -1,10 +1,10 @@
 
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Calendar, User, Settings, Plus, Users, GraduationCap, Search, Trophy } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Home, Calendar, User, Settings, Plus, Users, Trophy } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { UserType } from '../../types';
+import { TENNIS_FEATURES_ENABLED } from '@/config/featureFlags';
 
 const BottomNavigation = () => {
   const { currentUser, isAdmin } = useAuth();
@@ -20,76 +20,57 @@ const BottomNavigation = () => {
 
   // Different nav items based on user type
   const getNavItems = () => {
-    if (currentUser?.userType === UserType.NON_HOA) {
-      return [
-        {
-          path: '/',
-          icon: Home,
-          label: 'Home',
-          color: 'text-green-600'
-        },
-        {
-          path: '/upcoming',
-          icon: Calendar,
-          label: 'Upcoming',
-          color: 'text-blue-600'
-        },
-        {
-          path: '/reserve-facilities',
-          icon: Plus,
-          label: 'Reserve',
-          color: 'text-teal-600',
-          isSpecial: true
-        },
-        {
-          path: '/my-locker',
-          icon: Users,
-          label: 'My Locker',
-          color: 'text-indigo-600'
-        },
-        {
-          path: '/leagues-ladders',
-          icon: Trophy,
-          label: 'Compete',
-          color: 'text-purple-600'
-        }
-      ];
-    }
+    const items = [];
 
-    // HOA user navigation
-    return [
-      {
-        path: '/',
-        icon: Home,
-        label: 'Home',
-        color: 'text-green-600'
-      },
-      {
-        path: '/upcoming',
-        icon: Calendar,
-        label: 'Upcoming',
-        color: 'text-blue-600'
-      },
-      {
+    items.push({
+      path: '/',
+      icon: Home,
+      label: 'Home',
+      color: 'text-green-600'
+    });
+
+    items.push({
+      path: '/upcoming',
+      icon: Calendar,
+      label: 'Upcoming',
+      color: 'text-blue-600'
+    });
+
+    if (currentUser?.userType === UserType.NON_HOA) {
+      items.push({
+        path: '/reserve-facilities',
+        icon: Plus,
+        label: 'Reserve',
+        color: 'text-teal-600',
+        isSpecial: true
+      });
+    } else {
+      items.push({
         path: '/reserve-court',
         icon: Plus,
         label: 'Reserve',
         color: 'text-teal-600',
         isSpecial: true
-      },
-      {
-        path: '/my-locker',
-        icon: Users,
-        label: 'My Locker',
-        color: 'text-indigo-600'
-      },
-      {
+      });
+    }
+
+    items.push({
+      path: '/my-locker',
+      icon: Users,
+      label: 'My Locker',
+      color: 'text-indigo-600'
+    });
+
+    if (TENNIS_FEATURES_ENABLED) {
+      items.push({
         path: '/leagues-ladders',
         icon: Trophy,
         label: 'Compete',
         color: 'text-purple-600'
-      }
-    ];
+      });
+    }
+
+    return items;
   };
 
   const navItems = getNavItems();
@@ -115,7 +96,7 @@ const BottomNavigation = () => {
               key={item.path}
               to={item.path}
               className={`flex flex-col items-center space-y-1 p-2 rounded-xl transition-all duration-300 hover:scale-110 ${
-                item.isSpecial 
+                (item as any).isSpecial 
                   ? 'transform hover:scale-125' 
                   : ''
               }`}
@@ -126,12 +107,12 @@ const BottomNavigation = () => {
                   ? `${item.color} bg-current/10 shadow-lg scale-110` 
                   : 'text-gray-400 hover:text-gray-600'
                 }
-                ${item.isSpecial 
+                ${(item as any).isSpecial 
                   ? 'bg-gradient-to-r from-green-500 to-blue-500 text-white shadow-lg hover:shadow-xl' 
                   : ''
                 }
               `}>
-                <Icon className={`h-6 w-6 ${item.isSpecial ? 'text-white' : ''}`} />
+                <Icon className={`h-6 w-6 ${(item as any).isSpecial ? 'text-white' : ''}`} />
                 {active && (
                   <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-current rounded-full animate-pulse" />
                 )}

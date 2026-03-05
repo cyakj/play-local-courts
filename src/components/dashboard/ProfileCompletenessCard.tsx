@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { TENNIS_FEATURES_ENABLED } from '@/config/featureFlags';
 import { 
   CheckCircle2,
   Circle,
@@ -34,7 +35,6 @@ export const ProfileCompletenessCard = () => {
     try {
       const profileItems: ProfileItem[] = [];
 
-      // Get profile data
       const { data: profile } = await supabase
         .from('profiles')
         .select('avatar_url, ntrp_rating, bio, zip_code, full_name')
@@ -54,42 +54,46 @@ export const ProfileCompletenessCard = () => {
           completed: !!profile.avatar_url
         });
 
-        profileItems.push({
-          id: 'rating',
-          label: 'Set skill rating',
-          completed: !!profile.ntrp_rating
-        });
+        if (TENNIS_FEATURES_ENABLED) {
+          profileItems.push({
+            id: 'rating',
+            label: 'Set skill rating',
+            completed: !!profile.ntrp_rating
+          });
 
-        profileItems.push({
-          id: 'ladder',
-          label: 'Join a ladder',
-          completed: false // Will check below
-        });
+          profileItems.push({
+            id: 'ladder',
+            label: 'Join a ladder',
+            completed: false
+          });
+        }
       }
 
-      // Check if user is in any ladder
-      const { count: ladderCount } = await supabase
-        .from('ladder_teams')
-        .select('id', { count: 'exact' })
-        .or(`player1_id.eq.${currentUser.id},player2_id.eq.${currentUser.id}`);
-
-      const ladderItem = profileItems.find(i => i.id === 'ladder');
-      if (ladderItem) {
-        ladderItem.completed = (ladderCount || 0) > 0;
-      }
-
-      // For coaches, check availability
-      if (isCoach) {
-        const { count: availCount } = await supabase
-          .from('coach_availability')
+      if (TENNIS_FEATURES_ENABLED) {
+        // Check if user is in any ladder
+        const { count: ladderCount } = await supabase
+          .from('ladder_teams')
           .select('id', { count: 'exact' })
-          .eq('coach_id', currentUser.id);
+          .or(`player1_id.eq.${currentUser.id},player2_id.eq.${currentUser.id}`);
 
-        profileItems.push({
-          id: 'availability',
-          label: 'Set availability',
-          completed: (availCount || 0) > 0
-        });
+        const ladderItem = profileItems.find(i => i.id === 'ladder');
+        if (ladderItem) {
+          ladderItem.completed = (ladderCount || 0) > 0;
+        }
+
+        // For coaches, check availability
+        if (isCoach) {
+          const { count: availCount } = await supabase
+            .from('coach_availability')
+            .select('id', { count: 'exact' })
+            .eq('coach_id', currentUser.id);
+
+          profileItems.push({
+            id: 'availability',
+            label: 'Set availability',
+            completed: (availCount || 0) > 0
+          });
+        }
       }
 
       setItems(profileItems);

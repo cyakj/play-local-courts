@@ -22,6 +22,7 @@ import {
   QuickActionButton
 } from '@/components/dashboard';
 import { UserType } from '../types';
+import { TENNIS_FEATURES_ENABLED } from '@/config/featureFlags';
 import { 
   Users, 
   Calendar, 
@@ -66,10 +67,7 @@ const Dashboard = () => {
 
   // Performance: Measure Dashboard render time
   useEffect(() => {
-    // Start timing on mount
     const startTime = performance.now();
-    
-    // Use requestAnimationFrame to measure after paint
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         const endTime = performance.now();
@@ -90,12 +88,10 @@ const Dashboard = () => {
         .single();
       
       if (data) {
-        // First try user's personal zip_code or location
         const userLocation = data.zip_code || data.location;
         if (userLocation) {
           setUserZipCode(userLocation);
         } else if (activeHOA?.hoaId) {
-          // Fallback to HOA address for community users
           const { data: hoaData } = await supabase
             .from('hoas')
             .select('address')
@@ -103,7 +99,6 @@ const Dashboard = () => {
             .single();
           
           if (hoaData?.address) {
-            // Extract ZIP from address or use address as location
             const zipMatch = hoaData.address.match(/\b(\d{5})\b/);
             setUserZipCode(zipMatch ? zipMatch[1] : hoaData.address);
           }
@@ -114,11 +109,10 @@ const Dashboard = () => {
     fetchUserLocation();
   }, [currentUser?.id, activeHOA?.hoaId]);
 
-  // Get weather location - show weather if user has a zip code, location, or HOA address
   const { weather, forecast, loading: weatherLoading, locationName } = useWeather(userZipCode);
 
   useEffect(() => {
-    if (currentUser) {
+    if (currentUser && TENNIS_FEATURES_ENABLED) {
       loadMatchRequests();
     }
   }, [currentUser]);
@@ -178,8 +172,8 @@ const Dashboard = () => {
     return <Navigate to="/reviewer/dashboard" replace />;
   }
 
-  // Redirect coaches to coach dashboard
-  if (isCoach) {
+  // Redirect coaches to coach dashboard only when tennis features are enabled
+  if (TENNIS_FEATURES_ENABLED && isCoach) {
     return <Navigate to="/coach-dashboard" replace />;
   }
 
@@ -212,7 +206,6 @@ const Dashboard = () => {
     );
   }
 
-  // Determine if this is a community user or individual user
   const isCommunityUser = currentUser.userType !== UserType.NON_HOA;
   
   return (
@@ -252,28 +245,32 @@ const Dashboard = () => {
       <ActionRequiredAlerts />
 
       {/* Quick Action Buttons Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className={`grid grid-cols-1 ${TENNIS_FEATURES_ENABLED ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-3`}>
         <QuickActionButton
           icon={<CalendarCheck className="h-5 w-5" />}
           title="Reserve"
           subtitle={isCommunityUser ? "Book a court" : "Find availability"}
-          to={isCommunityUser ? "/reserve-court" : "/my-locker?tab=lessons"}
+          to={isCommunityUser ? "/reserve-court" : "/reserve-facilities"}
           iconBgColor="bg-primary"
         />
-        <QuickActionButton
-          icon={<Users className="h-5 w-5" />}
-          title="Find Players"
-          subtitle="Browse members"
-          to="/my-locker?tab=find-partner"
-          iconBgColor="bg-primary"
-        />
-        <QuickActionButton
-          icon={<Trophy className="h-5 w-5" />}
-          title="Compete"
-          subtitle="View ladders"
-          to="/leagues-ladders"
-          iconBgColor="bg-compete"
-        />
+        {TENNIS_FEATURES_ENABLED && (
+          <QuickActionButton
+            icon={<Users className="h-5 w-5" />}
+            title="Find Players"
+            subtitle="Browse members"
+            to="/my-locker?tab=find-partner"
+            iconBgColor="bg-primary"
+          />
+        )}
+        {TENNIS_FEATURES_ENABLED && (
+          <QuickActionButton
+            icon={<Trophy className="h-5 w-5" />}
+            title="Compete"
+            subtitle="View ladders"
+            to="/leagues-ladders"
+            iconBgColor="bg-compete"
+          />
+        )}
       </div>
       
       {/* Main Grid Layout */}
@@ -283,8 +280,8 @@ const Dashboard = () => {
           {/* Upcoming Activity Snapshot */}
           <UpcomingActivitySnapshot forecast={forecast} />
 
-          {/* Match Play Requests */}
-          {matchRequests.length > 0 && (
+          {/* Match Play Requests - only when tennis features enabled */}
+          {TENNIS_FEATURES_ENABLED && matchRequests.length > 0 && (
             <Card className="overflow-hidden">
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -348,8 +345,8 @@ const Dashboard = () => {
             </Card>
           )}
 
-          {/* Player Performance Stats */}
-          <PlayerStatsCard />
+          {/* Player Performance Stats - only when tennis features enabled */}
+          {TENNIS_FEATURES_ENABLED && <PlayerStatsCard />}
         </div>
 
         {/* Right Column - Growth & Community */}

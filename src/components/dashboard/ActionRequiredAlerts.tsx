@@ -12,6 +12,7 @@ import {
   X,
   ChevronRight
 } from 'lucide-react';
+import { TENNIS_FEATURES_ENABLED } from '@/config/featureFlags';
 
 interface Alert {
   id: string;
@@ -39,43 +40,45 @@ export const ActionRequiredAlerts = () => {
     try {
       const alertList: Alert[] = [];
 
-      // Check for pending match invites
-      const { data: matchRequests, count: matchCount } = await supabase
-        .from('match_requests')
-        .select('id', { count: 'exact' })
-        .eq('opponent_id', currentUser.id)
-        .eq('status', 'pending');
+      // Check for pending match invites (only if tennis features enabled)
+      if (TENNIS_FEATURES_ENABLED) {
+        const { data: matchRequests, count: matchCount } = await supabase
+          .from('match_requests')
+          .select('id', { count: 'exact' })
+          .eq('opponent_id', currentUser.id)
+          .eq('status', 'pending');
 
-      if (matchCount && matchCount > 0) {
-        alertList.push({
-          id: 'match_invites',
-          type: 'match_invite',
-          message: `You have ${matchCount} pending match invite${matchCount > 1 ? 's' : ''}`,
-          link: '/',
-          icon: <Trophy className="h-4 w-4" />,
-          color: 'text-compete bg-compete/10 border-compete/20'
-        });
+        if (matchCount && matchCount > 0) {
+          alertList.push({
+            id: 'match_invites',
+            type: 'match_invite',
+            message: `You have ${matchCount} pending match invite${matchCount > 1 ? 's' : ''}`,
+            link: '/',
+            icon: <Trophy className="h-4 w-4" />,
+            color: 'text-compete bg-compete/10 border-compete/20'
+          });
+        }
+
+        // Check for lesson requests awaiting coach response
+        const { data: lessonRequests, count: lessonCount } = await supabase
+          .from('lesson_requests')
+          .select('id', { count: 'exact' })
+          .eq('player_id', currentUser.id)
+          .eq('status', 'pending');
+
+        if (lessonCount && lessonCount > 0) {
+          alertList.push({
+            id: 'lesson_pending',
+            type: 'lesson_pending',
+            message: `${lessonCount} lesson request${lessonCount > 1 ? 's' : ''} awaiting coach response`,
+            link: '/my-locker?tab=lessons',
+            icon: <GraduationCap className="h-4 w-4" />,
+            color: 'text-green-600 bg-green-50 border-green-200'
+          });
+        }
       }
 
-      // Check for lesson requests awaiting coach response
-      const { data: lessonRequests, count: lessonCount } = await supabase
-        .from('lesson_requests')
-        .select('id', { count: 'exact' })
-        .eq('player_id', currentUser.id)
-        .eq('status', 'pending');
-
-      if (lessonCount && lessonCount > 0) {
-        alertList.push({
-          id: 'lesson_pending',
-          type: 'lesson_pending',
-          message: `${lessonCount} lesson request${lessonCount > 1 ? 's' : ''} awaiting coach response`,
-          link: '/my-locker?tab=lessons',
-          icon: <GraduationCap className="h-4 w-4" />,
-          color: 'text-green-600 bg-green-50 border-green-200'
-        });
-      }
-
-      // Check for maintenance updates (for HOA users)
+      // Check for maintenance updates (for HOA users) - always active
       const { data: maintenanceUpdates, count: maintenanceCount } = await supabase
         .from('maintenance_reports')
         .select('id', { count: 'exact' })

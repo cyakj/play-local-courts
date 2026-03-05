@@ -4,16 +4,21 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Bell, MessageSquare, Trophy, BookOpen, Megaphone } from 'lucide-react';
 import { useInAppNotifications } from '@/hooks/useInAppNotifications';
+import { TENNIS_FEATURES_ENABLED } from '@/config/featureFlags';
 
 const NotificationsSection: React.FC = () => {
   const { preferences, loading, saving, updatePreference } = useInAppNotifications();
 
-  const notificationItems = [
-    { key: 'match_requests' as const, icon: Trophy, label: 'Match Requests', desc: 'Get notified when someone wants to play' },
-    { key: 'new_messages' as const, icon: MessageSquare, label: 'New Messages', desc: 'Get notified when you receive new messages' },
-    { key: 'lesson_updates' as const, icon: BookOpen, label: 'Lesson Updates', desc: 'Notifications about lesson bookings and changes' },
-    { key: 'community_announcements' as const, icon: Megaphone, label: 'Community Announcements', desc: 'Updates from your HOA communities' },
+  const allNotificationItems = [
+    { key: 'match_requests' as const, icon: Trophy, label: 'Match Requests', desc: 'Get notified when someone wants to play', tennisOnly: true },
+    { key: 'new_messages' as const, icon: MessageSquare, label: 'New Messages', desc: 'Get notified when you receive new messages', tennisOnly: false },
+    { key: 'lesson_updates' as const, icon: BookOpen, label: 'Lesson Updates', desc: 'Notifications about lesson bookings and changes', tennisOnly: true },
+    { key: 'community_announcements' as const, icon: Megaphone, label: 'Community Announcements', desc: 'Updates from your HOA communities', tennisOnly: false },
   ];
+
+  const notificationItems = allNotificationItems.filter(
+    item => !item.tennisOnly || TENNIS_FEATURES_ENABLED
+  );
 
   return (
     <Card>
