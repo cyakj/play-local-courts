@@ -42,7 +42,7 @@ const UpcomingMatchSessions = ({ upcomingMatchSessions }: UpcomingMatchSessionsP
             <p className="text-muted-foreground mb-4">No upcoming match sessions</p>
             <Button 
               variant="outline"
-              onClick={() => navigate('/my-locker?tab=find-partner')}
+              onClick={() => navigate('/my-home?tab=find-partner')}
             >
               Find Match
             </Button>

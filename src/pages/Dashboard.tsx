@@ -258,7 +258,7 @@ const Dashboard = () => {
             icon={<Users className="h-5 w-5" />}
             title="Find Players"
             subtitle="Browse members"
-            to="/my-locker?tab=find-partner"
+            to="/my-home?tab=find-partner"
             iconBgColor="bg-primary"
           />
         )}

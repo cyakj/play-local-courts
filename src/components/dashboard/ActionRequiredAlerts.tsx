@@ -71,7 +71,7 @@ export const ActionRequiredAlerts = () => {
             id: 'lesson_pending',
             type: 'lesson_pending',
             message: `${lessonCount} lesson request${lessonCount > 1 ? 's' : ''} awaiting coach response`,
-            link: '/my-locker?tab=lessons',
+            link: '/my-home?tab=lessons',
             icon: <GraduationCap className="h-4 w-4" />,
             color: 'text-green-600 bg-green-50 border-green-200'
           });

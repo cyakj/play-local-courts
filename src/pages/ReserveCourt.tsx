@@ -117,7 +117,7 @@ const ReserveCourt = () => {
               </p>
               <div className="space-y-2">
                 <Button asChild className="w-full">
-                  <Link to="/my-locker?tab=community">Join a Community</Link>
+                  <Link to="/my-home?tab=community">Join a Community</Link>
                 </Button>
                 <Button asChild variant="outline" className="w-full">
                   <Link to="/dashboard">Back to Dashboard</Link>

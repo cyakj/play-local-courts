@@ -108,7 +108,8 @@ function App() {
                   <Route path="/admin/maintenance" element={<MaintenanceReports />} />
                   <Route path="/pending-requests" element={<PendingRequests />} />
                   <Route path="/amenity-rules" element={<AmenityRules />} />
-                  <Route path="/my-locker" element={<MyLocker />} />
+                  <Route path="/my-home" element={<MyLocker />} />
+                  <Route path="/my-locker" element={<Navigate to="/my-home" replace />} />
                   <Route path="/email-settings" element={<EmailSettings />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/profile/:id" element={<UserProfile />} />

@@ -102,7 +102,7 @@ export const SuggestedActionsCard = () => {
             icon: <Users className="h-4 w-4 text-primary" />,
             title: 'Find players near you',
             description: 'Set your match preferences',
-            link: '/my-locker?tab=find-partner',
+            link: '/my-home?tab=find-partner',
             priority: 4
           });
         }
