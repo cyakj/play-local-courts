@@ -400,7 +400,8 @@ const ReserveCourt = () => {
           Check Availability
         </Button>
         
-        {/* Report Maintenance Issue Link */}
+        {/* Report Maintenance Issue Link - moved to Reports tab */}
+        {/* 
         <button 
           onClick={() => setShowReportDialog(true)}
           className="flex items-center justify-center w-full mt-3 text-muted-foreground hover:text-primary transition-colors"
@@ -408,6 +409,7 @@ const ReserveCourt = () => {
           <Wrench className="h-4 w-4 mr-2" />
           <span className="text-sm">Report Maintenance Issue</span>
         </button>
+        */}
       </div>
 
       {/* My Reports Bubble */}
