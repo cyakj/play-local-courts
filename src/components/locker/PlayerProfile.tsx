@@ -615,7 +615,7 @@ const PlayerProfile = () => {
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg">Memberships & Associations</CardTitle>
                     <Button variant="link" size="sm" className="text-primary" asChild>
-                      <Link to="/my-locker?tab=community">View All</Link>
+                      <Link to="/my-home?tab=community">View All</Link>
                     </Button>
                   </div>
                 </CardHeader>
