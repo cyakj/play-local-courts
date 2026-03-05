@@ -16,6 +16,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { formatTime12Hour } from '@/lib/textUtils';
+import { TENNIS_FEATURES_ENABLED } from '@/config/featureFlags';
 
 interface Notification {
   id: string;
@@ -46,80 +47,82 @@ const Notifications = () => {
       const allNotifications: Notification[] = [];
       const today = new Date().toISOString().split('T')[0];
 
-      // Fetch upcoming lessons
-      const { data: lessons } = await supabase
-        .from('lesson_requests')
-        .select('id, preferred_date, preferred_time_start, sport, lesson_type, status')
-        .eq('player_id', currentUser.id)
-        .in('status', ['accepted', 'confirmed', 'pending'])
-        .gte('preferred_date', today)
-        .order('preferred_date', { ascending: true })
-        .limit(5);
+      // Fetch upcoming lessons (only if tennis features enabled)
+      if (TENNIS_FEATURES_ENABLED) {
+        const { data: lessons } = await supabase
+          .from('lesson_requests')
+          .select('id, preferred_date, preferred_time_start, sport, lesson_type, status')
+          .eq('player_id', currentUser.id)
+          .in('status', ['accepted', 'confirmed', 'pending'])
+          .gte('preferred_date', today)
+          .order('preferred_date', { ascending: true })
+          .limit(5);
 
-      if (lessons) {
-        lessons.forEach(lesson => {
-          allNotifications.push({
-            id: `lesson-${lesson.id}`,
-            type: 'lesson',
-            title: lesson.status === 'pending' ? 'Pending Lesson Request' : 'Upcoming Lesson',
-            description: `${lesson.lesson_type} ${lesson.sport} lesson on ${new Date(lesson.preferred_date + 'T00:00:00').toLocaleDateString()}`,
-            date: lesson.preferred_date,
-            time: lesson.preferred_time_start,
-            link: '/my-locker?tab=lessons',
-            isNew: lesson.status === 'pending'
+        if (lessons) {
+          lessons.forEach(lesson => {
+            allNotifications.push({
+              id: `lesson-${lesson.id}`,
+              type: 'lesson',
+              title: lesson.status === 'pending' ? 'Pending Lesson Request' : 'Upcoming Lesson',
+              description: `${lesson.lesson_type} ${lesson.sport} lesson on ${new Date(lesson.preferred_date + 'T00:00:00').toLocaleDateString()}`,
+              date: lesson.preferred_date,
+              time: lesson.preferred_time_start,
+              link: '/my-locker?tab=lessons',
+              isNew: lesson.status === 'pending'
+            });
           });
-        });
+        }
+
+        // Fetch pending match requests
+        const { data: matchRequests } = await supabase
+          .from('match_requests')
+          .select('id, date, time_start, match_type, status, challenger:profiles!match_requests_challenger_id_fkey(full_name)')
+          .eq('opponent_id', currentUser.id)
+          .eq('status', 'pending')
+          .order('created_at', { ascending: false })
+          .limit(5);
+
+        if (matchRequests) {
+          matchRequests.forEach(request => {
+            allNotifications.push({
+              id: `match-request-${request.id}`,
+              type: 'match',
+              title: 'Match Request',
+              description: `${request.challenger?.full_name || 'Someone'} wants to play ${request.match_type || 'a match'}`,
+              date: request.date || 'TBD',
+              time: request.time_start,
+              link: '/',
+              isNew: true
+            });
+          });
+        }
+
+        // Fetch accepted matches coming up
+        const { data: acceptedMatches } = await supabase
+          .from('match_requests')
+          .select('id, date, time_start, match_type, location')
+          .or(`challenger_id.eq.${currentUser.id},opponent_id.eq.${currentUser.id}`)
+          .eq('status', 'accepted')
+          .gte('date', today)
+          .order('date', { ascending: true })
+          .limit(5);
+
+        if (acceptedMatches) {
+          acceptedMatches.forEach(match => {
+            allNotifications.push({
+              id: `match-${match.id}`,
+              type: 'match',
+              title: 'Upcoming Match',
+              description: `${match.match_type || 'Match'} at ${match.location || 'TBD'}`,
+              date: match.date,
+              time: match.time_start,
+              link: '/upcoming'
+            });
+          });
+        }
       }
 
-      // Fetch pending match requests
-      const { data: matchRequests } = await supabase
-        .from('match_requests')
-        .select('id, date, time_start, match_type, status, challenger:profiles!match_requests_challenger_id_fkey(full_name)')
-        .eq('opponent_id', currentUser.id)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false })
-        .limit(5);
-
-      if (matchRequests) {
-        matchRequests.forEach(request => {
-          allNotifications.push({
-            id: `match-request-${request.id}`,
-            type: 'match',
-            title: 'Match Request',
-            description: `${request.challenger?.full_name || 'Someone'} wants to play ${request.match_type || 'a match'}`,
-            date: request.date || 'TBD',
-            time: request.time_start,
-            link: '/',
-            isNew: true
-          });
-        });
-      }
-
-      // Fetch accepted matches coming up
-      const { data: acceptedMatches } = await supabase
-        .from('match_requests')
-        .select('id, date, time_start, match_type, location')
-        .or(`challenger_id.eq.${currentUser.id},opponent_id.eq.${currentUser.id}`)
-        .eq('status', 'accepted')
-        .gte('date', today)
-        .order('date', { ascending: true })
-        .limit(5);
-
-      if (acceptedMatches) {
-        acceptedMatches.forEach(match => {
-          allNotifications.push({
-            id: `match-${match.id}`,
-            type: 'match',
-            title: 'Upcoming Match',
-            description: `${match.match_type || 'Match'} at ${match.location || 'TBD'}`,
-            date: match.date,
-            time: match.time_start,
-            link: '/upcoming'
-          });
-        });
-      }
-
-      // Fetch unread messages
+      // Fetch unread messages (always active)
       const { data: messages } = await supabase
         .from('messages')
         .select('id, content, created_at, sender_id')
@@ -129,7 +132,6 @@ const Notifications = () => {
         .limit(5);
 
       if (messages) {
-        // Fetch sender names
         const senderIds = [...new Set(messages.map(m => m.sender_id))];
         const { data: senderProfiles } = await supabase
           .from('profiles')

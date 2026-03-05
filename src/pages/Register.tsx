@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
+import { TENNIS_FEATURES_ENABLED } from '@/config/featureFlags';
 
 interface HOA {
   id: string;
@@ -88,8 +89,7 @@ const Register = () => {
     setIsLoading(true);
     
     try {
-      if (userRole === 'coach') {
-        // Use the registerCoach method from AuthContext
+      if (TENNIS_FEATURES_ENABLED && userRole === 'coach') {
         await registerCoach(fullName, email, password, {
           businessName,
           credentials,
@@ -101,7 +101,6 @@ const Register = () => {
           bio
         });
       } else if (userRole === 'hoa_manager') {
-        // Register as a basic user first, then redirect to HOA application
         await register(fullName, email, password, phoneNumber, dateOfBirth, '');
         toast.success('Account created! Now submit your HOA verification.');
         navigate('/hoa-application');
@@ -121,7 +120,7 @@ const Register = () => {
     <Card className="w-full shadow-lg">
       <CardHeader>
         <CardTitle className="text-2xl">Create Account</CardTitle>
-        <CardDescription>Join our tennis and amenity community</CardDescription>
+        <CardDescription>Join our community</CardDescription>
       </CardHeader>
       <CardContent>
         {error && (
@@ -139,8 +138,10 @@ const Register = () => {
                 <SelectValue placeholder="Select your role" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="player">Player (HOA resident or non-resident)</SelectItem>
-                <SelectItem value="coach">Coach</SelectItem>
+                <SelectItem value="player">Resident</SelectItem>
+                {TENNIS_FEATURES_ENABLED && (
+                  <SelectItem value="coach">Coach</SelectItem>
+                )}
                 <SelectItem value="hoa_manager">HOA Manager (requires verification)</SelectItem>
               </SelectContent>
             </Select>
@@ -169,18 +170,20 @@ const Register = () => {
                     />
                     <Label htmlFor="livesInHOA-yes">Yes, I live in an HOA</Label>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <input 
-                      type="radio" 
-                      id="livesInHOA-no" 
-                      name="livesInHOA" 
-                      value="no"
-                      checked={livesInHOA === false}
-                      onChange={() => setLivesInHOA(false)}
-                      className="text-primary"
-                    />
-                    <Label htmlFor="livesInHOA-no">No, I'm not part of an HOA</Label>
-                  </div>
+                  {TENNIS_FEATURES_ENABLED && (
+                    <div className="flex items-center space-x-2">
+                      <input 
+                        type="radio" 
+                        id="livesInHOA-no" 
+                        name="livesInHOA" 
+                        value="no"
+                        checked={livesInHOA === false}
+                        onChange={() => setLivesInHOA(false)}
+                        className="text-primary"
+                      />
+                      <Label htmlFor="livesInHOA-no">No, I'm not part of an HOA</Label>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -203,7 +206,7 @@ const Register = () => {
                 </div>
               )}
 
-              {livesInHOA === false && (
+              {TENNIS_FEATURES_ENABLED && livesInHOA === false && (
                 <div className="p-4 bg-blue-50 rounded-lg border-l-4 border-blue-500">
                   <p className="text-sm text-blue-800">
                     Perfect! You'll have access to tennis networking, coaching, competitive play, and public court discovery features.
@@ -278,8 +281,8 @@ const Register = () => {
             />
           </div>
 
-          {/* Coach-specific fields */}
-          {userRole === 'coach' && (
+          {/* Coach-specific fields - only when tennis features enabled */}
+          {TENNIS_FEATURES_ENABLED && userRole === 'coach' && (
             <>
               <div className="space-y-2">
                 <Label htmlFor="businessName">Coaching Business Name (optional)</Label>
@@ -420,7 +423,7 @@ const Register = () => {
               (userRole === 'admin' && !selectedHOA) ||
               (userRole === 'player' && livesInHOA === null) ||
               (userRole === 'player' && livesInHOA === true && !selectedHOA) ||
-              (userRole === 'coach' && (!homeBase || sportsOffered.length === 0))
+              (TENNIS_FEATURES_ENABLED && userRole === 'coach' && (!homeBase || sportsOffered.length === 0))
             }
           >
             {isLoading ? 'Creating Account...' : 'Create Account'}

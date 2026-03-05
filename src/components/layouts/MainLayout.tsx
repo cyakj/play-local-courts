@@ -6,6 +6,7 @@ import Navbar from '../ui/Navbar';
 import CoachNavbar from '../ui/CoachNavbar';
 import BottomNavigation from './BottomNavigation';
 import CoachBottomNavigation from './CoachBottomNavigation';
+import { TENNIS_FEATURES_ENABLED } from '@/config/featureFlags';
 
 const MainLayout = () => {
   const { currentUser, loading, isCoach } = useAuth();
@@ -28,15 +29,18 @@ const MainLayout = () => {
     return <Navigate to="/login" replace />;
   }
 
+  // When tennis features are disabled, always use the player layout (no coach portal)
+  const showCoachLayout = TENNIS_FEATURES_ENABLED && isCoach;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50/30 via-blue-50/30 to-purple-50/30">
-      {isCoach ? <CoachNavbar /> : <Navbar />}
+      {showCoachLayout ? <CoachNavbar /> : <Navbar />}
       <main className="pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         <div className="py-6">
           <Outlet />
         </div>
       </main>
-      {isCoach ? <CoachBottomNavigation /> : <BottomNavigation />}
+      {showCoachLayout ? <CoachBottomNavigation /> : <BottomNavigation />}
     </div>
   );
 };

@@ -21,6 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 import { CommunityManagement } from '@/components/community';
 import { ActiveHOAIndicator } from '@/components/community/ActiveHOAIndicator';
+import { TENNIS_FEATURES_ENABLED } from '@/config/featureFlags';
 
 const MyLocker = () => {
   const { currentUser } = useAuth();
@@ -39,7 +40,6 @@ const MyLocker = () => {
     if (!showMessaging && newMsg.receiver_id === currentUser?.id) {
       setHasUnreadMessages(true);
       
-      // Fetch sender name for toast
       const { data: senderProfile } = await supabase
         .from('profiles')
         .select('full_name')
@@ -67,13 +67,14 @@ const MyLocker = () => {
     }
   }, [currentUser]);
 
-  // Check for tab parameter and auto-show find partner
+  // Check for tab parameter and auto-show find partner (only if tennis features enabled)
   useEffect(() => {
+    if (!TENNIS_FEATURES_ENABLED) return;
     const tab = searchParams.get('tab');
     if (tab === 'find-partner') {
       setTimeout(() => {
         setShowFindPartner(true);
-      }, 100); // Small delay to ensure the page loads first
+      }, 100);
     }
   }, [searchParams]);
 
@@ -96,11 +97,10 @@ const MyLocker = () => {
   };
 
   const handleMarkAsRead = async () => {
-    // Re-check for truly unread messages after marking some as read
     await checkForUnreadMessages();
   };
 
-  if (showFindPartner) {
+  if (TENNIS_FEATURES_ENABLED && showFindPartner) {
     return (
       <ErrorBoundary>
         <div className="animate-in slide-in-from-right duration-300">
@@ -110,7 +110,7 @@ const MyLocker = () => {
     );
   }
 
-  if (showFindCoach) {
+  if (TENNIS_FEATURES_ENABLED && showFindCoach) {
     return (
       <ErrorBoundary>
         <div className="animate-in slide-in-from-right duration-300">
@@ -120,8 +120,10 @@ const MyLocker = () => {
     );
   }
 
-  // Different header text and functionality for non-HOA users
   const isNonHOA = currentUser?.userType === UserType.NON_HOA;
+
+  // Determine which tabs to show
+  const tabCount = TENNIS_FEATURES_ENABLED ? 4 : 2;
   
   return (
     <div className="container mx-auto px-4 py-8 animate-in fade-in duration-500">
@@ -132,10 +134,10 @@ const MyLocker = () => {
           </div>
           <div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-pink-600 bg-clip-text text-transparent">
-              {isNonHOA ? 'Tennis Network Hub' : 'My Locker'}
+              {isNonHOA ? 'My Hub' : 'My Locker'}
             </h1>
             <p className="text-muted-foreground">
-              {isNonHOA ? 'Connect with tennis players and improve your game' : 'Your tennis hub & social center'}
+              {isNonHOA ? 'Your personal hub' : 'Your community hub & profile'}
             </p>
           </div>
         </div>
@@ -153,7 +155,7 @@ const MyLocker = () => {
       </div>
 
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 bg-white/80 backdrop-blur-sm shadow-lg rounded-xl p-1">
+        <TabsList className={`grid w-full grid-cols-${tabCount} bg-white/80 backdrop-blur-sm shadow-lg rounded-xl p-1`}>
           <TabsTrigger 
             value="profile" 
             className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-pink-500 data-[state=active]:text-white transition-all duration-200 rounded-lg"
@@ -168,20 +170,24 @@ const MyLocker = () => {
             <Building2 className="h-4 w-4" />
             <span className="hidden sm:inline">Community</span>
           </TabsTrigger>
-          <TabsTrigger 
-            value="preferences"
-            className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-blue-500 data-[state=active]:text-white transition-all duration-200 rounded-lg"
-          >
-            <Target className="h-4 w-4" />
-            <span className="hidden sm:inline">{isNonHOA ? 'Network' : 'Match'}</span>
-          </TabsTrigger>
-          <TabsTrigger 
-            value="lessons"
-            className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white transition-all duration-200 rounded-lg"
-          >
-            <GraduationCap className="h-4 w-4" />
-            <span className="hidden sm:inline">Lessons</span>
-          </TabsTrigger>
+          {TENNIS_FEATURES_ENABLED && (
+            <TabsTrigger 
+              value="preferences"
+              className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-blue-500 data-[state=active]:text-white transition-all duration-200 rounded-lg"
+            >
+              <Target className="h-4 w-4" />
+              <span className="hidden sm:inline">{isNonHOA ? 'Network' : 'Match'}</span>
+            </TabsTrigger>
+          )}
+          {TENNIS_FEATURES_ENABLED && (
+            <TabsTrigger 
+              value="lessons"
+              className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white transition-all duration-200 rounded-lg"
+            >
+              <GraduationCap className="h-4 w-4" />
+              <span className="hidden sm:inline">Lessons</span>
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="profile" className="animate-in fade-in duration-300">
@@ -192,57 +198,61 @@ const MyLocker = () => {
           <CommunityManagement />
         </TabsContent>
 
-        <TabsContent value="preferences" className="animate-in fade-in duration-300">
-          <div className="space-y-6">
-            <div className="flex justify-end">
-              <Button 
-                onClick={() => setShowFindPartner(true)}
-                className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 transition-all duration-200 hover:scale-105 hover:shadow-lg"
-              >
-                <Search className="h-4 w-4" />
-                {isNonHOA ? 'Find Tennis Players' : 'Find a Partner'}
-              </Button>
+        {TENNIS_FEATURES_ENABLED && (
+          <TabsContent value="preferences" className="animate-in fade-in duration-300">
+            <div className="space-y-6">
+              <div className="flex justify-end">
+                <Button 
+                  onClick={() => setShowFindPartner(true)}
+                  className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 transition-all duration-200 hover:scale-105 hover:shadow-lg"
+                >
+                  <Search className="h-4 w-4" />
+                  {isNonHOA ? 'Find Tennis Players' : 'Find a Partner'}
+                </Button>
+              </div>
+              {isNonHOA && (
+                <Card className="bg-gradient-to-r from-blue-50 to-green-50 border-l-4 border-l-blue-500">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-blue-800">
+                      <Users className="h-5 w-5" />
+                      Open Tennis Network
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-blue-700 mb-4">
+                      Set your preferences to connect with other tennis players who aren't part of an HOA. 
+                      Find players at your skill level for singles, doubles, or group play!
+                    </p>
+                    <div className="text-sm text-blue-600">
+                      ✓ Connect with players nationwide<br/>
+                      ✓ Filter by location, skill level, and availability<br/>
+                      ✓ Join public tournaments and ladders
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              <MatchPreferences />
             </div>
-            {isNonHOA && (
-              <Card className="bg-gradient-to-r from-blue-50 to-green-50 border-l-4 border-l-blue-500">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-blue-800">
-                    <Users className="h-5 w-5" />
-                    Open Tennis Network
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-blue-700 mb-4">
-                    Set your preferences to connect with other tennis players who aren't part of an HOA. 
-                    Find players at your skill level for singles, doubles, or group play!
-                  </p>
-                  <div className="text-sm text-blue-600">
-                    ✓ Connect with players nationwide<br/>
-                    ✓ Filter by location, skill level, and availability<br/>
-                    ✓ Join public tournaments and ladders
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-            <MatchPreferences />
-          </div>
-        </TabsContent>
+          </TabsContent>
+        )}
 
-        <TabsContent value="lessons" className="animate-in fade-in duration-300">
-          <div className="space-y-6">
-            <div className="flex justify-end">
-              <Button 
-                onClick={() => setShowFindCoach(true)}
-                variant="outline"
-                className="flex items-center gap-2 hover:scale-105 transition-all duration-200 hover:shadow-lg"
-              >
-                <GraduationCap className="h-4 w-4" />
-                Find a Coach
-              </Button>
+        {TENNIS_FEATURES_ENABLED && (
+          <TabsContent value="lessons" className="animate-in fade-in duration-300">
+            <div className="space-y-6">
+              <div className="flex justify-end">
+                <Button 
+                  onClick={() => setShowFindCoach(true)}
+                  variant="outline"
+                  className="flex items-center gap-2 hover:scale-105 transition-all duration-200 hover:shadow-lg"
+                >
+                  <GraduationCap className="h-4 w-4" />
+                  Find a Coach
+                </Button>
+              </div>
+              <LessonsTab />
             </div>
-            <LessonsTab />
-          </div>
-        </TabsContent>
+          </TabsContent>
+        )}
 
       </Tabs>
 
