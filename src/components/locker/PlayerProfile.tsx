@@ -597,10 +597,12 @@ const PlayerProfile = () => {
                           </div>
                         </>
                       )}
+                      {TENNIS_FEATURES_ENABLED && (
                       <div className="p-4 bg-muted/50 rounded-xl text-center">
                         <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Gender</p>
                         <p className="text-lg font-semibold capitalize">{profile.gender || '—'}</p>
                       </div>
+                      )}
                     </div>
                   )}
                 </CardContent>
