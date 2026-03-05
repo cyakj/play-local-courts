@@ -607,8 +607,8 @@ const PlayerProfile = () => {
                 </CardContent>
               </Card>
 
-              {/* Playing Preferences Card */}
-              {currentUser && <PlayingPreferencesCard userId={currentUser.id} />}
+              {/* Playing Preferences Card - only when tennis features enabled */}
+              {TENNIS_FEATURES_ENABLED && currentUser && <PlayingPreferencesCard userId={currentUser.id} />}
 
               {/* Memberships Card */}
               <Card>
