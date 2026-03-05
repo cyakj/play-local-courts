@@ -231,7 +231,7 @@ const Dashboard = () => {
               <Bell className="h-5 w-5" />
             </Button>
           </Link>
-          <Link to="/my-locker">
+          <Link to="/my-home">
             <Avatar className="h-9 w-9 cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all">
               <AvatarFallback className="bg-primary text-primary-foreground text-sm font-semibold">
                 {currentUser?.fullName?.charAt(0) || 'U'}
