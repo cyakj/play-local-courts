@@ -65,7 +65,7 @@ export const SuggestedActionsCard = () => {
             icon: <Target className="h-4 w-4 text-green-600" />,
             title: 'Set your skill rating',
             description: 'Find better matched opponents',
-            link: '/my-locker?tab=profile',
+            link: '/my-home?tab=profile',
             priority: 2
           });
         }
