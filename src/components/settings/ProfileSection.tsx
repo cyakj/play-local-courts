@@ -311,8 +311,8 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({
         </CardContent>
       </Card>
 
-      {/* Coach Profile Card - Only visible for coaches */}
-      {isCoach && (
+      {/* Coach Profile Card - Only visible for coaches when tennis features enabled */}
+      {TENNIS_FEATURES_ENABLED && isCoach && (
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
