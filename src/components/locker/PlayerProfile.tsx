@@ -475,6 +475,7 @@ const PlayerProfile = () => {
                       </div>
 
                       {/* Ratings */}
+                      {TENNIS_FEATURES_ENABLED && (
                       <div>
                         <h4 className="font-medium mb-3">Tennis Ratings</h4>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -575,6 +576,8 @@ const PlayerProfile = () => {
                           </div>
                         </div>
                       </div>
+                      )}
+                    </div>
                     </div>
                   ) : (
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
