@@ -30,12 +30,13 @@ export const CommunityLinksCard = () => {
       subtitle: 'POLICY UPDATED',
       to: '/amenity-rules'
     },
-    {
+    // Ladders link - tennis feature only
+    ...(TENNIS_FEATURES_ENABLED ? [{
       icon: <Trophy className="h-4 w-4" />,
       title: 'View All Ladders',
       subtitle: 'ACTIVE COMPETITIONS',
       to: '/leagues-ladders'
-    }
+    }] : [])
   ];
 
   return (

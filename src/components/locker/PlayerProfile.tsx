@@ -648,7 +648,7 @@ const PlayerProfile = () => {
                       <Building2 className="h-10 w-10 mx-auto mb-2 opacity-50" />
                       <p>No community memberships yet</p>
                       <Button variant="link" asChild className="mt-2">
-                        <Link to="/my-locker?tab=community">Join a Community</Link>
+                        <Link to="/my-home?tab=community">Join a Community</Link>
                       </Button>
                     </div>
                   )}
