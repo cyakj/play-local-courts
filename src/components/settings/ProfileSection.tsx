@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Camera, MapPin, Briefcase, Upload, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
+import { TENNIS_FEATURES_ENABLED } from '@/config/featureFlags';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { ProfileFormData, CoachFormData } from '@/hooks/useSettingsForm';
