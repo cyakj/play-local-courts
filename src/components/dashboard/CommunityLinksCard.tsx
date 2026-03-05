@@ -2,6 +2,7 @@ import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Link } from 'react-router-dom';
 import { useActiveHOA } from '@/contexts/ActiveHOAContext';
+import { TENNIS_FEATURES_ENABLED } from '@/config/featureFlags';
 import { 
   FileText, 
   Trophy, 
