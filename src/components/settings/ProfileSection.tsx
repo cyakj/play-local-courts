@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Camera, MapPin, Briefcase, Upload, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
+import { TENNIS_FEATURES_ENABLED } from '@/config/featureFlags';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { ProfileFormData, CoachFormData } from '@/hooks/useSettingsForm';
@@ -131,8 +132,8 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({
       {/* Player Profile Card */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">Player Profile</CardTitle>
-          <CardDescription>Your personal information visible to other players</CardDescription>
+          <CardTitle className="text-xl">{TENNIS_FEATURES_ENABLED ? 'Player Profile' : 'My Profile'}</CardTitle>
+          <CardDescription>{TENNIS_FEATURES_ENABLED ? 'Your personal information visible to other players' : 'Your personal information'}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Avatar */}
@@ -249,7 +250,8 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({
             />
           </div>
 
-          {/* Tennis Ratings */}
+          {/* Tennis Ratings - hidden when tennis features disabled */}
+          {TENNIS_FEATURES_ENABLED && (
           <div>
             <h4 className="font-medium mb-3">Tennis Ratings</h4>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -305,11 +307,12 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({
               </div>
             </div>
           </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Coach Profile Card - Only visible for coaches */}
-      {isCoach && (
+      {/* Coach Profile Card - Only visible for coaches when tennis features enabled */}
+      {TENNIS_FEATURES_ENABLED && isCoach && (
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
