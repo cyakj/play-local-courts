@@ -54,7 +54,7 @@ export const SuggestedActionsCard = () => {
             icon: <Camera className="h-4 w-4 text-blue-600" />,
             title: 'Add a profile photo',
             description: 'Help others recognize you',
-            link: '/my-locker?tab=profile',
+            link: '/my-home?tab=profile',
             priority: 1
           });
         }
