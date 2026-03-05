@@ -4,6 +4,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { MapPin, Eye, Globe, ShieldCheck, Activity } from 'lucide-react';
 import { PrivacyFormData } from '@/hooks/useSettingsForm';
+import { TENNIS_FEATURES_ENABLED } from '@/config/featureFlags';
 
 interface PrivacySectionProps {
   privacy: PrivacyFormData;
