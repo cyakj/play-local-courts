@@ -1,15 +1,33 @@
 import React, { useState } from 'react';
-import { Settings as SettingsIcon } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, Settings as SettingsIcon, User, Shield, Bell, LifeBuoy, LogOut, Trash2, Lock, ChevronRight } from 'lucide-react';
 import { useSettingsForm } from '@/hooks/useSettingsForm';
-import SettingsNavigation, { SettingsSection } from '@/components/settings/SettingsNavigation';
+import { useAuth } from '@/contexts/AuthContext';
+import { useActiveHOA } from '@/contexts/ActiveHOAContext';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 import AccountSection from '@/components/settings/AccountSection';
 import PrivacySection from '@/components/settings/PrivacySection';
 import NotificationsSection from '@/components/settings/NotificationsSection';
 import HelpSupportSection from '@/components/settings/HelpSupportSection';
 import SaveChangesFooter from '@/components/settings/SaveChangesFooter';
+import { ActiveCommunitySelector } from '@/components/community/ActiveCommunitySelector';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+
+type SettingsView = 'main' | 'account' | 'privacy' | 'notifications' | 'help';
 
 const Settings = () => {
-  const [activeSection, setActiveSection] = useState<SettingsSection>('account');
+  const navigate = useNavigate();
+  const { currentUser, logout } = useAuth();
+  const { activeHOA, memberships, pendingMemberships } = useActiveHOA();
+  const { toast } = useToast();
+  const [view, setView] = useState<SettingsView>('main');
 
   const {
     loading,
@@ -24,6 +42,28 @@ const Settings = () => {
     discardChanges,
   } = useSettingsForm();
 
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login');
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to log out', variant: 'destructive' });
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    if (!currentUser?.email) return;
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(currentUser.email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
+      toast({ title: 'Password Reset Email Sent', description: 'Check your email for the reset link' });
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to send reset email', variant: 'destructive' });
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -35,52 +75,176 @@ const Settings = () => {
     );
   }
 
-  const renderActiveSection = () => {
-    switch (activeSection) {
-      case 'account':
-        return <AccountSection profile={profile} setProfile={setProfile} />;
-      case 'privacy':
-        return <PrivacySection privacy={privacy} setPrivacy={setPrivacy} />;
-      case 'notifications':
-        return <NotificationsSection />;
-      case 'help':
-        return <HelpSupportSection />;
-      default:
-        return null;
-    }
-  };
+  // Sub-views
+  if (view !== 'main') {
+    const renderSubView = () => {
+      switch (view) {
+        case 'account':
+          return <AccountSection profile={profile} setProfile={setProfile} />;
+        case 'privacy':
+          return <PrivacySection privacy={privacy} setPrivacy={setPrivacy} />;
+        case 'notifications':
+          return <NotificationsSection />;
+        case 'help':
+          return <HelpSupportSection />;
+      }
+    };
 
-  return (
-    <div className="min-h-screen pb-24">
-      {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-primary/10 rounded-xl">
-            <SettingsIcon className="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-blue-500 bg-clip-text text-transparent">
-              Settings
-            </h1>
-            <p className="text-sm text-muted-foreground">Manage your account and preferences</p>
-          </div>
-        </div>
-      </div>
+    const viewTitles: Record<string, string> = {
+      account: 'Account Details',
+      privacy: 'Privacy & Security',
+      notifications: 'Notifications',
+      help: 'Help & Support',
+    };
 
-      {/* Main Content */}
-      <div className="flex flex-col lg:flex-row gap-6">
-        <SettingsNavigation
-          activeSection={activeSection}
-          onSectionChange={setActiveSection}
-          isCoach={isCoach}
+    return (
+      <div className="min-h-screen pb-24">
+        <Button
+          variant="ghost"
+          className="mb-4 h-11 -ml-2"
+          onClick={() => setView('main')}
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          {viewTitles[view]}
+        </Button>
+        {renderSubView()}
+        <SaveChangesFooter
+          hasChanges={hasChanges}
+          saving={saving}
+          onSave={saveChanges}
+          onDiscard={discardChanges}
         />
+      </div>
+    );
+  }
 
-        <div className="flex-1 min-w-0">
-          {renderActiveSection()}
-        </div>
+  // Main settings view
+  return (
+    <div className="min-h-screen pb-24 space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => navigate(-1)}>
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <h1 className="text-2xl font-bold">Settings</h1>
       </div>
 
-      {/* Sticky Save Footer */}
+      {/* Profile Section */}
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex items-center gap-4">
+            <Avatar className="h-16 w-16 border-2 border-border">
+              <AvatarImage src={profile.avatarUrl} />
+              <AvatarFallback className="text-lg bg-primary text-primary-foreground font-semibold">
+                {profile.fullName?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <h2 className="font-semibold text-lg truncate">{profile.fullName || 'Your Name'}</h2>
+              <p className="text-sm text-muted-foreground truncate">{currentUser?.email}</p>
+              {currentUser?.createdAt && (
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Member since {format(new Date(currentUser.createdAt), 'MMM yyyy')}
+                </p>
+              )}
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            className="w-full mt-4 h-11"
+            onClick={() => navigate('/my-home')}
+          >
+            <User className="h-4 w-4 mr-2" />
+            Edit Profile
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* My Communities */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">My Communities</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0 space-y-2">
+          {memberships.map((m) => (
+            <div
+              key={m.id}
+              className={cn(
+                "flex items-center justify-between p-3 rounded-xl border",
+                m.hoaId === activeHOA?.hoaId ? "border-primary/30 bg-primary/5" : "border-border"
+              )}
+            >
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="font-medium text-sm">{m.hoaName}</p>
+                  {m.hoaId === activeHOA?.hoaId && (
+                    <Badge variant="default" className="text-[10px] px-1.5 py-0">Active</Badge>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground capitalize">{m.role}</p>
+              </div>
+            </div>
+          ))}
+          {pendingMemberships.map((m) => (
+            <div key={m.id} className="flex items-center justify-between p-3 rounded-xl border border-yellow-200 bg-yellow-50/50">
+              <div>
+                <p className="font-medium text-sm">{m.hoaName}</p>
+                <Badge variant="outline" className="text-[10px] text-yellow-700 border-yellow-300">Pending</Badge>
+              </div>
+            </div>
+          ))}
+          {memberships.length > 1 && (
+            <div className="pt-2">
+              <ActiveCommunitySelector />
+            </div>
+          )}
+          <Button
+            variant="ghost"
+            className="w-full h-11 text-sm text-primary"
+            onClick={() => navigate('/my-home?tab=community')}
+          >
+            + Join or apply to a new community
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Settings Links */}
+      <div className="space-y-1">
+        {[
+          { id: 'notifications' as const, icon: Bell, label: 'Notifications', desc: 'Manage alert preferences' },
+          { id: 'privacy' as const, icon: Shield, label: 'Privacy', desc: 'Profile visibility settings' },
+          { id: 'account' as const, icon: Lock, label: 'Account', desc: 'Email, phone, password' },
+          { id: 'help' as const, icon: LifeBuoy, label: 'Help & Support', desc: 'FAQ, terms, contact' },
+        ].map(({ id, icon: Icon, label, desc }) => (
+          <button
+            key={id}
+            onClick={() => setView(id)}
+            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-muted/50 transition-colors min-h-[44px]"
+          >
+            <div className="p-2 bg-muted rounded-lg">
+              <Icon className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div className="flex-1 text-left">
+              <p className="font-medium text-sm">{label}</p>
+              <p className="text-xs text-muted-foreground">{desc}</p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </button>
+        ))}
+      </div>
+
+      <Separator />
+
+      {/* Logout */}
+      <Button
+        variant="ghost"
+        className="w-full h-12 text-destructive hover:text-destructive hover:bg-destructive/10 font-semibold"
+        onClick={handleLogout}
+      >
+        <LogOut className="h-5 w-5 mr-2" />
+        Log Out
+      </Button>
+
       <SaveChangesFooter
         hasChanges={hasChanges}
         saving={saving}
