@@ -132,8 +132,8 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({
       {/* Player Profile Card */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">Player Profile</CardTitle>
-          <CardDescription>Your personal information visible to other players</CardDescription>
+          <CardTitle className="text-xl">{TENNIS_FEATURES_ENABLED ? 'Player Profile' : 'My Profile'}</CardTitle>
+          <CardDescription>{TENNIS_FEATURES_ENABLED ? 'Your personal information visible to other players' : 'Your personal information'}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Avatar */}
