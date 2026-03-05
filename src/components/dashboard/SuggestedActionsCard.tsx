@@ -13,6 +13,7 @@ import {
   Target,
   ChevronRight
 } from 'lucide-react';
+import { TENNIS_FEATURES_ENABLED } from '@/config/featureFlags';
 
 interface Suggestion {
   id: string;
@@ -58,7 +59,7 @@ export const SuggestedActionsCard = () => {
           });
         }
 
-        if (!profile.ntrp_rating) {
+        if (TENNIS_FEATURES_ENABLED && !profile.ntrp_rating) {
           suggestionList.push({
             id: 'add_rating',
             icon: <Target className="h-4 w-4 text-green-600" />,
@@ -70,57 +71,59 @@ export const SuggestedActionsCard = () => {
         }
       }
 
-      // Check if user is in any ladder
-      const { count: ladderCount } = await supabase
-        .from('ladder_teams')
-        .select('id', { count: 'exact' })
-        .or(`player1_id.eq.${currentUser.id},player2_id.eq.${currentUser.id}`);
-
-      if (!ladderCount || ladderCount === 0) {
-        suggestionList.push({
-          id: 'join_ladder',
-          icon: <Trophy className="h-4 w-4 text-compete" />,
-          title: 'Join a ladder',
-          description: 'Compete and track your progress',
-          link: '/leagues-ladders',
-          priority: 3
-        });
-      }
-
-      // Check match preferences
-      const { data: prefs } = await supabase
-        .from('match_preferences')
-        .select('id')
-        .eq('user_id', currentUser.id)
-        .single();
-
-      if (!prefs) {
-        suggestionList.push({
-          id: 'set_preferences',
-          icon: <Users className="h-4 w-4 text-primary" />,
-          title: 'Find players near you',
-          description: 'Set your match preferences',
-          link: '/my-locker?tab=find-partner',
-          priority: 4
-        });
-      }
-
-      // For coaches, check availability
-      if (isCoach) {
-        const { count: availCount } = await supabase
-          .from('coach_availability')
+      if (TENNIS_FEATURES_ENABLED) {
+        // Check if user is in any ladder
+        const { count: ladderCount } = await supabase
+          .from('ladder_teams')
           .select('id', { count: 'exact' })
-          .eq('coach_id', currentUser.id);
+          .or(`player1_id.eq.${currentUser.id},player2_id.eq.${currentUser.id}`);
 
-        if (!availCount || availCount === 0) {
+        if (!ladderCount || ladderCount === 0) {
           suggestionList.push({
-            id: 'set_availability',
-            icon: <Clock className="h-4 w-4 text-orange-600" />,
-            title: 'Set your availability',
-            description: 'Let players book lessons',
-            link: '/coach-schedule',
-            priority: 1
+            id: 'join_ladder',
+            icon: <Trophy className="h-4 w-4 text-compete" />,
+            title: 'Join a ladder',
+            description: 'Compete and track your progress',
+            link: '/leagues-ladders',
+            priority: 3
           });
+        }
+
+        // Check match preferences
+        const { data: prefs } = await supabase
+          .from('match_preferences')
+          .select('id')
+          .eq('user_id', currentUser.id)
+          .single();
+
+        if (!prefs) {
+          suggestionList.push({
+            id: 'set_preferences',
+            icon: <Users className="h-4 w-4 text-primary" />,
+            title: 'Find players near you',
+            description: 'Set your match preferences',
+            link: '/my-locker?tab=find-partner',
+            priority: 4
+          });
+        }
+
+        // For coaches, check availability
+        if (isCoach) {
+          const { count: availCount } = await supabase
+            .from('coach_availability')
+            .select('id', { count: 'exact' })
+            .eq('coach_id', currentUser.id);
+
+          if (!availCount || availCount === 0) {
+            suggestionList.push({
+              id: 'set_availability',
+              icon: <Clock className="h-4 w-4 text-orange-600" />,
+              title: 'Set your availability',
+              description: 'Let players book lessons',
+              link: '/coach-schedule',
+              priority: 1
+            });
+          }
         }
       }
 

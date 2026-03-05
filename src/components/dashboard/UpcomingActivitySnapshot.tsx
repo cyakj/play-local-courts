@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
 import { WeatherBadge } from '@/components/weather/WeatherBadge';
 import { getWeatherForDate } from '@/hooks/useWeather';
+import { TENNIS_FEATURES_ENABLED } from '@/config/featureFlags';
 import { 
   Calendar, 
   Clock, 
@@ -56,7 +57,7 @@ export const UpcomingActivitySnapshot = ({ forecast = {} }: UpcomingActivitySnap
       const now = new Date();
       const items: UpcomingItem[] = [];
 
-      // Add upcoming reservations from context
+      // Add upcoming reservations from context (always active)
       const upcomingBookings = bookings
         .filter(booking => {
           const bookingDateTime = new Date(`${booking.date}T${booking.startTime}`);
@@ -83,62 +84,64 @@ export const UpcomingActivitySnapshot = ({ forecast = {} }: UpcomingActivitySnap
         });
       });
 
-      // Fetch upcoming lessons
-      const { data: lessons } = await supabase
-        .from('lesson_requests')
-        .select('id, preferred_date, preferred_time_start, location, sport')
-        .eq('player_id', currentUser.id)
-        .eq('status', 'accepted')
-        .gte('preferred_date', format(now, 'yyyy-MM-dd'))
-        .order('preferred_date', { ascending: true })
-        .limit(3);
+      // Fetch upcoming lessons (only if tennis features enabled)
+      if (TENNIS_FEATURES_ENABLED) {
+        const { data: lessons } = await supabase
+          .from('lesson_requests')
+          .select('id, preferred_date, preferred_time_start, location, sport')
+          .eq('player_id', currentUser.id)
+          .eq('status', 'accepted')
+          .gte('preferred_date', format(now, 'yyyy-MM-dd'))
+          .order('preferred_date', { ascending: true })
+          .limit(3);
 
-      if (lessons) {
-        lessons.forEach(lesson => {
-          items.push({
-            id: lesson.id,
-            type: 'lesson',
-            title: 'Personal Training',
-            subtitle: `${lesson.sport} Lesson`,
-            date: lesson.preferred_date,
-            time: lesson.preferred_time_start,
-            location: lesson.location || undefined,
-            icon: <GraduationCap className="h-4 w-4" />,
-            badge: 'LESSON'
+        if (lessons) {
+          lessons.forEach(lesson => {
+            items.push({
+              id: lesson.id,
+              type: 'lesson',
+              title: 'Personal Training',
+              subtitle: `${lesson.sport} Lesson`,
+              date: lesson.preferred_date,
+              time: lesson.preferred_time_start,
+              location: lesson.location || undefined,
+              icon: <GraduationCap className="h-4 w-4" />,
+              badge: 'LESSON'
+            });
           });
-        });
-      }
+        }
 
-      // Fetch upcoming accepted matches
-      const { data: matches } = await supabase
-        .from('match_requests')
-        .select(`
-          id, date, time_start, location, match_type,
-          challenger:profiles!match_requests_challenger_id_fkey(full_name, avatar_url),
-          opponent:profiles!match_requests_opponent_id_fkey(full_name, avatar_url)
-        `)
-        .or(`challenger_id.eq.${currentUser.id},opponent_id.eq.${currentUser.id}`)
-        .eq('status', 'accepted')
-        .gte('date', format(now, 'yyyy-MM-dd'))
-        .order('date', { ascending: true })
-        .limit(3);
+        // Fetch upcoming accepted matches
+        const { data: matches } = await supabase
+          .from('match_requests')
+          .select(`
+            id, date, time_start, location, match_type,
+            challenger:profiles!match_requests_challenger_id_fkey(full_name, avatar_url),
+            opponent:profiles!match_requests_opponent_id_fkey(full_name, avatar_url)
+          `)
+          .or(`challenger_id.eq.${currentUser.id},opponent_id.eq.${currentUser.id}`)
+          .eq('status', 'accepted')
+          .gte('date', format(now, 'yyyy-MM-dd'))
+          .order('date', { ascending: true })
+          .limit(3);
 
-      if (matches) {
-        matches.forEach((match: any) => {
-          const opponent = match.challenger_id === currentUser.id ? match.opponent : match.challenger;
-          items.push({
-            id: match.id,
-            type: 'match',
-            title: `${match.match_type?.replace('_', ' ')} Match`,
-            subtitle: opponent?.full_name ? `Vs. ${opponent.full_name}` : undefined,
-            date: match.date,
-            time: match.time_start,
-            location: match.location || undefined,
-            icon: <Trophy className="h-4 w-4" />,
-            badge: 'NEXT MATCH',
-            avatars: [match.challenger?.avatar_url, match.opponent?.avatar_url].filter(Boolean)
+        if (matches) {
+          matches.forEach((match: any) => {
+            const opponent = match.challenger_id === currentUser.id ? match.opponent : match.challenger;
+            items.push({
+              id: match.id,
+              type: 'match',
+              title: `${match.match_type?.replace('_', ' ')} Match`,
+              subtitle: opponent?.full_name ? `Vs. ${opponent.full_name}` : undefined,
+              date: match.date,
+              time: match.time_start,
+              location: match.location || undefined,
+              icon: <Trophy className="h-4 w-4" />,
+              badge: 'NEXT MATCH',
+              avatars: [match.challenger?.avatar_url, match.opponent?.avatar_url].filter(Boolean)
+            });
           });
-        });
+        }
       }
 
       // Sort all items by date/time and take top 3
@@ -233,7 +236,7 @@ export const UpcomingActivitySnapshot = ({ forecast = {} }: UpcomingActivitySnap
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className={`font-semibold ${isFirst ? 'text-lg' : 'text-sm'} capitalize`}>
-                      {isFirst ? item.title : item.title}
+                      {item.title}
                     </div>
                     {item.subtitle && (
                       <div className={`text-sm ${isFirst ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
@@ -255,7 +258,6 @@ export const UpcomingActivitySnapshot = ({ forecast = {} }: UpcomingActivitySnap
                     </div>
                   </div>
                   
-                  {/* Avatars for matches */}
                   {item.avatars && item.avatars.length > 0 && (
                     <div className="flex -space-x-2">
                       {item.avatars.slice(0, 2).map((avatar, idx) => (
@@ -269,7 +271,6 @@ export const UpcomingActivitySnapshot = ({ forecast = {} }: UpcomingActivitySnap
                     </div>
                   )}
                   
-                  {/* Weather badge for non-first items */}
                   {!isFirst && weatherData && (
                     <WeatherBadge 
                       temperature={weatherData.temperature} 
