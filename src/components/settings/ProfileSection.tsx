@@ -249,7 +249,8 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({
             />
           </div>
 
-          {/* Tennis Ratings */}
+          {/* Tennis Ratings - hidden when tennis features disabled */}
+          {TENNIS_FEATURES_ENABLED && (
           <div>
             <h4 className="font-medium mb-3">Tennis Ratings</h4>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -305,6 +306,7 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({
               </div>
             </div>
           </div>
+          )}
         </CardContent>
       </Card>
 
