@@ -581,19 +581,23 @@ const PlayerProfile = () => {
                     </div>
                   ) : (
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      <div className="p-4 bg-muted/50 rounded-xl text-center">
-                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">NTRP Rating</p>
-                        <p className="text-2xl font-bold">{profile.ntrpRating || '—'}</p>
-                        {tier && (
-                          <Badge variant="secondary" className={`mt-1 text-xs ${tier.color}`}>
-                            {tier.label}
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="p-4 bg-muted/50 rounded-xl text-center">
-                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">UTR Rating</p>
-                        <p className="text-2xl font-bold">{profile.utrRating || '—'}</p>
-                      </div>
+                      {TENNIS_FEATURES_ENABLED && (
+                        <>
+                          <div className="p-4 bg-muted/50 rounded-xl text-center">
+                            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">NTRP Rating</p>
+                            <p className="text-2xl font-bold">{profile.ntrpRating || '—'}</p>
+                            {tier && (
+                              <Badge variant="secondary" className={`mt-1 text-xs ${tier.color}`}>
+                                {tier.label}
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="p-4 bg-muted/50 rounded-xl text-center">
+                            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">UTR Rating</p>
+                            <p className="text-2xl font-bold">{profile.utrRating || '—'}</p>
+                          </div>
+                        </>
+                      )}
                       <div className="p-4 bg-muted/50 rounded-xl text-center">
                         <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Gender</p>
                         <p className="text-lg font-semibold capitalize">{profile.gender || '—'}</p>
