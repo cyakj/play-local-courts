@@ -32,6 +32,7 @@ import LeaguesLadders from "./pages/LeaguesLadders";
 import ManageLadders from "./pages/ManageLadders";
 import EmailSettings from "./pages/EmailSettings";
 import MaintenanceReports from "./pages/MaintenanceReports";
+import MyReports from "./pages/MyReports";
 import UpgradeToCoach from "./pages/UpgradeToCoach";
 import UserProfile from "./pages/UserProfile";
 import Messages from "./pages/Messages";
@@ -106,6 +107,7 @@ function App() {
                   <Route path="/manage-courts" element={<ManageCourts />} />
                   <Route path="/admin" element={<AdminHub />} />
                   <Route path="/admin/maintenance" element={<MaintenanceReports />} />
+                  <Route path="/my-reports" element={<MyReports />} />
                   <Route path="/pending-requests" element={<PendingRequests />} />
                   <Route path="/amenity-rules" element={<AmenityRules />} />
                   <Route path="/my-home" element={<MyLocker />} />

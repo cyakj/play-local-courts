@@ -2,177 +2,70 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { useActiveHOA } from '../contexts/ActiveHOAContext';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Link, Navigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import PendingApprovalMessage from '../components/PendingApprovalMessage';
-import { WeatherPill } from '@/components/weather/WeatherPill';
-import { useWeather } from '@/hooks/useWeather';
-import { ActiveHOAIndicator } from '@/components/community/ActiveHOAIndicator';
-import { 
-  UpcomingActivitySnapshot,
-  ActionRequiredAlerts,
-  PlayerStatsCard,
-  SuggestedActionsCard,
-  ProfileCompletenessCard,
-  AdminQuickOverview,
-  CommunityLinksCard,
-  QuickActionButton
-} from '@/components/dashboard';
+import { ActiveCommunitySelector } from '@/components/community/ActiveCommunitySelector';
+import { AdminQuickOverview } from '@/components/dashboard';
 import { UserType } from '../types';
 import { TENNIS_FEATURES_ENABLED } from '@/config/featureFlags';
 import { 
-  Users, 
   Calendar, 
   CalendarCheck, 
-  Trophy, 
-  MapPin, 
+  Wrench,
   Clock,
-  CheckCircle2,
-  XCircle,
   Sparkles,
-  GraduationCap,
-  Bell,
-  Headphones
+  AlertCircle,
+  ChevronRight,
+  Megaphone,
+  ClipboardList,
+  X
 } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-
-interface MatchRequest {
-  id: string;
-  challenger_id: string;
-  match_type: string;
-  date: string;
-  time_start: string;
-  location: string;
-  challenger: {
-    full_name: string;
-  };
-}
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 const Dashboard = () => {
   const { currentUser, isAdmin, isPending, isCoach, isPlatformReviewer } = useAuth();
   const { toast } = useToast();
-  const { activeHOA } = useActiveHOA();
-  const { 
-    bookings,
-    pendingUsers,
-    currentHOA,
-    loading
-  } = useData();
-  
-  const [matchRequests, setMatchRequests] = useState<MatchRequest[]>([]);
-  const [userZipCode, setUserZipCode] = useState<string | null>(null);
-
-  // Performance: Measure Dashboard render time
-  useEffect(() => {
-    const startTime = performance.now();
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const endTime = performance.now();
-        console.log(`DashboardRender: ${(endTime - startTime).toFixed(2)}ms`);
-      });
-    });
-  }, []);
-
-  // Fetch user's zip_code from profiles, fallback to HOA address
-  useEffect(() => {
-    const fetchUserLocation = async () => {
-      if (!currentUser?.id) return;
-      
-      const { data } = await supabase
-        .from('profiles')
-        .select('zip_code, location')
-        .eq('id', currentUser.id)
-        .single();
-      
-      if (data) {
-        const userLocation = data.zip_code || data.location;
-        if (userLocation) {
-          setUserZipCode(userLocation);
-        } else if (activeHOA?.hoaId) {
-          const { data: hoaData } = await supabase
-            .from('hoas')
-            .select('address')
-            .eq('id', activeHOA.hoaId)
-            .single();
-          
-          if (hoaData?.address) {
-            const zipMatch = hoaData.address.match(/\b(\d{5})\b/);
-            setUserZipCode(zipMatch ? zipMatch[1] : hoaData.address);
-          }
-        }
-      }
-    };
-    
-    fetchUserLocation();
-  }, [currentUser?.id, activeHOA?.hoaId]);
-
-  const { weather, forecast, loading: weatherLoading, locationName } = useWeather(userZipCode);
+  const { activeHOA, hasMultipleHOAs } = useActiveHOA();
+  const { bookings, loading } = useData();
+  const [myReportsCount, setMyReportsCount] = useState({ open: 0, in_progress: 0 });
 
   useEffect(() => {
-    if (currentUser && TENNIS_FEATURES_ENABLED) {
-      loadMatchRequests();
-    }
-  }, [currentUser]);
+    loadReportCounts();
+  }, [currentUser, activeHOA?.hoaId]);
 
-  const loadMatchRequests = async () => {
-    if (!currentUser) return;
-
+  const loadReportCounts = async () => {
+    if (!currentUser || !activeHOA?.hoaId) return;
     try {
       const { data, error } = await supabase
-        .from('match_requests')
-        .select(`
-          id,
-          challenger_id,
-          match_type,
-          date,
-          time_start,
-          location,
-          challenger:profiles!match_requests_challenger_id_fkey(full_name)
-        `)
-        .eq('opponent_id', currentUser.id)
-        .eq('status', 'pending');
+        .from('maintenance_reports')
+        .select('status')
+        .eq('reporter_id', currentUser.id)
+        .eq('hoa_id', activeHOA.hoaId)
+        .in('status', ['open', 'in_progress']);
 
-      if (error) throw error;
-      setMatchRequests(data || []);
+      if (!error && data) {
+        setMyReportsCount({
+          open: data.filter(r => r.status === 'open').length,
+          in_progress: data.filter(r => r.status === 'in_progress').length,
+        });
+      }
     } catch (error) {
-      console.error('Error loading match requests:', error);
+      console.error('Error loading report counts:', error);
     }
   };
 
-  const handleMatchRequestAction = async (requestId: string, action: 'accept' | 'decline') => {
-    try {
-      const { error } = await supabase
-        .from('match_requests')
-        .update({ status: action === 'accept' ? 'accepted' : 'declined' })
-        .eq('id', requestId);
-
-      if (error) throw error;
-
-      toast({
-        title: action === 'accept' ? "Match Accepted" : "Match Declined",
-        description: `You have ${action}ed the match request.`
-      });
-
-      loadMatchRequests();
-    } catch (error) {
-      console.error('Error updating match request:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update match request",
-        variant: "destructive"
-      });
-    }
-  };
-
-  // Redirect platform reviewers to their dedicated dashboard
+  // Redirect platform reviewers
   if (isPlatformReviewer) {
     return <Navigate to="/reviewer/dashboard" replace />;
   }
 
-  // Redirect coaches to coach dashboard only when tennis features are enabled
+  // Redirect coaches when tennis features enabled
   if (TENNIS_FEATURES_ENABLED && isCoach) {
     return <Navigate to="/coach-dashboard" replace />;
   }
@@ -188,7 +81,6 @@ const Dashboard = () => {
     );
   }
 
-  // Show pending approval message if user is pending (but only for HOA users)
   if (isPending && currentUser?.userType !== UserType.NON_HOA) {
     return <PendingApprovalMessage />;
   }
@@ -206,160 +98,197 @@ const Dashboard = () => {
     );
   }
 
-  const isCommunityUser = currentUser.userType !== UserType.NON_HOA;
-  
+  const firstName = currentUser.fullName?.split(' ')[0] || 'there';
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+
+  // Upcoming reservations
+  const now = new Date();
+  const upcomingReservations = bookings
+    .filter(booking => new Date(`${booking.date}T${booking.startTime}`) > now)
+    .sort((a, b) => new Date(`${a.date}T${a.startTime}`).getTime() - new Date(`${b.date}T${b.startTime}`).getTime())
+    .slice(0, 2);
+
+  const totalOpenReports = myReportsCount.open + myReportsCount.in_progress;
+
+  const handleCancelBooking = async (bookingId: string) => {
+    try {
+      const { error } = await supabase
+        .from('bookings')
+        .update({ status: 'cancelled' })
+        .eq('id', bookingId);
+      
+      if (error) throw error;
+      toast({ title: 'Booking cancelled', description: 'Your reservation has been cancelled.' });
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to cancel booking', variant: 'destructive' });
+    }
+  };
+
+  const formatTime12Hour = (time: string) => {
+    const [hours, minutes] = time.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minutes} ${ampm}`;
+  };
+
   return (
     <div className="space-y-6 animate-fade-scale">
-      {/* Dashboard Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex flex-col">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-primary via-blue-500 to-primary bg-clip-text text-transparent">
-            Dashboard
-          </h1>
-          {isCommunityUser && activeHOA && (
-            <div className="flex items-center gap-2 mt-1 text-muted-foreground">
-              <span className="text-sm">{activeHOA.hoaName}</span>
+      {/* Greeting */}
+      <div>
+        <h1 className="text-2xl font-bold">
+          {greeting}, {firstName}
+          {activeHOA && <span className="text-muted-foreground font-normal"> — {activeHOA.hoaName}</span>}
+        </h1>
+      </div>
+
+      {/* Community Switcher */}
+      {hasMultipleHOAs && (
+        <ActiveCommunitySelector onAddCommunity={() => {}} />
+      )}
+
+      {/* Admin Overview - for HOA admins */}
+      {isAdmin && <AdminQuickOverview />}
+
+      {/* Upcoming Reservations */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CalendarCheck className="h-5 w-5 text-primary" />
+              Upcoming Reservations
             </div>
-          )}
-        </div>
-        <div className="flex items-center gap-3">
-          {userZipCode && (
-            <WeatherPill location={userZipCode} />
-          )}
-          <Link to="/notifications">
-            <Button variant="ghost" size="icon" className="rounded-full">
-              <Bell className="h-5 w-5" />
-            </Button>
-          </Link>
-          <Link to="/my-home">
-            <Avatar className="h-9 w-9 cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all">
-              <AvatarFallback className="bg-primary text-primary-foreground text-sm font-semibold">
-                {currentUser?.fullName?.charAt(0) || 'U'}
-              </AvatarFallback>
-            </Avatar>
-          </Link>
-        </div>
-      </div>
+            {upcomingReservations.length > 0 && (
+              <Link to="/upcoming" className="text-sm font-medium text-primary hover:underline">
+                View All
+              </Link>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0 space-y-3">
+          {upcomingReservations.length > 0 ? (
+            upcomingReservations.map((booking, index) => {
+              const bookingDate = new Date(`${booking.date}T00:00:00`);
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              const tomorrow = new Date(today);
+              tomorrow.setDate(tomorrow.getDate() + 1);
+              const isToday = bookingDate.getTime() === today.getTime();
+              const isTomorrow = bookingDate.getTime() === tomorrow.getTime();
+              const dateLabel = isToday ? 'Today' : isTomorrow ? 'Tomorrow' : format(bookingDate, 'EEE, MMM d');
 
-      {/* Action Required Alerts */}
-      <ActionRequiredAlerts />
-
-      {/* Quick Action Buttons Row */}
-      <div className={`grid grid-cols-1 ${TENNIS_FEATURES_ENABLED ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-3`}>
-        <QuickActionButton
-          icon={<CalendarCheck className="h-5 w-5" />}
-          title="Reserve"
-          subtitle={isCommunityUser ? "Book a court" : "Find availability"}
-          to={isCommunityUser ? "/reserve-court" : "/reserve-facilities"}
-          iconBgColor="bg-primary"
-        />
-        {TENNIS_FEATURES_ENABLED && (
-          <QuickActionButton
-            icon={<Users className="h-5 w-5" />}
-            title="Find Players"
-            subtitle="Browse members"
-            to="/my-home?tab=find-partner"
-            iconBgColor="bg-primary"
-          />
-        )}
-        {TENNIS_FEATURES_ENABLED && (
-          <QuickActionButton
-            icon={<Trophy className="h-5 w-5" />}
-            title="Compete"
-            subtitle="View ladders"
-            to="/leagues-ladders"
-            iconBgColor="bg-compete"
-          />
-        )}
-      </div>
-      
-      {/* Main Grid Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column - Coming Up & Performance */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Upcoming Activity Snapshot */}
-          <UpcomingActivitySnapshot forecast={forecast} />
-
-          {/* Match Play Requests - only when tennis features enabled */}
-          {TENNIS_FEATURES_ENABLED && matchRequests.length > 0 && (
-            <Card className="overflow-hidden">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Trophy className="h-5 w-5 text-primary" />
-                  {isCommunityUser ? 'Match Play Requests' : 'Match Invites'}
-                  <span className="ml-auto text-sm font-normal bg-primary/10 text-primary px-2 py-0.5 rounded-full">
-                    {matchRequests.length}
-                  </span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="space-y-3">
-                  {matchRequests.slice(0, 3).map((request) => (
-                    <div key={request.id} className="p-3 rounded-xl border bg-muted/50">
-                      <div className="text-sm">
-                        <div className="font-medium flex items-center gap-2 mb-2">
-                          <span className="capitalize">
-                            {request.challenger?.full_name} wants to play {request.match_type?.replace('_', ' ')}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground mb-3">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            {new Date(request.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {request.time_start}
-                          </div>
-                          {request.location && (
-                            <div className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              {request.location}
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex gap-2">
-                          <Button 
-                            size="sm" 
-                            onClick={() => handleMatchRequestAction(request.id, 'accept')}
-                            className="text-xs flex items-center gap-1"
-                          >
-                            <CheckCircle2 className="h-3 w-3" />
-                            Accept
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => handleMatchRequestAction(request.id, 'decline')}
-                            className="text-xs flex items-center gap-1"
-                          >
-                            <XCircle className="h-3 w-3" />
-                            Decline
-                          </Button>
-                        </div>
+              return (
+                <div
+                  key={booking.id}
+                  className={cn(
+                    "rounded-xl border p-4 transition-all",
+                    index === 0 ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border"
+                  )}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <p className={cn("font-semibold", index === 0 ? "text-lg" : "text-sm")}>
+                        {booking.amenityName}
+                      </p>
+                      <div className={cn(
+                        "flex items-center gap-3 mt-1 text-xs",
+                        index === 0 ? "text-primary-foreground/80" : "text-muted-foreground"
+                      )}>
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {dateLabel}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {formatTime12Hour(booking.startTime)} – {formatTime12Hour(booking.endTime)}
+                        </span>
                       </div>
                     </div>
-                  ))}
+                    <Button
+                      variant={index === 0 ? "secondary" : "outline"}
+                      size="sm"
+                      className="text-xs h-8 min-h-[44px]"
+                      onClick={() => handleCancelBooking(booking.id)}
+                    >
+                      <X className="h-3 w-3 mr-1" />
+                      Cancel
+                    </Button>
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
+              );
+            })
+          ) : (
+            <div className="text-center py-8">
+              <Calendar className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
+              <p className="text-sm text-muted-foreground mb-3">No upcoming reservations</p>
+              <Button asChild size="sm">
+                <Link to="/reserve-court">Book an Amenity</Link>
+              </Button>
+            </div>
           )}
+        </CardContent>
+      </Card>
 
-          {/* Player Performance Stats - only when tennis features enabled */}
-          {TENNIS_FEATURES_ENABLED && <PlayerStatsCard />}
-        </div>
+      {/* Community Announcements - placeholder */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Megaphone className="h-5 w-5 text-primary" />
+            Community Announcements
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="text-center py-6">
+            <Megaphone className="h-10 w-10 mx-auto text-muted-foreground/30 mb-2" />
+            <p className="text-sm text-muted-foreground">No announcements yet</p>
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* Right Column - Growth & Community */}
-        <div className="space-y-6">
-          {/* Profile Completeness / Growth */}
-          <ProfileCompletenessCard />
+      {/* My Reports Summary */}
+      <Link to="/my-reports">
+        <Card className="hover:shadow-md transition-shadow cursor-pointer">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-primary/10 rounded-xl">
+                  <ClipboardList className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm">My Reports</p>
+                  {totalOpenReports > 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      {totalOpenReports} open report{totalOpenReports !== 1 ? 's' : ''}
+                      {myReportsCount.in_progress > 0 && ` — ${myReportsCount.in_progress} in progress`}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">No open reports</p>
+                  )}
+                </div>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+      </Link>
 
-          {/* Community Links */}
-          {isCommunityUser && <CommunityLinksCard />}
-
-          {/* Admin Overview - Only for HOA admins */}
-          {isAdmin && <AdminQuickOverview />}
-        </div>
+      {/* Quick Actions */}
+      <div className="grid grid-cols-2 gap-3">
+        <Button asChild className="h-14 rounded-xl text-sm font-semibold" variant="default">
+          <Link to="/reserve-court" className="flex items-center gap-2">
+            <CalendarCheck className="h-5 w-5" />
+            Book Amenity
+          </Link>
+        </Button>
+        <Button asChild className="h-14 rounded-xl text-sm font-semibold" variant="outline">
+          <Link to="/my-reports" className="flex items-center gap-2" onClick={(e) => {
+            // Will navigate to reports and user can click Report New Issue there
+          }}>
+            <Wrench className="h-5 w-5" />
+            Report Issue
+          </Link>
+        </Button>
       </div>
     </div>
   );

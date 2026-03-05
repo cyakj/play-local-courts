@@ -1,0 +1,296 @@
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useActiveHOA } from '@/contexts/ActiveHOAContext';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { useData } from '@/contexts/DataContext';
+import { MultiStepReportDialog } from '@/components/maintenance/MultiStepReportDialog';
+import { 
+  Wrench, 
+  Plus, 
+  Clock, 
+  CheckCircle, 
+  AlertCircle, 
+  Calendar, 
+  MapPin,
+  ChevronRight,
+  ClipboardList
+} from 'lucide-react';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
+
+interface UserReport {
+  id: string;
+  category: string;
+  description: string;
+  photo_url?: string;
+  status: string;
+  admin_notes?: string;
+  created_at: string;
+  updated_at: string;
+  amenity_id: string;
+  amenity_name?: string;
+}
+
+const MyReports = () => {
+  const { currentUser } = useAuth();
+  const { activeHOA } = useActiveHOA();
+  const { amenities } = useData();
+  const { toast } = useToast();
+  const [reports, setReports] = useState<UserReport[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [showReportDialog, setShowReportDialog] = useState(false);
+  const [selectedReport, setSelectedReport] = useState<UserReport | null>(null);
+  const [showDetailDialog, setShowDetailDialog] = useState(false);
+
+  useEffect(() => {
+    loadReports();
+  }, [currentUser, activeHOA?.hoaId, showReportDialog]);
+
+  const loadReports = async () => {
+    if (!currentUser || !activeHOA?.hoaId) {
+      setReports([]);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('maintenance_reports')
+        .select('*')
+        .eq('reporter_id', currentUser.id)
+        .eq('hoa_id', activeHOA.hoaId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Fetch amenity names
+      const reportsWithNames = await Promise.all((data || []).map(async (report: any) => {
+        const { data: amenity } = await supabase
+          .from('courts')
+          .select('name')
+          .eq('id', report.amenity_id)
+          .single();
+
+        return {
+          ...report,
+          amenity_name: amenity?.name || 'Unknown Amenity',
+        };
+      }));
+
+      setReports(reportsWithNames);
+    } catch (error) {
+      console.error('Error loading reports:', error);
+      toast({ title: 'Error', description: 'Failed to load reports', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredReports = statusFilter === 'all' 
+    ? reports 
+    : reports.filter(r => r.status === statusFilter);
+
+  const getCategoryLabel = (category: string) => {
+    const labels: Record<string, string> = {
+      'amenities_equipment': 'Amenities & Equipment',
+      'lighting_electrical': 'Lighting & Electrical',
+      'water_plumbing': 'Water & Plumbing',
+      'grounds_landscaping': 'Grounds & Landscaping',
+      'buildings_structures': 'Buildings & Structures',
+      'safety_other': 'Safety / Other',
+    };
+    return labels[category] || category;
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'open':
+        return <Badge variant="destructive" className="flex items-center gap-1"><AlertCircle className="h-3 w-3" />Open</Badge>;
+      case 'in_progress':
+        return <Badge variant="default" className="flex items-center gap-1"><Clock className="h-3 w-3" />In Progress</Badge>;
+      case 'resolved':
+        return <Badge variant="secondary" className="flex items-center gap-1"><CheckCircle className="h-3 w-3" />Resolved</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
+  const filterOptions = [
+    { value: 'all', label: 'All' },
+    { value: 'open', label: 'Open' },
+    { value: 'in_progress', label: 'In Progress' },
+    { value: 'resolved', label: 'Resolved' },
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold">Reports</h1>
+        <p className="text-sm text-muted-foreground">Track and submit maintenance reports</p>
+      </div>
+
+      {/* Report New Issue Button */}
+      <Button
+        className="w-full h-12 rounded-xl text-base font-semibold"
+        onClick={() => setShowReportDialog(true)}
+      >
+        <Plus className="h-5 w-5 mr-2" />
+        Report New Issue
+      </Button>
+
+      {/* Filter Chips */}
+      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+        {filterOptions.map((option) => (
+          <button
+            key={option.value}
+            onClick={() => setStatusFilter(option.value)}
+            className={cn(
+              "px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all min-h-[44px]",
+              statusFilter === option.value
+                ? "bg-foreground text-background"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            )}
+          >
+            {option.label}
+            {option.value !== 'all' && (
+              <span className="ml-1.5 text-xs opacity-70">
+                ({reports.filter(r => option.value === 'all' ? true : r.status === option.value).length})
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Reports List */}
+      <div className="space-y-3">
+        {loading ? (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground">Loading reports...</p>
+          </div>
+        ) : filteredReports.length === 0 ? (
+          <Card>
+            <CardContent className="text-center py-12">
+              <ClipboardList className="h-12 w-12 mx-auto text-muted-foreground/30 mb-4" />
+              <h3 className="text-lg font-semibold mb-2">
+                {statusFilter === 'all' ? 'No Reports Yet' : `No ${statusFilter.replace('_', ' ')} reports`}
+              </h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                {statusFilter === 'all' 
+                  ? 'Submit a maintenance report to track issues in your community.' 
+                  : 'No reports match the selected filter.'}
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          filteredReports.map((report) => (
+            <Card 
+              key={report.id} 
+              className="cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => {
+                setSelectedReport(report);
+                setShowDetailDialog(true);
+              }}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <h3 className="font-semibold text-sm truncate">
+                        {report.amenity_name}
+                      </h3>
+                      {getStatusBadge(report.status)}
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-1">
+                      {getCategoryLabel(report.category)}
+                    </p>
+                    <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
+                      {report.description}
+                    </p>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        {format(new Date(report.created_at), 'MMM d, yyyy')}
+                      </span>
+                    </div>
+                    {report.admin_notes && (
+                      <div className="mt-2 p-2 bg-muted/50 rounded-lg text-xs">
+                        <span className="font-medium">Admin update: </span>
+                        {report.admin_notes}
+                      </div>
+                    )}
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-1" />
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
+
+      {/* Report Detail Dialog */}
+      <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Report Details</DialogTitle>
+          </DialogHeader>
+          {selectedReport && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold">{selectedReport.amenity_name}</h3>
+                {getStatusBadge(selectedReport.status)}
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Category</p>
+                <p className="font-medium">{getCategoryLabel(selectedReport.category)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Description</p>
+                <p className="bg-muted/50 p-3 rounded-lg text-sm">{selectedReport.description}</p>
+              </div>
+              {selectedReport.photo_url && (
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Photo</p>
+                  <img src={selectedReport.photo_url} alt="Report" className="rounded-lg border max-w-full" />
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Submitted</p>
+                  <p className="font-medium">{format(new Date(selectedReport.created_at), 'MMM d, yyyy h:mm a')}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Last Updated</p>
+                  <p className="font-medium">{format(new Date(selectedReport.updated_at), 'MMM d, yyyy h:mm a')}</p>
+                </div>
+              </div>
+              {selectedReport.admin_notes && (
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Admin Notes</p>
+                  <p className="bg-primary/5 border border-primary/10 p-3 rounded-lg text-sm">{selectedReport.admin_notes}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Report Issue Dialog */}
+      <MultiStepReportDialog
+        open={showReportDialog}
+        onOpenChange={setShowReportDialog}
+        amenities={amenities.map(a => ({ id: a.id, name: a.name, amenityType: a.amenityType }))}
+      />
+    </div>
+  );
+};
+
+export default MyReports;

@@ -400,7 +400,8 @@ const ReserveCourt = () => {
           Check Availability
         </Button>
         
-        {/* Report Maintenance Issue Link */}
+        {/* Report Maintenance Issue Link - moved to Reports tab */}
+        {/* 
         <button 
           onClick={() => setShowReportDialog(true)}
           className="flex items-center justify-center w-full mt-3 text-muted-foreground hover:text-primary transition-colors"
@@ -408,70 +409,17 @@ const ReserveCourt = () => {
           <Wrench className="h-4 w-4 mr-2" />
           <span className="text-sm">Report Maintenance Issue</span>
         </button>
+        */}
       </div>
 
-      {/* My Reports Bubble */}
+      {/* My Reports Bubble - moved to Reports tab */}
+      {/* 
       {myReports.length > 0 && (
         <div className="px-4 pb-3">
-          <button
-            onClick={() => setReportsExpanded(!reportsExpanded)}
-            className="w-full bg-muted/50 border border-border rounded-xl p-3 text-left"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-primary" />
-                <span className="text-sm font-medium">My Reports</span>
-                <Badge variant="secondary" className="text-xs">{myReports.length}</Badge>
-              </div>
-              <ChevronRight className={cn(
-                "h-4 w-4 text-muted-foreground transition-transform",
-                reportsExpanded && "rotate-90"
-              )} />
-            </div>
-            
-            {reportsExpanded && (
-              <div className="mt-3 space-y-2">
-                {myReports.map((report) => {
-                  const statusColors: Record<string, string> = {
-                    'open': 'bg-blue-100 text-blue-700',
-                    'in_review': 'bg-yellow-100 text-yellow-700',
-                    'in_progress': 'bg-orange-100 text-orange-700',
-                    'resolved': 'bg-green-100 text-green-700',
-                  };
-                  
-                  const categoryLabels: Record<string, string> = {
-                    'amenities_equipment': 'Amenities',
-                    'lighting_electrical': 'Electrical',
-                    'water_plumbing': 'Plumbing',
-                    'grounds_landscaping': 'Landscaping',
-                    'buildings_structures': 'Structures',
-                    'safety_other': 'Safety',
-                  };
-                  
-                  return (
-                    <div key={report.id} className="flex items-center justify-between bg-background rounded-lg p-2 border border-border/50">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium truncate">
-                          {categoryLabels[report.category] || report.category}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground">
-                          {format(new Date(report.created_at), 'MMM d, yyyy')}
-                        </p>
-                      </div>
-                      <Badge className={cn(
-                        "text-[10px] capitalize border-0",
-                        statusColors[report.status] || 'bg-muted text-muted-foreground'
-                      )}>
-                        {report.status.replace('_', ' ')}
-                      </Badge>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </button>
+          ... reports bubble content removed, now in /my-reports ...
         </div>
       )}
+      */}
 
       {/* Filter Tabs */}
       <div id="amenity-grid" className="px-4 py-3">
