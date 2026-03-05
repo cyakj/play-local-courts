@@ -145,7 +145,7 @@ const Dashboard = () => {
 
       {/* Community Switcher */}
       {hasMultipleHOAs && (
-        <ActiveCommunitySelector />
+        <ActiveCommunitySelector onAddCommunity={() => {}} />
       )}
 
       {/* Admin Overview - for HOA admins */}

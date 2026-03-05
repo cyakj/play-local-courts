@@ -107,6 +107,7 @@ function App() {
                   <Route path="/manage-courts" element={<ManageCourts />} />
                   <Route path="/admin" element={<AdminHub />} />
                   <Route path="/admin/maintenance" element={<MaintenanceReports />} />
+                  <Route path="/my-reports" element={<MyReports />} />
                   <Route path="/pending-requests" element={<PendingRequests />} />
                   <Route path="/amenity-rules" element={<AmenityRules />} />
                   <Route path="/my-home" element={<MyLocker />} />

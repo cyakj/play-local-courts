@@ -195,7 +195,7 @@ const Settings = () => {
           ))}
           {memberships.length > 1 && (
             <div className="pt-2">
-              <ActiveCommunitySelector />
+              <ActiveCommunitySelector onAddCommunity={() => navigate('/my-home?tab=community')} />
             </div>
           )}
           <Button
