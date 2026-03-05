@@ -373,7 +373,7 @@ const PlayerProfile = () => {
           <Card>
                 <CardHeader className="pb-4">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">Player Profile</CardTitle>
+                    <CardTitle className="text-lg">{TENNIS_FEATURES_ENABLED ? 'Player Profile' : 'My Profile'}</CardTitle>
                     {isEditing && (
                       <Button size="sm" onClick={handleSave} disabled={loading}>
                         {loading ? 'Saving...' : 'Save Changes'}
