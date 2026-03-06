@@ -11,10 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { TENNIS_FEATURES_ENABLED } from '@/config/featureFlags';
-import { X, CheckCircle } from 'lucide-react';
 
 interface HOA {
   id: string;
