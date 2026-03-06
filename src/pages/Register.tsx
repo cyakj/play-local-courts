@@ -142,17 +142,11 @@ const Register = () => {
                   <SelectItem value="coach">Coach</SelectItem>
                 )}
                 <SelectItem value="hoa_manager">HOA Manager (requires verification)</SelectItem>
-                <SelectItem value="maintenance_worker">Maintenance Worker</SelectItem>
               </SelectContent>
             </Select>
             {userRole === 'hoa_manager' && (
               <p className="text-sm text-muted-foreground mt-2">
                 After creating your account, you'll be guided to submit verification documents to prove your HOA management authority.
-              </p>
-            )}
-            {userRole === 'maintenance_worker' && (
-              <p className="text-sm text-muted-foreground mt-2">
-                Join as a maintenance worker to receive and manage repair assignments from HOA communities.
               </p>
             )}
           </div>
