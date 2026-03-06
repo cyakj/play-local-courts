@@ -51,21 +51,21 @@ const Navbar = () => {
             </Link>
           </div>
           <div className="flex items-center gap-1">
-            <Link to="/messages" className="relative">
-              <Button variant="ghost" size="icon" className="h-11 w-11 rounded-full">
+            <Button asChild variant="ghost" size="icon" className="relative h-11 w-11 rounded-full">
+              <Link to="/messages" aria-label="Open messages">
                 <MessageCircle className="h-5 w-5 text-muted-foreground" />
-              </Button>
-              {unreadCount > 0 && (
-                <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-[10px] bg-destructive text-destructive-foreground border-2 border-background rounded-full">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </Badge>
-              )}
-            </Link>
-            <Link to="/settings">
-              <Button variant="ghost" size="icon" className="h-11 w-11 rounded-full">
+                {unreadCount > 0 && (
+                  <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-[10px] bg-destructive text-destructive-foreground border-2 border-background rounded-full">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </Badge>
+                )}
+              </Link>
+            </Button>
+            <Button asChild variant="ghost" size="icon" className="h-11 w-11 rounded-full">
+              <Link to="/settings" aria-label="Open settings">
                 <Settings className="h-5 w-5 text-muted-foreground" />
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </div>
         </div>
       </div>
