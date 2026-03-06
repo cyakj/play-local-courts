@@ -10,18 +10,21 @@ import { useToast } from '@/hooks/use-toast';
 import { useData } from '@/contexts/DataContext';
 import { MultiStepReportDialog } from '@/components/maintenance/MultiStepReportDialog';
 import { 
-  Wrench, 
   Plus, 
-  Clock, 
-  CheckCircle, 
-  AlertCircle, 
   Calendar, 
-  MapPin,
   ChevronRight,
   ClipboardList
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import {
+  getCategoryLabel,
+  parsePriorityFromDescription,
+  cleanDescription,
+  priorityConfig,
+  statusConfig,
+  allStatusFilters,
+} from '@/lib/maintenanceUtils';
 
 interface UserReport {
   id: string;
@@ -70,7 +73,6 @@ const MyReports = () => {
 
       if (error) throw error;
 
-      // Fetch amenity names
       const reportsWithNames = await Promise.all((data || []).map(async (report: any) => {
         const { data: amenity } = await supabase
           .from('courts')
@@ -97,47 +99,26 @@ const MyReports = () => {
     ? reports 
     : reports.filter(r => r.status === statusFilter);
 
-  const getCategoryLabel = (category: string) => {
-    const labels: Record<string, string> = {
-      'amenities_equipment': 'Amenities & Equipment',
-      'lighting_electrical': 'Lighting & Electrical',
-      'water_plumbing': 'Water & Plumbing',
-      'grounds_landscaping': 'Grounds & Landscaping',
-      'buildings_structures': 'Buildings & Structures',
-      'safety_other': 'Safety / Other',
-    };
-    return labels[category] || category;
-  };
-
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'open':
-        return <Badge variant="destructive" className="flex items-center gap-1"><AlertCircle className="h-3 w-3" />Open</Badge>;
-      case 'in_progress':
-        return <Badge variant="default" className="flex items-center gap-1"><Clock className="h-3 w-3" />In Progress</Badge>;
-      case 'resolved':
-        return <Badge variant="secondary" className="flex items-center gap-1"><CheckCircle className="h-3 w-3" />Resolved</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
+    const config = statusConfig[status];
+    if (!config) return <Badge variant="outline">{status}</Badge>;
+    return <Badge className={config.className}>{config.label}</Badge>;
   };
 
-  const filterOptions = [
-    { value: 'all', label: 'All' },
-    { value: 'open', label: 'Open' },
-    { value: 'in_progress', label: 'In Progress' },
-    { value: 'resolved', label: 'Resolved' },
-  ];
+  const getPriorityBadge = (description: string) => {
+    const priority = parsePriorityFromDescription(description);
+    const config = priorityConfig[priority];
+    if (!config) return null;
+    return <Badge variant="outline" className={config.className}>{config.label}</Badge>;
+  };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold">Reports</h1>
         <p className="text-sm text-muted-foreground">Track and submit maintenance reports</p>
       </div>
 
-      {/* Report New Issue Button */}
       <Button
         className="w-full h-12 rounded-xl text-base font-semibold"
         onClick={() => setShowReportDialog(true)}
@@ -148,7 +129,7 @@ const MyReports = () => {
 
       {/* Filter Chips */}
       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-        {filterOptions.map((option) => (
+        {allStatusFilters.map((option) => (
           <button
             key={option.value}
             onClick={() => setStatusFilter(option.value)}
@@ -162,7 +143,7 @@ const MyReports = () => {
             {option.label}
             {option.value !== 'all' && (
               <span className="ml-1.5 text-xs opacity-70">
-                ({reports.filter(r => option.value === 'all' ? true : r.status === option.value).length})
+                ({reports.filter(r => r.status === option.value).length})
               </span>
             )}
           </button>
@@ -203,17 +184,16 @@ const MyReports = () => {
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <h3 className="font-semibold text-sm truncate">
-                        {report.amenity_name}
-                      </h3>
+                    <h3 className="font-semibold text-sm truncate mb-1.5">
+                      {report.amenity_name}
+                    </h3>
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
                       {getStatusBadge(report.status)}
+                      {getPriorityBadge(report.description)}
+                      <Badge variant="outline" className="text-xs">{getCategoryLabel(report.category)}</Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground mb-1">
-                      {getCategoryLabel(report.category)}
-                    </p>
                     <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
-                      {report.description}
+                      {cleanDescription(report.description)}
                     </p>
                     <div className="flex items-center gap-3 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
@@ -244,17 +224,17 @@ const MyReports = () => {
           </DialogHeader>
           {selectedReport && (
             <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <h3 className="font-semibold">{selectedReport.amenity_name}</h3>
-                {getStatusBadge(selectedReport.status)}
-              </div>
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Category</p>
-                <p className="font-medium">{getCategoryLabel(selectedReport.category)}</p>
+                <h3 className="font-semibold">{selectedReport.amenity_name}</h3>
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  {getStatusBadge(selectedReport.status)}
+                  {getPriorityBadge(selectedReport.description)}
+                  <Badge variant="outline">{getCategoryLabel(selectedReport.category)}</Badge>
+                </div>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Description</p>
-                <p className="bg-muted/50 p-3 rounded-lg text-sm">{selectedReport.description}</p>
+                <p className="bg-muted/50 p-3 rounded-lg text-sm">{cleanDescription(selectedReport.description)}</p>
               </div>
               {selectedReport.photo_url && (
                 <div>
@@ -283,7 +263,6 @@ const MyReports = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Report Issue Dialog */}
       <MultiStepReportDialog
         open={showReportDialog}
         onOpenChange={setShowReportDialog}

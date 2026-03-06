@@ -333,7 +333,7 @@ export const MultiStepReportDialog: React.FC<MultiStepReportDialogProps> = ({
               <div className="bg-muted/50 rounded-xl p-4 space-y-3">
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Issue Type</span>
-                  <span className="text-sm font-medium capitalize">{issueType}</span>
+                  <span className="text-sm font-medium">{issueTypes.find(t => t.value === issueType)?.label || issueType}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Amenity</span>

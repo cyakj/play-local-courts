@@ -13,13 +13,22 @@ import { supabase } from '@/integrations/supabase/client';
 import { Calendar, User, MapPin, Clock, Eye, Edit3, CheckCircle, AlertCircle, XCircle, Filter } from 'lucide-react';
 import { AssigneeSearch } from '@/components/maintenance/AssigneeSearch';
 import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
+import { 
+  getCategoryLabel, 
+  parsePriorityFromDescription, 
+  cleanDescription, 
+  priorityConfig, 
+  statusConfig, 
+  allStatusFilters, 
+  allCategories 
+} from '@/lib/maintenanceUtils';
 
 interface MaintenanceReport {
   id: string;
   category: string;
   description: string;
   photo_url?: string;
-  status: 'open' | 'in_progress' | 'resolved';
+  status: string;
   assignee?: string;
   admin_notes?: string;
   created_at: string;
@@ -48,7 +57,6 @@ const MaintenanceReports = () => {
     loadReports();
   }, [currentUser, filters]);
 
-  // Real-time subscription for maintenance report updates
   useRealtimeSubscription({
     table: 'maintenance_reports',
     event: '*',
@@ -56,7 +64,6 @@ const MaintenanceReports = () => {
     enabled: isAdmin && !!currentUser?.hoaId
   });
 
-  // Redirect if not an admin
   if (!isAdmin) {
     return <Navigate to="/dashboard" replace />;
   }
@@ -76,7 +83,6 @@ const MaintenanceReports = () => {
         .eq('hoa_id', currentUser.hoaId)
         .order('created_at', { ascending: false });
 
-      // Apply filters
       if (filters.status !== 'all') {
         query = query.eq('status', filters.status);
       }
@@ -90,26 +96,23 @@ const MaintenanceReports = () => {
       const { data, error } = await query;
       if (error) throw error;
 
-      // Fetch reporter and amenity names separately for display
       const reportsWithNames = await Promise.all((data || []).map(async (report: any) => {
-        // Fetch reporter name
         const { data: reporter } = await supabase
           .from('profiles')
           .select('full_name')
           .eq('id', report.reporter_id)
           .single();
         
-        // Fetch amenity name
         const { data: amenity } = await supabase
           .from('courts')
-          .select('name, court_type')
+          .select('name')
           .eq('id', report.amenity_id)
           .single();
         
         return {
           ...report,
           reporter_name: reporter?.full_name || 'Unknown',
-          amenity_name: amenity ? `${amenity.name} (${amenity.court_type})` : 'Unknown'
+          amenity_name: amenity?.name || 'Unknown'
         };
       }));
       
@@ -159,31 +162,20 @@ const MaintenanceReports = () => {
   };
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'open':
-        return <Badge variant="destructive" className="flex items-center gap-1"><AlertCircle className="h-3 w-3" />Open</Badge>;
-      case 'in_progress':
-        return <Badge variant="default" className="flex items-center gap-1"><Clock className="h-3 w-3" />In Progress</Badge>;
-      case 'resolved':
-        return <Badge variant="secondary" className="flex items-center gap-1"><CheckCircle className="h-3 w-3" />Resolved</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
+    const config = statusConfig[status];
+    if (!config) return <Badge variant="outline">{status}</Badge>;
+    return <Badge className={config.className}>{config.label}</Badge>;
   };
 
-  const getCategoryLabel = (category: string) => {
-    const labels: { [key: string]: string } = {
-      'lighting': 'Lighting',
-      'surface_net': 'Surface/Net',
-      'gate_access': 'Gate/Access',
-      'plumbing': 'Plumbing',
-      'cleaning': 'Cleaning',
-      'other': 'Other'
-    };
-    return labels[category] || category;
+  const getPriorityBadge = (description: string) => {
+    const priority = parsePriorityFromDescription(description);
+    const config = priorityConfig[priority];
+    if (!config) return null;
+    return <Badge variant="outline" className={config.className}>{config.label}</Badge>;
   };
 
-  const openReportCount = reports.filter(r => r.status === 'open').length;
+  const openReportCount = reports.filter(r => r.status === 'open' || r.status === 'assigned').length;
+  const inProgressCount = reports.filter(r => r.status === 'in_progress' || r.status === 'accepted').length;
 
   return (
     <div className="space-y-6">
@@ -196,7 +188,10 @@ const MaintenanceReports = () => {
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="destructive" className="text-lg px-3 py-1">
-            {openReportCount} Open Issues
+            {openReportCount} Open
+          </Badge>
+          <Badge className="text-lg px-3 py-1 bg-orange-100 text-orange-700">
+            {inProgressCount} In Progress
           </Badge>
         </div>
       </div>
@@ -218,10 +213,9 @@ const MaintenanceReports = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="open">Open</SelectItem>
-                  <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="resolved">Resolved</SelectItem>
+                  {allStatusFilters.map(s => (
+                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -233,12 +227,9 @@ const MaintenanceReports = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Categories</SelectItem>
-                  <SelectItem value="lighting">Lighting</SelectItem>
-                  <SelectItem value="surface_net">Surface/Net</SelectItem>
-                  <SelectItem value="gate_access">Gate/Access</SelectItem>
-                  <SelectItem value="plumbing">Plumbing</SelectItem>
-                  <SelectItem value="cleaning">Cleaning</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  {allCategories.map(c => (
+                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -258,7 +249,7 @@ const MaintenanceReports = () => {
               <p className="text-muted-foreground">
                 {filters.status === 'all' 
                   ? "No maintenance reports have been submitted yet."
-                  : `No ${filters.status} reports found.`
+                  : `No ${filters.status.replace('_', ' ')} reports found.`
                 }
               </p>
             </CardContent>
@@ -270,14 +261,16 @@ const MaintenanceReports = () => {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <h3 className="font-semibold">
-                        {report.amenity_name} - {getCategoryLabel(report.category)}
-                      </h3>
+                      <h3 className="font-semibold">{report.amenity_name}</h3>
+                    </div>
+                    <div className="flex items-center gap-2 mb-3 flex-wrap">
                       {getStatusBadge(report.status)}
+                      {getPriorityBadge(report.description)}
+                      <Badge variant="outline">{getCategoryLabel(report.category)}</Badge>
                     </div>
                     
                     <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-                      {report.description}
+                      {cleanDescription(report.description)}
                     </p>
                     
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -344,9 +337,12 @@ const ReportDetailForm: React.FC<{
   onUpdate: (id: string, status: string, assignee?: string, notes?: string) => void;
   onClose: () => void;
 }> = ({ report, onUpdate, onClose }) => {
-  const [status, setStatus] = useState<'open' | 'in_progress' | 'resolved'>(report.status);
+  const [status, setStatus] = useState(report.status);
   const [assignee, setAssignee] = useState(report.assignee || '');
   const [adminNotes, setAdminNotes] = useState(report.admin_notes || '');
+
+  const priority = parsePriorityFromDescription(report.description);
+  const pConfig = priorityConfig[priority];
 
   const handleSave = () => {
     onUpdate(report.id, status, assignee, adminNotes);
@@ -355,20 +351,21 @@ const ReportDetailForm: React.FC<{
 
   return (
     <div className="space-y-6">
-      {/* Report Info */}
       <div className="space-y-4">
         <div>
-          <h3 className="font-semibold text-lg">
-            {report.amenity_name} - {report.category.replace('_', ' ')}
-          </h3>
-          <p className="text-sm text-muted-foreground">
+          <h3 className="font-semibold text-lg">{report.amenity_name}</h3>
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
+            <Badge variant="outline">{getCategoryLabel(report.category)}</Badge>
+            {pConfig && <Badge variant="outline" className={pConfig.className}>{pConfig.label}</Badge>}
+          </div>
+          <p className="text-sm text-muted-foreground mt-1">
             Reported by {report.reporter_name} on {new Date(report.created_at).toLocaleDateString()}
           </p>
         </div>
         
         <div>
           <Label className="text-sm font-medium">Description</Label>
-          <p className="mt-1 p-3 bg-gray-50 rounded-md">{report.description}</p>
+          <p className="mt-1 p-3 bg-muted/50 rounded-md">{cleanDescription(report.description)}</p>
         </div>
 
         {report.photo_url && (
@@ -383,21 +380,20 @@ const ReportDetailForm: React.FC<{
         )}
       </div>
 
-      {/* Admin Controls */}
       <div className="space-y-4 border-t pt-4">
         <h4 className="font-medium">Admin Actions</h4>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Label htmlFor="status">Status</Label>
-            <Select value={status} onValueChange={(value) => setStatus(value as 'open' | 'in_progress' | 'resolved')}>
+            <Select value={status} onValueChange={setStatus}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="open">Open</SelectItem>
-                <SelectItem value="in_progress">In Progress</SelectItem>
-                <SelectItem value="resolved">Resolved</SelectItem>
+                {allStatusFilters.filter(s => s.value !== 'all').map(s => (
+                  <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
