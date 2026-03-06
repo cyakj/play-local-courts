@@ -3,7 +3,7 @@ import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Settings, Shield, Users, ChevronRight, Wrench, HardHat } from 'lucide-react';
+import { Settings, Shield, Users, ChevronRight, Wrench } from 'lucide-react';
 
 const AdminHub = () => {
   const { isAdmin } = useAuth();
