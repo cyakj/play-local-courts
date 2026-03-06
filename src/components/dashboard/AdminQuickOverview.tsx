@@ -46,12 +46,12 @@ export const AdminQuickOverview = () => {
     try {
       const today = format(new Date(), 'yyyy-MM-dd');
 
-      // Count open maintenance issues
+      // Count open maintenance issues (open + assigned = needs attention)
       const { count: maintenanceCount } = await supabase
         .from('maintenance_reports')
         .select('id', { count: 'exact' })
         .eq('hoa_id', activeHOA.hoaId)
-        .in('status', ['submitted', 'in_review', 'in_progress']);
+        .in('status', ['open', 'assigned']);
 
       // Count today's bookings
       const { count: bookingCount } = await supabase
