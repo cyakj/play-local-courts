@@ -1529,43 +1529,182 @@ export type Database = {
           admin_notes: string | null
           amenity_id: string
           assignee: string | null
+          cannot_complete_reason: string | null
           category: string
+          completed_at: string | null
+          completion_notes: string | null
+          completion_photo_url: string | null
           created_at: string
           description: string
           hoa_id: string
           id: string
           photo_url: string | null
+          priority: string | null
           reporter_id: string
           status: string
           updated_at: string
+          worker_id: string | null
         }
         Insert: {
           admin_notes?: string | null
           amenity_id: string
           assignee?: string | null
+          cannot_complete_reason?: string | null
           category: string
+          completed_at?: string | null
+          completion_notes?: string | null
+          completion_photo_url?: string | null
           created_at?: string
           description: string
           hoa_id: string
           id?: string
           photo_url?: string | null
+          priority?: string | null
           reporter_id: string
           status?: string
           updated_at?: string
+          worker_id?: string | null
         }
         Update: {
           admin_notes?: string | null
           amenity_id?: string
           assignee?: string | null
+          cannot_complete_reason?: string | null
           category?: string
+          completed_at?: string | null
+          completion_notes?: string | null
+          completion_photo_url?: string | null
           created_at?: string
           description?: string
           hoa_id?: string
           id?: string
           photo_url?: string | null
+          priority?: string | null
           reporter_id?: string
           status?: string
           updated_at?: string
+          worker_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_reports_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "maintenance_workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      maintenance_status_history: {
+        Row: {
+          changed_by: string
+          created_at: string
+          id: string
+          new_status: string
+          notes: string | null
+          old_status: string | null
+          report_id: string
+        }
+        Insert: {
+          changed_by: string
+          created_at?: string
+          id?: string
+          new_status: string
+          notes?: string | null
+          old_status?: string | null
+          report_id: string
+        }
+        Update: {
+          changed_by?: string
+          created_at?: string
+          id?: string
+          new_status?: string
+          notes?: string | null
+          old_status?: string | null
+          report_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_status_history_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "maintenance_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      maintenance_worker_communities: {
+        Row: {
+          created_at: string
+          hoa_id: string
+          id: string
+          status: string
+          worker_id: string
+        }
+        Insert: {
+          created_at?: string
+          hoa_id: string
+          id?: string
+          status?: string
+          worker_id: string
+        }
+        Update: {
+          created_at?: string
+          hoa_id?: string
+          id?: string
+          status?: string
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_worker_communities_hoa_id_fkey"
+            columns: ["hoa_id"]
+            isOneToOne: false
+            referencedRelation: "hoas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_worker_communities_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "maintenance_workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      maintenance_workers: {
+        Row: {
+          bio: string | null
+          created_at: string
+          id: string
+          photo_url: string | null
+          specialties: string[]
+          status: string
+          updated_at: string
+          user_id: string
+          worker_type: string
+        }
+        Insert: {
+          bio?: string | null
+          created_at?: string
+          id?: string
+          photo_url?: string | null
+          specialties?: string[]
+          status?: string
+          updated_at?: string
+          user_id: string
+          worker_type: string
+        }
+        Update: {
+          bio?: string | null
+          created_at?: string
+          id?: string
+          photo_url?: string | null
+          specialties?: string[]
+          status?: string
+          updated_at?: string
+          user_id?: string
+          worker_type?: string
         }
         Relationships: []
       }
@@ -2493,7 +2632,12 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "resident" | "coach" | "platform_reviewer"
+      app_role:
+        | "admin"
+        | "resident"
+        | "coach"
+        | "platform_reviewer"
+        | "maintenance_worker"
       court_type: "hard" | "clay" | "grass" | "indoor"
       ladder_format: "singles" | "doubles"
       ladder_status: "setup" | "active" | "completed"
@@ -2629,7 +2773,13 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "resident", "coach", "platform_reviewer"],
+      app_role: [
+        "admin",
+        "resident",
+        "coach",
+        "platform_reviewer",
+        "maintenance_worker",
+      ],
       court_type: ["hard", "clay", "grass", "indoor"],
       ladder_format: ["singles", "doubles"],
       ladder_status: ["setup", "active", "completed"],
