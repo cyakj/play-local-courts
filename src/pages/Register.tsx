@@ -386,8 +386,8 @@ const Register = () => {
             </>
           )}
 
-          {/* Common fields for non-coach, non-worker */}
-          {userRole !== 'coach' && userRole !== 'maintenance_worker' && (
+          {/* Common fields for non-coach */}
+          {userRole !== 'coach' && (
             <>
               <div className="space-y-2">
                 <Label htmlFor="phoneNumber">Phone Number</Label>
