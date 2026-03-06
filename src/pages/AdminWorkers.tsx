@@ -30,8 +30,6 @@ const AdminWorkers = () => {
   const [workers, setWorkers] = useState<WorkerRow[]>([]);
   const [loading, setLoading] = useState(true);
 
-  if (!isAdmin) return <Navigate to="/dashboard" replace />;
-
   useEffect(() => {
     if (activeHOA) loadWorkers();
   }, [activeHOA]);
