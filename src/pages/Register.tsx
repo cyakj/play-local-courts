@@ -41,14 +41,6 @@ const Register = () => {
   const [hourlyRate, setHourlyRate] = useState<number | undefined>();
   const [bio, setBio] = useState('');
 
-  // Worker-specific fields
-  const [workerType, setWorkerType] = useState<'hoa_employee' | 'independent_contractor' | ''>('');
-  const [selectedCommunities, setSelectedCommunities] = useState<string[]>([]);
-  const [workerSpecialties, setWorkerSpecialties] = useState<string[]>([]);
-  const [workerBio, setWorkerBio] = useState('');
-  const [workerSubmitted, setWorkerSubmitted] = useState(false);
-  const [submittedCommunityNames, setSubmittedCommunityNames] = useState<string[]>([]);
-  
   const [isLoading, setIsLoading] = useState(false);
   
   const [error, setError] = useState('');
