@@ -29,7 +29,6 @@ export const AdminQuickOverview = () => {
   const { pendingUsers, amenities } = useData();
   const [stats, setStats] = useState<AdminStats>({
     pendingApprovals: 0,
-    pendingWorkers: 0,
     openMaintenanceIssues: 0,
     todayBookings: 0,
     amenitiesInMaintenance: 0
