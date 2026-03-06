@@ -21,19 +21,8 @@ interface HOA {
   address?: string;
 }
 
-const WORKER_SPECIALTIES = [
-  'Plumbing',
-  'Electrical',
-  'Landscaping',
-  'Pool Maintenance',
-  'General Repairs',
-  'Cleaning',
-  'Security',
-  'Other',
-];
-
 const Register = () => {
-  const [userRole, setUserRole] = useState<'player' | 'coach' | 'admin' | 'hoa_manager' | 'maintenance_worker'>('player');
+  const [userRole, setUserRole] = useState<'player' | 'coach' | 'admin' | 'hoa_manager'>('player');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
