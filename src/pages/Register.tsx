@@ -11,10 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { TENNIS_FEATURES_ENABLED } from '@/config/featureFlags';
-import { X, CheckCircle } from 'lucide-react';
 
 interface HOA {
   id: string;
@@ -23,19 +21,8 @@ interface HOA {
   address?: string;
 }
 
-const WORKER_SPECIALTIES = [
-  'Plumbing',
-  'Electrical',
-  'Landscaping',
-  'Pool Maintenance',
-  'General Repairs',
-  'Cleaning',
-  'Security',
-  'Other',
-];
-
 const Register = () => {
-  const [userRole, setUserRole] = useState<'player' | 'coach' | 'admin' | 'hoa_manager' | 'maintenance_worker'>('player');
+  const [userRole, setUserRole] = useState<'player' | 'coach' | 'admin' | 'hoa_manager'>('player');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -54,42 +41,22 @@ const Register = () => {
   const [hourlyRate, setHourlyRate] = useState<number | undefined>();
   const [bio, setBio] = useState('');
 
-  // Worker-specific fields
-  const [workerType, setWorkerType] = useState<'hoa_employee' | 'independent_contractor' | ''>('');
-  const [selectedCommunities, setSelectedCommunities] = useState<string[]>([]);
-  const [workerSpecialties, setWorkerSpecialties] = useState<string[]>([]);
-  const [workerBio, setWorkerBio] = useState('');
-  const [workerSubmitted, setWorkerSubmitted] = useState(false);
-  const [submittedCommunityNames, setSubmittedCommunityNames] = useState<string[]>([]);
-  
   const [isLoading, setIsLoading] = useState(false);
   
   const [error, setError] = useState('');
   const [hoas, setHOAs] = useState<HOA[]>([]);
   const [loadingHOAs, setLoadingHOAs] = useState(true);
-  const [communitySearch, setCommunitySearch] = useState('');
   
   const { register, registerCoach } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if ((userRole === 'player' && livesInHOA) || userRole === 'admin' || userRole === 'maintenance_worker') {
+    if ((userRole === 'player' && livesInHOA) || userRole === 'admin') {
       loadHOAs();
     } else {
       setLoadingHOAs(false);
     }
   }, [userRole, livesInHOA]);
-
-  // Reset worker fields when role changes
-  useEffect(() => {
-    if (userRole !== 'maintenance_worker') {
-      setWorkerType('');
-      setSelectedCommunities([]);
-      setWorkerSpecialties([]);
-      setWorkerBio('');
-      setWorkerSubmitted(false);
-    }
-  }, [userRole]);
 
   const loadHOAs = async () => {
     try {
@@ -116,168 +83,13 @@ const Register = () => {
     }
   };
 
-  const handleSpecialtyChange = (specialty: string, checked: boolean) => {
-    if (checked) {
-      setWorkerSpecialties([...workerSpecialties, specialty]);
-    } else {
-      setWorkerSpecialties(workerSpecialties.filter(s => s !== specialty));
-    }
-  };
-
-  const handleCommunityToggle = (hoaId: string) => {
-    if (workerType === 'hoa_employee') {
-      setSelectedCommunities([hoaId]);
-    } else {
-      setSelectedCommunities(prev =>
-        prev.includes(hoaId)
-          ? prev.filter(id => id !== hoaId)
-          : [...prev, hoaId]
-      );
-    }
-  };
-
-  const removeCommunity = (hoaId: string) => {
-    setSelectedCommunities(prev => prev.filter(id => id !== hoaId));
-  };
-
-  const filteredHOAs = hoas.filter(h =>
-    h.name.toLowerCase().includes(communitySearch.toLowerCase()) ||
-    (h.address && h.address.toLowerCase().includes(communitySearch.toLowerCase()))
-  );
-
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
     
     try {
-      if (userRole === 'maintenance_worker') {
-        // Validation
-        if (!workerType) {
-          setError('Please select a worker type.');
-          setIsLoading(false);
-          return;
-        }
-        if (selectedCommunities.length === 0) {
-          setError('Please select at least one community.');
-          setIsLoading(false);
-          return;
-        }
-        if (workerSpecialties.length === 0) {
-          setError('Please select at least one specialty.');
-          setIsLoading(false);
-          return;
-        }
-        if (!phoneNumber) {
-          setError('Phone number is required for maintenance workers.');
-          setIsLoading(false);
-          return;
-        }
-
-        // Register the user account (no HOA association for worker accounts)
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/dashboard`,
-            data: {
-              full_name: fullName,
-              hoa_role: 'maintenance_worker',
-              hoa_status: 'approved',
-              phone_number: phoneNumber,
-              date_of_birth: dateOfBirth || null,
-            }
-          }
-        });
-
-        if (signUpError) throw signUpError;
-
-        if (signUpData.user) {
-          // Wait for trigger to create profile
-          await new Promise(resolve => setTimeout(resolve, 1000));
-
-          // Update profile
-          await supabase.from('profiles').upsert({
-            id: signUpData.user.id,
-            full_name: fullName,
-            phone_number: phoneNumber,
-            date_of_birth: dateOfBirth || null,
-            hoa_role: 'resident',
-            hoa_status: 'approved',
-            user_type: 'non_hoa',
-          }, { onConflict: 'id' });
-
-          // Create maintenance_workers record
-          const { data: workerData, error: workerError } = await supabase
-            .from('maintenance_workers')
-            .insert({
-              user_id: signUpData.user.id,
-              worker_type: workerType,
-              specialties: workerSpecialties,
-              bio: workerBio || null,
-              status: 'pending',
-            })
-            .select('id')
-            .single();
-
-          if (workerError) {
-            console.error('Error creating worker profile:', workerError);
-            throw new Error('Failed to create worker profile');
-          }
-
-          // Create community associations
-          if (workerData) {
-            const communityRecords = selectedCommunities.map(hoaId => ({
-              worker_id: workerData.id,
-              hoa_id: hoaId,
-              status: 'pending',
-            }));
-
-            const { error: commError } = await supabase
-              .from('maintenance_worker_communities')
-              .insert(communityRecords);
-
-            if (commError) {
-              console.error('Error creating community associations:', commError);
-            }
-          }
-
-          // Add maintenance_worker role
-          await supabase.from('user_roles').insert({
-            user_id: signUpData.user.id,
-            role: 'maintenance_worker',
-          });
-
-          // Send notifications to HOA admins of selected communities
-          for (const hoaId of selectedCommunities) {
-            // Get admin(s) of this HOA
-            const { data: admins } = await supabase
-              .from('hoa_memberships')
-              .select('user_id')
-              .eq('hoa_id', hoaId)
-              .eq('role', 'admin')
-              .eq('status', 'approved');
-
-            if (admins) {
-              const hoaName = hoas.find(h => h.id === hoaId)?.name || 'your community';
-              for (const admin of admins) {
-                await supabase.from('competition_notifications').insert({
-                  competition_id: hoaId, // reuse field for context
-                  user_id: admin.user_id,
-                  type: 'worker_application',
-                  title: 'New Maintenance Worker Application',
-                  message: `New maintenance worker application from ${fullName} — review in Admin Hub.`,
-                });
-              }
-            }
-          }
-
-          // Store community names for confirmation screen
-          const names = selectedCommunities.map(id => hoas.find(h => h.id === id)?.name || 'Unknown');
-          setSubmittedCommunityNames(names);
-          setWorkerSubmitted(true);
-        }
-      } else if (TENNIS_FEATURES_ENABLED && userRole === 'coach') {
+      if (TENNIS_FEATURES_ENABLED && userRole === 'coach') {
         await registerCoach(fullName, email, password, {
           businessName,
           credentials,
@@ -302,32 +114,6 @@ const Register = () => {
       setIsLoading(false);
     }
   };
-
-  // Worker submission confirmation screen
-  if (workerSubmitted) {
-    return (
-      <Card className="w-full shadow-lg">
-        <CardContent className="pt-8 pb-8 text-center space-y-4">
-          <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
-          <h2 className="text-2xl font-bold">Application Submitted</h2>
-          <p className="text-muted-foreground leading-relaxed">
-            Your application to join{' '}
-            <span className="font-semibold text-foreground">
-              {submittedCommunityNames.join(', ')}
-            </span>{' '}
-            as a maintenance worker is pending approval from the community admin.
-          </p>
-          <p className="text-muted-foreground text-sm">
-            You will receive a notification once your application is reviewed.
-            You can log in to check your status.
-          </p>
-          <Button asChild className="mt-4 min-h-[44px]">
-            <Link to="/login">Go to Login</Link>
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
 
   return (
     <Card className="w-full shadow-lg">
@@ -356,17 +142,11 @@ const Register = () => {
                   <SelectItem value="coach">Coach</SelectItem>
                 )}
                 <SelectItem value="hoa_manager">HOA Manager (requires verification)</SelectItem>
-                <SelectItem value="maintenance_worker">Maintenance Worker</SelectItem>
               </SelectContent>
             </Select>
             {userRole === 'hoa_manager' && (
               <p className="text-sm text-muted-foreground mt-2">
                 After creating your account, you'll be guided to submit verification documents to prove your HOA management authority.
-              </p>
-            )}
-            {userRole === 'maintenance_worker' && (
-              <p className="text-sm text-muted-foreground mt-2">
-                Join as a maintenance worker to receive and manage repair assignments from HOA communities.
               </p>
             )}
           </div>
@@ -606,8 +386,8 @@ const Register = () => {
             </>
           )}
 
-          {/* Common fields for non-coach, non-worker */}
-          {userRole !== 'coach' && userRole !== 'maintenance_worker' && (
+          {/* Common fields for non-coach */}
+          {userRole !== 'coach' && (
             <>
               <div className="space-y-2">
                 <Label htmlFor="phoneNumber">Phone Number</Label>
@@ -634,162 +414,6 @@ const Register = () => {
             </>
           )}
 
-          {/* Worker-specific fields */}
-          {userRole === 'maintenance_worker' && (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="workerPhone">Phone Number <span className="text-red-500">*</span></Label>
-                <Input
-                  id="workerPhone"
-                  type="tel"
-                  placeholder="(555) 123-4567"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  required
-                  disabled={isLoading}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="workerDob">Date of Birth</Label>
-                <Input
-                  id="workerDob"
-                  type="date"
-                  value={dateOfBirth}
-                  onChange={(e) => setDateOfBirth(e.target.value)}
-                  disabled={isLoading}
-                />
-              </div>
-
-              <Separator />
-
-              {/* Worker Type */}
-              <div className="space-y-3">
-                <Label>Worker Type <span className="text-red-500">*</span></Label>
-                <div className="space-y-3">
-                  <label className={`flex items-start space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${workerType === 'hoa_employee' ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/50'}`}>
-                    <input
-                      type="radio"
-                      name="workerType"
-                      value="hoa_employee"
-                      checked={workerType === 'hoa_employee'}
-                      onChange={() => { setWorkerType('hoa_employee'); setSelectedCommunities([]); }}
-                      className="mt-1"
-                    />
-                    <div>
-                      <div className="font-medium text-sm">HOA Employee</div>
-                      <div className="text-xs text-muted-foreground">I work exclusively for one HOA community</div>
-                    </div>
-                  </label>
-                  <label className={`flex items-start space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${workerType === 'independent_contractor' ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/50'}`}>
-                    <input
-                      type="radio"
-                      name="workerType"
-                      value="independent_contractor"
-                      checked={workerType === 'independent_contractor'}
-                      onChange={() => { setWorkerType('independent_contractor'); setSelectedCommunities([]); }}
-                      className="mt-1"
-                    />
-                    <div>
-                      <div className="font-medium text-sm">Independent Contractor</div>
-                      <div className="text-xs text-muted-foreground">I work across multiple communities</div>
-                    </div>
-                  </label>
-                </div>
-              </div>
-
-              {/* Community Selection */}
-              {workerType && (
-                <div className="space-y-2">
-                  <Label>
-                    {workerType === 'hoa_employee' ? 'Select Your Community' : 'Select Communities'}{' '}
-                    <span className="text-red-500">*</span>
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    Select the community{workerType === 'independent_contractor' ? ' or communities' : ''} you provide maintenance services for.
-                  </p>
-
-                  {/* Selected tags */}
-                  {selectedCommunities.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mb-2">
-                      {selectedCommunities.map(id => {
-                        const hoa = hoas.find(h => h.id === id);
-                        return (
-                          <Badge key={id} variant="secondary" className="gap-1 pr-1">
-                            {hoa?.name}
-                            <button type="button" onClick={() => removeCommunity(id)} className="ml-1 hover:text-destructive">
-                              <X className="h-3 w-3" />
-                            </button>
-                          </Badge>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  <Input
-                    placeholder="Search communities..."
-                    value={communitySearch}
-                    onChange={(e) => setCommunitySearch(e.target.value)}
-                    disabled={isLoading}
-                  />
-                  <div className="max-h-40 overflow-y-auto border rounded-md">
-                    {loadingHOAs ? (
-                      <p className="p-3 text-sm text-muted-foreground">Loading...</p>
-                    ) : filteredHOAs.length === 0 ? (
-                      <p className="p-3 text-sm text-muted-foreground">No communities found</p>
-                    ) : (
-                      filteredHOAs.map(hoa => (
-                        <button
-                          key={hoa.id}
-                          type="button"
-                          onClick={() => handleCommunityToggle(hoa.id)}
-                          className={`w-full text-left px-3 py-2 text-sm hover:bg-muted/50 transition-colors flex items-center justify-between min-h-[44px] ${
-                            selectedCommunities.includes(hoa.id) ? 'bg-primary/10 font-medium' : ''
-                          }`}
-                        >
-                          <span>{hoa.name}{hoa.address ? ` — ${hoa.address}` : ''}</span>
-                          {selectedCommunities.includes(hoa.id) && (
-                            <CheckCircle className="h-4 w-4 text-primary shrink-0" />
-                          )}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Specialty Categories */}
-              <div className="space-y-2">
-                <Label>Specialty Categories <span className="text-red-500">*</span></Label>
-                <p className="text-xs text-muted-foreground">Select all categories that apply to your skills.</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {WORKER_SPECIALTIES.map(specialty => (
-                    <div key={specialty} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`spec-${specialty}`}
-                        checked={workerSpecialties.includes(specialty)}
-                        onCheckedChange={(checked) => handleSpecialtyChange(specialty, checked as boolean)}
-                      />
-                      <Label htmlFor={`spec-${specialty}`} className="text-sm">{specialty}</Label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Worker Bio */}
-              <div className="space-y-2">
-                <Label htmlFor="workerBio">Bio (optional)</Label>
-                <Textarea
-                  id="workerBio"
-                  placeholder="Briefly describe your experience and qualifications"
-                  value={workerBio}
-                  onChange={(e) => setWorkerBio(e.target.value)}
-                  disabled={isLoading}
-                />
-              </div>
-            </>
-          )}
-
           <Button 
             type="submit" 
             className="w-full min-h-[44px]" 
@@ -798,8 +422,7 @@ const Register = () => {
               (userRole === 'admin' && !selectedHOA) ||
               (userRole === 'player' && livesInHOA === null) ||
               (userRole === 'player' && livesInHOA === true && !selectedHOA) ||
-              (TENNIS_FEATURES_ENABLED && userRole === 'coach' && (!homeBase || sportsOffered.length === 0)) ||
-              (userRole === 'maintenance_worker' && (!workerType || selectedCommunities.length === 0 || workerSpecialties.length === 0 || !phoneNumber))
+              (TENNIS_FEATURES_ENABLED && userRole === 'coach' && (!homeBase || sportsOffered.length === 0))
             }
           >
             {isLoading ? 'Creating Account...' : 'Create Account'}

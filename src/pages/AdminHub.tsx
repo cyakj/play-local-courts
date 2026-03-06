@@ -3,7 +3,7 @@ import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Settings, Shield, Users, ChevronRight, Wrench, HardHat } from 'lucide-react';
+import { Settings, Shield, Users, ChevronRight, Wrench } from 'lucide-react';
 
 const AdminHub = () => {
   const { isAdmin } = useAuth();
@@ -34,13 +34,6 @@ const AdminHub = () => {
       icon: Wrench,
       path: '/admin/maintenance',
       color: 'text-red-600 bg-red-50'
-    },
-    {
-      title: 'Maintenance Workers',
-      description: 'Manage maintenance worker applications, approvals, and assignments.',
-      icon: HardHat,
-      path: '/admin/workers',
-      color: 'text-purple-600 bg-purple-50'
     },
     {
       title: 'Pending Member Approvals',

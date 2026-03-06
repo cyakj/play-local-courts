@@ -27,7 +27,7 @@ import ManageCourts from "./pages/ManageCourts";
 import PendingRequests from "./pages/PendingRequests";
 import AmenityRules from "./pages/AmenityRules";
 import AdminHub from "./pages/AdminHub";
-import AdminWorkers from "./pages/AdminWorkers";
+
 import MyLocker from "./pages/MyLocker";
 import LeaguesLadders from "./pages/LeaguesLadders";
 import ManageLadders from "./pages/ManageLadders";
@@ -108,7 +108,7 @@ function App() {
                   <Route path="/manage-courts" element={<ManageCourts />} />
                   <Route path="/admin" element={<AdminHub />} />
                   <Route path="/admin/maintenance" element={<MaintenanceReports />} />
-                  <Route path="/admin/workers" element={<AdminWorkers />} />
+                  
                   <Route path="/my-reports" element={<MyReports />} />
                   <Route path="/pending-requests" element={<PendingRequests />} />
                   <Route path="/amenity-rules" element={<AmenityRules />} />

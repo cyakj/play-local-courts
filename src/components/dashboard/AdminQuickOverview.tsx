@@ -18,7 +18,6 @@ import { format } from 'date-fns';
 
 interface AdminStats {
   pendingApprovals: number;
-  pendingWorkers: number;
   openMaintenanceIssues: number;
   todayBookings: number;
   amenitiesInMaintenance: number;
@@ -30,7 +29,6 @@ export const AdminQuickOverview = () => {
   const { pendingUsers, amenities } = useData();
   const [stats, setStats] = useState<AdminStats>({
     pendingApprovals: 0,
-    pendingWorkers: 0,
     openMaintenanceIssues: 0,
     todayBookings: 0,
     amenitiesInMaintenance: 0
@@ -68,16 +66,8 @@ export const AdminQuickOverview = () => {
         .select('id', { count: 'exact' })
         .eq('date', today);
 
-      // Count pending worker applications
-      const { count: pendingWorkerCount } = await supabase
-        .from('maintenance_worker_communities')
-        .select('id', { count: 'exact' })
-        .eq('hoa_id', activeHOA.hoaId)
-        .eq('status', 'pending');
-
       setStats({
-        pendingApprovals: pendingUsers.length + (pendingWorkerCount || 0),
-        pendingWorkers: pendingWorkerCount || 0,
+        pendingApprovals: pendingUsers.length,
         openMaintenanceIssues: maintenanceCount || 0,
         todayBookings: bookingCount || 0,
         amenitiesInMaintenance: maintenanceAmenities || 0
