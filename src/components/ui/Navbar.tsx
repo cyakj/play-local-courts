@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { Home, Settings, MessageCircle } from 'lucide-react';
+import { Settings, MessageCircle } from 'lucide-react';
 import { Button } from './button';
 import { Badge } from './badge';
 import { supabase } from '@/integrations/supabase/client';
