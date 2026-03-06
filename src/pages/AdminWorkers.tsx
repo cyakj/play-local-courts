@@ -34,6 +34,8 @@ const AdminWorkers = () => {
     if (activeHOA) loadWorkers();
   }, [activeHOA]);
 
+  if (!isAdmin) return <Navigate to="/dashboard" replace />;
+
   const loadWorkers = async () => {
     if (!activeHOA) return;
     setLoading(true);
