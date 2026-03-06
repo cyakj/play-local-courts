@@ -115,32 +115,6 @@ const Register = () => {
     }
   };
 
-  // Worker submission confirmation screen
-  if (workerSubmitted) {
-    return (
-      <Card className="w-full shadow-lg">
-        <CardContent className="pt-8 pb-8 text-center space-y-4">
-          <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
-          <h2 className="text-2xl font-bold">Application Submitted</h2>
-          <p className="text-muted-foreground leading-relaxed">
-            Your application to join{' '}
-            <span className="font-semibold text-foreground">
-              {submittedCommunityNames.join(', ')}
-            </span>{' '}
-            as a maintenance worker is pending approval from the community admin.
-          </p>
-          <p className="text-muted-foreground text-sm">
-            You will receive a notification once your application is reviewed.
-            You can log in to check your status.
-          </p>
-          <Button asChild className="mt-4 min-h-[44px]">
-            <Link to="/login">Go to Login</Link>
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <Card className="w-full shadow-lg">
       <CardHeader>
