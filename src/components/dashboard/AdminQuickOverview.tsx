@@ -68,8 +68,16 @@ export const AdminQuickOverview = () => {
         .select('id', { count: 'exact' })
         .eq('date', today);
 
+      // Count pending worker applications
+      const { count: pendingWorkerCount } = await supabase
+        .from('maintenance_worker_communities')
+        .select('id', { count: 'exact' })
+        .eq('hoa_id', activeHOA.hoaId)
+        .eq('status', 'pending');
+
       setStats({
-        pendingApprovals: pendingUsers.length,
+        pendingApprovals: pendingUsers.length + (pendingWorkerCount || 0),
+        pendingWorkers: pendingWorkerCount || 0,
         openMaintenanceIssues: maintenanceCount || 0,
         todayBookings: bookingCount || 0,
         amenitiesInMaintenance: maintenanceAmenities || 0
