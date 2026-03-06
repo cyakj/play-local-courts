@@ -1,11 +1,39 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { Home, Settings } from 'lucide-react';
+import { Home, Settings, MessageCircle } from 'lucide-react';
 import { Button } from './button';
+import { Badge } from './badge';
+import { supabase } from '@/integrations/supabase/client';
+import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 
 const Navbar = () => {
   const { currentUser } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const loadUnreadCount = async () => {
+    if (!currentUser) return;
+    const { count } = await supabase
+      .from('messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('receiver_id', currentUser.id)
+      .is('read_at', null);
+    setUnreadCount(count || 0);
+  };
+
+  useEffect(() => {
+    if (currentUser) {
+      loadUnreadCount();
+    }
+  }, [currentUser]);
+
+  useRealtimeSubscription({
+    table: 'messages',
+    event: 'INSERT',
+    filter: currentUser?.id ? `receiver_id=eq.${currentUser.id}` : undefined,
+    onInsert: () => loadUnreadCount(),
+    enabled: !!currentUser?.id
+  });
 
   if (!currentUser) {
     return null;
@@ -22,7 +50,17 @@ const Navbar = () => {
               </div>
             </Link>
           </div>
-          <div className="flex items-center">
+          <div className="flex items-center gap-1">
+            <Link to="/messages" className="relative">
+              <Button variant="ghost" size="icon" className="h-11 w-11 rounded-full">
+                <MessageCircle className="h-5 w-5 text-muted-foreground" />
+              </Button>
+              {unreadCount > 0 && (
+                <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-[10px] bg-destructive text-destructive-foreground border-2 border-background rounded-full">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </Badge>
+              )}
+            </Link>
             <Link to="/settings">
               <Button variant="ghost" size="icon" className="h-11 w-11 rounded-full">
                 <Settings className="h-5 w-5 text-muted-foreground" />
