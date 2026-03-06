@@ -46,7 +46,6 @@ const Register = () => {
   const [error, setError] = useState('');
   const [hoas, setHOAs] = useState<HOA[]>([]);
   const [loadingHOAs, setLoadingHOAs] = useState(true);
-  const [communitySearch, setCommunitySearch] = useState('');
   
   const { register, registerCoach } = useAuth();
   const navigate = useNavigate();
