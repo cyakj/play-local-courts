@@ -51,23 +51,12 @@ const Register = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if ((userRole === 'player' && livesInHOA) || userRole === 'admin' || userRole === 'maintenance_worker') {
+    if ((userRole === 'player' && livesInHOA) || userRole === 'admin') {
       loadHOAs();
     } else {
       setLoadingHOAs(false);
     }
   }, [userRole, livesInHOA]);
-
-  // Reset worker fields when role changes
-  useEffect(() => {
-    if (userRole !== 'maintenance_worker') {
-      setWorkerType('');
-      setSelectedCommunities([]);
-      setWorkerSpecialties([]);
-      setWorkerBio('');
-      setWorkerSubmitted(false);
-    }
-  }, [userRole]);
 
   const loadHOAs = async () => {
     try {
