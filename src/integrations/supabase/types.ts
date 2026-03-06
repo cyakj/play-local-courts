@@ -2600,6 +2600,8 @@ export type Database = {
         Returns: boolean
       }
       is_ladder_admin: { Args: { _ladder_id: string }; Returns: boolean }
+      is_own_worker: { Args: { _worker_id: string }; Returns: boolean }
+      is_worker_in_admin_hoa: { Args: { _worker_id: string }; Returns: boolean }
       migrate_existing_hoa_memberships: { Args: never; Returns: undefined }
       reject_hoa_membership: {
         Args: { membership_id: string }
