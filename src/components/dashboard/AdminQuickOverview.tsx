@@ -18,6 +18,7 @@ import { format } from 'date-fns';
 
 interface AdminStats {
   pendingApprovals: number;
+  pendingWorkers: number;
   openMaintenanceIssues: number;
   todayBookings: number;
   amenitiesInMaintenance: number;
