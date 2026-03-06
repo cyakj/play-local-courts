@@ -43,14 +43,14 @@ const Navbar = () => {
     <nav className="bg-background/80 backdrop-blur-lg shadow-sm border-b border-border sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-14">
-          <div className="flex items-center space-x-4">
-            <Link to="/" className="flex items-center space-x-2 group">
-              <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-blue-500 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
-                <Home className="h-4 w-4 text-white" />
-              </div>
-            </Link>
+          <div className="flex items-center">
+            <Button asChild variant="ghost" size="icon" className="h-11 w-11 rounded-full">
+              <Link to="/settings" aria-label="Open settings">
+                <Settings className="h-5 w-5 text-muted-foreground" />
+              </Link>
+            </Button>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center">
             <Button asChild variant="ghost" size="icon" className="relative h-11 w-11 rounded-full">
               <Link to="/messages" aria-label="Open messages">
                 <MessageCircle className="h-5 w-5 text-muted-foreground" />
@@ -59,11 +59,6 @@ const Navbar = () => {
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </Badge>
                 )}
-              </Link>
-            </Button>
-            <Button asChild variant="ghost" size="icon" className="h-11 w-11 rounded-full">
-              <Link to="/settings" aria-label="Open settings">
-                <Settings className="h-5 w-5 text-muted-foreground" />
               </Link>
             </Button>
           </div>
