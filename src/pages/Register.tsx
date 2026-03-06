@@ -422,8 +422,7 @@ const Register = () => {
               (userRole === 'admin' && !selectedHOA) ||
               (userRole === 'player' && livesInHOA === null) ||
               (userRole === 'player' && livesInHOA === true && !selectedHOA) ||
-              (TENNIS_FEATURES_ENABLED && userRole === 'coach' && (!homeBase || sportsOffered.length === 0)) ||
-              (userRole === 'maintenance_worker' && (!workerType || selectedCommunities.length === 0 || workerSpecialties.length === 0 || !phoneNumber))
+              (TENNIS_FEATURES_ENABLED && userRole === 'coach' && (!homeBase || sportsOffered.length === 0))
             }
           >
             {isLoading ? 'Creating Account...' : 'Create Account'}

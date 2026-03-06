@@ -36,13 +36,6 @@ const AdminHub = () => {
       color: 'text-red-600 bg-red-50'
     },
     {
-      title: 'Maintenance Workers',
-      description: 'Manage maintenance worker applications, approvals, and assignments.',
-      icon: HardHat,
-      path: '/admin/workers',
-      color: 'text-purple-600 bg-purple-50'
-    },
-    {
       title: 'Pending Member Approvals',
       description: 'Review and approve or reject requests from users wanting to join this HOA.',
       icon: Users,

@@ -398,8 +398,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAdmin,
     isPending,
     isCoach,
-    isPlatformReviewer,
-    isMaintenanceWorker
+    isPlatformReviewer
   };
 
   return (
