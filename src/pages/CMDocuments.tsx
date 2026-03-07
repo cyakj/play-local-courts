@@ -28,10 +28,11 @@ interface Doc {
 
 const CMDocuments = () => {
   const { id } = useParams();
+  const communityId = id;
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const { communities } = useCondoManagerCommunities();
-  const community = communities.find(c => c.id === id);
+  const community = communities.find(c => c.id === communityId);
 
   const [documents, setDocuments] = useState<Doc[]>([]);
   const [search, setSearch] = useState('');
