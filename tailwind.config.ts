@@ -74,7 +74,24 @@ export default {
 					foreground: 'hsl(var(--compete-foreground))',
 					light: 'hsl(var(--compete-light))',
 					muted: 'hsl(var(--compete-muted))'
-				}
+				},
+				// Condo Manager brand tokens
+				'cm-navy': 'hsl(var(--cm-navy))',
+				'cm-navy-mid': 'hsl(var(--cm-navy-mid))',
+				'cm-navy-light': 'hsl(var(--cm-navy-light))',
+				'cm-cyan': 'hsl(var(--cm-cyan))',
+				'cm-cyan-light': 'hsl(var(--cm-cyan-light))',
+				'cm-app-bg': 'hsl(var(--cm-app-bg))',
+				'cm-text': 'hsl(var(--cm-text))',
+				'cm-text-mid': 'hsl(var(--cm-text-mid))',
+				'cm-text-light': 'hsl(var(--cm-text-light))',
+				'cm-border': 'hsl(var(--cm-border))',
+				'cm-success': 'hsl(var(--cm-success))',
+				'cm-success-bg': 'hsl(var(--cm-success-bg))',
+				'cm-warning': 'hsl(var(--cm-warning))',
+				'cm-warning-bg': 'hsl(var(--cm-warning-bg))',
+				'cm-danger': 'hsl(var(--cm-danger))',
+				'cm-danger-bg': 'hsl(var(--cm-danger-bg))'
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
