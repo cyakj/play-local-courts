@@ -38,8 +38,8 @@ const CMAmenityRules = () => {
     fetch();
   }, [amenityId]);
 
-  // Override hoaId for rule fetching
-  const { rules, loading, saveRules } = useAmenityRules(amenityId || '');
+  // Pass hoaId from the amenity so CM users don't need hoaId on their profile
+  const { rules, loading, saveRules } = useAmenityRules(amenityId || '', amenity?.hoaId);
 
   const [formData, setFormData] = useState({
     booking_start_time: '07:00',
