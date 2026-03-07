@@ -53,6 +53,7 @@ import CMCalendar from "./pages/CMCalendar";
 import CMAlerts from "./pages/CMAlerts";
 import CMDocuments from "./pages/CMDocuments";
 import CMSurveys from "./pages/CMSurveys";
+import CMAmenityRules from "./pages/CMAmenityRules";
 import ResidentCalendar from "./pages/ResidentCalendar";
 import { TENNIS_FEATURES_ENABLED } from "./config/featureFlags";
 
@@ -89,6 +90,7 @@ function App() {
                     <Route path="/cm/alerts" element={<CMAlerts />} />
                     <Route path="/cm/community/:id/documents" element={<CMDocuments />} />
                     <Route path="/cm/community/:id/surveys" element={<CMSurveys />} />
+                    <Route path="/cm/community/:id/amenity/:amenityId/rules" element={<CMAmenityRules />} />
                   </Route>
                   {/* Main App Routes */}
                   <Route element={<MainLayout />}>

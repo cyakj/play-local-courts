@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Settings, X } from 'lucide-react';
 import { CMHeader } from '@/components/condo-manager/CMHeader';
 import { CMHealthBar } from '@/components/condo-manager/CMHealthBar';
 import { CMStatusBadge } from '@/components/condo-manager/CMStatusBadge';
@@ -11,14 +11,27 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
+const AMENITY_TYPES = [
+  { value: 'tennis', label: 'Tennis Court' },
+  { value: 'pickleball', label: 'Pickleball Court' },
+  { value: 'pool', label: 'Pool' },
+  { value: 'gym', label: 'Gym' },
+  { value: 'clubhouse', label: 'Clubhouse' },
+  { value: 'barbecue', label: 'Barbecue' },
+  { value: 'jacuzzi', label: 'Jacuzzi' },
+] as const;
+
 const CMCommunityDashboard = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { currentUser } = useAuth();
   const [tab, setTab] = useState(searchParams.get('tab') || 'overview');
-  const { communities } = useCondoManagerCommunities();
+  const { communities, refetch } = useCondoManagerCommunities();
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
+  const [showAddAmenityModal, setShowAddAmenityModal] = useState(false);
+  const [newAmenityName, setNewAmenityName] = useState('');
+  const [newAmenityType, setNewAmenityType] = useState<string>('tennis');
   const [announcementTitle, setAnnouncementTitle] = useState('');
   const [announcementBody, setAnnouncementBody] = useState('');
   const [announcementAudience, setAnnouncementAudience] = useState('all_residents');
@@ -270,11 +283,47 @@ const CMCommunityDashboard = () => {
               sub={c.utilization > 85 ? '⚠ High demand' : c.utilization < 30 ? '⚠ Low usage' : '✓ Healthy (50–85% ideal)'}
               subColor={c.utilization > 85 || c.utilization < 30 ? 'hsl(var(--cm-warning))' : 'hsl(var(--cm-success))'}
             />
-            <div className="mt-4 text-[13px] font-extrabold text-cm-text mb-3">Amenities</div>
+            <div className="mt-4 flex items-center justify-between mb-3">
+              <div className="text-[13px] font-extrabold text-cm-text">Amenities</div>
+              <div
+                onClick={() => setShowAddAmenityModal(true)}
+                className="flex items-center gap-1 bg-cm-navy text-white rounded-lg px-3 py-1.5 text-[11px] font-bold cursor-pointer min-h-[36px]"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add Amenity
+              </div>
+            </div>
             {c.amenities.map((a) => (
-              <div key={a.id} className="bg-white rounded-xl p-3.5 mb-2 flex justify-between border border-cm-border">
-                <div className="text-sm font-semibold text-cm-text">{a.name}</div>
-                <div onClick={(e) => { e.stopPropagation(); navigate(`/amenity-rules`); }} className="text-[11px] text-cm-cyan font-bold cursor-pointer">Manage →</div>
+              <div key={a.id} className="bg-white rounded-xl p-3.5 mb-2 flex justify-between items-center border border-cm-border">
+                <div>
+                  <div className="text-sm font-semibold text-cm-text">{a.name}</div>
+                  <div className="text-[10px] text-cm-text-light capitalize">{a.type}</div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div
+                    onClick={(e) => { e.stopPropagation(); navigate(`/cm/community/${c.id}/amenity/${a.id}/rules`); }}
+                    className="flex items-center gap-1 text-[11px] text-cm-cyan font-bold cursor-pointer"
+                  >
+                    <Settings className="h-3.5 w-3.5" />
+                    Rules
+                  </div>
+                  <div
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (!confirm(`Remove "${a.name}"? This will also remove all bookings for this amenity.`)) return;
+                      const { error } = await supabase.from('courts').delete().eq('id', a.id);
+                      if (error) {
+                        toast.error('Failed to remove amenity');
+                      } else {
+                        toast.success('Amenity removed');
+                        refetch();
+                      }
+                    }}
+                    className="text-cm-danger cursor-pointer"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </div>
+                </div>
               </div>
             ))}
             {c.amenities.length === 0 && (
@@ -376,6 +425,73 @@ const CMCommunityDashboard = () => {
             </div>
             <div
               onClick={() => setShowAnnouncementModal(false)}
+              className="text-center mt-3 text-sm text-cm-text-light cursor-pointer"
+            >
+              Cancel
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Amenity Modal */}
+      {showAddAmenityModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="text-lg font-extrabold text-cm-navy">Add Amenity</div>
+              <div onClick={() => setShowAddAmenityModal(false)} className="cursor-pointer text-cm-text-light">
+                <X className="h-5 w-5" />
+              </div>
+            </div>
+            <input
+              value={newAmenityName}
+              onChange={(e) => setNewAmenityName(e.target.value)}
+              placeholder="Amenity Name (e.g., Tennis Court 1, Pool Area)"
+              className="w-full px-3 py-2.5 rounded-[10px] border border-cm-border text-sm mb-3"
+            />
+            <div className="text-xs font-bold text-cm-text mb-2">Amenity Type</div>
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              {AMENITY_TYPES.map((t) => (
+                <div
+                  key={t.value}
+                  onClick={() => setNewAmenityType(t.value)}
+                  className={`rounded-[10px] border px-3 py-2.5 text-xs font-semibold text-center cursor-pointer transition-colors ${
+                    newAmenityType === t.value
+                      ? 'border-cm-cyan bg-[rgba(0,180,216,0.08)] text-cm-cyan'
+                      : 'border-cm-border text-cm-text-mid'
+                  }`}
+                >
+                  {t.label}
+                </div>
+              ))}
+            </div>
+            <div
+              onClick={async () => {
+                if (!newAmenityName.trim() || !c) {
+                  toast.error('Please enter an amenity name');
+                  return;
+                }
+                const { error } = await supabase.from('courts').insert({
+                  name: newAmenityName.trim(),
+                  court_type: newAmenityType,
+                  hoa_id: c.id,
+                });
+                if (error) {
+                  toast.error('Failed to add amenity');
+                } else {
+                  toast.success(`${newAmenityName.trim()} added`);
+                  setNewAmenityName('');
+                  setNewAmenityType('tennis');
+                  setShowAddAmenityModal(false);
+                  refetch();
+                }
+              }}
+              className="bg-cm-navy text-white rounded-[10px] py-3 text-sm font-bold text-center cursor-pointer w-full min-h-[44px] flex items-center justify-center"
+            >
+              Add Amenity
+            </div>
+            <div
+              onClick={() => setShowAddAmenityModal(false)}
               className="text-center mt-3 text-sm text-cm-text-light cursor-pointer"
             >
               Cancel
