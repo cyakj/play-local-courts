@@ -155,13 +155,13 @@ const CMSurveys = () => {
       const { data: members } = await supabase
         .from('hoa_memberships')
         .select('user_id')
-        .eq('hoa_id', id)
+        .eq('hoa_id', communityId)
         .eq('status', 'approved');
 
       if (members) {
         const notifs = members.map(m => ({
           user_id: m.user_id,
-          hoa_id: id,
+          hoa_id: communityId,
           type: 'survey_published' as const,
           title: `New survey: ${title.trim()}`,
           body: `A new survey is available — closes ${new Date(closesAt).toLocaleDateString()}`,
