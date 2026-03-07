@@ -41,6 +41,24 @@
     --compete-light: 245 58% 95%;
     --compete-muted: 245 30% 70%;
 
+    /* Condo Manager brand colors */
+    --cm-navy: 216 74% 10%;
+    --cm-navy-mid: 213 64% 13%;
+    --cm-navy-light: 212 47% 21%;
+    --cm-cyan: 193 100% 42%;
+    --cm-cyan-light: 187 100% 94%;
+    --cm-app-bg: 210 33% 96%;
+    --cm-text: 240 33% 14%;
+    --cm-text-mid: 220 9% 35%;
+    --cm-text-light: 218 11% 65%;
+    --cm-border: 220 13% 91%;
+    --cm-success: 168 65% 51%;
+    --cm-success-bg: 168 100% 95%;
+    --cm-warning: 38 92% 50%;
+    --cm-warning-bg: 48 100% 96%;
+    --cm-danger: 0 84% 60%;
+    --cm-danger-bg: 0 86% 97%;
+
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
     --sidebar-primary: 240 5.9% 10%;
