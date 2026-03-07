@@ -29,10 +29,11 @@ interface Question {
 
 const CMSurveys = () => {
   const { id } = useParams();
+  const communityId = id;
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const { communities } = useCondoManagerCommunities();
-  const community = communities.find(c => c.id === id);
+  const community = communities.find(c => c.id === communityId);
 
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [loading, setLoading] = useState(true);
