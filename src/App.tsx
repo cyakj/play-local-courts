@@ -87,6 +87,8 @@ function App() {
                     <Route path="/cm/reports" element={<CMReports />} />
                     <Route path="/cm/calendar" element={<CMCalendar />} />
                     <Route path="/cm/alerts" element={<CMAlerts />} />
+                    <Route path="/cm/documents/:communityId" element={<CMDocuments />} />
+                    <Route path="/cm/surveys/:communityId" element={<CMSurveys />} />
                   </Route>
                   {/* Main App Routes */}
                   <Route element={<MainLayout />}>
@@ -132,6 +134,7 @@ function App() {
                     <Route path="/messages" element={<Messages />} />
                     <Route path="/notifications" element={<Notifications />} />
                     <Route path="/hoa-application" element={<HOAApplication />} />
+                    <Route path="/community-calendar" element={<ResidentCalendar />} />
                     <Route path="/faq" element={<FAQ />} />
                     <Route path="/terms" element={<Terms />} />
                     <Route path="/privacy" element={<Privacy />} />
