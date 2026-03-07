@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Calendar, ClipboardList, Settings } from 'lucide-react';
+import { Home, Calendar, ClipboardList, Settings, CalendarDays } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { TENNIS_FEATURES_ENABLED } from '@/config/featureFlags';
 
