@@ -202,7 +202,7 @@ const CMSurveys = () => {
     <div className="min-h-screen bg-cm-app-bg flex flex-col">
       <CMHeader compact>
         <div className="flex items-center gap-3">
-          <div onClick={() => navigate(`/cm/community/${id}`)} className="bg-white/[0.12] rounded-[10px] w-9 h-9 flex items-center justify-center cursor-pointer min-h-[44px]">
+          <div onClick={() => navigate(`/cm/community/${communityId}`)} className="bg-white/[0.12] rounded-[10px] w-9 h-9 flex items-center justify-center cursor-pointer min-h-[44px]">
             <ArrowLeft className="h-4 w-4" />
           </div>
           <div className="flex-1">
