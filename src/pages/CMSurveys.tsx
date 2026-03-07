@@ -50,7 +50,7 @@ const CMSurveys = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
 
   const fetchSurveys = async () => {
-    if (!id) return;
+    if (!communityId) return;
     const { data } = await supabase
       .from('hoa_surveys')
       .select('*')
