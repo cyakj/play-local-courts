@@ -75,7 +75,7 @@ const CMSurveys = () => {
     setLoading(false);
   };
 
-  useEffect(() => { fetchSurveys(); }, [id]);
+  useEffect(() => { fetchSurveys(); }, [communityId]);
 
   const addQuestion = () => {
     setQuestions(prev => [...prev, {
