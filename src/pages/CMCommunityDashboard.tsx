@@ -283,11 +283,47 @@ const CMCommunityDashboard = () => {
               sub={c.utilization > 85 ? '⚠ High demand' : c.utilization < 30 ? '⚠ Low usage' : '✓ Healthy (50–85% ideal)'}
               subColor={c.utilization > 85 || c.utilization < 30 ? 'hsl(var(--cm-warning))' : 'hsl(var(--cm-success))'}
             />
-            <div className="mt-4 text-[13px] font-extrabold text-cm-text mb-3">Amenities</div>
+            <div className="mt-4 flex items-center justify-between mb-3">
+              <div className="text-[13px] font-extrabold text-cm-text">Amenities</div>
+              <div
+                onClick={() => setShowAddAmenityModal(true)}
+                className="flex items-center gap-1 bg-cm-navy text-white rounded-lg px-3 py-1.5 text-[11px] font-bold cursor-pointer min-h-[36px]"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add Amenity
+              </div>
+            </div>
             {c.amenities.map((a) => (
-              <div key={a.id} className="bg-white rounded-xl p-3.5 mb-2 flex justify-between border border-cm-border">
-                <div className="text-sm font-semibold text-cm-text">{a.name}</div>
-                <div onClick={(e) => { e.stopPropagation(); navigate(`/amenity-rules`); }} className="text-[11px] text-cm-cyan font-bold cursor-pointer">Manage →</div>
+              <div key={a.id} className="bg-white rounded-xl p-3.5 mb-2 flex justify-between items-center border border-cm-border">
+                <div>
+                  <div className="text-sm font-semibold text-cm-text">{a.name}</div>
+                  <div className="text-[10px] text-cm-text-light capitalize">{a.type}</div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div
+                    onClick={(e) => { e.stopPropagation(); navigate(`/cm/community/${c.id}/amenity/${a.id}/rules`); }}
+                    className="flex items-center gap-1 text-[11px] text-cm-cyan font-bold cursor-pointer"
+                  >
+                    <Settings className="h-3.5 w-3.5" />
+                    Rules
+                  </div>
+                  <div
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (!confirm(`Remove "${a.name}"? This will also remove all bookings for this amenity.`)) return;
+                      const { error } = await supabase.from('courts').delete().eq('id', a.id);
+                      if (error) {
+                        toast.error('Failed to remove amenity');
+                      } else {
+                        toast.success('Amenity removed');
+                        refetch();
+                      }
+                    }}
+                    className="text-cm-danger cursor-pointer"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </div>
+                </div>
               </div>
             ))}
             {c.amenities.length === 0 && (
