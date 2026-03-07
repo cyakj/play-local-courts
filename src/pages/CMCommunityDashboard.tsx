@@ -1,19 +1,154 @@
-import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { CMHeader } from '@/components/condo-manager/CMHeader';
 import { CMHealthBar } from '@/components/condo-manager/CMHealthBar';
 import { CMStatusBadge } from '@/components/condo-manager/CMStatusBadge';
 import { CMKpiCard } from '@/components/condo-manager/CMKpiCard';
 import { CMIssuesTrendChart } from '@/components/condo-manager/CMIssuesTrendChart';
-import { MOCK_COMMUNITIES } from '@/components/condo-manager/mockData';
+import { useCondoManagerCommunities } from '@/hooks/useCondoManagerData';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 const CMCommunityDashboard = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [tab, setTab] = useState('overview');
+  const [searchParams] = useSearchParams();
+  const { currentUser } = useAuth();
+  const [tab, setTab] = useState(searchParams.get('tab') || 'overview');
+  const { communities } = useCondoManagerCommunities();
+  const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
+  const [announcementTitle, setAnnouncementTitle] = useState('');
+  const [announcementBody, setAnnouncementBody] = useState('');
+  const [announcementAudience, setAnnouncementAudience] = useState('all_residents');
+  const [pendingMembers, setPendingMembers] = useState<any[]>([]);
 
-  const c = MOCK_COMMUNITIES.find((x) => x.id === Number(id)) || MOCK_COMMUNITIES[0];
+  const c = communities.find((x) => x.id === id) || communities[0];
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam) setTab(tabParam);
+  }, [searchParams]);
+
+  // Fetch pending members when on members tab
+  useEffect(() => {
+    if (tab !== 'members' || !c) return;
+    const fetchPending = async () => {
+      const { data } = await supabase
+        .from('hoa_memberships')
+        .select('id, user_id, created_at')
+        .eq('hoa_id', c.id)
+        .eq('status', 'pending');
+
+      if (data && data.length > 0) {
+        const userIds = data.map(m => m.user_id);
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', userIds);
+        const nameMap = new Map((profiles || []).map(p => [p.id, p.full_name]));
+        setPendingMembers(data.map(m => ({
+          ...m,
+          name: nameMap.get(m.user_id) || 'Unknown',
+        })));
+      } else {
+        setPendingMembers([]);
+      }
+    };
+    fetchPending();
+  }, [tab, c]);
+
+  const handleApproveMember = async (membershipId: string) => {
+    const { error } = await supabase.rpc('approve_hoa_membership', { membership_id: membershipId });
+    if (error) {
+      toast.error('Failed to approve member');
+    } else {
+      toast.success('Member approved');
+      setPendingMembers(prev => prev.filter(m => m.id !== membershipId));
+    }
+  };
+
+  const handleRejectMember = async (membershipId: string) => {
+    const { error } = await supabase.rpc('reject_hoa_membership', { membership_id: membershipId });
+    if (error) {
+      toast.error('Failed to reject member');
+    } else {
+      toast.success('Member rejected');
+      setPendingMembers(prev => prev.filter(m => m.id !== membershipId));
+    }
+  };
+
+  const handlePostAnnouncement = async () => {
+    if (!announcementTitle.trim() || !announcementBody.trim() || !c || !currentUser?.id) return;
+
+    const { error } = await supabase.from('hoa_announcements').insert({
+      hoa_id: c.id,
+      created_by: currentUser.id,
+      title: announcementTitle.trim(),
+      body: announcementBody.trim(),
+      audience: announcementAudience,
+    });
+
+    if (error) {
+      toast.error('Failed to post announcement');
+      return;
+    }
+
+    // Send notification to all community members
+    const { data: members } = await supabase
+      .from('hoa_memberships')
+      .select('user_id')
+      .eq('hoa_id', c.id)
+      .eq('status', 'approved');
+
+    if (members) {
+      const notifs = members
+        .filter(m => announcementAudience === 'all_residents' || m.user_id === currentUser.id)
+        .map(m => ({
+          user_id: m.user_id,
+          hoa_id: c.id,
+          type: 'announcement' as const,
+          title: announcementTitle.trim(),
+          body: announcementBody.trim(),
+        }));
+
+      if (notifs.length > 0) {
+        await supabase.from('hoa_notifications').insert(notifs);
+      }
+    }
+
+    toast.success('Announcement posted');
+    setShowAnnouncementModal(false);
+    setAnnouncementTitle('');
+    setAnnouncementBody('');
+  };
+
+  const handleQuickAction = (label: string) => {
+    if (!c) return;
+    switch (label) {
+      case 'Manage Documents':
+        navigate(`/cm/community/${c.id}/documents`);
+        break;
+      case 'Create Survey':
+        navigate(`/cm/community/${c.id}/surveys`);
+        break;
+      case 'Approve Members':
+        setTab('members');
+        break;
+      case 'Post Announcement':
+        setShowAnnouncementModal(true);
+        break;
+    }
+  };
+
+  if (!c) {
+    return (
+      <div className="min-h-screen bg-cm-app-bg flex items-center justify-center">
+        <div className="text-cm-text-light">Community not found</div>
+      </div>
+    );
+  }
 
   const tabs = ['overview', 'reports', 'amenities', 'members'];
 
@@ -33,8 +168,6 @@ const CMCommunityDashboard = () => {
           </div>
           <CMStatusBadge status={c.status} />
         </div>
-
-        {/* Health score bar in header */}
         <div className="bg-[rgba(0,180,216,0.12)] border border-[rgba(0,180,216,0.2)] rounded-[14px] p-3">
           <div className="flex justify-between items-center mb-2">
             <div>
@@ -71,25 +204,16 @@ const CMCommunityDashboard = () => {
         {tab === 'overview' && (
           <>
             <div className="grid grid-cols-2 gap-2.5 mb-4">
+              <CMKpiCard label="Active Members" value={`${c.activeMembers}/${c.totalUnits}`} period="logged in last 30 days" color="hsl(var(--cm-cyan))" />
               <CMKpiCard
-                label="Active Members"
-                value={`${c.activeMembers}/${c.totalUnits}`}
-                period="logged in last 30 days"
-                color="hsl(var(--cm-cyan))"
-              />
-              <CMKpiCard
-                label="Open Issues"
-                value={c.openIssues}
-                period="right now"
+                label="Open Issues" value={c.openIssues} period="right now"
                 color={c.openIssues > 3 ? 'hsl(var(--cm-danger))' : 'hsl(var(--cm-success))'}
                 sub={c.openIssues > 3 ? '⚠ Needs attention' : '✓ Under control'}
                 subColor={c.openIssues > 3 ? 'hsl(var(--cm-danger))' : 'hsl(var(--cm-success))'}
               />
               <CMKpiCard label="Today's Bookings" value={c.todayBookings} period="today" />
               <CMKpiCard
-                label="Pending Approvals"
-                value={c.pendingApprovals}
-                period="awaiting review"
+                label="Pending Approvals" value={c.pendingApprovals} period="awaiting review"
                 color={c.pendingApprovals > 0 ? 'hsl(var(--cm-warning))' : 'hsl(var(--cm-success))'}
                 sub={c.pendingApprovals > 0 ? 'Action required' : 'All clear'}
                 subColor={c.pendingApprovals > 0 ? 'hsl(var(--cm-warning))' : 'hsl(var(--cm-success))'}
@@ -97,31 +221,6 @@ const CMCommunityDashboard = () => {
             </div>
 
             <CMIssuesTrendChart />
-
-            {/* Recent Activity */}
-            <div className="bg-white rounded-[14px] p-4 mb-4 border border-cm-border">
-              <div className="flex justify-between mb-3">
-                <div className="text-[13px] font-extrabold text-cm-text">Recent Activity</div>
-                <div className="text-[11px] text-cm-cyan font-bold">View All →</div>
-              </div>
-              {c.recentActivity.map((a, i) => (
-                <div
-                  key={i}
-                  className="flex gap-2.5"
-                  style={{
-                    paddingBottom: i < c.recentActivity.length - 1 ? 12 : 0,
-                    marginBottom: i < c.recentActivity.length - 1 ? 12 : 0,
-                    borderBottom: i < c.recentActivity.length - 1 ? '1px solid hsl(var(--cm-border))' : 'none',
-                  }}
-                >
-                  <div className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" style={{ background: a.dot }} />
-                  <div>
-                    <div className="text-xs text-cm-text">{a.text}</div>
-                    <div className="text-[11px] text-cm-text-light mt-0.5">{a.time}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
 
             {/* Quick Actions */}
             <div className="text-[13px] font-extrabold text-cm-text mb-3">Quick Actions</div>
@@ -131,9 +230,10 @@ const CMCommunityDashboard = () => {
                 { label: 'Approve Members', icon: '✅' },
                 { label: 'Manage Documents', icon: '📁' },
                 { label: 'Create Survey', icon: '📊' },
-              ].map((a, i) => (
+              ].map((a) => (
                 <div
-                  key={i}
+                  key={a.label}
+                  onClick={() => handleQuickAction(a.label)}
                   className="bg-white border border-cm-border rounded-[14px] p-3.5 flex items-center gap-2.5 cursor-pointer hover:shadow-sm transition-shadow min-h-[44px]"
                 >
                   <span className="text-xl">{a.icon}</span>
@@ -148,76 +248,38 @@ const CMCommunityDashboard = () => {
           <>
             <div className="grid grid-cols-2 gap-2.5 mb-4">
               <CMKpiCard
-                label="Open Issues"
-                value={c.openIssues}
-                period="right now"
+                label="Open Issues" value={c.openIssues} period="right now"
                 color={c.openIssues > 3 ? 'hsl(var(--cm-danger))' : 'hsl(var(--cm-success))'}
               />
               <CMKpiCard
-                label="Avg Resolution"
-                value={`${c.avgResolutionDays}d`}
-                period="issues closed this month"
+                label="Avg Resolution" value={`${c.avgResolutionDays}d`} period="issues closed this month"
                 color={c.avgResolutionDays > 4 ? 'hsl(var(--cm-danger))' : 'hsl(var(--cm-success))'}
                 sub={c.avgResolutionDays > 4 ? '⚠ Above 4d target' : '✓ Within target'}
                 subColor={c.avgResolutionDays > 4 ? 'hsl(var(--cm-danger))' : 'hsl(var(--cm-success))'}
               />
             </div>
             <CMIssuesTrendChart />
-            <div className="text-[13px] font-extrabold text-cm-text mb-2.5">
-              Issues by Category{' '}
-              <span className="text-[10px] text-cm-text-light font-normal italic">last 30 days</span>
-            </div>
-            {c.issuesByCategory.map((cat, i) => (
-              <div key={i} className="bg-white rounded-xl p-3 mb-2 flex items-center gap-3 border border-cm-border">
-                <div className="flex-1">
-                  <div className="text-[13px] font-semibold text-cm-text">{cat.name}</div>
-                  <div className="h-1.5 bg-cm-border rounded-full mt-1.5 overflow-hidden">
-                    <div
-                      className="h-full rounded-full"
-                      style={{
-                        width: `${(cat.count / 8) * 100}%`,
-                        background: cat.count > 3 ? 'hsl(var(--cm-danger))' : 'hsl(var(--cm-cyan))',
-                      }}
-                    />
-                  </div>
-                </div>
-                <div
-                  className="rounded-full px-3 py-1 text-sm font-extrabold"
-                  style={{
-                    background: cat.count > 3 ? 'hsl(var(--cm-danger-bg))' : 'hsl(var(--cm-cyan-light))',
-                    color: cat.count > 3 ? 'hsl(var(--cm-danger))' : 'hsl(var(--cm-cyan))',
-                  }}
-                >
-                  {cat.count}
-                </div>
-              </div>
-            ))}
           </>
         )}
 
         {tab === 'amenities' && (
           <>
             <CMKpiCard
-              label="Utilization Rate"
-              value={`${c.utilization}%`}
-              period="this week Mon–Sun"
+              label="Utilization Rate" value={`${c.utilization}%`} period="this week Mon–Sun"
               color={c.utilization > 85 ? 'hsl(var(--cm-warning))' : 'hsl(var(--cm-cyan))'}
-              sub={
-                c.utilization > 85
-                  ? '⚠ High demand'
-                  : c.utilization < 30
-                    ? '⚠ Low usage'
-                    : '✓ Healthy (50–85% ideal)'
-              }
+              sub={c.utilization > 85 ? '⚠ High demand' : c.utilization < 30 ? '⚠ Low usage' : '✓ Healthy (50–85% ideal)'}
               subColor={c.utilization > 85 || c.utilization < 30 ? 'hsl(var(--cm-warning))' : 'hsl(var(--cm-success))'}
             />
             <div className="mt-4 text-[13px] font-extrabold text-cm-text mb-3">Amenities</div>
-            {c.amenities.map((a, i) => (
-              <div key={i} className="bg-white rounded-xl p-3.5 mb-2 flex justify-between border border-cm-border">
-                <div className="text-sm font-semibold text-cm-text">{a}</div>
+            {c.amenities.map((a) => (
+              <div key={a.id} className="bg-white rounded-xl p-3.5 mb-2 flex justify-between border border-cm-border">
+                <div className="text-sm font-semibold text-cm-text">{a.name}</div>
                 <div className="text-[11px] text-cm-cyan font-bold cursor-pointer">Manage →</div>
               </div>
             ))}
+            {c.amenities.length === 0 && (
+              <div className="text-center py-8 text-cm-text-light">No amenities configured</div>
+            )}
           </>
         )}
 
@@ -227,17 +289,44 @@ const CMCommunityDashboard = () => {
               <CMKpiCard label="Active Members" value={c.activeMembers} period="logged in last 30 days" color="hsl(var(--cm-cyan))" />
               <CMKpiCard label="Total Units" value={c.totalUnits} period="physical units" />
               <CMKpiCard
-                label="Pending Approvals"
-                value={c.pendingApprovals}
-                period="awaiting review"
+                label="Pending Approvals" value={c.pendingApprovals} period="awaiting review"
                 color={c.pendingApprovals > 0 ? 'hsl(var(--cm-warning))' : 'hsl(var(--cm-success))'}
               />
               <CMKpiCard
-                label="Occupancy"
-                value={`${Math.round((c.activeMembers / c.totalUnits) * 100)}%`}
-                period="with app login"
+                label="Occupancy" value={`${Math.round((c.activeMembers / c.totalUnits) * 100)}%`} period="with app login"
               />
             </div>
+
+            {/* Pending approvals section */}
+            {pendingMembers.length > 0 && (
+              <div className="mb-4">
+                <div className="text-[13px] font-extrabold text-cm-text mb-2">Pending Approvals</div>
+                {pendingMembers.map((m) => (
+                  <div key={m.id} className="bg-white rounded-[14px] p-3.5 mb-2 border border-cm-border">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <div className="text-sm font-bold text-cm-text">{m.name}</div>
+                        <div className="text-[11px] text-cm-text-light">Applied {new Date(m.created_at).toLocaleDateString()}</div>
+                      </div>
+                      <div className="flex gap-2">
+                        <div
+                          onClick={() => handleApproveMember(m.id)}
+                          className="bg-cm-success text-white rounded-lg px-3 py-1.5 text-[11px] font-bold cursor-pointer min-h-[44px] flex items-center"
+                        >
+                          Approve
+                        </div>
+                        <div
+                          onClick={() => handleRejectMember(m.id)}
+                          className="bg-cm-app-bg text-cm-text-mid rounded-lg px-3 py-1.5 text-[11px] font-bold cursor-pointer border border-cm-border min-h-[44px] flex items-center"
+                        >
+                          Reject
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {c.totalUnits - c.activeMembers > 0 && (
               <div className="bg-cm-warning-bg rounded-[14px] p-3.5 mb-4 border border-yellow-300">
@@ -249,15 +338,51 @@ const CMCommunityDashboard = () => {
                 </div>
               </div>
             )}
-
-            <div className="bg-white rounded-[14px] p-4 border border-cm-border">
-              <div className="bg-cm-navy text-white rounded-[10px] py-2.5 px-4 text-[13px] font-bold text-center cursor-pointer min-h-[44px] flex items-center justify-center">
-                View All Members →
-              </div>
-            </div>
           </>
         )}
       </div>
+
+      {/* Announcement Modal */}
+      {showAnnouncementModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-5">
+            <div className="text-lg font-extrabold text-cm-navy mb-4">Post Announcement</div>
+            <input
+              value={announcementTitle}
+              onChange={(e) => setAnnouncementTitle(e.target.value)}
+              placeholder="Announcement Title"
+              className="w-full px-3 py-2.5 rounded-[10px] border border-cm-border text-sm mb-3"
+            />
+            <textarea
+              value={announcementBody}
+              onChange={(e) => setAnnouncementBody(e.target.value)}
+              placeholder="Write your announcement..."
+              rows={4}
+              className="w-full px-3 py-2.5 rounded-[10px] border border-cm-border text-sm mb-3 resize-none"
+            />
+            <select
+              value={announcementAudience}
+              onChange={(e) => setAnnouncementAudience(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-[10px] border border-cm-border text-sm mb-4"
+            >
+              <option value="all_residents">All Residents</option>
+              <option value="board_only">Board Only</option>
+            </select>
+            <div
+              onClick={handlePostAnnouncement}
+              className="bg-cm-navy text-white rounded-[10px] py-3 text-sm font-bold text-center cursor-pointer w-full min-h-[44px] flex items-center justify-center"
+            >
+              Post
+            </div>
+            <div
+              onClick={() => setShowAnnouncementModal(false)}
+              className="text-center mt-3 text-sm text-cm-text-light cursor-pointer"
+            >
+              Cancel
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

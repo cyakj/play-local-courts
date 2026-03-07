@@ -5,21 +5,21 @@ import { Bell } from 'lucide-react';
 import { CMHeader } from '@/components/condo-manager/CMHeader';
 import { CMHealthBar } from '@/components/condo-manager/CMHealthBar';
 import { CMStatusBadge } from '@/components/condo-manager/CMStatusBadge';
-import { MOCK_COMMUNITIES, MOCK_NOTIFICATIONS } from '@/components/condo-manager/mockData';
 import CMNotificationCenter from '@/components/condo-manager/CMNotificationCenter';
+import { useCondoManagerCommunities, useCondoManagerNotifications } from '@/hooks/useCondoManagerData';
 
 const CMPortfolio = () => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [showNotifs, setShowNotifs] = useState(false);
+  const { communities, loading } = useCondoManagerCommunities();
+  const { unreadCount } = useCondoManagerNotifications();
 
-  const communities = MOCK_COMMUNITIES;
   const totalUnits = communities.reduce((s, c) => s + c.totalUnits, 0);
   const totalIssues = communities.reduce((s, c) => s + c.openIssues, 0);
   const totalBookings = communities.reduce((s, c) => s + c.todayBookings, 0);
   const totalPending = communities.reduce((s, c) => s + c.pendingApprovals, 0);
-  const avgHealth = Math.round(communities.reduce((s, c) => s + c.health, 0) / communities.length);
-  const unreadCount = MOCK_NOTIFICATIONS.filter((n) => !n.read).length;
+  const avgHealth = communities.length > 0 ? Math.round(communities.reduce((s, c) => s + c.health, 0) / communities.length) : 0;
 
   const firstName = currentUser?.fullName?.split(' ')[0] || 'there';
   const hour = new Date().getHours();
@@ -36,6 +36,14 @@ const CMPortfolio = () => {
     { label: 'Pending', value: totalPending, icon: '⏳', period: 'awaiting review', alert: totalPending > 2 },
   ];
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-cm-app-bg flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-cm-cyan/20 border-t-cm-cyan rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-cm-app-bg pb-24">
       <CMHeader>
@@ -46,7 +54,6 @@ const CMPortfolio = () => {
             <div className="text-xs opacity-60 mt-1">Property Manager · {communities.length} Communities</div>
           </div>
           <div className="flex flex-col items-end gap-2">
-            {/* Bell icon */}
             <div
               onClick={() => setShowNotifs(true)}
               className="relative bg-white/[0.12] rounded-[10px] w-10 h-10 flex items-center justify-center cursor-pointer min-h-[44px]"
@@ -58,7 +65,6 @@ const CMPortfolio = () => {
                 </div>
               )}
             </div>
-            {/* Portfolio Health */}
             <div className="bg-[rgba(0,180,216,0.18)] border border-[rgba(0,180,216,0.4)] rounded-[14px] px-3 py-2 text-center">
               <div className="text-2xl font-black text-cm-cyan">{avgHealth}</div>
               <div className="text-[10px] opacity-80">Portfolio Health</div>
@@ -67,7 +73,6 @@ const CMPortfolio = () => {
           </div>
         </div>
 
-        {/* KPI row */}
         <div className="flex gap-2 mt-5">
           {kpis.map((k, i) => (
             <div
@@ -92,13 +97,18 @@ const CMPortfolio = () => {
       <div className="px-4 pt-4">
         <div className="text-xs font-bold text-cm-text-light mb-3 tracking-wider uppercase">My Communities</div>
 
+        {communities.length === 0 && (
+          <div className="text-center py-10 text-cm-text-light">
+            No communities found. Add a community to get started.
+          </div>
+        )}
+
         {communities.map((c) => (
           <div
             key={c.id}
             onClick={() => navigate(`/cm/community/${c.id}`)}
             className="bg-white rounded-2xl p-4 mb-3 shadow-sm border border-cm-border cursor-pointer hover:shadow-md transition-shadow"
           >
-            {/* Top row */}
             <div className="flex justify-between items-start mb-3">
               <div>
                 <div className="text-[17px] font-extrabold text-cm-text">{c.name}</div>
@@ -112,7 +122,6 @@ const CMPortfolio = () => {
 
             <CMHealthBar value={c.health} status={c.status} />
 
-            {/* Mini KPIs */}
             <div className="flex gap-2 mt-3">
               {[
                 { label: 'Issues', value: c.openIssues, period: 'right now', alert: c.openIssues > 3 },
@@ -139,17 +148,15 @@ const CMPortfolio = () => {
               ))}
             </div>
 
-            {/* Footer */}
             <div className="mt-3 pt-3 border-t border-cm-border flex justify-between">
               <div className="text-[11px] text-cm-text-light flex-1 pr-2 truncate">
-                {c.recentActivity[0]?.text}
+                {c.openIssues > 0 ? `${c.openIssues} open issues` : 'All clear'}
               </div>
               <div className="text-[11px] text-cm-cyan font-bold">Manage →</div>
             </div>
           </div>
         ))}
 
-        {/* Add Community card */}
         <div className="border-2 border-dashed border-cm-border rounded-2xl p-5 text-center cursor-pointer hover:border-cm-cyan transition-colors mb-3">
           <div className="text-2xl text-cm-cyan">＋</div>
           <div className="text-sm font-bold text-cm-text-mid mt-1">Add Community</div>

@@ -1,25 +1,64 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { CMHeader } from '@/components/condo-manager/CMHeader';
 import { CMChips } from '@/components/condo-manager/CMChips';
-import { MOCK_NOTIFICATIONS, NOTIF_ICON, NOTIF_COLOR } from '@/components/condo-manager/mockData';
+import { useCondoManagerNotifications } from '@/hooks/useCondoManagerData';
+
+const NOTIF_ICON: Record<string, string> = { 
+  report_submitted: '🔧', report_status_changed: '🔧', report_unresolved: '🔧',
+  member_application: '👤', member_approved: '✅', member_rejected: '❌',
+  booking_confirmed: '📅', booking_cancelled: '📅', booking_reminder: '📅',
+  health_score_alert: '📊', announcement: '📢',
+  survey_published: '📊', survey_reminder: '📊',
+  event_created: '📅', event_reminder: '📅',
+};
+const NOTIF_COLOR: Record<string, string> = {
+  report_submitted: '#EF4444', report_status_changed: '#F59E0B', report_unresolved: '#EF4444',
+  member_application: '#00B4D8', member_approved: '#2DD4BF', member_rejected: '#EF4444',
+  booking_confirmed: '#2DD4BF', booking_cancelled: '#EF4444', booking_reminder: '#00B4D8',
+  health_score_alert: '#F59E0B', announcement: '#00B4D8',
+  survey_published: '#00B4D8', survey_reminder: '#F59E0B',
+  event_created: '#2DD4BF', event_reminder: '#00B4D8',
+};
 
 interface CMNotificationCenterProps {
   onClose: () => void;
 }
 
 const CMNotificationCenter = ({ onClose }: CMNotificationCenterProps) => {
+  const navigate = useNavigate();
   const [filter, setFilter] = useState('All');
-  const unread = MOCK_NOTIFICATIONS.filter((n) => !n.read).length;
+  const { notifications, unreadCount, markAllRead, markRead } = useCondoManagerNotifications();
 
-  const filtered = MOCK_NOTIFICATIONS.filter(
+  const filtered = notifications.filter(
     (n) =>
       filter === 'All' ||
       (!n.read && filter === 'Unread') ||
-      (n.type === 'issue' && filter === 'Reports') ||
-      (n.type === 'approval' && filter === 'Members') ||
-      (n.type === 'booking' && filter === 'Bookings')
+      (n.type.startsWith('report') && filter === 'Reports') ||
+      (n.type.startsWith('member') && filter === 'Members') ||
+      (n.type.startsWith('booking') && filter === 'Bookings')
   );
+
+  const handleNotifClick = async (notif: any) => {
+    await markRead(notif.id);
+    // Navigate based on type
+    if (notif.type.startsWith('report')) navigate('/cm/reports');
+    else if (notif.type.startsWith('member')) navigate('/cm');
+    else if (notif.type.startsWith('booking')) navigate('/cm/calendar');
+    else if (notif.type === 'announcement') navigate('/cm');
+    onClose();
+  };
+
+  const formatTime = (dateStr: string) => {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    return `${days}d ago`;
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-cm-app-bg">
@@ -34,10 +73,10 @@ const CMNotificationCenter = ({ onClose }: CMNotificationCenterProps) => {
             </div>
             <div>
               <div className="text-xl font-extrabold">Notifications</div>
-              <div className="text-xs opacity-65">{unread} unread</div>
+              <div className="text-xs opacity-65">{unreadCount} unread</div>
             </div>
           </div>
-          <div className="text-xs text-cm-cyan font-bold cursor-pointer">Mark all read</div>
+          <div onClick={markAllRead} className="text-xs text-cm-cyan font-bold cursor-pointer">Mark all read</div>
         </div>
       </CMHeader>
 
@@ -51,13 +90,17 @@ const CMNotificationCenter = ({ onClose }: CMNotificationCenterProps) => {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 pb-5">
-        {filtered.map((n, i) => {
+        {filtered.length === 0 && (
+          <div className="text-center py-10 text-cm-text-light">No notifications</div>
+        )}
+        {filtered.map((n) => {
           const color = NOTIF_COLOR[n.type] || '#9CA3AF';
           const icon = NOTIF_ICON[n.type] || '📋';
           return (
             <div
-              key={i}
-              className="bg-white rounded-[14px] p-3.5 mb-2.5"
+              key={n.id}
+              onClick={() => handleNotifClick(n)}
+              className="bg-white rounded-[14px] p-3.5 mb-2.5 cursor-pointer"
               style={{ border: `1px solid ${n.read ? 'hsl(var(--cm-border))' : `${color}44`}` }}
             >
               <div className="flex gap-2.5">
@@ -77,18 +120,16 @@ const CMNotificationCenter = ({ onClose }: CMNotificationCenterProps) => {
                     </div>
                     {!n.read && <div className="w-2 h-2 rounded-full bg-cm-cyan mt-1" />}
                   </div>
-                  <div className="text-[11px] text-cm-cyan font-semibold mt-0.5">{n.community}</div>
+                  {n.community_name && (
+                    <div className="text-[11px] text-cm-cyan font-semibold mt-0.5">{n.community_name}</div>
+                  )}
                   <div className="text-xs text-cm-text-mid mt-1">{n.body}</div>
-                  <div className="text-[11px] text-cm-text-light mt-1">{n.time}</div>
+                  <div className="text-[11px] text-cm-text-light mt-1">{formatTime(n.created_at)}</div>
                 </div>
               </div>
             </div>
           );
         })}
-
-        <div className="text-center mt-2">
-          <div className="text-xs text-cm-cyan font-bold cursor-pointer">⚙ Manage Notification Preferences</div>
-        </div>
       </div>
     </div>
   );
