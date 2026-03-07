@@ -2470,8 +2470,6 @@ export type Database = {
         Returns: boolean
       }
       is_ladder_admin: { Args: { _ladder_id: string }; Returns: boolean }
-      is_own_worker: { Args: { _worker_id: string }; Returns: boolean }
-      is_worker_in_admin_hoa: { Args: { _worker_id: string }; Returns: boolean }
       migrate_existing_hoa_memberships: { Args: never; Returns: undefined }
       reject_hoa_membership: {
         Args: { membership_id: string }
@@ -2510,6 +2508,7 @@ export type Database = {
         | "coach"
         | "platform_reviewer"
         | "maintenance_worker"
+        | "condo_manager"
       court_type: "hard" | "clay" | "grass" | "indoor"
       ladder_format: "singles" | "doubles"
       ladder_status: "setup" | "active" | "completed"
@@ -2651,6 +2650,7 @@ export const Constants = {
         "coach",
         "platform_reviewer",
         "maintenance_worker",
+        "condo_manager",
       ],
       court_type: ["hard", "clay", "grass", "indoor"],
       ladder_format: ["singles", "doubles"],
