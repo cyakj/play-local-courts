@@ -2,7 +2,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { CMHeader } from '@/components/condo-manager/CMHeader';
 import { CMChips } from '@/components/condo-manager/CMChips';
 import { useCondoManagerCommunities } from '@/hooks/useCondoManagerData';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 const EVENT_TYPE_CONFIG: Record<string, { color: string; label: string }> = {
   community_event: { color: '#00B4D8', label: 'Community Event' },
@@ -33,8 +35,8 @@ interface CalEvent {
 }
 
 const buildMonthGrid = (year: number, month: number) => {
-  const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
-  const mondayOffset = firstDay === 0 ? 6 : firstDay - 1; // Mon-start
+  const firstDay = new Date(year, month, 1).getDay();
+  const mondayOffset = firstDay === 0 ? 6 : firstDay - 1;
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const prevMonthDays = new Date(year, month, 0).getDate();
   const grid: { day: number; inMonth: boolean }[] = [];
@@ -56,68 +58,148 @@ const buildMonthGrid = (year: number, month: number) => {
 
 const CMCalendar = () => {
   const now = new Date();
+  const { currentUser } = useAuth();
   const [communityFilter, setCommunityFilter] = useState('All');
   const [typeFilter, setTypeFilter] = useState('All');
   const [selectedDay, setSelectedDay] = useState(now.getDate());
   const [calendarMode, setCalendarMode] = useState<'week' | 'month'>('week');
   const [events, setEvents] = useState<CalEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showAddEvent, setShowAddEvent] = useState(false);
   const { communities } = useCondoManagerCommunities();
+
+  // Add Event form state
+  const [evTitle, setEvTitle] = useState('');
+  const [evType, setEvType] = useState('community_event');
+  const [evDate, setEvDate] = useState('');
+  const [evStartTime, setEvStartTime] = useState('');
+  const [evEndTime, setEvEndTime] = useState('');
+  const [evLocation, setEvLocation] = useState('');
+  const [evDescription, setEvDescription] = useState('');
+  const [evRsvp, setEvRsvp] = useState(false);
+  const [evNotify, setEvNotify] = useState(true);
+  const [evCommunityId, setEvCommunityId] = useState('');
+  const [creating, setCreating] = useState(false);
 
   const communityOptions = ['All', ...communities.map(c => c.name)];
   const monthGrid = useMemo(() => buildMonthGrid(now.getFullYear(), now.getMonth()), []);
 
-  // Fetch events from hoa_events + bookings
-  useEffect(() => {
-    const fetchEvents = async () => {
-      if (communities.length === 0) { setLoading(false); return; }
+  const fetchEvents = async () => {
+    if (communities.length === 0) { setLoading(false); return; }
 
-      const hoaIds = communities.map(c => c.id);
-      const hoaMap = new Map(communities.map(c => [c.id, c.name]));
+    const hoaIds = communities.map(c => c.id);
+    const hoaMap = new Map(communities.map(c => [c.id, c.name]));
 
-      // Fetch hoa_events
-      const { data: hoaEvents } = await supabase
-        .from('hoa_events')
-        .select('id, hoa_id, title, event_type, location, starts_at, rsvp_enabled')
-        .in('hoa_id', hoaIds)
-        .eq('status', 'active');
+    const { data: hoaEvents } = await supabase
+      .from('hoa_events')
+      .select('id, hoa_id, title, event_type, location, starts_at, rsvp_enabled')
+      .in('hoa_id', hoaIds)
+      .eq('status', 'active');
 
-      // Get RSVP counts
-      const eventIds = (hoaEvents || []).map(e => e.id);
-      let rsvpCounts = new Map<string, number>();
-      if (eventIds.length > 0) {
-        const { data: rsvps } = await supabase
-          .from('hoa_event_rsvps')
-          .select('event_id')
-          .in('event_id', eventIds)
-          .eq('response', 'going');
-        if (rsvps) {
-          for (const r of rsvps) {
-            rsvpCounts.set(r.event_id, (rsvpCounts.get(r.event_id) || 0) + 1);
-          }
+    const eventIds = (hoaEvents || []).map(e => e.id);
+    let rsvpCounts = new Map<string, number>();
+    if (eventIds.length > 0) {
+      const { data: rsvps } = await supabase
+        .from('hoa_event_rsvps')
+        .select('event_id')
+        .in('event_id', eventIds)
+        .eq('response', 'going');
+      if (rsvps) {
+        for (const r of rsvps) {
+          rsvpCounts.set(r.event_id, (rsvpCounts.get(r.event_id) || 0) + 1);
         }
       }
+    }
 
-      const calEvents: CalEvent[] = (hoaEvents || []).map(e => {
-        const dt = new Date(e.starts_at);
-        return {
-          id: e.id,
-          community: hoaMap.get(e.hoa_id) || '',
-          title: e.title,
-          type: e.event_type,
-          date: `Mar ${dt.getDate()}`,
-          day: dt.getDate(),
-          time: dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
-          location: e.location || '',
-          rsvp: e.rsvp_enabled ? (rsvpCounts.get(e.id) || 0) : null,
-        };
-      });
+    const calEvents: CalEvent[] = (hoaEvents || []).map(e => {
+      const dt = new Date(e.starts_at);
+      return {
+        id: e.id,
+        community: hoaMap.get(e.hoa_id) || '',
+        title: e.title,
+        type: e.event_type,
+        date: `${dt.toLocaleString('en-US', { month: 'short' })} ${dt.getDate()}`,
+        day: dt.getDate(),
+        time: dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
+        location: e.location || '',
+        rsvp: e.rsvp_enabled ? (rsvpCounts.get(e.id) || 0) : null,
+      };
+    });
 
-      setEvents(calEvents);
-      setLoading(false);
-    };
+    setEvents(calEvents);
+    setLoading(false);
+  };
+
+  useEffect(() => {
     fetchEvents();
   }, [communities]);
+
+  // Set default community for event creation
+  useEffect(() => {
+    if (communities.length > 0 && !evCommunityId) {
+      setEvCommunityId(communities[0].id);
+    }
+  }, [communities, evCommunityId]);
+
+  const handleCreateEvent = async () => {
+    if (!evTitle.trim() || !evDate || !evStartTime || !evCommunityId || !currentUser?.id) return;
+    setCreating(true);
+
+    const startsAt = new Date(`${evDate}T${evStartTime}`).toISOString();
+    const endsAt = evEndTime ? new Date(`${evDate}T${evEndTime}`).toISOString() : null;
+
+    const { error } = await supabase.from('hoa_events').insert({
+      hoa_id: evCommunityId,
+      created_by: currentUser.id,
+      title: evTitle.trim(),
+      description: evDescription.trim() || null,
+      event_type: evType,
+      location: evLocation.trim() || null,
+      starts_at: startsAt,
+      ends_at: endsAt,
+      rsvp_enabled: evRsvp,
+    });
+
+    if (error) {
+      toast.error('Failed to create event');
+      setCreating(false);
+      return;
+    }
+
+    // Notify residents
+    if (evNotify) {
+      const { data: members } = await supabase
+        .from('hoa_memberships')
+        .select('user_id')
+        .eq('hoa_id', evCommunityId)
+        .eq('status', 'approved');
+
+      if (members) {
+        await supabase.from('hoa_notifications').insert(
+          members.map(m => ({
+            user_id: m.user_id,
+            hoa_id: evCommunityId,
+            type: 'event_created' as const,
+            title: `New event: ${evTitle.trim()}`,
+            body: `${evDate} at ${evStartTime}${evLocation ? ` · ${evLocation}` : ''}`,
+          }))
+        );
+      }
+    }
+
+    toast.success('Event added');
+    setShowAddEvent(false);
+    setEvTitle('');
+    setEvDate('');
+    setEvStartTime('');
+    setEvEndTime('');
+    setEvLocation('');
+    setEvDescription('');
+    setEvRsvp(false);
+    setEvNotify(true);
+    setCreating(false);
+    fetchEvents();
+  };
 
   const filtered = useMemo(() => events.filter(
     (e) =>
@@ -137,10 +219,9 @@ const CMCalendar = () => {
     return colors.slice(0, 3);
   };
 
-  // Get current week dates
   const getWeekDates = () => {
     const today = now.getDate();
-    const dayOfWeek = now.getDay(); // 0=Sun
+    const dayOfWeek = now.getDay();
     const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
     const monday = today - mondayOffset;
     return Array.from({ length: 7 }, (_, i) => monday + i);
@@ -155,7 +236,10 @@ const CMCalendar = () => {
             <div className="text-xl font-extrabold">Calendar</div>
             <div className="text-xs opacity-65">{now.toLocaleString('en-US', { month: 'long', year: 'numeric' })}</div>
           </div>
-          <div className="bg-[rgba(0,180,216,0.2)] border border-[rgba(0,180,216,0.5)] rounded-[10px] px-3.5 py-2 text-xs font-bold text-white cursor-pointer min-h-[44px] flex items-center">
+          <div
+            onClick={() => setShowAddEvent(true)}
+            className="bg-[rgba(0,180,216,0.2)] border border-[rgba(0,180,216,0.5)] rounded-[10px] px-3.5 py-2 text-xs font-bold text-white cursor-pointer min-h-[44px] flex items-center"
+          >
             ＋ Add Event
           </div>
         </div>
@@ -332,6 +416,97 @@ const CMCalendar = () => {
           </>
         )}
       </div>
+
+      {/* Add Event Modal */}
+      {showAddEvent && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 overflow-y-auto py-4 px-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-5">
+            <div className="text-lg font-extrabold text-cm-navy mb-4">Add Event</div>
+            <input
+              value={evTitle}
+              onChange={e => setEvTitle(e.target.value)}
+              placeholder="Event title"
+              className="w-full px-3 py-2.5 rounded-[10px] border border-cm-border text-sm mb-3"
+            />
+
+            {/* Event type with color swatches */}
+            <div className="text-[13px] font-bold text-cm-text mb-2">Event Type</div>
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              {Object.entries(EVENT_TYPE_CONFIG).map(([key, cfg]) => (
+                <div
+                  key={key}
+                  onClick={() => setEvType(key)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-[10px] border cursor-pointer min-h-[44px]"
+                  style={{
+                    borderColor: evType === key ? cfg.color : '#E5E7EB',
+                    background: evType === key ? `${cfg.color}10` : '#fff',
+                  }}
+                >
+                  <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: cfg.color }} />
+                  <span className="text-xs font-bold" style={{ color: evType === key ? cfg.color : '#4B5563' }}>{cfg.label}</span>
+                </div>
+              ))}
+            </div>
+
+            <input
+              type="date"
+              value={evDate}
+              onChange={e => setEvDate(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-[10px] border border-cm-border text-sm mb-3"
+            />
+            <div className="flex gap-2 mb-3">
+              <input type="time" value={evStartTime} onChange={e => setEvStartTime(e.target.value)} placeholder="Start" className="flex-1 px-3 py-2.5 rounded-[10px] border border-cm-border text-sm" />
+              <input type="time" value={evEndTime} onChange={e => setEvEndTime(e.target.value)} placeholder="End" className="flex-1 px-3 py-2.5 rounded-[10px] border border-cm-border text-sm" />
+            </div>
+            <input
+              value={evLocation}
+              onChange={e => setEvLocation(e.target.value)}
+              placeholder="Location"
+              className="w-full px-3 py-2.5 rounded-[10px] border border-cm-border text-sm mb-3"
+            />
+            <textarea
+              value={evDescription}
+              onChange={e => setEvDescription(e.target.value)}
+              placeholder="Description (optional)"
+              rows={2}
+              className="w-full px-3 py-2.5 rounded-[10px] border border-cm-border text-sm mb-3 resize-none"
+            />
+
+            {/* Community selector */}
+            <select
+              value={evCommunityId}
+              onChange={e => setEvCommunityId(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-[10px] border border-cm-border text-sm mb-3"
+            >
+              {communities.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+
+            <div className="flex items-center gap-2 mb-2">
+              <input type="checkbox" checked={evRsvp} onChange={e => setEvRsvp(e.target.checked)} className="rounded" />
+              <span className="text-sm text-cm-text">Enable RSVP</span>
+            </div>
+            <div className="flex items-center gap-2 mb-4">
+              <input type="checkbox" checked={evNotify} onChange={e => setEvNotify(e.target.checked)} className="rounded" />
+              <span className="text-sm text-cm-text">Notify Residents</span>
+            </div>
+
+            <div
+              onClick={!creating ? handleCreateEvent : undefined}
+              className={`bg-cm-navy text-white rounded-[10px] py-3 text-sm font-bold text-center cursor-pointer w-full min-h-[44px] flex items-center justify-center ${creating ? 'opacity-50' : ''}`}
+            >
+              {creating ? 'Adding...' : 'Add Event'}
+            </div>
+            <div
+              onClick={() => setShowAddEvent(false)}
+              className="text-center mt-3 text-sm text-cm-text-light cursor-pointer"
+            >
+              Cancel
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
