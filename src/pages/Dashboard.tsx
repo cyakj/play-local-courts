@@ -65,6 +65,11 @@ const Dashboard = () => {
     return <Navigate to="/reviewer/dashboard" replace />;
   }
 
+  // Redirect admins (condo managers) to portfolio view
+  if (isAdmin) {
+    return <Navigate to="/cm" replace />;
+  }
+
   // Redirect coaches when tennis features enabled
   if (TENNIS_FEATURES_ENABLED && isCoach) {
     return <Navigate to="/coach-dashboard" replace />;

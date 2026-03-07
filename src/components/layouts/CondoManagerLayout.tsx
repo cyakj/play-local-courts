@@ -21,7 +21,7 @@ const CondoManagerLayout = () => {
     return <Navigate to="/login" replace />;
   }
 
-  if (!isCondoManager) {
+  if (!isAdmin) {
     return <Navigate to="/dashboard" replace />;
   }
 
