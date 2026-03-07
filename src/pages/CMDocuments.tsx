@@ -59,7 +59,7 @@ const CMDocuments = () => {
   useEffect(() => { fetchDocs(); }, [communityId]);
 
   const handleUpload = async () => {
-    if (!uploadFile || !uploadTitle.trim() || !id || !currentUser?.id) return;
+    if (!uploadFile || !uploadTitle.trim() || !communityId || !currentUser?.id) return;
     setUploading(true);
 
     const filePath = `${id}/${uploadCategory}/${Date.now()}_${uploadFile.name}`;
