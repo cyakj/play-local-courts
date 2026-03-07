@@ -24,6 +24,7 @@ interface AuthContextType {
   isPending: boolean;
   isCoach: boolean;
   isPlatformReviewer: boolean;
+  isCondoManager: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
