@@ -46,11 +46,11 @@ const CMDocuments = () => {
   const [uploading, setUploading] = useState(false);
 
   const fetchDocs = async () => {
-    if (!id) return;
+    if (!communityId) return;
     const { data } = await supabase
       .from('hoa_documents')
       .select('*')
-      .eq('hoa_id', id)
+      .eq('hoa_id', communityId)
       .order('created_at', { ascending: false });
     setDocuments(data || []);
     setLoading(false);
