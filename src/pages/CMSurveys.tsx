@@ -124,7 +124,7 @@ const CMSurveys = () => {
     }
 
     const { data: survey, error } = await supabase.from('hoa_surveys').insert({
-      hoa_id: id,
+      hoa_id: communityId,
       created_by: currentUser.id,
       title: title.trim(),
       description: description.trim() || null,
