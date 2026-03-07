@@ -90,6 +90,7 @@ function App() {
                     <Route path="/cm/alerts" element={<CMAlerts />} />
                     <Route path="/cm/community/:id/documents" element={<CMDocuments />} />
                     <Route path="/cm/community/:id/surveys" element={<CMSurveys />} />
+                    <Route path="/cm/community/:id/amenity/:amenityId/rules" element={<CMAmenityRules />} />
                   </Route>
                   {/* Main App Routes */}
                   <Route element={<MainLayout />}>
