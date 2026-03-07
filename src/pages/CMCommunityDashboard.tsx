@@ -274,7 +274,7 @@ const CMCommunityDashboard = () => {
             {c.amenities.map((a) => (
               <div key={a.id} className="bg-white rounded-xl p-3.5 mb-2 flex justify-between border border-cm-border">
                 <div className="text-sm font-semibold text-cm-text">{a.name}</div>
-                <div className="text-[11px] text-cm-cyan font-bold cursor-pointer">Manage →</div>
+                <div onClick={(e) => { e.stopPropagation(); navigate(`/amenity-rules`); }} className="text-[11px] text-cm-cyan font-bold cursor-pointer">Manage →</div>
               </div>
             ))}
             {c.amenities.length === 0 && (

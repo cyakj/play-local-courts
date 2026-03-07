@@ -87,8 +87,8 @@ function App() {
                     <Route path="/cm/reports" element={<CMReports />} />
                     <Route path="/cm/calendar" element={<CMCalendar />} />
                     <Route path="/cm/alerts" element={<CMAlerts />} />
-                    <Route path="/cm/documents/:communityId" element={<CMDocuments />} />
-                    <Route path="/cm/surveys/:communityId" element={<CMSurveys />} />
+                    <Route path="/cm/community/:id/documents" element={<CMDocuments />} />
+                    <Route path="/cm/community/:id/surveys" element={<CMSurveys />} />
                   </Route>
                   {/* Main App Routes */}
                   <Route element={<MainLayout />}>

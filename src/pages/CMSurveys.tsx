@@ -29,10 +29,11 @@ interface Question {
 
 const CMSurveys = () => {
   const { id } = useParams();
+  const communityId = id;
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const { communities } = useCondoManagerCommunities();
-  const community = communities.find(c => c.id === id);
+  const community = communities.find(c => c.id === communityId);
 
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,11 +50,11 @@ const CMSurveys = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
 
   const fetchSurveys = async () => {
-    if (!id) return;
+    if (!communityId) return;
     const { data } = await supabase
       .from('hoa_surveys')
       .select('*')
-      .eq('hoa_id', id)
+      .eq('hoa_id', communityId)
       .order('created_at', { ascending: false });
 
     if (data) {
@@ -74,7 +75,7 @@ const CMSurveys = () => {
     setLoading(false);
   };
 
-  useEffect(() => { fetchSurveys(); }, [id]);
+  useEffect(() => { fetchSurveys(); }, [communityId]);
 
   const addQuestion = () => {
     setQuestions(prev => [...prev, {
@@ -116,14 +117,14 @@ const CMSurveys = () => {
   };
 
   const handlePublish = async (asDraft: boolean) => {
-    if (!title.trim() || !closesAt || !id || !currentUser?.id) return;
+    if (!title.trim() || !closesAt || !communityId || !currentUser?.id) return;
     if (questions.length === 0 && !asDraft) {
       toast.error('Add at least one question');
       return;
     }
 
     const { data: survey, error } = await supabase.from('hoa_surveys').insert({
-      hoa_id: id,
+      hoa_id: communityId,
       created_by: currentUser.id,
       title: title.trim(),
       description: description.trim() || null,
@@ -154,13 +155,13 @@ const CMSurveys = () => {
       const { data: members } = await supabase
         .from('hoa_memberships')
         .select('user_id')
-        .eq('hoa_id', id)
+        .eq('hoa_id', communityId)
         .eq('status', 'approved');
 
       if (members) {
         const notifs = members.map(m => ({
           user_id: m.user_id,
-          hoa_id: id,
+          hoa_id: communityId,
           type: 'survey_published' as const,
           title: `New survey: ${title.trim()}`,
           body: `A new survey is available — closes ${new Date(closesAt).toLocaleDateString()}`,
@@ -201,7 +202,7 @@ const CMSurveys = () => {
     <div className="min-h-screen bg-cm-app-bg flex flex-col">
       <CMHeader compact>
         <div className="flex items-center gap-3">
-          <div onClick={() => navigate(`/cm/community/${id}`)} className="bg-white/[0.12] rounded-[10px] w-9 h-9 flex items-center justify-center cursor-pointer min-h-[44px]">
+          <div onClick={() => navigate(`/cm/community/${communityId}`)} className="bg-white/[0.12] rounded-[10px] w-9 h-9 flex items-center justify-center cursor-pointer min-h-[44px]">
             <ArrowLeft className="h-4 w-4" />
           </div>
           <div className="flex-1">

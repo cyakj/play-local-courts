@@ -28,10 +28,11 @@ interface Doc {
 
 const CMDocuments = () => {
   const { id } = useParams();
+  const communityId = id;
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const { communities } = useCondoManagerCommunities();
-  const community = communities.find(c => c.id === id);
+  const community = communities.find(c => c.id === communityId);
 
   const [documents, setDocuments] = useState<Doc[]>([]);
   const [search, setSearch] = useState('');
@@ -45,23 +46,23 @@ const CMDocuments = () => {
   const [uploading, setUploading] = useState(false);
 
   const fetchDocs = async () => {
-    if (!id) return;
+    if (!communityId) return;
     const { data } = await supabase
       .from('hoa_documents')
       .select('*')
-      .eq('hoa_id', id)
+      .eq('hoa_id', communityId)
       .order('created_at', { ascending: false });
     setDocuments(data || []);
     setLoading(false);
   };
 
-  useEffect(() => { fetchDocs(); }, [id]);
+  useEffect(() => { fetchDocs(); }, [communityId]);
 
   const handleUpload = async () => {
-    if (!uploadFile || !uploadTitle.trim() || !id || !currentUser?.id) return;
+    if (!uploadFile || !uploadTitle.trim() || !communityId || !currentUser?.id) return;
     setUploading(true);
 
-    const filePath = `${id}/${uploadCategory}/${Date.now()}_${uploadFile.name}`;
+    const filePath = `${communityId}/${uploadCategory}/${Date.now()}_${uploadFile.name}`;
     const { error: storageError } = await supabase.storage
       .from('hoa-documents')
       .upload(filePath, uploadFile);
@@ -75,7 +76,7 @@ const CMDocuments = () => {
     const { data: urlData } = supabase.storage.from('hoa-documents').getPublicUrl(filePath);
 
     const { error } = await supabase.from('hoa_documents').insert({
-      hoa_id: id,
+      hoa_id: communityId,
       uploaded_by: currentUser.id,
       title: uploadTitle.trim(),
       category: uploadCategory,
@@ -133,7 +134,7 @@ const CMDocuments = () => {
     <div className="min-h-screen bg-cm-app-bg flex flex-col">
       <CMHeader compact>
         <div className="flex items-center gap-3">
-          <div onClick={() => navigate(`/cm/community/${id}`)} className="bg-white/[0.12] rounded-[10px] w-9 h-9 flex items-center justify-center cursor-pointer min-h-[44px]">
+          <div onClick={() => navigate(`/cm/community/${communityId}`)} className="bg-white/[0.12] rounded-[10px] w-9 h-9 flex items-center justify-center cursor-pointer min-h-[44px]">
             <ArrowLeft className="h-4 w-4" />
           </div>
           <div className="flex-1">
