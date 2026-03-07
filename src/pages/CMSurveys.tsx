@@ -117,7 +117,7 @@ const CMSurveys = () => {
   };
 
   const handlePublish = async (asDraft: boolean) => {
-    if (!title.trim() || !closesAt || !id || !currentUser?.id) return;
+    if (!title.trim() || !closesAt || !communityId || !currentUser?.id) return;
     if (questions.length === 0 && !asDraft) {
       toast.error('Add at least one question');
       return;
