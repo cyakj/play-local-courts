@@ -134,6 +134,7 @@ function App() {
                     <Route path="/messages" element={<Messages />} />
                     <Route path="/notifications" element={<Notifications />} />
                     <Route path="/hoa-application" element={<HOAApplication />} />
+                    <Route path="/community-calendar" element={<ResidentCalendar />} />
                     <Route path="/faq" element={<FAQ />} />
                     <Route path="/terms" element={<Terms />} />
                     <Route path="/privacy" element={<Privacy />} />
