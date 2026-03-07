@@ -7,13 +7,25 @@ import { CMHealthBar } from '@/components/condo-manager/CMHealthBar';
 import { CMStatusBadge } from '@/components/condo-manager/CMStatusBadge';
 import CMNotificationCenter from '@/components/condo-manager/CMNotificationCenter';
 import { useCondoManagerCommunities, useCondoManagerNotifications } from '@/hooks/useCondoManagerData';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+
+const AMENITY_OPTIONS = ['Tennis Court', 'Pool', 'Gym', 'Clubhouse', 'Barbecue', 'Jacuzzi', 'Pickleball'];
 
 const CMPortfolio = () => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [showNotifs, setShowNotifs] = useState(false);
-  const { communities, loading } = useCondoManagerCommunities();
+  const [showAddCommunity, setShowAddCommunity] = useState(false);
+  const { communities, loading, refetch } = useCondoManagerCommunities();
   const { unreadCount } = useCondoManagerNotifications();
+
+  // Add community form
+  const [newName, setNewName] = useState('');
+  const [newAddress, setNewAddress] = useState('');
+  const [newUnits, setNewUnits] = useState('');
+  const [newAmenities, setNewAmenities] = useState<string[]>([]);
+  const [creating, setCreating] = useState(false);
 
   const totalUnits = communities.reduce((s, c) => s + c.totalUnits, 0);
   const totalIssues = communities.reduce((s, c) => s + c.openIssues, 0);
@@ -24,6 +36,55 @@ const CMPortfolio = () => {
   const firstName = currentUser?.fullName?.split(' ')[0] || 'there';
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+
+  const toggleAmenity = (a: string) => {
+    setNewAmenities(prev => prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a]);
+  };
+
+  const handleCreateCommunity = async () => {
+    if (!newName.trim() || !currentUser?.id) return;
+    setCreating(true);
+
+    const { data: hoa, error } = await supabase.from('hoas').insert({
+      name: newName.trim(),
+      address: newAddress.trim() || null,
+      admin_id: currentUser.id,
+    }).select('id').single();
+
+    if (error || !hoa) {
+      toast.error('Failed to create community');
+      setCreating(false);
+      return;
+    }
+
+    // Create admin membership
+    await supabase.from('hoa_memberships').insert({
+      hoa_id: hoa.id,
+      user_id: currentUser.id,
+      role: 'admin',
+      status: 'approved',
+      is_primary: communities.length === 0,
+    });
+
+    // Create amenities as courts
+    if (newAmenities.length > 0) {
+      const amenityRows = newAmenities.map(name => ({
+        hoa_id: hoa.id,
+        name,
+        court_type: name.toLowerCase().replace(/\s+/g, '_'),
+      }));
+      await supabase.from('courts').insert(amenityRows);
+    }
+
+    toast.success('Community created');
+    setShowAddCommunity(false);
+    setNewName('');
+    setNewAddress('');
+    setNewUnits('');
+    setNewAmenities([]);
+    setCreating(false);
+    refetch();
+  };
 
   if (showNotifs) {
     return <CMNotificationCenter onClose={() => setShowNotifs(false)} />;
@@ -157,11 +218,72 @@ const CMPortfolio = () => {
           </div>
         ))}
 
-        <div className="border-2 border-dashed border-cm-border rounded-2xl p-5 text-center cursor-pointer hover:border-cm-cyan transition-colors mb-3">
+        <div
+          onClick={() => setShowAddCommunity(true)}
+          className="border-2 border-dashed border-cm-border rounded-2xl p-5 text-center cursor-pointer hover:border-cm-cyan transition-colors mb-3"
+        >
           <div className="text-2xl text-cm-cyan">＋</div>
           <div className="text-sm font-bold text-cm-text-mid mt-1">Add Community</div>
         </div>
       </div>
+
+      {/* Add Community Modal */}
+      {showAddCommunity && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 overflow-y-auto py-4 px-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-5">
+            <div className="text-lg font-extrabold text-cm-navy mb-4">Add Community</div>
+            <input
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+              placeholder="Community Name"
+              className="w-full px-3 py-2.5 rounded-[10px] border border-cm-border text-sm mb-3"
+            />
+            <input
+              value={newAddress}
+              onChange={e => setNewAddress(e.target.value)}
+              placeholder="Address"
+              className="w-full px-3 py-2.5 rounded-[10px] border border-cm-border text-sm mb-3"
+            />
+            <input
+              type="number"
+              value={newUnits}
+              onChange={e => setNewUnits(e.target.value)}
+              placeholder="Total Units"
+              min="1"
+              className="w-full px-3 py-2.5 rounded-[10px] border border-cm-border text-sm mb-3"
+            />
+            <div className="text-[13px] font-bold text-cm-text mb-2">Amenities</div>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {AMENITY_OPTIONS.map(a => (
+                <div
+                  key={a}
+                  onClick={() => toggleAmenity(a)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer border min-h-[44px] flex items-center"
+                  style={{
+                    background: newAmenities.includes(a) ? '#0A1628' : '#F0F4F8',
+                    color: newAmenities.includes(a) ? '#fff' : '#4B5563',
+                    borderColor: newAmenities.includes(a) ? '#0A1628' : '#E5E7EB',
+                  }}
+                >
+                  {a}
+                </div>
+              ))}
+            </div>
+            <div
+              onClick={!creating ? handleCreateCommunity : undefined}
+              className={`bg-cm-navy text-white rounded-[10px] py-3 text-sm font-bold text-center cursor-pointer w-full min-h-[44px] flex items-center justify-center ${creating ? 'opacity-50' : ''}`}
+            >
+              {creating ? 'Creating...' : 'Create Community'}
+            </div>
+            <div
+              onClick={() => setShowAddCommunity(false)}
+              className="text-center mt-3 text-sm text-cm-text-light cursor-pointer"
+            >
+              Cancel
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
