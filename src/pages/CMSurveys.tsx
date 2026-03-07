@@ -54,7 +54,7 @@ const CMSurveys = () => {
     const { data } = await supabase
       .from('hoa_surveys')
       .select('*')
-      .eq('hoa_id', id)
+      .eq('hoa_id', communityId)
       .order('created_at', { ascending: false });
 
     if (data) {
