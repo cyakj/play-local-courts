@@ -763,6 +763,44 @@ export type Database = {
         }
         Relationships: []
       }
+      hoa_announcements: {
+        Row: {
+          audience: string
+          body: string
+          created_at: string | null
+          created_by: string
+          hoa_id: string
+          id: string
+          title: string
+        }
+        Insert: {
+          audience?: string
+          body: string
+          created_at?: string | null
+          created_by: string
+          hoa_id: string
+          id?: string
+          title: string
+        }
+        Update: {
+          audience?: string
+          body?: string
+          created_at?: string | null
+          created_by?: string
+          hoa_id?: string
+          id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hoa_announcements_hoa_id_fkey"
+            columns: ["hoa_id"]
+            isOneToOne: false
+            referencedRelation: "hoas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hoa_application_notes: {
         Row: {
           application_id: string
@@ -860,6 +898,138 @@ export type Database = {
           },
         ]
       }
+      hoa_documents: {
+        Row: {
+          category: string
+          created_at: string | null
+          file_name: string
+          file_size_bytes: number | null
+          file_url: string
+          hoa_id: string
+          id: string
+          title: string
+          uploaded_by: string
+          visibility: string
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          file_name: string
+          file_size_bytes?: number | null
+          file_url: string
+          hoa_id: string
+          id?: string
+          title: string
+          uploaded_by: string
+          visibility?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          file_name?: string
+          file_size_bytes?: number | null
+          file_url?: string
+          hoa_id?: string
+          id?: string
+          title?: string
+          uploaded_by?: string
+          visibility?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hoa_documents_hoa_id_fkey"
+            columns: ["hoa_id"]
+            isOneToOne: false
+            referencedRelation: "hoas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hoa_event_rsvps: {
+        Row: {
+          created_at: string | null
+          event_id: string
+          id: string
+          response: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          event_id: string
+          id?: string
+          response: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          event_id?: string
+          id?: string
+          response?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hoa_event_rsvps_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hoa_events: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          description: string | null
+          ends_at: string | null
+          event_type: string
+          hoa_id: string
+          id: string
+          location: string | null
+          rsvp_enabled: boolean | null
+          starts_at: string
+          status: string
+          title: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          description?: string | null
+          ends_at?: string | null
+          event_type: string
+          hoa_id: string
+          id?: string
+          location?: string | null
+          rsvp_enabled?: boolean | null
+          starts_at: string
+          status?: string
+          title: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          description?: string | null
+          ends_at?: string | null
+          event_type?: string
+          hoa_id?: string
+          id?: string
+          location?: string | null
+          rsvp_enabled?: boolean | null
+          starts_at?: string
+          status?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hoa_events_hoa_id_fkey"
+            columns: ["hoa_id"]
+            isOneToOne: false
+            referencedRelation: "hoas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hoa_memberships: {
         Row: {
           created_at: string
@@ -897,6 +1067,164 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "hoa_memberships_hoa_id_fkey"
+            columns: ["hoa_id"]
+            isOneToOne: false
+            referencedRelation: "hoas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hoa_notifications: {
+        Row: {
+          body: string
+          created_at: string | null
+          hoa_id: string | null
+          id: string
+          metadata: Json | null
+          read: boolean | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string | null
+          hoa_id?: string | null
+          id?: string
+          metadata?: Json | null
+          read?: boolean | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string | null
+          hoa_id?: string | null
+          id?: string
+          metadata?: Json | null
+          read?: boolean | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hoa_notifications_hoa_id_fkey"
+            columns: ["hoa_id"]
+            isOneToOne: false
+            referencedRelation: "hoas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hoa_survey_questions: {
+        Row: {
+          id: string
+          options: Json | null
+          position: number
+          question_text: string
+          question_type: string
+          survey_id: string
+        }
+        Insert: {
+          id?: string
+          options?: Json | null
+          position?: number
+          question_text: string
+          question_type: string
+          survey_id: string
+        }
+        Update: {
+          id?: string
+          options?: Json | null
+          position?: number
+          question_text?: string
+          question_type?: string
+          survey_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hoa_survey_questions_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hoa_survey_responses: {
+        Row: {
+          answers: Json
+          id: string
+          submitted_at: string | null
+          survey_id: string
+          user_id: string
+        }
+        Insert: {
+          answers: Json
+          id?: string
+          submitted_at?: string | null
+          survey_id: string
+          user_id: string
+        }
+        Update: {
+          answers?: Json
+          id?: string
+          submitted_at?: string | null
+          survey_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hoa_survey_responses_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hoa_surveys: {
+        Row: {
+          audience: string
+          closes_at: string
+          created_at: string | null
+          created_by: string
+          description: string | null
+          hoa_id: string
+          id: string
+          opens_at: string
+          status: string
+          title: string
+        }
+        Insert: {
+          audience?: string
+          closes_at: string
+          created_at?: string | null
+          created_by: string
+          description?: string | null
+          hoa_id: string
+          id?: string
+          opens_at?: string
+          status?: string
+          title: string
+        }
+        Update: {
+          audience?: string
+          closes_at?: string
+          created_at?: string | null
+          created_by?: string
+          description?: string | null
+          hoa_id?: string
+          id?: string
+          opens_at?: string
+          status?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hoa_surveys_hoa_id_fkey"
             columns: ["hoa_id"]
             isOneToOne: false
             referencedRelation: "hoas"
