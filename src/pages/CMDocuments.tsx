@@ -56,7 +56,7 @@ const CMDocuments = () => {
     setLoading(false);
   };
 
-  useEffect(() => { fetchDocs(); }, [id]);
+  useEffect(() => { fetchDocs(); }, [communityId]);
 
   const handleUpload = async () => {
     if (!uploadFile || !uploadTitle.trim() || !id || !currentUser?.id) return;
