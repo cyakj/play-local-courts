@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import CondoManagerBottomNav from './CondoManagerBottomNav';
 
 const CondoManagerLayout = () => {
-  const { currentUser, loading, isCondoManager } = useAuth();
+  const { currentUser, loading, isAdmin } = useAuth();
 
   if (loading) {
     return (
