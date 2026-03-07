@@ -62,7 +62,7 @@ const CMDocuments = () => {
     if (!uploadFile || !uploadTitle.trim() || !communityId || !currentUser?.id) return;
     setUploading(true);
 
-    const filePath = `${id}/${uploadCategory}/${Date.now()}_${uploadFile.name}`;
+    const filePath = `${communityId}/${uploadCategory}/${Date.now()}_${uploadFile.name}`;
     const { error: storageError } = await supabase.storage
       .from('hoa-documents')
       .upload(filePath, uploadFile);
