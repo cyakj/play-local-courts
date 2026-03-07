@@ -44,24 +44,29 @@ interface AmenityRules {
   created_at?: string;
 }
 
-export const useAmenityRules = (amenityId: string) => {
+export const useAmenityRules = (amenityId: string, hoaIdOverride?: string) => {
   const { currentUser } = useAuth();
   const [rules, setRules] = useState<AmenityRules | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const hoaId = hoaIdOverride || currentUser?.hoaId;
+
   useEffect(() => {
-    if (currentUser?.hoaId && amenityId) {
+    if (hoaId && amenityId) {
       fetchRules();
+    } else {
+      setLoading(false);
     }
-  }, [currentUser?.hoaId, amenityId]);
+  }, [hoaId, amenityId]);
 
   const fetchRules = async () => {
+    if (!hoaId) return;
     try {
       setLoading(true);
       const { data, error } = await supabase
         .from('amenity_rules')
         .select('*')
-        .eq('hoa_id', currentUser?.hoaId)
+        .eq('hoa_id', hoaId)
         .eq('amenity_id', amenityId)
         .maybeSingle();
 
@@ -79,28 +84,24 @@ export const useAmenityRules = (amenityId: string) => {
   };
 
   const saveRules = async (ruleData: Partial<AmenityRules>) => {
-    if (!currentUser?.hoaId) throw new Error('User not authenticated');
+    if (!hoaId) throw new Error('No HOA ID available');
 
     const dataToSave = {
-      hoa_id: currentUser.hoaId,
+      hoa_id: hoaId,
       amenity_id: amenityId,
       ...ruleData
     };
 
     if (rules?.id) {
-      // Update existing rules
       const { error } = await supabase
         .from('amenity_rules')
         .update(dataToSave)
         .eq('id', rules.id);
-
       if (error) throw error;
     } else {
-      // Create new rules
       const { error } = await supabase
         .from('amenity_rules')
         .insert(dataToSave);
-
       if (error) throw error;
     }
 
