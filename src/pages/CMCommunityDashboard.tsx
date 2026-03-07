@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Settings, X } from 'lucide-react';
 import { CMHeader } from '@/components/condo-manager/CMHeader';
 import { CMHealthBar } from '@/components/condo-manager/CMHealthBar';
 import { CMStatusBadge } from '@/components/condo-manager/CMStatusBadge';
@@ -10,6 +10,16 @@ import { useCondoManagerCommunities } from '@/hooks/useCondoManagerData';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+
+const AMENITY_TYPES = [
+  { value: 'tennis', label: 'Tennis Court' },
+  { value: 'pickleball', label: 'Pickleball Court' },
+  { value: 'pool', label: 'Pool' },
+  { value: 'gym', label: 'Gym' },
+  { value: 'clubhouse', label: 'Clubhouse' },
+  { value: 'barbecue', label: 'Barbecue' },
+  { value: 'jacuzzi', label: 'Jacuzzi' },
+] as const;
 
 const CMCommunityDashboard = () => {
   const { id } = useParams();
