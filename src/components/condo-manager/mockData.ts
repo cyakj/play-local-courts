@@ -87,10 +87,16 @@ export const MOCK_NOTIFICATIONS = [
 ];
 
 export const MOCK_EVENTS = [
-  { id: 1, community: 'The Greens', title: 'Spring BBQ', type: 'community_event', date: 'Mar 15', time: '4:00 PM', location: 'Pool Deck', rsvp: 14 },
-  { id: 2, community: 'The Greens', title: 'Board Meeting — Q1', type: 'board_meeting', date: 'Mar 12', time: '7:00 PM', location: 'Clubhouse', rsvp: null },
-  { id: 3, community: 'The Fairways', title: 'Pool Maintenance Day', type: 'maintenance_scheduled', date: 'Mar 10', time: '9:00 AM', location: 'Pool', rsvp: null },
-  { id: 4, community: 'The Pines', title: 'Welcome New Residents', type: 'community_event', date: 'Mar 20', time: '6:00 PM', location: 'Common Area', rsvp: 8 },
+  { id: 1, community: 'The Greens', title: 'Spring BBQ', type: 'community_event', date: 'Mar 15', day: 15, time: '4:00 PM', location: 'Pool Deck', rsvp: 14 },
+  { id: 2, community: 'The Greens', title: 'Board Meeting — Q1', type: 'board_meeting', date: 'Mar 12', day: 12, time: '7:00 PM', location: 'Clubhouse', rsvp: null },
+  { id: 3, community: 'The Fairways', title: 'Pool Maintenance Day', type: 'maintenance_scheduled', date: 'Mar 10', day: 10, time: '9:00 AM', location: 'Pool', rsvp: null },
+  { id: 4, community: 'The Pines', title: 'Welcome New Residents', type: 'community_event', date: 'Mar 20', day: 20, time: '6:00 PM', location: 'Common Area', rsvp: 8 },
+  { id: 5, community: 'The Greens', title: 'Tennis Social', type: 'amenity_booking', date: 'Mar 7', day: 7, time: '10:00 AM', location: 'Court 1', rsvp: 6 },
+  { id: 6, community: 'The Fairways', title: 'Board Meeting — Budget', type: 'board_meeting', date: 'Mar 7', day: 7, time: '6:00 PM', location: 'Clubhouse', rsvp: null },
+  { id: 7, community: 'The Greens', title: 'Pool Party', type: 'community_event', date: 'Mar 22', day: 22, time: '2:00 PM', location: 'Pool Deck', rsvp: 20 },
+  { id: 8, community: 'The Pines', title: 'Court Resurfacing', type: 'maintenance_scheduled', date: 'Mar 25', day: 25, time: '8:00 AM', location: 'Tennis Court', rsvp: null },
+  { id: 9, community: 'The Fairways', title: 'Gym Open House', type: 'amenity_booking', date: 'Mar 5', day: 5, time: '5:00 PM', location: 'Gym', rsvp: 10 },
+  { id: 10, community: 'The Greens', title: 'Landscape Review', type: 'maintenance_scheduled', date: 'Mar 3', day: 3, time: '9:00 AM', location: 'Grounds', rsvp: null },
 ];
 
 export const EVENT_TYPE_CONFIG: Record<string, { color: string; label: string }> = {
