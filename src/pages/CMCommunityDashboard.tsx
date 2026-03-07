@@ -432,6 +432,73 @@ const CMCommunityDashboard = () => {
           </div>
         </div>
       )}
+
+      {/* Add Amenity Modal */}
+      {showAddAmenityModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="text-lg font-extrabold text-cm-navy">Add Amenity</div>
+              <div onClick={() => setShowAddAmenityModal(false)} className="cursor-pointer text-cm-text-light">
+                <X className="h-5 w-5" />
+              </div>
+            </div>
+            <input
+              value={newAmenityName}
+              onChange={(e) => setNewAmenityName(e.target.value)}
+              placeholder="Amenity Name (e.g., Tennis Court 1, Pool Area)"
+              className="w-full px-3 py-2.5 rounded-[10px] border border-cm-border text-sm mb-3"
+            />
+            <div className="text-xs font-bold text-cm-text mb-2">Amenity Type</div>
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              {AMENITY_TYPES.map((t) => (
+                <div
+                  key={t.value}
+                  onClick={() => setNewAmenityType(t.value)}
+                  className={`rounded-[10px] border px-3 py-2.5 text-xs font-semibold text-center cursor-pointer transition-colors ${
+                    newAmenityType === t.value
+                      ? 'border-cm-cyan bg-[rgba(0,180,216,0.08)] text-cm-cyan'
+                      : 'border-cm-border text-cm-text-mid'
+                  }`}
+                >
+                  {t.label}
+                </div>
+              ))}
+            </div>
+            <div
+              onClick={async () => {
+                if (!newAmenityName.trim() || !c) {
+                  toast.error('Please enter an amenity name');
+                  return;
+                }
+                const { error } = await supabase.from('courts').insert({
+                  name: newAmenityName.trim(),
+                  court_type: newAmenityType,
+                  hoa_id: c.id,
+                });
+                if (error) {
+                  toast.error('Failed to add amenity');
+                } else {
+                  toast.success(`${newAmenityName.trim()} added`);
+                  setNewAmenityName('');
+                  setNewAmenityType('tennis');
+                  setShowAddAmenityModal(false);
+                  refetch();
+                }
+              }}
+              className="bg-cm-navy text-white rounded-[10px] py-3 text-sm font-bold text-center cursor-pointer w-full min-h-[44px] flex items-center justify-center"
+            >
+              Add Amenity
+            </div>
+            <div
+              onClick={() => setShowAddAmenityModal(false)}
+              className="text-center mt-3 text-sm text-cm-text-light cursor-pointer"
+            >
+              Cancel
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
