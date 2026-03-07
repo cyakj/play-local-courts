@@ -33,6 +33,11 @@ const BottomNavigation = () => {
       icon: ClipboardList,
       label: 'Reports',
     },
+    {
+      path: '/community-calendar',
+      icon: CalendarDays,
+      label: 'Calendar',
+    },
   ];
 
   // Admin tab - only for HOA admins
