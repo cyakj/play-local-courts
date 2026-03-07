@@ -76,7 +76,7 @@ const CMDocuments = () => {
     const { data: urlData } = supabase.storage.from('hoa-documents').getPublicUrl(filePath);
 
     const { error } = await supabase.from('hoa_documents').insert({
-      hoa_id: id,
+      hoa_id: communityId,
       uploaded_by: currentUser.id,
       title: uploadTitle.trim(),
       category: uploadCategory,
