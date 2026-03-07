@@ -27,8 +27,11 @@ const CMCommunityDashboard = () => {
   const [searchParams] = useSearchParams();
   const { currentUser } = useAuth();
   const [tab, setTab] = useState(searchParams.get('tab') || 'overview');
-  const { communities } = useCondoManagerCommunities();
+  const { communities, refetch } = useCondoManagerCommunities();
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
+  const [showAddAmenityModal, setShowAddAmenityModal] = useState(false);
+  const [newAmenityName, setNewAmenityName] = useState('');
+  const [newAmenityType, setNewAmenityType] = useState<string>('tennis');
   const [announcementTitle, setAnnouncementTitle] = useState('');
   const [announcementBody, setAnnouncementBody] = useState('');
   const [announcementAudience, setAnnouncementAudience] = useState('all_residents');
