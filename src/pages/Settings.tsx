@@ -120,14 +120,18 @@ const Settings = () => {
 
   // Main settings view
   return (
-    <div className="min-h-screen pb-24 space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => navigate(-1)}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h1 className="text-2xl font-bold">Settings</h1>
+    <div className="min-h-screen bg-background pb-24">
+      {/* Navy Header */}
+      <div className="navy-gradient text-white px-5 pt-[50px] pb-5">
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate(-1)} className="w-9 h-9 rounded-[10px] flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.12)' }}>
+            <ArrowLeft className="h-4 w-4 text-white" />
+          </button>
+          <span className="text-xl font-extrabold">Settings</span>
+        </div>
       </div>
+
+      <div className="px-4 pt-4 space-y-4">
 
       {/* Profile Section */}
       <Card>
