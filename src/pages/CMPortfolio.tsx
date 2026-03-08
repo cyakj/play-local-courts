@@ -300,6 +300,11 @@ const CMPortfolio = () => {
           </div>
         </div>
       )}
+      <CMProfileSheet
+        open={showProfile}
+        onOpenChange={setShowProfile}
+        communities={communities}
+      />
     </div>
   );
 };
