@@ -231,15 +231,14 @@ const Settings = () => {
 
       <Separator />
 
-      {/* Logout */}
-      <Button
-        variant="ghost"
-        className="w-full h-12 text-destructive hover:text-destructive hover:bg-destructive/10 font-semibold"
+      {/* Sign Out */}
+      <div
+        className="rounded-2xl p-4 text-center cursor-pointer"
+        style={{ background: '#FEF2F2', border: '1px solid rgba(239,68,68,0.13)' }}
         onClick={handleLogout}
       >
-        <LogOut className="h-5 w-5 mr-2" />
-        Log Out
-      </Button>
+        <span className="text-[15px] font-bold" style={{ color: '#EF4444' }}>Sign Out</span>
+      </div>
 
       <SaveChangesFooter
         hasChanges={hasChanges}

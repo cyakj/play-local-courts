@@ -191,14 +191,14 @@ const ResidentCalendar = () => {
   return (
     <div className="min-h-screen bg-background pb-24">
       {/* Header */}
-      <div className="bg-gradient-to-b from-primary/10 to-background px-4 pt-12 pb-4">
+      <div className="navy-gradient text-white px-5 pt-[50px] pb-5">
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-xl font-bold text-foreground">Calendar</h1>
-            <p className="text-xs text-muted-foreground">{now.toLocaleString('en-US', { month: 'long', year: 'numeric' })}</p>
+            <div className="text-xl font-extrabold">Calendar</div>
+            <div className="text-xs opacity-65 mt-0.5">{now.toLocaleString('en-US', { month: 'long', year: 'numeric' })}</div>
           </div>
           {isAdmin && (
-            <button onClick={() => setShowCreateEvent(true)} className="bg-primary text-primary-foreground rounded-xl px-3.5 py-2 text-xs font-bold min-h-[44px]">
+            <button onClick={() => setShowCreateEvent(true)} className="rounded-[10px] px-3.5 py-2 text-xs font-bold min-h-[44px]" style={{ background: '#00B4D8' }}>
               ＋ Add Event
             </button>
           )}
