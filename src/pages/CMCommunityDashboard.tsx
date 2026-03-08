@@ -5,7 +5,7 @@ import { CMHeader } from '@/components/condo-manager/CMHeader';
 import { CMHealthBar } from '@/components/condo-manager/CMHealthBar';
 import { CMStatusBadge } from '@/components/condo-manager/CMStatusBadge';
 import { CMKpiCard } from '@/components/condo-manager/CMKpiCard';
-import { CMIssuesTrendChart } from '@/components/condo-manager/CMIssuesTrendChart';
+import { CMIssuesTrendChart, CMPeriodToggle } from '@/components/condo-manager/CMIssuesTrendChart';
 import SetMaintenanceSheet from '@/components/condo-manager/SetMaintenanceSheet';
 import { useCondoManagerCommunities } from '@/hooks/useCondoManagerData';
 import { supabase } from '@/integrations/supabase/client';
@@ -28,6 +28,7 @@ const CMCommunityDashboard = () => {
   const [searchParams] = useSearchParams();
   const { currentUser } = useAuth();
   const [tab, setTab] = useState(searchParams.get('tab') || 'overview');
+  const [trendPeriod, setTrendPeriod] = useState('Week');
   const { communities, refetch } = useCondoManagerCommunities();
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
   const [showAddAmenityModal, setShowAddAmenityModal] = useState(false);
@@ -195,6 +196,12 @@ const CMCommunityDashboard = () => {
           </div>
           <CMHealthBar value={c.health} status={c.status} />
         </div>
+        {(tab === 'overview' || tab === 'reports') && (
+          <div className="flex items-center justify-between mt-3">
+            <div className="text-[11px] opacity-60 font-semibold">Issues Period</div>
+            <CMPeriodToggle value={trendPeriod} onChange={setTrendPeriod} />
+          </div>
+        )}
       </CMHeader>
 
       {/* Tabs */}
@@ -235,7 +242,7 @@ const CMCommunityDashboard = () => {
               />
             </div>
 
-            <CMIssuesTrendChart />
+            <CMIssuesTrendChart hoaIds={[c.id]} period={trendPeriod} />
 
             {/* Quick Actions */}
             <div className="text-[13px] font-extrabold text-cm-text mb-3">Quick Actions</div>
@@ -273,7 +280,7 @@ const CMCommunityDashboard = () => {
                 subColor={c.avgResolutionDays > 4 ? 'hsl(var(--cm-danger))' : 'hsl(var(--cm-success))'}
               />
             </div>
-            <CMIssuesTrendChart />
+            <CMIssuesTrendChart hoaIds={[c.id]} period={trendPeriod} />
           </>
         )}
 
