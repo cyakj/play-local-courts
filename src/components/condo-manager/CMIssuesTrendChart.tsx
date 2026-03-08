@@ -223,7 +223,7 @@ export const CMIssuesTrendChart = ({ hoaIds, period }: Props) => {
             const col = barColor(d.value);
             return (
               <div key={i} className="flex-1 flex flex-col items-center h-full justify-end">
-                <div className="text-[9px] font-extrabold mb-0.5" style={{ color: col }}>{d.value}</div>
+                {d.value > 0 && <div className="text-[9px] font-extrabold mb-0.5" style={{ color: col }}>{d.value}</div>}
                 <div
                   className="w-full rounded-t"
                   style={{
