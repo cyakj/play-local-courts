@@ -17,6 +17,7 @@ const CMPortfolio = () => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [showNotifs, setShowNotifs] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const [showAddCommunity, setShowAddCommunity] = useState(false);
   const { communities, loading, refetch } = useCondoManagerCommunities();
   const { unreadCount } = useCondoManagerNotifications();
