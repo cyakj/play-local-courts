@@ -160,7 +160,7 @@ const CMCommunityDashboard = () => {
   if (!c) {
     return (
       <div className="min-h-screen bg-cm-app-bg flex items-center justify-center">
-        <div className="text-cm-text-light">Community not found</div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cm-cyan" />
       </div>
     );
   }
