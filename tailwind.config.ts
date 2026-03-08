@@ -63,6 +63,26 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
+				// Navy brand tokens
+				navy: {
+					DEFAULT: 'hsl(var(--navy))',
+					mid: 'hsl(var(--navy-mid))',
+					light: 'hsl(var(--navy-light))',
+				},
+				success: {
+					DEFAULT: 'hsl(var(--success))',
+					bg: 'hsl(var(--success-bg))',
+				},
+				warning: {
+					DEFAULT: 'hsl(var(--warning))',
+					bg: 'hsl(var(--warning-bg))',
+				},
+				danger: {
+					DEFAULT: 'hsl(var(--danger))',
+					bg: 'hsl(var(--danger-bg))',
+				},
+				'cyan-light': 'hsl(var(--cyan-light))',
+				'text-mid': 'hsl(var(--text-mid))',
 				// Custom colors for the app
 				court: {
 					available: '#4CAF50',
