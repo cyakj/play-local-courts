@@ -242,7 +242,7 @@ const CMCommunityDashboard = () => {
               />
             </div>
 
-            <CMIssuesTrendChart />
+            <CMIssuesTrendChart hoaIds={[c.id]} period={trendPeriod} />
 
             {/* Quick Actions */}
             <div className="text-[13px] font-extrabold text-cm-text mb-3">Quick Actions</div>
