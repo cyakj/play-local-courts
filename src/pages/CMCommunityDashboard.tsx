@@ -5,7 +5,7 @@ import { CMHeader } from '@/components/condo-manager/CMHeader';
 import { CMHealthBar } from '@/components/condo-manager/CMHealthBar';
 import { CMStatusBadge } from '@/components/condo-manager/CMStatusBadge';
 import { CMKpiCard } from '@/components/condo-manager/CMKpiCard';
-import { CMIssuesTrendChart } from '@/components/condo-manager/CMIssuesTrendChart';
+import { CMIssuesTrendChart, CMPeriodToggle } from '@/components/condo-manager/CMIssuesTrendChart';
 import SetMaintenanceSheet from '@/components/condo-manager/SetMaintenanceSheet';
 import { useCondoManagerCommunities } from '@/hooks/useCondoManagerData';
 import { supabase } from '@/integrations/supabase/client';
