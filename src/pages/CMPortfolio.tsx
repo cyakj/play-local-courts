@@ -6,6 +6,7 @@ import { CMHeader } from '@/components/condo-manager/CMHeader';
 import { CMHealthBar } from '@/components/condo-manager/CMHealthBar';
 import { CMStatusBadge } from '@/components/condo-manager/CMStatusBadge';
 import CMNotificationCenter from '@/components/condo-manager/CMNotificationCenter';
+import CMProfileSheet from '@/components/condo-manager/CMProfileSheet';
 import { useCondoManagerCommunities, useCondoManagerNotifications } from '@/hooks/useCondoManagerData';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -16,6 +17,7 @@ const CMPortfolio = () => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [showNotifs, setShowNotifs] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const [showAddCommunity, setShowAddCommunity] = useState(false);
   const { communities, loading, refetch } = useCondoManagerCommunities();
   const { unreadCount } = useCondoManagerNotifications();
@@ -34,6 +36,12 @@ const CMPortfolio = () => {
   const avgHealth = communities.length > 0 ? Math.round(communities.reduce((s, c) => s + c.health, 0) / communities.length) : 0;
 
   const firstName = currentUser?.fullName?.split(' ')[0] || 'there';
+  const userInitials = currentUser?.fullName
+    ?.split(' ')
+    .map(n => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2) || '?';
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
@@ -115,16 +123,24 @@ const CMPortfolio = () => {
             <div className="text-xs opacity-60 mt-1">Property Manager · {communities.length} Communities</div>
           </div>
           <div className="flex flex-col items-end gap-2">
-            <div
-              onClick={() => setShowNotifs(true)}
-              className="relative bg-white/[0.12] rounded-[10px] w-10 h-10 flex items-center justify-center cursor-pointer min-h-[44px]"
-            >
-              <Bell className="h-5 w-5 text-white" />
-              {unreadCount > 0 && (
-                <div className="absolute -top-1 -right-1 bg-cm-danger text-white rounded-full w-[18px] h-[18px] flex items-center justify-center text-[10px] font-extrabold">
-                  {unreadCount}
-                </div>
-              )}
+            <div className="flex items-center gap-[10px]">
+              <div
+                onClick={() => setShowProfile(true)}
+                className="w-10 h-10 rounded-full bg-[#0D2137] border-2 border-[#00B4D8] flex items-center justify-center cursor-pointer min-h-[44px]"
+              >
+                <span className="text-white text-[14px] font-extrabold">{userInitials}</span>
+              </div>
+              <div
+                onClick={() => setShowNotifs(true)}
+                className="relative bg-white/[0.12] rounded-[10px] w-10 h-10 flex items-center justify-center cursor-pointer min-h-[44px]"
+              >
+                <Bell className="h-5 w-5 text-white" />
+                {unreadCount > 0 && (
+                  <div className="absolute -top-1 -right-1 bg-cm-danger text-white rounded-full w-[18px] h-[18px] flex items-center justify-center text-[10px] font-extrabold">
+                    {unreadCount}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="bg-[rgba(0,180,216,0.18)] border border-[rgba(0,180,216,0.4)] rounded-[14px] px-3 py-2 text-center">
               <div className="text-2xl font-black text-cm-cyan">{avgHealth}</div>
@@ -284,6 +300,11 @@ const CMPortfolio = () => {
           </div>
         </div>
       )}
+      <CMProfileSheet
+        open={showProfile}
+        onOpenChange={setShowProfile}
+        communities={communities}
+      />
     </div>
   );
 };
