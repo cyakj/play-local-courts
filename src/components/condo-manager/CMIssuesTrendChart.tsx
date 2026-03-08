@@ -219,11 +219,11 @@ export const CMIssuesTrendChart = ({ hoaIds, period }: Props) => {
         <div className="ml-7 flex items-end gap-1" style={{ height: 100 }}>
           {data.map((d, i) => {
             const isLast = i === data.length - 1;
-            const bh = Math.max((d.value / (max + 2)) * 88, 4);
+            const bh = d.value === 0 ? 0 : Math.max((d.value / (max + 2)) * 88, 4);
             const col = barColor(d.value);
             return (
               <div key={i} className="flex-1 flex flex-col items-center h-full justify-end">
-                <div className="text-[9px] font-extrabold mb-0.5" style={{ color: col }}>{d.value}</div>
+                {d.value > 0 && <div className="text-[9px] font-extrabold mb-0.5" style={{ color: col }}>{d.value}</div>}
                 <div
                   className="w-full rounded-t"
                   style={{

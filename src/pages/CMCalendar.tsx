@@ -243,26 +243,30 @@ const CMCalendar = () => {
             ＋ Add Event
           </div>
         </div>
-        <CMChips options={communityOptions} value={communityFilter} onChange={setCommunityFilter} />
+        <div className="flex items-center gap-2 mt-1">
+          <div className="flex-1 overflow-x-auto">
+            <CMChips options={communityOptions} value={communityFilter} onChange={setCommunityFilter} />
+          </div>
+          <div className="flex gap-1 flex-shrink-0">
+            {(['week', 'month'] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setCalendarMode(mode)}
+                className="rounded-lg px-2.5 py-1 text-[10px] font-bold capitalize transition-colors"
+                style={{
+                  background: calendarMode === mode ? 'rgba(0,180,216,0.35)' : 'rgba(255,255,255,0.1)',
+                  color: calendarMode === mode ? '#fff' : 'rgba(255,255,255,0.6)',
+                }}
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
+        </div>
       </CMHeader>
 
       {/* Calendar card */}
       <div className="bg-white border-b border-cm-border px-4 py-3 flex-shrink-0">
-        <div className="flex justify-end mb-2.5 gap-1">
-          {(['week', 'month'] as const).map((mode) => (
-            <button
-              key={mode}
-              onClick={() => setCalendarMode(mode)}
-              className="rounded-lg px-2.5 py-1 text-[11px] font-bold capitalize transition-colors"
-              style={{
-                background: calendarMode === mode ? '#0A1628' : '#F0F4F8',
-                color: calendarMode === mode ? '#fff' : '#9CA3AF',
-              }}
-            >
-              {mode}
-            </button>
-          ))}
-        </div>
 
         {calendarMode === 'week' ? (
           <div className="flex justify-between">
