@@ -276,6 +276,7 @@ const MyReports = () => {
         onOpenChange={setShowReportDialog}
         amenities={amenities.map(a => ({ id: a.id, name: a.name, amenityType: a.amenityType }))}
       />
+      </div>
     </div>
   );
 };
