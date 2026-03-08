@@ -280,7 +280,7 @@ const CMCommunityDashboard = () => {
                 subColor={c.avgResolutionDays > 4 ? 'hsl(var(--cm-danger))' : 'hsl(var(--cm-success))'}
               />
             </div>
-            <CMIssuesTrendChart />
+            <CMIssuesTrendChart hoaIds={[c.id]} period={trendPeriod} />
           </>
         )}
 
