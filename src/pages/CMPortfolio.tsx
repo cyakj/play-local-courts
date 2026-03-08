@@ -36,6 +36,12 @@ const CMPortfolio = () => {
   const avgHealth = communities.length > 0 ? Math.round(communities.reduce((s, c) => s + c.health, 0) / communities.length) : 0;
 
   const firstName = currentUser?.fullName?.split(' ')[0] || 'there';
+  const userInitials = currentUser?.fullName
+    ?.split(' ')
+    .map(n => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2) || '?';
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
