@@ -13,7 +13,7 @@ interface CMProfileSheetProps {
   communities: Array<{ id: string; name: string; totalUnits: number }>;
 }
 
-type SubScreen = null | 'account' | 'notifications' | 'communities' | 'help';
+type SubScreen = null | 'account' | 'notifications' | 'help';
 
 const CMProfileSheet: React.FC<CMProfileSheetProps> = ({ open, onOpenChange, communities }) => {
   const { currentUser, logout } = useAuth();
