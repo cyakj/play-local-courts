@@ -134,26 +134,28 @@ const MyReports = () => {
       <div className="px-4 pt-4 space-y-4">
 
       {/* Filter Chips */}
-      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-        {allStatusFilters.map((option) => (
-          <button
-            key={option.value}
-            onClick={() => setStatusFilter(option.value)}
-            className={cn(
-              "px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all min-h-[44px]",
-              statusFilter === option.value
-                ? "bg-foreground text-background"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
-            )}
-          >
-            {option.label}
-            {option.value !== 'all' && (
-              <span className="ml-1.5 text-xs opacity-70">
-                ({reports.filter(r => r.status === option.value).length})
-              </span>
-            )}
-          </button>
-        ))}
+      <div className="bg-card border-b border-border px-4 py-2.5 overflow-x-auto -mt-4">
+        <div className="flex gap-2">
+          {allStatusFilters.map((option) => (
+            <button
+              key={option.value}
+              onClick={() => setStatusFilter(option.value)}
+              className="px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all min-h-[36px]"
+              style={{
+                background: statusFilter === option.value ? '#0A1628' : '#F0F4F8',
+                color: statusFilter === option.value ? 'white' : '#9CA3AF',
+                border: `1px solid ${statusFilter === option.value ? '#0A1628' : '#E5E7EB'}`,
+              }}
+            >
+              {option.label}
+              {option.value !== 'all' && (
+                <span className="ml-1 opacity-70">
+                  ({reports.filter(r => r.status === option.value).length})
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Reports List */}

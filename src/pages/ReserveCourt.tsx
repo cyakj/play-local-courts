@@ -166,11 +166,11 @@ const ReserveCourt = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'open':
-        return <Badge className="bg-green-500 text-white border-0">Open Now</Badge>;
+        return <Badge className="text-white border-0" style={{ background: '#2DD4BF' }}>Open Now</Badge>;
       case 'low':
-        return <Badge className="bg-orange-500 text-white border-0">Low Availability</Badge>;
+        return <Badge className="text-white border-0" style={{ background: '#F59E0B' }}>Low Availability</Badge>;
       case 'closed':
-        return <Badge className="bg-muted text-muted-foreground border-0">Closed</Badge>;
+        return <Badge className="text-white border-0" style={{ background: '#EF4444' }}>Closed</Badge>;
       default:
         return null;
     }
