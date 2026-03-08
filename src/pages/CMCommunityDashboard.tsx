@@ -196,6 +196,12 @@ const CMCommunityDashboard = () => {
           </div>
           <CMHealthBar value={c.health} status={c.status} />
         </div>
+        {(tab === 'overview' || tab === 'reports') && (
+          <div className="flex items-center justify-between mt-3">
+            <div className="text-[11px] opacity-60 font-semibold">Issues Period</div>
+            <CMPeriodToggle value={trendPeriod} onChange={setTrendPeriod} />
+          </div>
+        )}
       </CMHeader>
 
       {/* Tabs */}
