@@ -28,6 +28,7 @@ const CMCommunityDashboard = () => {
   const [searchParams] = useSearchParams();
   const { currentUser } = useAuth();
   const [tab, setTab] = useState(searchParams.get('tab') || 'overview');
+  const [trendPeriod, setTrendPeriod] = useState('Week');
   const { communities, refetch } = useCondoManagerCommunities();
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
   const [showAddAmenityModal, setShowAddAmenityModal] = useState(false);
