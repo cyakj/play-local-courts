@@ -380,36 +380,24 @@ const ReserveCourt = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Hero Header */}
-      <div className="px-4 pt-6 pb-4">
-        <h1 className="text-3xl font-bold text-primary leading-tight">
-          Love where<br />you live.
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Reserve your spot at the pool, gym, or clubhouse instantly.
-        </p>
-        
-        {/* Check Availability Button */}
-        <Button 
-          className="w-full mt-6 h-12 rounded-full text-base font-semibold"
-          onClick={() => {
-            document.getElementById('amenity-grid')?.scrollIntoView({ behavior: 'smooth' });
-          }}
-        >
-          <Calendar className="h-5 w-5 mr-2" />
-          Check Availability
-        </Button>
-        
-        {/* Report Maintenance Issue Link - moved to Reports tab */}
-        {/* 
-        <button 
-          onClick={() => setShowReportDialog(true)}
-          className="flex items-center justify-center w-full mt-3 text-muted-foreground hover:text-primary transition-colors"
-        >
-          <Wrench className="h-4 w-4 mr-2" />
-          <span className="text-sm">Report Maintenance Issue</span>
-        </button>
-        */}
+      {/* Navy Header */}
+      <div className="navy-gradient text-white px-5 pt-[50px] pb-5">
+        <div className="text-xl font-extrabold">Book Amenity</div>
+        <div className="text-xs opacity-65 mt-0.5">Reserve your spot instantly</div>
+      </div>
+
+      {/* Check Availability CTA */}
+      <div className="px-4 pt-4">
+        <div className="rounded-2xl p-4 text-center" style={{ background: 'linear-gradient(135deg, #00B4D8 0%, #0091B5 100%)' }}>
+          <div className="text-base font-extrabold text-white mb-1">Check Availability</div>
+          <div className="text-xs text-white/85 mb-3">Pick a date and time to see what's open</div>
+          <button
+            onClick={() => document.getElementById('amenity-grid')?.scrollIntoView({ behavior: 'smooth' })}
+            className="bg-white text-primary rounded-[10px] px-5 py-2.5 text-[13px] font-extrabold inline-block"
+          >
+            📅 Select Date & Time
+          </button>
+        </div>
       </div>
 
       {/* My Reports Bubble - moved to Reports tab */}
