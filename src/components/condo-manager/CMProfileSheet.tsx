@@ -186,7 +186,6 @@ const CMProfileSheet: React.FC<CMProfileSheetProps> = ({ open, onOpenChange, com
   const menuItems: Array<{ icon: string; label: string; sub: SubScreen }> = [
     { icon: '👤', label: 'My Account', sub: 'account' },
     { icon: '🔔', label: 'Notification Preferences', sub: 'notifications' },
-    { icon: '🏘', label: 'My Communities', sub: 'communities' },
     { icon: '❓', label: 'Help & Support', sub: 'help' },
   ];
 
