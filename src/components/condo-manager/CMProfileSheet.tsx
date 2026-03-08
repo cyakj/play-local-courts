@@ -158,30 +158,6 @@ const CMProfileSheet: React.FC<CMProfileSheetProps> = ({ open, onOpenChange, com
     );
   }
 
-  if (subScreen === 'communities') {
-    return (
-      <Sheet open={open} onOpenChange={handleClose}>
-        <SheetContent side="bottom" className="rounded-t-[20px] p-6 max-h-[85vh] overflow-y-auto border-0 [&>button]:hidden">
-          <div className="w-10 h-1 bg-[#D1D5DB] rounded-full mx-auto mb-5" />
-          {renderSubHeader('My Communities')}
-          <div className="space-y-1">
-            {communities.map(c => (
-              <div key={c.id} className="flex items-center justify-between py-3 border-b border-[#E5E7EB] last:border-0">
-                <div>
-                  <div className="text-[14px] font-bold text-[#1A1A2E]">{c.name}</div>
-                  <div className="text-[12px] text-[#9CA3AF]">{c.totalUnits} units</div>
-                </div>
-                <span className="text-[12px] text-[#9CA3AF] font-medium">Transfer</span>
-              </div>
-            ))}
-            {communities.length === 0 && (
-              <div className="text-center py-6 text-[#9CA3AF] text-sm">No communities yet</div>
-            )}
-          </div>
-        </SheetContent>
-      </Sheet>
-    );
-  }
 
   if (subScreen === 'help') {
     return (
