@@ -55,6 +55,8 @@ import CMDocuments from "./pages/CMDocuments";
 import CMSurveys from "./pages/CMSurveys";
 import CMAmenityRules from "./pages/CMAmenityRules";
 import ResidentCalendar from "./pages/ResidentCalendar";
+import DocumentLibrary from "./pages/DocumentLibrary";
+import SurveyResponse from "./pages/SurveyResponse";
 import { TENNIS_FEATURES_ENABLED } from "./config/featureFlags";
 
 const queryClient = new QueryClient();
@@ -137,6 +139,8 @@ function App() {
                     <Route path="/notifications" element={<Notifications />} />
                     <Route path="/hoa-application" element={<HOAApplication />} />
                     <Route path="/community-calendar" element={<ResidentCalendar />} />
+                    <Route path="/documents" element={<DocumentLibrary />} />
+                    <Route path="/surveys/:surveyId" element={<SurveyResponse />} />
                     <Route path="/faq" element={<FAQ />} />
                     <Route path="/terms" element={<Terms />} />
                     <Route path="/privacy" element={<Privacy />} />

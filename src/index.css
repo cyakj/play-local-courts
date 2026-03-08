@@ -5,35 +5,50 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 210 33% 96%; /* #F0F4F8 */
+    --foreground: 240 33% 14%; /* #1A1A2E */
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%; /* #FFFFFF */
+    --card-foreground: 240 33% 14%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 240 33% 14%;
 
-    --primary: 142 69% 34%; /* Green color */
-    --primary-foreground: 210 40% 98%;
+    --primary: 193 100% 42%; /* Cyan #00B4D8 */
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 210 33% 96%;
+    --secondary-foreground: 240 33% 14%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 210 33% 96%;
+    --muted-foreground: 218 11% 65%; /* #9CA3AF */
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 210 33% 96%;
+    --accent-foreground: 240 33% 14%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 84% 60%; /* #EF4444 */
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 142 69% 34%;
+    --border: 220 13% 91%; /* #E5E7EB */
+    --input: 220 13% 91%;
+    --ring: 193 100% 42%;
 
     --radius: 0.75rem;
+
+    /* Navy brand tokens */
+    --navy: 216 74% 10%; /* #0A1628 */
+    --navy-mid: 213 64% 13%; /* #0D2137 */
+    --navy-light: 212 47% 21%; /* #1A3350 */
+
+    /* Semantic tokens */
+    --success: 168 65% 51%; /* #2DD4BF */
+    --success-bg: 168 100% 95%; /* #E6FFFA */
+    --warning: 38 92% 50%; /* #F59E0B */
+    --warning-bg: 48 100% 96%; /* #FFFBEB */
+    --danger: 0 84% 60%; /* #EF4444 */
+    --danger-bg: 0 86% 97%; /* #FEF2F2 */
+    --text-mid: 220 9% 35%; /* #4B5563 */
+    --cyan-light: 187 100% 94%; /* #E0F7FA */
 
     /* Compete/Ladder purple colors */
     --compete: 245 58% 51%;
@@ -41,7 +56,7 @@
     --compete-light: 245 58% 95%;
     --compete-muted: 245 30% 70%;
 
-    /* Condo Manager brand colors */
+    /* Condo Manager brand colors (aliased from main tokens) */
     --cm-navy: 216 74% 10%;
     --cm-navy-mid: 213 64% 13%;
     --cm-navy-light: 212 47% 21%;
@@ -79,8 +94,8 @@
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 142 69% 34%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 193 100% 42%;
+    --primary-foreground: 0 0% 100%;
 
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
@@ -96,7 +111,7 @@
 
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 142 69% 34%;
+    --ring: 193 100% 42%;
 
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
@@ -119,43 +134,24 @@
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
 
-  /* Smooth scrolling for better UX */
   html {
     scroll-behavior: smooth;
   }
 
-  /* Safe area for mobile devices */
   .safe-area-pb {
     padding-bottom: env(safe-area-inset-bottom);
   }
 }
 
-/* Modern card animations */
 @layer components {
   .card-hover {
     @apply transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:scale-[1.02];
   }
 
-  .gradient-border {
-    @apply relative;
-  }
-
-  .gradient-border::before {
-    content: '';
-    @apply absolute -inset-0.5 bg-gradient-to-r from-green-500 via-blue-500 to-purple-500 rounded-lg opacity-75 blur transition-opacity duration-300;
-  }
-
-  .gradient-border::after {
-    content: '';
-    @apply absolute inset-0 bg-white rounded-lg;
-  }
-
-  /* Glass morphism effect */
   .glass {
     @apply bg-white/20 backdrop-blur-lg border border-white/30;
   }
 
-  /* Floating animation */
   .float {
     animation: float 3s ease-in-out infinite;
   }
@@ -165,35 +161,23 @@
     50% { transform: translateY(-10px); }
   }
 
-  /* Pulse glow effect */
-  .pulse-glow {
-    animation: pulse-glow 2s ease-in-out infinite alternate;
-  }
-
-  @keyframes pulse-glow {
-    from { box-shadow: 0 0 5px rgba(34, 197, 94, 0.5); }
-    to { box-shadow: 0 0 20px rgba(34, 197, 94, 0.8), 0 0 30px rgba(34, 197, 94, 0.6); }
-  }
-
-  /* Smooth transitions for interactive elements */
   .interactive {
     @apply transition-all duration-200 ease-out hover:scale-105 active:scale-95;
   }
 
-  /* Enhanced button styles */
-  .btn-gradient {
-    @apply bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white font-medium px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200;
+  /* Navy gradient header */
+  .navy-gradient {
+    background: linear-gradient(135deg, hsl(var(--navy)) 0%, hsl(var(--navy-mid)) 60%, hsl(var(--navy-light)) 100%);
   }
 
-  /* Enhanced card styles */
   .modern-card {
-    @apply bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300;
+    @apply bg-card backdrop-blur-sm border border-border rounded-2xl shadow-sm;
   }
 }
 
 /* Custom styles for Court Reservation App */
 .calendar-day {
-  @apply h-20 border border-gray-200 p-1 relative rounded-lg transition-all duration-200 hover:shadow-md;
+  @apply h-20 border border-border p-1 relative rounded-lg transition-all duration-200 hover:shadow-md;
 }
 
 .time-slot {
@@ -201,53 +185,39 @@
 }
 
 .time-slot.available {
-  @apply bg-green-500 text-white hover:bg-green-600 hover:scale-105 shadow-sm;
+  @apply bg-primary text-primary-foreground hover:opacity-90 hover:scale-105 shadow-sm;
 }
 
 .time-slot.booked {
-  @apply bg-red-500 text-white cursor-not-allowed opacity-75;
+  @apply bg-destructive text-destructive-foreground cursor-not-allowed opacity-75;
 }
 
 .time-slot.maintenance {
-  @apply bg-yellow-500 text-white cursor-not-allowed opacity-75;
+  @apply cursor-not-allowed opacity-75;
+  background: hsl(var(--warning));
+  color: white;
 }
 
 .time-slot.user-booked {
-  @apply bg-blue-600 text-white shadow-md;
+  background: hsl(var(--navy));
+  color: white;
+  @apply shadow-md;
 }
 
 /* Enhanced animations */
 @keyframes slideInUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes slideInRight {
-  from {
-    opacity: 0;
-    transform: translateX(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+  from { opacity: 0; transform: translateX(30px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 @keyframes fadeInScale {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 .animate-slide-up {
@@ -268,15 +238,15 @@
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-gray-100 rounded-lg;
+  @apply bg-background rounded-lg;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-gray-300 rounded-lg;
+  @apply bg-border rounded-lg;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-gray-400;
+  @apply bg-muted-foreground/30;
 }
 
 /* Mobile responsive: ensure min touch target size */
