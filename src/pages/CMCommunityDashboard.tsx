@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Settings, X } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Settings, Wrench, X } from 'lucide-react';
 import { CMHeader } from '@/components/condo-manager/CMHeader';
 import { CMHealthBar } from '@/components/condo-manager/CMHealthBar';
 import { CMStatusBadge } from '@/components/condo-manager/CMStatusBadge';
 import { CMKpiCard } from '@/components/condo-manager/CMKpiCard';
 import { CMIssuesTrendChart } from '@/components/condo-manager/CMIssuesTrendChart';
+import SetMaintenanceSheet from '@/components/condo-manager/SetMaintenanceSheet';
 import { useCondoManagerCommunities } from '@/hooks/useCondoManagerData';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -30,6 +31,7 @@ const CMCommunityDashboard = () => {
   const { communities, refetch } = useCondoManagerCommunities();
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
   const [showAddAmenityModal, setShowAddAmenityModal] = useState(false);
+  const [maintenanceAmenity, setMaintenanceAmenity] = useState<{ id: string; name: string; type: string; hoaId: string } | null>(null);
   const [newAmenityName, setNewAmenityName] = useState('');
   const [newAmenityType, setNewAmenityType] = useState<string>('tennis');
   const [announcementTitle, setAnnouncementTitle] = useState('');
@@ -294,22 +296,31 @@ const CMCommunityDashboard = () => {
               </div>
             </div>
             {c.amenities.map((a) => (
-              <div key={a.id} className="bg-white rounded-xl p-3.5 mb-2 flex justify-between items-center border border-cm-border">
+              <div key={a.id} className="bg-white rounded-xl mb-2 flex justify-between items-center border border-cm-border" style={{ padding: '14px 16px' }}>
                 <div>
-                  <div className="text-sm font-semibold text-cm-text">{a.name}</div>
-                  <div className="text-[10px] text-cm-text-light capitalize">{a.type}</div>
+                  <div className="text-sm font-bold" style={{ color: '#1A1A2E' }}>{a.name}</div>
+                  <div className="text-xs capitalize" style={{ color: '#9CA3AF', fontSize: 12 }}>{a.type}</div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center" style={{ gap: 8 }}>
+                  {/* Edit Rules */}
                   <div
-                    onClick={(e) => { e.stopPropagation(); navigate(`/cm/community/${c.id}/amenity/${a.id}/rules`); }}
-                    className="flex items-center gap-1 text-[11px] text-cm-cyan font-bold cursor-pointer"
+                    onClick={() => navigate(`/cm/community/${c.id}/amenity/${a.id}/rules`)}
+                    className="flex items-center justify-center cursor-pointer"
+                    style={{ width: 44, height: 44, backgroundColor: '#F0F4F8', borderRadius: 10 }}
                   >
-                    <Settings className="h-3.5 w-3.5" />
-                    Rules
+                    <Settings className="h-5 w-5" style={{ color: '#00B4D8' }} />
                   </div>
+                  {/* Set Maintenance */}
                   <div
-                    onClick={async (e) => {
-                      e.stopPropagation();
+                    onClick={() => setMaintenanceAmenity({ id: a.id, name: a.name, type: a.type, hoaId: c.id })}
+                    className="flex items-center justify-center cursor-pointer"
+                    style={{ width: 44, height: 44, backgroundColor: '#F0F4F8', borderRadius: 10 }}
+                  >
+                    <Wrench className="h-5 w-5" style={{ color: '#F59E0B' }} />
+                  </div>
+                  {/* Remove Amenity */}
+                  <div
+                    onClick={async () => {
                       if (!confirm(`Remove "${a.name}"? This will also remove all bookings for this amenity.`)) return;
                       const { error } = await supabase.from('courts').delete().eq('id', a.id);
                       if (error) {
@@ -319,9 +330,10 @@ const CMCommunityDashboard = () => {
                         refetch();
                       }
                     }}
-                    className="text-cm-danger cursor-pointer"
+                    className="flex items-center justify-center cursor-pointer"
+                    style={{ width: 44, height: 44, backgroundColor: '#F0F4F8', borderRadius: 10 }}
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <Trash2 className="h-5 w-5" style={{ color: '#EF4444' }} />
                   </div>
                 </div>
               </div>
@@ -498,6 +510,15 @@ const CMCommunityDashboard = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Maintenance Bottom Sheet */}
+      {maintenanceAmenity && (
+        <SetMaintenanceSheet
+          open={!!maintenanceAmenity}
+          onClose={() => setMaintenanceAmenity(null)}
+          amenity={maintenanceAmenity}
+        />
       )}
     </div>
   );
