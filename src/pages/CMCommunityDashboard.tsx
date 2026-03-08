@@ -31,6 +31,7 @@ const CMCommunityDashboard = () => {
   const { communities, refetch } = useCondoManagerCommunities();
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
   const [showAddAmenityModal, setShowAddAmenityModal] = useState(false);
+  const [maintenanceAmenity, setMaintenanceAmenity] = useState<{ id: string; name: string; type: string; hoaId: string } | null>(null);
   const [newAmenityName, setNewAmenityName] = useState('');
   const [newAmenityType, setNewAmenityType] = useState<string>('tennis');
   const [announcementTitle, setAnnouncementTitle] = useState('');
