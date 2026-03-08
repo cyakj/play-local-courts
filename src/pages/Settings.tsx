@@ -246,6 +246,7 @@ const Settings = () => {
         onSave={saveChanges}
         onDiscard={discardChanges}
       />
+      </div>
     </div>
   );
 };
