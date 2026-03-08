@@ -511,6 +511,15 @@ const CMCommunityDashboard = () => {
           </div>
         </div>
       )}
+
+      {/* Maintenance Bottom Sheet */}
+      {maintenanceAmenity && (
+        <SetMaintenanceSheet
+          open={!!maintenanceAmenity}
+          onClose={() => setMaintenanceAmenity(null)}
+          amenity={maintenanceAmenity}
+        />
+      )}
     </div>
   );
 };
