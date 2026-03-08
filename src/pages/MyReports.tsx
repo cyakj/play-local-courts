@@ -113,19 +113,25 @@ const MyReports = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Reports</h1>
-        <p className="text-sm text-muted-foreground">Track and submit maintenance reports</p>
+    <div className="min-h-screen bg-background pb-24">
+      {/* Navy Header */}
+      <div className="navy-gradient text-white px-5 pt-[50px] pb-5">
+        <div className="flex justify-between items-center">
+          <div>
+            <div className="text-xl font-extrabold">My Reports</div>
+            <div className="text-xs opacity-65 mt-0.5">Track and submit maintenance issues</div>
+          </div>
+          <button
+            onClick={() => setShowReportDialog(true)}
+            className="px-3.5 py-2 rounded-[10px] text-xs font-bold"
+            style={{ background: '#00B4D8' }}
+          >
+            ＋ New
+          </button>
+        </div>
       </div>
 
-      <Button
-        className="w-full h-12 rounded-xl text-base font-semibold"
-        onClick={() => setShowReportDialog(true)}
-      >
-        <Plus className="h-5 w-5 mr-2" />
-        Report New Issue
-      </Button>
+      <div className="px-4 pt-4 space-y-4">
 
       {/* Filter Chips */}
       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
