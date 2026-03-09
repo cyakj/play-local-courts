@@ -70,6 +70,7 @@ export const MultiStepReportDialog: React.FC<MultiStepReportDialogProps> = ({
   const [locationCategory, setLocationCategory] = useState('');
   const [locationDescription, setLocationDescription] = useState('');
   const [locationPhotos, setLocationPhotos] = useState<Array<{ file: File; preview: string }>>([]);
+  const [locSeverity, setLocSeverity] = useState([50]);
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
