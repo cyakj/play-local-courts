@@ -164,7 +164,7 @@ const BookAmenity: React.FC = () => {
                   Book Now →
                 </button>
                 <button
-                  onClick={() => setRulesAmenityId(amenity.id)}
+                  onClick={() => {/* Rules dialog - future */}}
                   className="min-h-[44px]"
                   style={{
                     borderRadius: 10,
@@ -177,7 +177,6 @@ const BookAmenity: React.FC = () => {
                     cursor: 'pointer',
                   }}
                 >
-                  <FileText className="h-4 w-4 inline mr-1" style={{ verticalAlign: '-2px' }} />
                   Rules
                 </button>
               </div>
