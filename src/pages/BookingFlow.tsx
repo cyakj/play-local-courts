@@ -59,8 +59,8 @@ const BookingFlow: React.FC = () => {
   }, [advanceDays]);
 
   // Duration options
-  const singlesMax = rules?.max_duration_minutes ?? 60;
-  const doublesMax = rules?.max_duration_minutes ?? 90;
+  const singlesMax = rules?.singles_duration_minutes ?? 60;
+  const doublesMax = rules?.doubles_duration_minutes ?? 90;
   const currentMax = playType === 'singles' ? singlesMax : doublesMax;
 
   const durationOptions = useMemo(() => {
