@@ -29,14 +29,13 @@ const issueTypes = [
   { value: 'safety_other', label: 'Safety / Other', icon: ShieldAlert },
 ];
 
-const locationCategories = [
-  { value: 'signage', label: 'Signage' },
-  { value: 'lighting', label: 'Lighting' },
-  { value: 'parking', label: 'Parking' },
-  { value: 'landscaping', label: 'Landscaping' },
-  { value: 'gate_entrance', label: 'Gate & Entrance' },
-  { value: 'structural', label: 'Structural' },
-  { value: 'other', label: 'Other' },
+const locationIssueTypes = [
+  { value: 'lighting', label: 'Lighting', icon: Zap },
+  { value: 'parking', label: 'Parking', icon: Building2 },
+  { value: 'landscaping', label: 'Landscaping', icon: TreePine },
+  { value: 'gate_entrance', label: 'Gate & Entrance', icon: ShieldAlert },
+  { value: 'structural', label: 'Structural', icon: Wrench },
+  { value: 'other', label: 'Other', icon: Droplets },
 ];
 
 const getSeverityLabel = (value: number): string => {
@@ -55,6 +54,7 @@ export const MultiStepReportDialog: React.FC<MultiStepReportDialogProps> = ({
   const { toast } = useToast();
   const [reportType, setReportType] = useState<ReportType>(null);
   const [step, setStep] = useState(1);
+  const [locStep, setLocStep] = useState(1);
   const [loading, setLoading] = useState(false);
   
   // Amenity form state
@@ -70,6 +70,7 @@ export const MultiStepReportDialog: React.FC<MultiStepReportDialogProps> = ({
   const [locationCategory, setLocationCategory] = useState('');
   const [locationDescription, setLocationDescription] = useState('');
   const [locationPhotos, setLocationPhotos] = useState<Array<{ file: File; preview: string }>>([]);
+  const [locSeverity, setLocSeverity] = useState([50]);
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -114,6 +115,8 @@ export const MultiStepReportDialog: React.FC<MultiStepReportDialogProps> = ({
     setLocationCategory('');
     setLocationDescription('');
     setLocationPhotos([]);
+    setLocSeverity([50]);
+    setLocStep(1);
   };
 
   const handleClose = () => {
@@ -187,7 +190,7 @@ export const MultiStepReportDialog: React.FC<MultiStepReportDialogProps> = ({
           amenity_id: null,
           reporter_id: currentUser.id,
           category: locationCategory,
-          description: locationDescription,
+          description: `[Severity: ${getSeverityLabel(locSeverity[0])}] ${locationDescription}`,
           photo_url: photoUrl,
           status: 'open',
           report_type: 'location',
@@ -260,121 +263,225 @@ export const MultiStepReportDialog: React.FC<MultiStepReportDialogProps> = ({
     );
   }
 
-  // ── LOCATION ISSUE FORM ──
+  // ── LOCATION ISSUE FORM (3-step, mirrors amenity flow) ──
   if (reportType === 'location') {
+    const canLocStep1 = locationCategory && locationText;
+    const canLocStep2 = locationDescription.trim().length > 0;
+
     return (
       <Dialog open={open} onOpenChange={handleClose}>
         <DialogContent className="sm:max-w-[425px] p-0 overflow-hidden">
-          {/* Navy header */}
-          <div className="px-5 pt-12 pb-5" style={{ background: 'linear-gradient(135deg, #0A1628 0%, #1A2A4A 100%)' }}>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setReportType(null)}
-                className="flex items-center justify-center"
-                style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.12)' }}
-              >
-                <ChevronLeft className="h-5 w-5 text-white" />
-              </button>
-              <div>
-                <div className="text-xl font-extrabold text-white">📍 Location Issue</div>
-                <div className="text-xs text-white/60 mt-0.5">Report a community issue</div>
-              </div>
+          {/* Header */}
+          <div className="px-6 pt-6 pb-4 text-center">
+            <div className="w-12 h-1.5 bg-muted rounded-full mx-auto mb-6" />
+            <h2 className="text-2xl font-bold text-primary mb-2">Report Issue</h2>
+            <p className="text-muted-foreground text-sm">
+              {locStep === 1 && "Please provide details about the problem"}
+              {locStep === 2 && "Describe the issue in detail"}
+              {locStep === 3 && "Review and submit your report"}
+            </p>
+          </div>
+
+          {/* Step indicator */}
+          <div className="px-6 mb-6">
+            <div className="flex items-center justify-between text-sm mb-2">
+              <span className="font-medium text-primary">STEP {locStep} OF 3</span>
+              <span className="text-muted-foreground">
+                {locStep === 1 && "Issue Details"}
+                {locStep === 2 && "Description"}
+                {locStep === 3 && "Review"}
+              </span>
+            </div>
+            <div className="flex gap-1">
+              <div className={cn("h-1 flex-1 rounded-full transition-colors", locStep >= 1 ? "bg-primary" : "bg-muted")} />
+              <div className={cn("h-1 flex-1 rounded-full transition-colors", locStep >= 2 ? "bg-primary" : "bg-muted")} />
+              <div className={cn("h-1 flex-1 rounded-full transition-colors", locStep >= 3 ? "bg-primary" : "bg-muted")} />
             </div>
           </div>
 
-          <div className="px-5 py-5 space-y-5 max-h-[60vh] overflow-y-auto">
-            {/* Location */}
-            <div>
-              <label className="block text-xs font-bold mb-2" style={{ color: '#4B5563' }}>Location *</label>
-              <input
-                type="text"
-                value={locationText}
-                onChange={(e) => setLocationText(e.target.value)}
-                placeholder="e.g. Parking Lot B near the entrance, Street corner of Oak & Main"
-                className="w-full text-sm"
-                style={{
-                  borderRadius: 10,
-                  border: '1px solid #E5E7EB',
-                  padding: '12px 14px',
-                  outline: 'none',
-                }}
-              />
-            </div>
-
-            {/* Category */}
-            <div>
-              <label className="block text-xs font-bold mb-2" style={{ color: '#4B5563' }}>Category *</label>
-              <Select value={locationCategory} onValueChange={setLocationCategory}>
-                <SelectTrigger className="rounded-[10px]">
-                  <SelectValue placeholder="Select a category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {locationCategories.map((c) => (
-                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Description */}
-            <div>
-              <label className="block text-xs font-bold mb-2" style={{ color: '#4B5563' }}>Description *</label>
-              <Textarea
-                value={locationDescription}
-                onChange={(e) => setLocationDescription(e.target.value)}
-                placeholder="Describe the issue in detail..."
-                rows={4}
-                className="rounded-[10px] resize-none"
-              />
-            </div>
-
-            {/* Photos */}
-            <div>
-              <label className="block text-xs font-bold mb-2" style={{ color: '#4B5563' }}>Photos (optional)</label>
-              {locationPhotos.length > 0 && (
-                <div className="flex gap-2 mb-2">
-                  {locationPhotos.map((p, i) => (
-                    <div key={i} className="relative w-20 h-20">
-                      <img src={p.preview} alt="" className="w-full h-full object-cover rounded-lg" />
-                      <button
-                        onClick={() => removeLocationPhoto(i)}
-                        className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center"
-                        style={{ background: '#EF4444' }}
-                      >
-                        <X className="h-3 w-3 text-white" />
-                      </button>
-                    </div>
-                  ))}
+          <div className="px-6 pb-6">
+            {/* Step 1: Category cards + Location + Severity */}
+            {locStep === 1 && (
+              <div className="space-y-6">
+                <div className="space-y-3">
+                  <Label className="text-sm font-semibold">What type of issue is this?</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {locationIssueTypes.map((type) => {
+                      const Icon = type.icon;
+                      const isSelected = locationCategory === type.value;
+                      return (
+                        <button
+                          key={type.value}
+                          type="button"
+                          onClick={() => setLocationCategory(type.value)}
+                          className={cn(
+                            "flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all min-h-[80px]",
+                            isSelected ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 hover:bg-muted/50"
+                          )}
+                        >
+                          <Icon className={cn("h-5 w-5 mb-1", isSelected ? "text-primary" : "text-muted-foreground")} />
+                          <span className={cn("text-xs font-medium text-center leading-tight", isSelected ? "text-primary" : "text-muted-foreground")}>
+                            {type.label}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              )}
-              {locationPhotos.length < 3 && (
-                <label
-                  className="flex flex-col items-center justify-center h-24 border-2 border-dashed rounded-xl cursor-pointer transition-colors"
-                  style={{ borderColor: '#E5E7EB' }}
-                >
-                  <span className="text-2xl mb-1">📷</span>
-                  <span className="text-xs" style={{ color: '#9CA3AF' }}>Tap to add photos</span>
+
+                <div className="space-y-3">
+                  <Label className="text-sm font-semibold">Where is the issue?</Label>
                   <Input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handleLocationPhotoChange}
-                    className="hidden"
+                    value={locationText}
+                    onChange={(e) => setLocationText(e.target.value)}
+                    placeholder="e.g. Parking Lot B, Oak & Main corner"
+                    className="rounded-xl"
                   />
-                </label>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-semibold">Severity Level</Label>
+                    <span className={cn(
+                      "text-xs font-medium px-2 py-1 rounded-full",
+                      locSeverity[0] <= 25 && "bg-green-100 text-green-700",
+                      locSeverity[0] > 25 && locSeverity[0] <= 50 && "bg-yellow-100 text-yellow-700",
+                      locSeverity[0] > 50 && locSeverity[0] <= 75 && "bg-orange-100 text-orange-700",
+                      locSeverity[0] > 75 && "bg-red-100 text-red-700"
+                    )}>
+                      {getSeverityLabel(locSeverity[0])}
+                    </span>
+                  </div>
+                  <Slider value={locSeverity} onValueChange={setLocSeverity} max={100} step={25} className="w-full" />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Low</span>
+                    <span>High</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Step 2: Description and Photos */}
+            {locStep === 2 && (
+              <div className="space-y-6">
+                <div className="space-y-3">
+                  <Label className="text-sm font-semibold">Describe the issue *</Label>
+                  <Textarea
+                    placeholder="Describe the issue in detail..."
+                    value={locationDescription}
+                    onChange={(e) => setLocationDescription(e.target.value)}
+                    rows={5}
+                    className="rounded-xl resize-none"
+                  />
+                </div>
+                <div className="space-y-3">
+                  <Label className="text-sm font-semibold">Add photos (optional)</Label>
+                  {locationPhotos.length > 0 && (
+                    <div className="flex gap-2 mb-2">
+                      {locationPhotos.map((p, i) => (
+                        <div key={i} className="relative w-20 h-20">
+                          <img src={p.preview} alt="" className="w-full h-full object-cover rounded-xl" />
+                          <button
+                            onClick={() => removeLocationPhoto(i)}
+                            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-destructive flex items-center justify-center"
+                          >
+                            <X className="h-3 w-3 text-white" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {locationPhotos.length < 3 && (
+                    <label className="flex flex-col items-center justify-center h-32 border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary/50 hover:bg-muted/50 transition-colors">
+                      <Camera className="h-8 w-8 text-muted-foreground mb-2" />
+                      <span className="text-sm text-muted-foreground">Tap to add photos</span>
+                      <Input type="file" accept="image/*" multiple onChange={handleLocationPhotoChange} className="hidden" />
+                    </label>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Review */}
+            {locStep === 3 && (
+              <div className="space-y-4">
+                <div className="bg-muted/50 rounded-xl p-4 space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Issue Type</span>
+                    <span className="text-sm font-medium">{locationIssueTypes.find(t => t.value === locationCategory)?.label || locationCategory}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Location</span>
+                    <span className="text-sm font-medium">{locationText}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Severity</span>
+                    <span className={cn(
+                      "text-xs font-medium px-2 py-1 rounded-full",
+                      locSeverity[0] <= 25 && "bg-green-100 text-green-700",
+                      locSeverity[0] > 25 && locSeverity[0] <= 50 && "bg-yellow-100 text-yellow-700",
+                      locSeverity[0] > 50 && locSeverity[0] <= 75 && "bg-orange-100 text-orange-700",
+                      locSeverity[0] > 75 && "bg-red-100 text-red-700"
+                    )}>
+                      {getSeverityLabel(locSeverity[0])}
+                    </span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <span className="text-sm text-muted-foreground">Description</span>
+                  <p className="text-sm bg-muted/50 rounded-xl p-3">{locationDescription}</p>
+                </div>
+                {locationPhotos.length > 0 && (
+                  <div className="space-y-2">
+                    <span className="text-sm text-muted-foreground">Photos</span>
+                    <div className="flex gap-2">
+                      {locationPhotos.map((p, i) => (
+                        <img key={i} src={p.preview} alt="" className="w-20 h-20 object-cover rounded-xl" />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 mt-4">
+                  <p className="text-sm font-medium text-primary mb-3">What happens next?</p>
+                  <div className="flex items-center justify-between text-xs">
+                    {['Submitted', 'In Review', 'In Progress', 'Resolved'].map((label, i) => (
+                      <React.Fragment key={label}>
+                        {i > 0 && <div className="flex-1 h-0.5 bg-border mx-1" />}
+                        <div className="flex flex-col items-center">
+                          <div className={cn(
+                            "w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold",
+                            i === 0 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                          )}>{i + 1}</div>
+                          <span className="mt-1 text-muted-foreground">{label}</span>
+                        </div>
+                      </React.Fragment>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Navigation */}
+            <div className="flex flex-col gap-3 mt-8">
+              {locStep < 3 ? (
+                <Button onClick={() => setLocStep(locStep + 1)} disabled={locStep === 1 ? !canLocStep1 : !canLocStep2} className="w-full rounded-xl h-12">
+                  Next Step
+                </Button>
+              ) : (
+                <Button onClick={handleSubmitLocation} disabled={loading} className="w-full rounded-xl h-12">
+                  {loading ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" />Submitting...</>) : 'Submit Report'}
+                </Button>
+              )}
+              {locStep > 1 ? (
+                <Button variant="outline" onClick={() => setLocStep(locStep - 1)} className="w-full rounded-xl h-12">
+                  <ChevronLeft className="h-4 w-4 mr-1" />Back
+                </Button>
+              ) : (
+                <Button variant="outline" onClick={() => setReportType(null)} className="w-full rounded-xl h-12">
+                  Back
+                </Button>
               )}
             </div>
-          </div>
-
-          <div className="px-5 pb-6 pt-2">
-            <button
-              onClick={handleSubmitLocation}
-              disabled={loading || !locationText || !locationCategory || !locationDescription}
-              className="w-full py-3.5 rounded-xl text-white text-[15px] font-extrabold disabled:opacity-50"
-              style={{ background: '#0A1628' }}
-            >
-              {loading ? 'Submitting...' : 'Submit Report'}
-            </button>
           </div>
         </DialogContent>
       </Dialog>
