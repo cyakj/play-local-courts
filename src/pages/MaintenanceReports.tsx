@@ -37,6 +37,8 @@ interface MaintenanceReport {
   amenity_id: string;
   reporter_name?: string;
   amenity_name?: string;
+  report_type?: string;
+  location_text?: string;
 }
 
 const MaintenanceReports = () => {
