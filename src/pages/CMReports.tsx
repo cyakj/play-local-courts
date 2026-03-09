@@ -15,6 +15,8 @@ interface Report {
   description: string;
   reporter: string;
   date: string;
+  report_type?: string;
+  location_text?: string;
 }
 
 const CMReports = () => {
