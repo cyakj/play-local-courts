@@ -3,11 +3,10 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { useActiveHOA } from '../contexts/ActiveHOAContext';
-import { AlertCircle, FileText } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import ResidentHeader from '@/components/resident/ResidentHeader';
-import AmenityRulesDialog from '../components/AmenityRulesDialog';
 
 const amenityIcons: Record<string, string> = {
   tennis: '🎾', pickleball: '🏓', pool: '🏊', barbecue: '🍖',
