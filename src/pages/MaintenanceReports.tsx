@@ -105,11 +105,9 @@ const MaintenanceReports = () => {
           .eq('id', report.reporter_id)
           .single();
         
-        const { data: amenity } = await supabase
-          .from('courts')
-          .select('name')
-          .eq('id', report.amenity_id)
-          .single();
+        const amenity = report.amenity_id
+          ? (await supabase.from('courts').select('name').eq('id', report.amenity_id).single()).data
+          : null;
         
         return {
           ...report,
