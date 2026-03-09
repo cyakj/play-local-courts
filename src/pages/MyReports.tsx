@@ -195,7 +195,9 @@ const MyReports = () => {
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-sm truncate mb-1.5">
-                      {report.amenity_name}
+                      {report.report_type === 'location'
+                        ? `📍 ${(report.location_text || 'Unknown location').slice(0, 30)}${(report.location_text || '').length > 30 ? '…' : ''}`
+                        : report.amenity_name}
                     </h3>
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
                       {getStatusBadge(report.status)}
