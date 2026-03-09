@@ -2301,6 +2301,7 @@ export type Database = {
           role: Database["public"]["Enums"]["user_role"] | null
           show_activity_status: boolean | null
           show_exact_distance: boolean | null
+          unit_number: string | null
           updated_at: string | null
           user_type: string | null
           username: string | null
@@ -2333,6 +2334,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["user_role"] | null
           show_activity_status?: boolean | null
           show_exact_distance?: boolean | null
+          unit_number?: string | null
           updated_at?: string | null
           user_type?: string | null
           username?: string | null
@@ -2365,6 +2367,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["user_role"] | null
           show_activity_status?: boolean | null
           show_exact_distance?: boolean | null
+          unit_number?: string | null
           updated_at?: string | null
           user_type?: string | null
           username?: string | null

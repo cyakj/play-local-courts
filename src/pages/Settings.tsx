@@ -147,7 +147,7 @@ const Settings = () => {
             </div>
           </div>
           <button
-            onClick={() => navigate('/my-home')}
+            onClick={() => navigate('/edit-profile')}
             className="w-full mt-3.5 py-2 rounded-[10px] text-xs font-bold text-white"
             style={{ background: '#00B4D8' }}
           >
@@ -191,13 +191,13 @@ const Settings = () => {
           ))}
           {memberships.length > 1 && (
             <div className="pt-2">
-              <ActiveCommunitySelector onAddCommunity={() => navigate('/my-home?tab=community')} />
+              <ActiveCommunitySelector onAddCommunity={() => navigate('/join-community')} />
             </div>
           )}
           <Button
             variant="ghost"
             className="w-full h-11 text-sm text-primary"
-            onClick={() => navigate('/my-home?tab=community')}
+            onClick={() => navigate('/join-community')}
           >
             + Join or apply to a new community
           </Button>
