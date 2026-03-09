@@ -29,14 +29,13 @@ const issueTypes = [
   { value: 'safety_other', label: 'Safety / Other', icon: ShieldAlert },
 ];
 
-const locationCategories = [
-  { value: 'signage', label: 'Signage' },
-  { value: 'lighting', label: 'Lighting' },
-  { value: 'parking', label: 'Parking' },
-  { value: 'landscaping', label: 'Landscaping' },
-  { value: 'gate_entrance', label: 'Gate & Entrance' },
-  { value: 'structural', label: 'Structural' },
-  { value: 'other', label: 'Other' },
+const locationIssueTypes = [
+  { value: 'lighting', label: 'Lighting', icon: Zap },
+  { value: 'parking', label: 'Parking', icon: Building2 },
+  { value: 'landscaping', label: 'Landscaping', icon: TreePine },
+  { value: 'gate_entrance', label: 'Gate & Entrance', icon: ShieldAlert },
+  { value: 'structural', label: 'Structural', icon: Wrench },
+  { value: 'other', label: 'Other', icon: Droplets },
 ];
 
 const getSeverityLabel = (value: number): string => {
