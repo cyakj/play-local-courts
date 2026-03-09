@@ -54,6 +54,7 @@ export const MultiStepReportDialog: React.FC<MultiStepReportDialogProps> = ({
   const { toast } = useToast();
   const [reportType, setReportType] = useState<ReportType>(null);
   const [step, setStep] = useState(1);
+  const [locStep, setLocStep] = useState(1);
   const [loading, setLoading] = useState(false);
   
   // Amenity form state
