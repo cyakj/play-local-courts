@@ -193,14 +193,6 @@ const BookAmenity: React.FC = () => {
         )}
       </div>
 
-      {rulesAmenityId && (
-        <AmenityRulesDialog
-          amenityId={rulesAmenityId}
-          amenityName={amenities.find(a => a.id === rulesAmenityId)?.name || ''}
-          open={!!rulesAmenityId}
-          onOpenChange={(open) => !open && setRulesAmenityId(null)}
-        />
-      )}
     </div>
   );
 };

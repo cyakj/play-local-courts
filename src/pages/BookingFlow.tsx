@@ -101,18 +101,19 @@ const BookingFlow: React.FC = () => {
           .eq('date', dateStr),
       ]);
 
-      // For booked slots, fetch unit_number from profiles
+      // For booked slots, fetch full_name from profiles to derive unit info
       const bookings = bookingsRes.data || [];
       const userIds = [...new Set(bookings.map(b => b.user_id))];
       let profileMap: Record<string, string> = {};
       if (userIds.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
-          .select('id, unit_number')
+          .select('id, full_name')
           .in('id', userIds);
         if (profiles) {
-          profiles.forEach(p => {
-            if (p.unit_number) profileMap[p.id] = p.unit_number;
+          profiles.forEach((p: any) => {
+            // Use full_name as fallback since unit_number may not exist
+            if (p.full_name) profileMap[p.id] = p.full_name;
           });
         }
       }
