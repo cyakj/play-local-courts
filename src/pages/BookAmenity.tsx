@@ -31,7 +31,6 @@ const BookAmenity: React.FC = () => {
   const { isHOAUser, loading: hoaLoading } = useActiveHOA();
   const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = useState('all');
-  const [rulesAmenityId, setRulesAmenityId] = useState<string | null>(null);
 
   if (!hoaLoading && !isHOAUser) {
     return (
