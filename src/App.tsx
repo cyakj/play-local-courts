@@ -20,8 +20,9 @@ import CoachDashboard from "./pages/CoachDashboard";
 import CoachSchedule from "./pages/CoachSchedule";
 import CoachClients from "./pages/CoachClients";
 import CoachReviews from "./pages/CoachReviews";
-import ReserveCourt from "./pages/ReserveCourt";
-import ReserveFacilities from "./pages/ReserveFacilities";
+import BookAmenity from "./pages/BookAmenity";
+import BookingFlow from "./pages/BookingFlow";
+import BookingConfirmed from "./pages/BookingConfirmed";
 import MyReservations from "./pages/MyReservations";
 import Upcoming from "./pages/Upcoming";
 import ManageCourts from "./pages/ManageCourts";
@@ -119,8 +120,11 @@ function App() {
                         <Route path="/manage-ladders" element={<Navigate to="/" replace />} />
                       </>
                     )}
-                    <Route path="/reserve-court" element={<ReserveCourt />} />
-                    <Route path="/reserve-facilities" element={<ReserveFacilities />} />
+                    <Route path="/book" element={<BookAmenity />} />
+                    <Route path="/book/:amenityId" element={<BookingFlow />} />
+                    <Route path="/book/:amenityId/confirmed" element={<BookingConfirmed />} />
+                    <Route path="/reserve-court" element={<Navigate to="/book" replace />} />
+                    <Route path="/reserve-facilities" element={<Navigate to="/book" replace />} />
                     <Route path="/my-reservations" element={<MyReservations />} />
                     <Route path="/upcoming" element={<Upcoming />} />
                     <Route path="/manage-amenities" element={<ManageCourts />} />

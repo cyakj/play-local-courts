@@ -12,7 +12,7 @@ const BottomNavigation = () => {
 
   const navItems = [
     { path: '/', icon: Home, label: 'Home' },
-    { path: '/reserve-court', icon: Calendar, label: 'Book' },
+    { path: '/book', icon: Calendar, label: 'Book' },
     { path: '/my-reports', icon: ClipboardList, label: 'Reports' },
     { path: '/community-calendar', icon: CalendarDays, label: 'Calendar' },
   ];
