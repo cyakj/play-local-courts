@@ -190,7 +190,7 @@ export const MultiStepReportDialog: React.FC<MultiStepReportDialogProps> = ({
           amenity_id: null,
           reporter_id: currentUser.id,
           category: locationCategory,
-          description: locationDescription,
+          description: `[Severity: ${getSeverityLabel(locSeverity[0])}] ${locationDescription}`,
           photo_url: photoUrl,
           status: 'open',
           report_type: 'location',
