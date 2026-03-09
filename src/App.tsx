@@ -140,6 +140,8 @@ function App() {
                     <Route path="/my-locker" element={<Navigate to="/my-home" replace />} />
                     <Route path="/email-settings" element={<EmailSettings />} />
                     <Route path="/settings" element={<Settings />} />
+                    <Route path="/edit-profile" element={<EditProfile />} />
+                    <Route path="/join-community" element={<JoinCommunity />} />
                     <Route path="/profile/:id" element={<UserProfile />} />
                     <Route path="/messages" element={<Messages />} />
                     <Route path="/notifications" element={<Notifications />} />

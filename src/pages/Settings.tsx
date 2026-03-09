@@ -197,7 +197,7 @@ const Settings = () => {
           <Button
             variant="ghost"
             className="w-full h-11 text-sm text-primary"
-            onClick={() => navigate('/my-home?tab=community')}
+            onClick={() => navigate('/join-community')}
           >
             + Join or apply to a new community
           </Button>
