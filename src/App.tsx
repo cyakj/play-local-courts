@@ -120,8 +120,11 @@ function App() {
                         <Route path="/manage-ladders" element={<Navigate to="/" replace />} />
                       </>
                     )}
-                    <Route path="/reserve-court" element={<ReserveCourt />} />
-                    <Route path="/reserve-facilities" element={<ReserveFacilities />} />
+                    <Route path="/book" element={<BookAmenity />} />
+                    <Route path="/book/:amenityId" element={<BookingFlow />} />
+                    <Route path="/book/:amenityId/confirmed" element={<BookingConfirmed />} />
+                    <Route path="/reserve-court" element={<Navigate to="/book" replace />} />
+                    <Route path="/reserve-facilities" element={<Navigate to="/book" replace />} />
                     <Route path="/my-reservations" element={<MyReservations />} />
                     <Route path="/upcoming" element={<Upcoming />} />
                     <Route path="/manage-amenities" element={<ManageCourts />} />
