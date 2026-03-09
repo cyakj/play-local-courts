@@ -1855,7 +1855,7 @@ export type Database = {
       maintenance_reports: {
         Row: {
           admin_notes: string | null
-          amenity_id: string
+          amenity_id: string | null
           assignee: string | null
           category: string
           completed_at: string | null
@@ -1864,15 +1864,17 @@ export type Database = {
           description: string
           hoa_id: string
           id: string
+          location_text: string | null
           photo_url: string | null
           priority: string | null
+          report_type: string
           reporter_id: string
           status: string
           updated_at: string
         }
         Insert: {
           admin_notes?: string | null
-          amenity_id: string
+          amenity_id?: string | null
           assignee?: string | null
           category: string
           completed_at?: string | null
@@ -1881,15 +1883,17 @@ export type Database = {
           description: string
           hoa_id: string
           id?: string
+          location_text?: string | null
           photo_url?: string | null
           priority?: string | null
+          report_type?: string
           reporter_id: string
           status?: string
           updated_at?: string
         }
         Update: {
           admin_notes?: string | null
-          amenity_id?: string
+          amenity_id?: string | null
           assignee?: string | null
           category?: string
           completed_at?: string | null
@@ -1898,8 +1902,10 @@ export type Database = {
           description?: string
           hoa_id?: string
           id?: string
+          location_text?: string | null
           photo_url?: string | null
           priority?: string | null
+          report_type?: string
           reporter_id?: string
           status?: string
           updated_at?: string

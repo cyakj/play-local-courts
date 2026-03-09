@@ -37,6 +37,8 @@ interface UserReport {
   updated_at: string;
   amenity_id: string;
   amenity_name?: string;
+  report_type?: string;
+  location_text?: string;
 }
 
 const MyReports = () => {
@@ -193,7 +195,9 @@ const MyReports = () => {
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-sm truncate mb-1.5">
-                      {report.amenity_name}
+                      {report.report_type === 'location'
+                        ? `📍 ${(report.location_text || 'Unknown location').slice(0, 30)}${(report.location_text || '').length > 30 ? '…' : ''}`
+                        : report.amenity_name}
                     </h3>
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
                       {getStatusBadge(report.status)}
@@ -233,7 +237,11 @@ const MyReports = () => {
           {selectedReport && (
             <div className="space-y-4">
               <div>
-                <h3 className="font-semibold">{selectedReport.amenity_name}</h3>
+                <h3 className="font-semibold">
+                  {selectedReport.report_type === 'location'
+                    ? `📍 ${selectedReport.location_text || 'Unknown location'}`
+                    : selectedReport.amenity_name}
+                </h3>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
                   {getStatusBadge(selectedReport.status)}
                   {getPriorityBadge(selectedReport.description)}
