@@ -57,16 +57,20 @@ const CMReports = () => {
       const amenityMap = new Map((amenitiesRes.data || []).map(a => [a.id, a.name]));
       const profileMap = new Map((profilesRes.data || []).map(p => [p.id, p.full_name]));
 
-      setReports((data || []).map(r => ({
+      setReports((data || []).map((r: any) => ({
         id: r.id,
         community: hoaMap.get(r.hoa_id) || '',
-        amenity: amenityMap.get(r.amenity_id) || 'Unknown Amenity',
+        amenity: r.report_type === 'location'
+          ? `📍 ${(r.location_text || 'Unknown location').slice(0, 30)}${(r.location_text || '').length > 30 ? '…' : ''}`
+          : (amenityMap.get(r.amenity_id) || 'Unknown Amenity'),
         status: r.status.charAt(0).toUpperCase() + r.status.slice(1).replace('_', ' '),
         priority: r.priority || 'medium',
         category: r.category,
         description: r.description,
         reporter: profileMap.get(r.reporter_id) || 'Unknown',
         date: new Date(r.created_at).toLocaleDateString(),
+        report_type: r.report_type,
+        location_text: r.location_text,
       })));
       setLoading(false);
     };

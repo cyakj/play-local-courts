@@ -357,7 +357,11 @@ const ReportDetailForm: React.FC<{
     <div className="space-y-6">
       <div className="space-y-4">
         <div>
-          <h3 className="font-semibold text-lg">{report.amenity_name}</h3>
+          <h3 className="font-semibold text-lg">
+            {report.report_type === 'location'
+              ? `📍 ${report.location_text || 'Unknown location'}`
+              : report.amenity_name}
+          </h3>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
             <Badge variant="outline">{getCategoryLabel(report.category)}</Badge>
             {pConfig && <Badge variant="outline" className={pConfig.className}>{pConfig.label}</Badge>}

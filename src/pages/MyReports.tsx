@@ -237,7 +237,11 @@ const MyReports = () => {
           {selectedReport && (
             <div className="space-y-4">
               <div>
-                <h3 className="font-semibold">{selectedReport.amenity_name}</h3>
+                <h3 className="font-semibold">
+                  {selectedReport.report_type === 'location'
+                    ? `📍 ${selectedReport.location_text || 'Unknown location'}`
+                    : selectedReport.amenity_name}
+                </h3>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
                   {getStatusBadge(selectedReport.status)}
                   {getPriorityBadge(selectedReport.description)}
