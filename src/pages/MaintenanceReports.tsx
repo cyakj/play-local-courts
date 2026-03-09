@@ -261,7 +261,11 @@ const MaintenanceReports = () => {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <h3 className="font-semibold">{report.amenity_name}</h3>
+                      <h3 className="font-semibold">
+                        {report.report_type === 'location'
+                          ? `📍 ${(report.location_text || 'Unknown location').slice(0, 30)}${(report.location_text || '').length > 30 ? '…' : ''}`
+                          : report.amenity_name}
+                      </h3>
                     </div>
                     <div className="flex items-center gap-2 mb-3 flex-wrap">
                       {getStatusBadge(report.status)}
