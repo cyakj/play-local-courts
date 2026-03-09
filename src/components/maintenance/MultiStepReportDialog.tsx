@@ -115,6 +115,8 @@ export const MultiStepReportDialog: React.FC<MultiStepReportDialogProps> = ({
     setLocationCategory('');
     setLocationDescription('');
     setLocationPhotos([]);
+    setLocSeverity([50]);
+    setLocStep(1);
   };
 
   const handleClose = () => {
