@@ -37,6 +37,8 @@ interface UserReport {
   updated_at: string;
   amenity_id: string;
   amenity_name?: string;
+  report_type?: string;
+  location_text?: string;
 }
 
 const MyReports = () => {
