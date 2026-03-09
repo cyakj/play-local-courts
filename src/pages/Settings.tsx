@@ -147,7 +147,7 @@ const Settings = () => {
             </div>
           </div>
           <button
-            onClick={() => navigate('/my-home')}
+            onClick={() => navigate('/edit-profile')}
             className="w-full mt-3.5 py-2 rounded-[10px] text-xs font-bold text-white"
             style={{ background: '#00B4D8' }}
           >
