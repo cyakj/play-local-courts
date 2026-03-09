@@ -44,6 +44,8 @@ import HOAApplication from "./pages/HOAApplication";
 import PlatformReviewerLogin from "./pages/PlatformReviewerLogin";
 import PlatformReviewerDashboard from "./pages/PlatformReviewerDashboard";
 import Settings from "./pages/Settings";
+import EditProfile from "./pages/EditProfile";
+import JoinCommunity from "./pages/JoinCommunity";
 import FAQ from "./pages/FAQ";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
