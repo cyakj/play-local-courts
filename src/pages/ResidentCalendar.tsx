@@ -290,7 +290,7 @@ const ResidentCalendar = () => {
                       >
                         {cell.day}
                       </span>
-                      {isToday && !isSel && <div className="absolute -bottom-0.5 w-3 h-[2px] rounded-full bg-primary" />}
+                      {isToday && !isSel && dots.length === 0 && <div className="absolute -bottom-0.5 w-3 h-[2px] rounded-full bg-primary" />}
                     </div>
                     <div className="flex gap-0.5 mt-0.5 h-1.5">
                       {dots.map((c, j) => <div key={j} className="w-1.5 h-1.5 rounded-full" style={{ background: c }} />)}
