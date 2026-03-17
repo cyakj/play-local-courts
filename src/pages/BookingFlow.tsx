@@ -44,6 +44,8 @@ const BookingFlow: React.FC = () => {
   const [bookedSlots, setBookedSlots] = useState<BookedSlot[]>([]);
   const [maintenanceSlots, setMaintenanceSlots] = useState<MaintenanceSlot[]>([]);
   const [confirming, setConfirming] = useState(false);
+  const [userDailyCount, setUserDailyCount] = useState(0);
+  const [userWeeklyCount, setUserWeeklyCount] = useState(0);
 
   // Advance booking days
   const advanceDays = rules?.advance_booking_days ?? 7;
