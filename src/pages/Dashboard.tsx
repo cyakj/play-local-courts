@@ -10,9 +10,8 @@ import { UserType } from '../types';
 import { TENNIS_FEATURES_ENABLED } from '@/config/featureFlags';
 import PendingApprovalMessage from '../components/PendingApprovalMessage';
 import { ActiveCommunitySelector } from '@/components/community/ActiveCommunitySelector';
-import { 
-  Settings, MessageCircle, Calendar, Wrench, CalendarDays, FolderOpen,
-  ChevronRight, Megaphone, ClipboardList, Sparkles
+import {
+  Settings, MessageCircle, CalendarDays, Megaphone, Sparkles, ClipboardList, Calendar
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 
@@ -24,11 +23,10 @@ const Dashboard = () => {
 
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [myReportsCount, setMyReportsCount] = useState(0);
+  const [myReports, setMyReports] = useState<any[]>([]);
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
   const [activeSurvey, setActiveSurvey] = useState<any>(null);
-  const [documentsCount, setDocumentsCount] = useState(0);
-  const [surveyResponseCount, setSurveyResponseCount] = useState<{ responses: number; total: number }>({ responses: 0, total: 0 });
 
   useEffect(() => {
     if (currentUser && activeHOA?.hoaId) {
@@ -69,14 +67,17 @@ const Dashboard = () => {
     if (!currentUser || !activeHOA?.hoaId) return;
     const hoaId = activeHOA.hoaId;
 
-    // Reports count
-    const { count: reportsCount } = await supabase
+    // Open reports with details
+    const { data: reportsData, count: reportsCount } = await supabase
       .from('maintenance_reports')
-      .select('*', { count: 'exact', head: true })
+      .select('*', { count: 'exact' })
       .eq('reporter_id', currentUser.id)
       .eq('hoa_id', hoaId)
-      .in('status', ['open', 'in_progress']);
+      .in('status', ['open', 'in_progress'])
+      .order('created_at', { ascending: false })
+      .limit(3);
     setMyReportsCount(reportsCount || 0);
+    setMyReports(reportsData || []);
 
     // Announcements
     const { data: announcementsData } = await supabase
@@ -84,7 +85,7 @@ const Dashboard = () => {
       .select('*')
       .eq('hoa_id', hoaId)
       .order('created_at', { ascending: false })
-      .limit(2);
+      .limit(3);
     setAnnouncements(announcementsData || []);
 
     // Events
@@ -93,55 +94,38 @@ const Dashboard = () => {
       .select('*')
       .eq('hoa_id', hoaId)
       .eq('status', 'active')
+      .eq('event_type', 'community_event')
       .gte('starts_at', new Date().toISOString())
       .order('starts_at')
-      .limit(2);
+      .limit(3);
     setEvents(eventsData || []);
 
-    // Active survey
+    // Active survey (not yet responded)
     const { data: surveyData } = await supabase
       .from('hoa_surveys')
       .select('*')
       .eq('hoa_id', hoaId)
       .eq('status', 'active')
+      .gte('closes_at', new Date().toISOString())
       .order('created_at', { ascending: false })
       .limit(1);
 
     if (surveyData && surveyData.length > 0) {
       const survey = surveyData[0];
-      setActiveSurvey(survey);
-      // Check if already responded
       const { data: myResponse } = await supabase
         .from('hoa_survey_responses')
         .select('id')
         .eq('survey_id', survey.id)
         .eq('user_id', currentUser.id)
         .limit(1);
-      // Get total members & response count
-      const { count: totalMembers } = await supabase
-        .from('hoa_memberships')
-        .select('*', { count: 'exact', head: true })
-        .eq('hoa_id', hoaId)
-        .eq('status', 'approved');
-      const { count: responseCount } = await supabase
-        .from('hoa_survey_responses')
-        .select('*', { count: 'exact', head: true })
-        .eq('survey_id', survey.id);
-      setSurveyResponseCount({ responses: responseCount || 0, total: totalMembers || 0 });
-      if (myResponse && myResponse.length > 0) {
-        // Already responded — still show banner but in responded state
-        setActiveSurvey({ ...survey, _responded: true });
+      if (!myResponse || myResponse.length === 0) {
+        setActiveSurvey(survey);
+      } else {
+        setActiveSurvey(null);
       }
     } else {
       setActiveSurvey(null);
     }
-
-    // Documents count
-    const { count: docsCount } = await supabase
-      .from('hoa_documents')
-      .select('*', { count: 'exact', head: true })
-      .eq('hoa_id', hoaId);
-    setDocumentsCount(docsCount || 0);
   };
 
   // Redirects
@@ -184,20 +168,18 @@ const Dashboard = () => {
   const upcomingReservations = bookings
     .filter(b => new Date(`${b.date}T${b.startTime}`) > now)
     .sort((a, b) => new Date(`${a.date}T${a.startTime}`).getTime() - new Date(`${b.date}T${b.startTime}`).getTime())
-    .slice(0, 3);
-
-  const EVENT_COLORS: Record<string, string> = {
-    community_event: '#00B4D8',
-    board_meeting: '#0A1628',
-    maintenance_scheduled: '#F59E0B',
-    amenity_booking: '#2DD4BF',
-  };
+    .slice(0, 2);
 
   const formatTime12 = (time: string) => {
     const [h, m] = time.split(':');
     const hr = parseInt(h);
     return `${hr % 12 || 12}:${m} ${hr >= 12 ? 'PM' : 'AM'}`;
   };
+
+  const cardStyle = "bg-white rounded-2xl p-4 border border-[#E5E7EB] mb-3" as const;
+  const cardShadow = { boxShadow: '0 2px 8px rgba(0,0,0,0.06)' };
+  const cardTitle = "text-[16px] font-bold" as const;
+  const viewAll = "text-[13px] font-bold" as const;
 
   return (
     <div className="animate-fade-scale">
@@ -233,29 +215,6 @@ const Dashboard = () => {
             </Link>
           </div>
         </div>
-
-        {/* Quick Actions */}
-        <div className="flex gap-2.5 mt-5">
-          {[
-            { icon: '📅', label: 'Book Amenity', to: '/reserve-court' },
-            { icon: '🔧', label: 'Report Issue', to: '/my-reports' },
-            { icon: '🗓', label: 'Calendar', to: '/community-calendar' },
-            { icon: '📁', label: 'Documents', to: '/documents' },
-          ].map((tile, i) => (
-            <Link
-              key={tile.label}
-              to={tile.to}
-              className="flex-1 rounded-xl py-3 px-2 text-center"
-              style={{
-                background: i === 0 ? 'rgba(0,180,216,0.2)' : 'rgba(255,255,255,0.1)',
-                border: i === 0 ? '1px solid rgba(0,180,216,0.4)' : '1px solid rgba(255,255,255,0.15)',
-              }}
-            >
-              <div className="text-xl">{tile.icon}</div>
-              <div className="text-xs font-bold text-white mt-1">{tile.label}</div>
-            </Link>
-          ))}
-        </div>
       </ResidentHeader>
 
       {/* Community Switcher */}
@@ -266,112 +225,116 @@ const Dashboard = () => {
       )}
 
       {/* Body */}
-      <div className="px-4 pt-4 pb-24 space-y-3">
+      <div className="px-4 pt-4 pb-28" style={{ background: '#F0F4F8' }}>
 
-        {/* Upcoming Reservations */}
-        <div className="bg-card rounded-2xl p-4 border border-border shadow-sm">
+        {/* CARD 1 — Upcoming Reservations */}
+        <div className={cardStyle} style={cardShadow}>
           <div className="flex justify-between items-center mb-3">
-            <span className="text-[13px] font-extrabold text-foreground">Upcoming Reservations</span>
+            <span className={cardTitle} style={{ color: '#1A1A2E' }}>Upcoming Reservations</span>
             {upcomingReservations.length > 0 && (
-              <Link to="/upcoming" className="text-xs font-bold text-primary">View All →</Link>
+              <Link to="/book" className={viewAll} style={{ color: '#00B4D8' }}>View All →</Link>
             )}
           </div>
           {upcomingReservations.length === 0 ? (
             <div className="text-center py-5">
-              <div className="text-3xl mb-2">📅</div>
-              <p className="text-[13px] text-muted-foreground">No upcoming reservations</p>
-              <Link to="/reserve-court" className="inline-block mt-3 px-4 py-2 rounded-[10px] text-xs font-bold text-white" style={{ background: '#00B4D8' }}>
+              <Calendar className="h-10 w-10 mx-auto mb-2" style={{ color: '#9CA3AF' }} />
+              <p className="text-[13px] mb-3" style={{ color: '#9CA3AF' }}>No upcoming reservations</p>
+              <Link to="/reserve-court" className="inline-block px-4 py-2 rounded-xl text-xs font-bold text-white" style={{ background: '#00B4D8' }}>
                 Book an Amenity
               </Link>
             </div>
           ) : (
             upcomingReservations.map((b, i) => (
-              <div key={b.id} className={`flex items-center gap-3 ${i < upcomingReservations.length - 1 ? 'pb-3 mb-3 border-b border-border' : ''}`}>
-                <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style={{ background: 'hsl(var(--cyan-light))' }}>
-                  📅
-                </div>
+              <div key={b.id} className={`flex items-center gap-3 ${i < upcomingReservations.length - 1 ? 'pb-3 mb-3 border-b border-[#E5E7EB]' : ''}`}>
+                <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: '#2DD4BF' }} />
                 <div className="flex-1 min-w-0">
-                  <div className="text-[13px] font-extrabold text-foreground truncate">{b.amenityName}</div>
-                  <div className="text-[11px] text-muted-foreground mt-0.5">
+                  <div className="text-[13px] font-bold truncate" style={{ color: '#1A1A2E' }}>{b.amenityName}</div>
+                  <div className="text-[12px] mt-0.5" style={{ color: '#9CA3AF' }}>
                     {format(new Date(`${b.date}T00:00:00`), 'EEE, MMM d')} · {formatTime12(b.startTime)} – {formatTime12(b.endTime)}
                   </div>
                 </div>
-                <Link to="/upcoming" className="text-[11px] font-bold text-primary flex-shrink-0">Details →</Link>
               </div>
             ))
           )}
         </div>
 
-        {/* Active Survey Banner */}
-        {activeSurvey && !activeSurvey._responded && (
-          <div className="navy-gradient rounded-2xl p-4 border" style={{ borderColor: 'rgba(0,180,216,0.2)' }}>
-            <div className="text-[11px] font-bold mb-1" style={{ color: '#00B4D8' }}>📊 ACTIVE SURVEY</div>
-            <div className="text-[15px] font-extrabold text-white">{activeSurvey.title}</div>
-            <div className="text-[11px] text-white/60 mt-1">
-              Closes {format(new Date(activeSurvey.closes_at), 'MMM d')} · {surveyResponseCount.responses}/{surveyResponseCount.total} responded
+        {/* CARD 2 — Active Survey Banner */}
+        {activeSurvey && (
+          <div
+            className="rounded-2xl p-4 mb-3 flex items-center gap-3"
+            style={{
+              background: 'linear-gradient(135deg, #00B4D8 0%, #0091B5 100%)',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+            }}
+          >
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-lg">📋</span>
+                <span className="text-[14px] font-bold text-white">You have a survey to complete</span>
+              </div>
+              <div className="text-[12px] text-white/70 truncate">{activeSurvey.title}</div>
             </div>
             <Link
               to={`/surveys/${activeSurvey.id}`}
-              className="inline-block mt-3 px-4 py-2 rounded-[10px] text-xs font-bold text-white"
-              style={{ background: '#00B4D8' }}
+              className="flex-shrink-0 px-4 py-2 rounded-xl text-[12px] font-bold text-white border border-white/40"
             >
-              Respond Now →
+              Take Survey →
             </Link>
           </div>
         )}
 
-        {/* Community Announcements */}
-        <div className="bg-card rounded-2xl p-4 border border-border shadow-sm">
+        {/* CARD 3 — Community Announcements */}
+        <div className={cardStyle} style={cardShadow}>
           <div className="flex justify-between items-center mb-3">
-            <span className="text-[13px] font-extrabold text-foreground">Community Announcements</span>
-            <span className="text-xs font-bold text-primary cursor-pointer">View All →</span>
+            <span className={cardTitle} style={{ color: '#1A1A2E' }}>Community Announcements</span>
+            {announcements.length > 0 && (
+              <span className={viewAll} style={{ color: '#00B4D8', cursor: 'pointer' }}>View All →</span>
+            )}
           </div>
           {announcements.length === 0 ? (
             <div className="text-center py-5">
-              <Megaphone className="h-10 w-10 mx-auto text-muted-foreground/30 mb-2" />
-              <p className="text-[13px] text-muted-foreground">No announcements yet</p>
+              <Megaphone className="h-10 w-10 mx-auto mb-2" style={{ color: '#9CA3AF' }} />
+              <p className="text-[13px]" style={{ color: '#9CA3AF' }}>No announcements yet</p>
             </div>
           ) : (
             announcements.map((a, i) => (
-              <div key={a.id} className={i < announcements.length - 1 ? 'pb-3 mb-3 border-b border-border' : ''}>
-                <div className="flex gap-2.5 items-start">
-                  {a.audience === 'urgent' && <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5" style={{ background: '#EF4444' }} />}
-                  <div className="flex-1">
-                    <div className="text-[13px] font-extrabold text-foreground">{a.title}</div>
-                    <div className="text-xs text-text-mid mt-1 leading-relaxed">{a.body?.substring(0, 70)}...</div>
-                    <div className="text-[11px] text-muted-foreground mt-1">
-                      {formatDistanceToNow(new Date(a.created_at), { addSuffix: true })}
-                    </div>
-                  </div>
+              <div key={a.id} className={i < announcements.length - 1 ? 'pb-3 mb-3 border-b border-[#E5E7EB]' : ''}>
+                <div className="text-[13px] font-bold" style={{ color: '#1A1A2E' }}>{a.title}</div>
+                <div className="text-[12px] mt-0.5 truncate" style={{ color: '#9CA3AF' }}>
+                  {a.body?.substring(0, 80)}{a.body?.length > 80 ? '…' : ''}
+                </div>
+                <div className="text-[11px] mt-1" style={{ color: '#9CA3AF' }}>
+                  {formatDistanceToNow(new Date(a.created_at), { addSuffix: true })}
                 </div>
               </div>
             ))
           )}
         </div>
 
-        {/* Community Events */}
-        <div className="bg-card rounded-2xl p-4 border border-border shadow-sm">
+        {/* CARD 4 — Community Events */}
+        <div className={cardStyle} style={cardShadow}>
           <div className="flex justify-between items-center mb-3">
-            <span className="text-[13px] font-extrabold text-foreground">Community Events</span>
-            <Link to="/community-calendar" className="text-xs font-bold text-primary">View All →</Link>
+            <span className={cardTitle} style={{ color: '#1A1A2E' }}>Community Events</span>
+            {events.length > 0 && (
+              <Link to="/community-calendar" className={viewAll} style={{ color: '#00B4D8' }}>View All →</Link>
+            )}
           </div>
           {events.length === 0 ? (
             <div className="text-center py-5">
-              <CalendarDays className="h-10 w-10 mx-auto text-muted-foreground/30 mb-2" />
-              <p className="text-[13px] text-muted-foreground">No upcoming events</p>
+              <CalendarDays className="h-10 w-10 mx-auto mb-2" style={{ color: '#9CA3AF' }} />
+              <p className="text-[13px]" style={{ color: '#9CA3AF' }}>No upcoming events</p>
             </div>
           ) : (
             events.map((e, i) => {
-              const color = EVENT_COLORS[e.event_type] || '#00B4D8';
               const dt = new Date(e.starts_at);
               return (
-                <div key={e.id} className={`flex gap-3 ${i < events.length - 1 ? 'pb-3 mb-3 border-b border-border' : ''}`}>
-                  <div className="w-1 rounded-full flex-shrink-0 min-h-[44px]" style={{ background: color }} />
-                  <div className="flex-1">
-                    <div className="text-[13px] font-extrabold text-foreground">{e.title}</div>
-                    <div className="text-[11px] text-muted-foreground mt-0.5">
+                <div key={e.id} className={`flex items-center gap-3 ${i < events.length - 1 ? 'pb-3 mb-3 border-b border-[#E5E7EB]' : ''}`}>
+                  <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: '#00B4D8' }} />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[13px] font-bold" style={{ color: '#1A1A2E' }}>{e.title}</div>
+                    <div className="text-[12px] mt-0.5" style={{ color: '#9CA3AF' }}>
                       {format(dt, 'EEE, MMM d')} · {dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
-                      {e.location && ` · ${e.location}`}
+                      {e.location && <span className="text-[11px]"> · {e.location}</span>}
                     </div>
                   </div>
                 </div>
@@ -380,35 +343,41 @@ const Dashboard = () => {
           )}
         </div>
 
-        {/* My Open Reports */}
+        {/* CARD 5 — My Open Reports */}
         {myReportsCount > 0 && (
-          <Link to="/my-reports" className="block">
-            <div className="bg-card rounded-2xl p-4 border border-border shadow-sm">
-              <div className="flex justify-between items-center">
-                <span className="text-[13px] font-extrabold text-foreground">My Open Reports</span>
-                <span className="text-xs font-extrabold px-2.5 py-0.5 rounded-full" style={{ background: 'hsl(var(--warning-bg))', color: 'hsl(var(--warning))' }}>
-                  {myReportsCount} open
-                </span>
-              </div>
+          <div className={cardStyle} style={cardShadow}>
+            <div className="flex justify-between items-center mb-3">
+              <span className={cardTitle} style={{ color: '#1A1A2E' }}>My Open Reports</span>
+              {myReportsCount > 3 && (
+                <Link to="/my-reports" className={viewAll} style={{ color: '#00B4D8' }}>View All →</Link>
+              )}
             </div>
-          </Link>
-        )}
-
-        {/* Documents Shortcut */}
-        <Link to="/documents" className="block">
-          <div className="bg-card rounded-2xl p-4 border border-border shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style={{ background: 'hsl(var(--cyan-light))' }}>
-                📁
-              </div>
-              <div className="flex-1">
-                <div className="text-[13px] font-extrabold text-foreground">Community Documents</div>
-                <div className="text-[11px] text-muted-foreground mt-0.5">{documentsCount} documents available</div>
-              </div>
-              <span className="text-[11px] font-bold text-primary">View →</span>
-            </div>
+            {myReports.map((r, i) => (
+              <Link to="/my-reports" key={r.id} className={`flex items-center justify-between ${i < myReports.length - 1 ? 'pb-3 mb-3 border-b border-[#E5E7EB]' : ''}`}>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[13px] font-bold truncate" style={{ color: '#1A1A2E' }}>{r.title || r.issue_type || 'Report'}</span>
+                    <span
+                      className="text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0"
+                      style={{
+                        background: r.status === 'open' ? '#FEF3C7' : '#CFFAFE',
+                        color: r.status === 'open' ? '#F59E0B' : '#00B4D8',
+                      }}
+                    >
+                      {r.status === 'open' ? 'Open' : 'In Progress'}
+                    </span>
+                  </div>
+                  {r.location && (
+                    <div className="text-[12px] mt-0.5" style={{ color: '#9CA3AF' }}>{r.location}</div>
+                  )}
+                  <div className="text-[11px] mt-0.5" style={{ color: '#9CA3AF' }}>
+                    {formatDistanceToNow(new Date(r.created_at), { addSuffix: true })}
+                  </div>
+                </div>
+              </Link>
+            ))}
           </div>
-        </Link>
+        )}
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Calendar, ClipboardList, CalendarDays } from 'lucide-react';
+import { Home, Calendar, ClipboardList, CalendarDays, FileText } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 const BottomNavigation = () => {
@@ -15,6 +15,7 @@ const BottomNavigation = () => {
     { path: '/book', icon: Calendar, label: 'Book' },
     { path: '/my-reports', icon: ClipboardList, label: 'Reports' },
     { path: '/community-calendar', icon: CalendarDays, label: 'Calendar' },
+    { path: '/documents', icon: FileText, label: 'Docs' },
   ];
 
   const isActive = (path: string) => location.pathname === path;
