@@ -13,8 +13,7 @@ interface DurationLimitsSectionProps {
 
 const DurationLimitsSection = ({ amenity, formData, onUpdate }: DurationLimitsSectionProps) => {
   const isCourtSport = amenity.amenityType === 'tennis' || amenity.amenityType === 'pickleball';
-  const maxCeiling = isCourtSport ? 240 : 480;
-  const label = isCourtSport ? 'Max Duration per Booking' : 'Max Duration per Reservation';
+  const isGym = amenity.amenityType === 'gym';
 
   return (
     <Card>
@@ -22,17 +21,86 @@ const DurationLimitsSection = ({ amenity, formData, onUpdate }: DurationLimitsSe
         <CardTitle>Duration Limits</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div>
-          <Label>{label} (minutes): {formData.max_duration_minutes ?? 60}</Label>
-          <Slider
-            value={[formData.max_duration_minutes ?? 60]}
-            onValueChange={([value]) => onUpdate('max_duration_minutes', value)}
-            max={maxCeiling}
-            min={30}
-            step={30}
-            className="mt-2"
-          />
-        </div>
+        {isCourtSport && (
+          <>
+            <div>
+              <Label>Singles Max Duration (minutes): {formData.singles_duration_minutes ?? 60}</Label>
+              <Slider
+                value={[formData.singles_duration_minutes ?? 60]}
+                onValueChange={([value]) => onUpdate('singles_duration_minutes', value)}
+                max={240}
+                min={30}
+                step={30}
+                className="mt-2"
+              />
+            </div>
+            <div>
+              <Label>Doubles Max Duration (minutes): {formData.doubles_duration_minutes ?? 90}</Label>
+              <Slider
+                value={[formData.doubles_duration_minutes ?? 90]}
+                onValueChange={([value]) => onUpdate('doubles_duration_minutes', value)}
+                max={240}
+                min={30}
+                step={30}
+                className="mt-2"
+              />
+            </div>
+          </>
+        )}
+
+        {!isCourtSport && !isGym && (
+          <>
+            <div>
+              <Label>Family Max Duration (minutes): {formData.family_duration_minutes ?? 120}</Label>
+              <Slider
+                value={[formData.family_duration_minutes ?? 120]}
+                onValueChange={([value]) => onUpdate('family_duration_minutes', value)}
+                max={480}
+                min={30}
+                step={30}
+                className="mt-2"
+              />
+            </div>
+            <div>
+              <Label>Group Max Duration (minutes): {formData.group_duration_minutes ?? 120}</Label>
+              <Slider
+                value={[formData.group_duration_minutes ?? 120]}
+                onValueChange={([value]) => onUpdate('group_duration_minutes', value)}
+                max={480}
+                min={30}
+                step={30}
+                className="mt-2"
+              />
+            </div>
+          </>
+        )}
+
+        {isGym && (
+          <>
+            <div>
+              <Label>Individual Max Duration (minutes): {formData.singles_duration_minutes ?? 60}</Label>
+              <Slider
+                value={[formData.singles_duration_minutes ?? 60]}
+                onValueChange={([value]) => onUpdate('singles_duration_minutes', value)}
+                max={240}
+                min={30}
+                step={30}
+                className="mt-2"
+              />
+            </div>
+            <div>
+              <Label>Group Max Duration (minutes): {formData.group_duration_minutes ?? 120}</Label>
+              <Slider
+                value={[formData.group_duration_minutes ?? 120]}
+                onValueChange={([value]) => onUpdate('group_duration_minutes', value)}
+                max={240}
+                min={30}
+                step={30}
+                className="mt-2"
+              />
+            </div>
+          </>
+        )}
       </CardContent>
     </Card>
   );

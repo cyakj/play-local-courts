@@ -60,8 +60,11 @@ export type Database = {
           checkin_required_minutes: number | null
           created_at: string | null
           custom_rules: string | null
+          doubles_duration_minutes: number | null
           doubles_only: boolean | null
           enable_peak_hours: boolean | null
+          family_duration_minutes: number | null
+          group_duration_minutes: number | null
           hoa_id: string
           id: string
           max_duration_minutes: number | null
@@ -73,14 +76,19 @@ export type Database = {
           min_time_between_reservations: number | null
           no_lifeguard_acknowledgment: boolean | null
           no_show_restriction_days: number | null
+          peak_doubles_duration_minutes: number | null
           peak_end_time: string | null
+          peak_family_duration_minutes: number | null
+          peak_group_duration_minutes: number | null
           peak_max_duration_minutes: number | null
+          peak_singles_duration_minutes: number | null
           peak_start_time: string | null
           requires_admin_approval: boolean | null
           requires_cleanup_agreement: boolean | null
           requires_power_outlet: boolean | null
           security_deposit_amount: number | null
           security_deposit_required: boolean | null
+          singles_duration_minutes: number | null
           singles_only: boolean | null
           updated_at: string | null
         }
@@ -94,8 +102,11 @@ export type Database = {
           checkin_required_minutes?: number | null
           created_at?: string | null
           custom_rules?: string | null
+          doubles_duration_minutes?: number | null
           doubles_only?: boolean | null
           enable_peak_hours?: boolean | null
+          family_duration_minutes?: number | null
+          group_duration_minutes?: number | null
           hoa_id: string
           id?: string
           max_duration_minutes?: number | null
@@ -107,14 +118,19 @@ export type Database = {
           min_time_between_reservations?: number | null
           no_lifeguard_acknowledgment?: boolean | null
           no_show_restriction_days?: number | null
+          peak_doubles_duration_minutes?: number | null
           peak_end_time?: string | null
+          peak_family_duration_minutes?: number | null
+          peak_group_duration_minutes?: number | null
           peak_max_duration_minutes?: number | null
+          peak_singles_duration_minutes?: number | null
           peak_start_time?: string | null
           requires_admin_approval?: boolean | null
           requires_cleanup_agreement?: boolean | null
           requires_power_outlet?: boolean | null
           security_deposit_amount?: number | null
           security_deposit_required?: boolean | null
+          singles_duration_minutes?: number | null
           singles_only?: boolean | null
           updated_at?: string | null
         }
@@ -128,8 +144,11 @@ export type Database = {
           checkin_required_minutes?: number | null
           created_at?: string | null
           custom_rules?: string | null
+          doubles_duration_minutes?: number | null
           doubles_only?: boolean | null
           enable_peak_hours?: boolean | null
+          family_duration_minutes?: number | null
+          group_duration_minutes?: number | null
           hoa_id?: string
           id?: string
           max_duration_minutes?: number | null
@@ -141,14 +160,19 @@ export type Database = {
           min_time_between_reservations?: number | null
           no_lifeguard_acknowledgment?: boolean | null
           no_show_restriction_days?: number | null
+          peak_doubles_duration_minutes?: number | null
           peak_end_time?: string | null
+          peak_family_duration_minutes?: number | null
+          peak_group_duration_minutes?: number | null
           peak_max_duration_minutes?: number | null
+          peak_singles_duration_minutes?: number | null
           peak_start_time?: string | null
           requires_admin_approval?: boolean | null
           requires_cleanup_agreement?: boolean | null
           requires_power_outlet?: boolean | null
           security_deposit_amount?: number | null
           security_deposit_required?: boolean | null
+          singles_duration_minutes?: number | null
           singles_only?: boolean | null
           updated_at?: string | null
         }
