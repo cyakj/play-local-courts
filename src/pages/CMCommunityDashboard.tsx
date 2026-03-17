@@ -251,7 +251,7 @@ const CMCommunityDashboard = () => {
                 { label: 'Post Announcement', icon: '📢' },
                 { label: 'Approve Members', icon: '✅' },
                 { label: 'Manage Documents', icon: '📁' },
-                { label: 'Create Survey', icon: '📊' },
+                { label: 'Manage Surveys', icon: '📊' },
               ].map((a) => (
                 <div
                   key={a.label}
