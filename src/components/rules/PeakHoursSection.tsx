@@ -14,6 +14,9 @@ interface PeakHoursSectionProps {
 }
 
 const PeakHoursSection = ({ amenity, formData, onUpdate }: PeakHoursSectionProps) => {
+  const isCourtSport = amenity.amenityType === 'tennis' || amenity.amenityType === 'pickleball';
+  const maxCeiling = isCourtSport ? 120 : 240;
+
   return (
     <Card>
       <CardHeader>
@@ -49,86 +52,17 @@ const PeakHoursSection = ({ amenity, formData, onUpdate }: PeakHoursSectionProps
               </div>
             </div>
             
-            {(amenity.amenityType === 'tennis' || amenity.amenityType === 'pickleball') && (
-              <>
-                <div>
-                  <Label>Peak Singles Duration (minutes): {formData.peak_singles_duration_minutes}</Label>
-                  <Slider
-                    value={[formData.peak_singles_duration_minutes]}
-                    onValueChange={([value]) => onUpdate('peak_singles_duration_minutes', value)}
-                    max={120}
-                    min={15}
-                    step={15}
-                    className="mt-2"
-                  />
-                </div>
-                <div>
-                  <Label>Peak Doubles Duration (minutes): {formData.peak_doubles_duration_minutes}</Label>
-                  <Slider
-                    value={[formData.peak_doubles_duration_minutes]}
-                    onValueChange={([value]) => onUpdate('peak_doubles_duration_minutes', value)}
-                    max={120}
-                    min={15}
-                    step={15}
-                    className="mt-2"
-                  />
-                </div>
-              </>
-            )}
-            
-            {(amenity.amenityType === 'pool' || amenity.amenityType === 'barbecue' || amenity.amenityType === 'jacuzzi' || amenity.amenityType === 'clubhouse') && (
-              <>
-                <div>
-                  <Label>Peak Family Duration (minutes): {formData.peak_family_duration_minutes}</Label>
-                  <Slider
-                    value={[formData.peak_family_duration_minutes]}
-                    onValueChange={([value]) => onUpdate('peak_family_duration_minutes', value)}
-                    max={240}
-                    min={15}
-                    step={15}
-                    className="mt-2"
-                  />
-                </div>
-                <div>
-                  <Label>Peak Group Duration (minutes): {formData.peak_group_duration_minutes}</Label>
-                  <Slider
-                    value={[formData.peak_group_duration_minutes]}
-                    onValueChange={([value]) => onUpdate('peak_group_duration_minutes', value)}
-                    max={240}
-                    min={15}
-                    step={15}
-                    className="mt-2"
-                  />
-                </div>
-              </>
-            )}
-            
-            {amenity.amenityType === 'gym' && (
-              <>
-                <div>
-                  <Label>Peak Singles Duration (minutes): {formData.peak_singles_duration_minutes}</Label>
-                  <Slider
-                    value={[formData.peak_singles_duration_minutes]}
-                    onValueChange={([value]) => onUpdate('peak_singles_duration_minutes', value)}
-                    max={120}
-                    min={15}
-                    step={15}
-                    className="mt-2"
-                  />
-                </div>
-                <div>
-                  <Label>Peak Group Duration (minutes): {formData.peak_group_duration_minutes}</Label>
-                  <Slider
-                    value={[formData.peak_group_duration_minutes]}
-                    onValueChange={([value]) => onUpdate('peak_group_duration_minutes', value)}
-                    max={120}
-                    min={15}
-                    step={15}
-                    className="mt-2"
-                  />
-                </div>
-              </>
-            )}
+            <div>
+              <Label>Peak Max Duration (minutes): {formData.peak_max_duration_minutes ?? 30}</Label>
+              <Slider
+                value={[formData.peak_max_duration_minutes ?? 30]}
+                onValueChange={([value]) => onUpdate('peak_max_duration_minutes', value)}
+                max={maxCeiling}
+                min={30}
+                step={30}
+                className="mt-2"
+              />
+            </div>
           </>
         )}
       </CardContent>
