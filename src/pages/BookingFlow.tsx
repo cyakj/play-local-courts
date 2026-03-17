@@ -473,7 +473,7 @@ const BookingFlow: React.FC = () => {
           style={{
             position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50,
             background: '#FFFFFF', borderTop: '1px solid #E5E7EB',
-            padding: '12px 16px 28px',
+            padding: '12px 16px 96px',
             animation: 'slideUp 0.2s ease-out',
           }}
         >
