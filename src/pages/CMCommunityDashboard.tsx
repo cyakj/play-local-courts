@@ -529,24 +529,6 @@ const CMCommunityDashboard = () => {
         />
       )}
 
-      {/* Survey Builder Overlay */}
-      {showSurveyBuilder && c && (
-        <SurveyBuilder
-          communityId={c.id}
-          onBack={() => setShowSurveyBuilder(false)}
-          onComplete={() => { setShowSurveyBuilder(false); setSurveyListKey(k => k + 1); }}
-          editSurveyId={editSurveyId}
-        />
-      )}
-
-      {/* Survey Results Overlay */}
-      {surveyResultsId && c && (
-        <SurveyResults
-          surveyId={surveyResultsId}
-          communityId={c.id}
-          onBack={() => setSurveyResultsId(null)}
-        />
-      )}
     </div>
   );
 };
