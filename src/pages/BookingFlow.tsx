@@ -114,7 +114,6 @@ const BookingFlow: React.FC = () => {
           .in('id', userIds);
         if (profiles) {
           profiles.forEach((p: any) => {
-            // Use full_name as fallback since unit_number may not exist
             if (p.full_name) profileMap[p.id] = p.full_name;
           });
         }
@@ -131,6 +130,52 @@ const BookingFlow: React.FC = () => {
     fetchSlots();
     setSelectedSlot(null);
   }, [amenityId, selectedDate]);
+
+  // Fetch user's daily + weekly booking count for THIS amenity
+  useEffect(() => {
+    if (!amenityId || !currentUser?.id) return;
+    const dateStr = format(selectedDate, 'yyyy-MM-dd');
+
+    const fetchCounts = async () => {
+      // Daily count
+      const { count: dailyCount } = await supabase
+        .from('bookings')
+        .select('id', { count: 'exact', head: true })
+        .eq('court_id', amenityId)
+        .eq('user_id', currentUser.id)
+        .eq('date', dateStr)
+        .eq('status', 'confirmed');
+      setUserDailyCount(dailyCount || 0);
+
+      // Weekly count (Mon–Sun window around selected date)
+      const sel = new Date(selectedDate);
+      const dayOfWeek = sel.getDay();
+      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      const monday = new Date(sel);
+      monday.setDate(sel.getDate() + mondayOffset);
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      const weekStart = format(monday, 'yyyy-MM-dd');
+      const weekEnd = format(sunday, 'yyyy-MM-dd');
+
+      const { count: weeklyCount } = await supabase
+        .from('bookings')
+        .select('id', { count: 'exact', head: true })
+        .eq('court_id', amenityId)
+        .eq('user_id', currentUser.id)
+        .gte('date', weekStart)
+        .lte('date', weekEnd)
+        .eq('status', 'confirmed');
+      setUserWeeklyCount(weeklyCount || 0);
+    };
+
+    fetchCounts();
+  }, [amenityId, currentUser?.id, selectedDate]);
+
+  const maxPerDay = rules?.max_reservations_per_day ?? 1;
+  const maxPerWeek = rules?.max_reservations_per_week ?? 3;
+  const atDailyLimit = userDailyCount >= maxPerDay;
+  const atWeeklyLimit = userWeeklyCount >= maxPerWeek;
 
   // Operating hours
   const startHour = rules?.booking_start_time ? parseInt(rules.booking_start_time.split(':')[0]) : 6;
