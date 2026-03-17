@@ -30,7 +30,7 @@ const CalendarEventDetail = ({ event, onClose }: CalendarEventDetailProps) => {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" onClick={onClose}>
       <div
-        className="bg-card w-full max-w-md rounded-t-2xl p-5 pb-8 animate-in slide-in-from-bottom"
+        className="bg-card w-full max-w-md rounded-t-2xl p-5 pb-24 animate-in slide-in-from-bottom"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex justify-between items-start mb-4">
