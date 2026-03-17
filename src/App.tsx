@@ -69,7 +69,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <NotificationContainer />
-        <Toaster />
+        <Toaster position="top-center" duration={2000} />
         <BrowserRouter>
           <AuthProvider>
             <ActiveHOAProvider>
