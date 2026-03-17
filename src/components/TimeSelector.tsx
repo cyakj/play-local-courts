@@ -178,19 +178,35 @@ const TimeSelector: React.FC<TimeSelectorProps> = ({
         disabled={!!unavailableReason}
         onClick={() => handleSlotClick(slot.time)}
         className={cn(
-          "relative py-2.5 px-1 text-xs font-medium rounded-lg border transition-all text-center",
-          isSelected && "bg-green-50 border-green-500 border-2 text-green-700",
-          isBooked && "bg-muted text-muted-foreground cursor-not-allowed border-muted",
-          isMaintenance && "bg-orange-50 text-orange-600 cursor-not-allowed border-orange-200",
-          isAvailable && !isSelected && "bg-background hover:bg-muted/50 border-border cursor-pointer"
+          "relative py-2.5 px-1 text-xs font-medium rounded-lg transition-all text-center",
+          isSelected && "border-2 text-green-700",
+          isBooked && "cursor-not-allowed",
+          isMaintenance && "cursor-not-allowed",
+          isAvailable && !isSelected && "hover:bg-muted/50 cursor-pointer"
         )}
+        style={{
+          backgroundColor: isSelected ? '#E6FFFA' : isBooked ? '#EFF6FF' : isMaintenance ? '#FEF2F2' : undefined,
+          borderColor: isSelected ? '#2DD4BF' : isBooked ? '#93C5FD' : isMaintenance ? '#EF4444' : undefined,
+          borderWidth: isSelected ? 2 : (isBooked || isMaintenance) ? 1.5 : 1,
+          borderStyle: 'solid',
+        }}
       >
         <span className="block">{slot.displayTime}</span>
         {isBooked && (
-          <span className="block text-[9px] uppercase tracking-wide text-muted-foreground">Booked</span>
+          <span
+            className="inline-block mt-1 text-[9px] font-bold uppercase tracking-wide rounded-full px-1.5 py-0.5"
+            style={{ backgroundColor: '#DBEAFE', color: '#2563EB' }}
+          >
+            Booked
+          </span>
         )}
         {isMaintenance && (
-          <span className="block text-[9px] uppercase tracking-wide text-orange-500">Maint.</span>
+          <span
+            className="inline-block mt-1 text-[9px] font-bold uppercase tracking-wide rounded-full px-1.5 py-0.5"
+            style={{ backgroundColor: '#FEF2F2', color: '#EF4444' }}
+          >
+            Maint.
+          </span>
         )}
         {isSelected && (
           <>
