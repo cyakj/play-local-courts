@@ -412,12 +412,12 @@ const BookingFlow: React.FC = () => {
           {/* Type of Play */}
           <div style={{ fontSize: 12, fontWeight: 700, color: '#4B5563', marginBottom: 8 }}>Type of Play</div>
           <div className="flex gap-2" style={{ marginBottom: 16 }}>
-            {(['singles', 'doubles'] as const).map(t => {
-              const sel = playType === t;
+            {playTypeOptions.map(t => {
+              const sel = playType === t.value;
               return (
                 <button
-                  key={t}
-                  onClick={() => setPlayType(t)}
+                  key={t.value}
+                  onClick={() => setPlayType(t.value)}
                   className="flex-1 min-h-[44px]"
                   style={{
                     borderRadius: 10, padding: 11, fontSize: 13, fontWeight: 700,
@@ -427,7 +427,7 @@ const BookingFlow: React.FC = () => {
                     cursor: 'pointer',
                   }}
                 >
-                  {t.charAt(0).toUpperCase() + t.slice(1)}
+                  {t.label}
                 </button>
               );
             })}
