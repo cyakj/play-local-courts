@@ -270,6 +270,19 @@ const CMCommunityDashboard = () => {
                 </div>
               ))}
             </div>
+
+
+            {/* Surveys Section */}
+            <div className="mt-6">
+              <SurveyList
+                key={surveyListKey}
+                communityId={c.id}
+                communityName={c.name}
+                onNewSurvey={() => { setEditSurveyId(null); setShowSurveyBuilder(true); }}
+                onViewResults={(id) => setSurveyResultsId(id)}
+                onEditSurvey={(s) => { setEditSurveyId(s.id); setShowSurveyBuilder(true); }}
+              />
+            </div>
           </>
         )}
 
