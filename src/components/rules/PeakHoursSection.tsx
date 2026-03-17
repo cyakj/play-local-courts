@@ -15,7 +15,7 @@ interface PeakHoursSectionProps {
 
 const PeakHoursSection = ({ amenity, formData, onUpdate }: PeakHoursSectionProps) => {
   const isCourtSport = amenity.amenityType === 'tennis' || amenity.amenityType === 'pickleball';
-  const maxCeiling = isCourtSport ? 120 : 240;
+  const isGym = amenity.amenityType === 'gym';
 
   return (
     <Card>
@@ -51,18 +51,87 @@ const PeakHoursSection = ({ amenity, formData, onUpdate }: PeakHoursSectionProps
                 />
               </div>
             </div>
-            
-            <div>
-              <Label>Peak Max Duration (minutes): {formData.peak_max_duration_minutes ?? 30}</Label>
-              <Slider
-                value={[formData.peak_max_duration_minutes ?? 30]}
-                onValueChange={([value]) => onUpdate('peak_max_duration_minutes', value)}
-                max={maxCeiling}
-                min={30}
-                step={30}
-                className="mt-2"
-              />
-            </div>
+
+            {isCourtSport && (
+              <>
+                <div>
+                  <Label>Peak Singles Duration (minutes): {formData.peak_singles_duration_minutes ?? 30}</Label>
+                  <Slider
+                    value={[formData.peak_singles_duration_minutes ?? 30]}
+                    onValueChange={([value]) => onUpdate('peak_singles_duration_minutes', value)}
+                    max={120}
+                    min={15}
+                    step={15}
+                    className="mt-2"
+                  />
+                </div>
+                <div>
+                  <Label>Peak Doubles Duration (minutes): {formData.peak_doubles_duration_minutes ?? 45}</Label>
+                  <Slider
+                    value={[formData.peak_doubles_duration_minutes ?? 45]}
+                    onValueChange={([value]) => onUpdate('peak_doubles_duration_minutes', value)}
+                    max={120}
+                    min={15}
+                    step={15}
+                    className="mt-2"
+                  />
+                </div>
+              </>
+            )}
+
+            {!isCourtSport && !isGym && (
+              <>
+                <div>
+                  <Label>Peak Family Duration (minutes): {formData.peak_family_duration_minutes ?? 60}</Label>
+                  <Slider
+                    value={[formData.peak_family_duration_minutes ?? 60]}
+                    onValueChange={([value]) => onUpdate('peak_family_duration_minutes', value)}
+                    max={240}
+                    min={15}
+                    step={15}
+                    className="mt-2"
+                  />
+                </div>
+                <div>
+                  <Label>Peak Group Duration (minutes): {formData.peak_group_duration_minutes ?? 60}</Label>
+                  <Slider
+                    value={[formData.peak_group_duration_minutes ?? 60]}
+                    onValueChange={([value]) => onUpdate('peak_group_duration_minutes', value)}
+                    max={240}
+                    min={15}
+                    step={15}
+                    className="mt-2"
+                  />
+                </div>
+              </>
+            )}
+
+            {isGym && (
+              <>
+                <div>
+                  <Label>Peak Individual Duration (minutes): {formData.peak_singles_duration_minutes ?? 30}</Label>
+                  <Slider
+                    value={[formData.peak_singles_duration_minutes ?? 30]}
+                    onValueChange={([value]) => onUpdate('peak_singles_duration_minutes', value)}
+                    max={120}
+                    min={15}
+                    step={15}
+                    className="mt-2"
+                  />
+                </div>
+                <div>
+                  <Label>Peak Group Duration (minutes): {formData.peak_group_duration_minutes ?? 60}</Label>
+                  <Slider
+                    value={[formData.peak_group_duration_minutes ?? 60]}
+                    onValueChange={([value]) => onUpdate('peak_group_duration_minutes', value)}
+                    max={120}
+                    min={15}
+                    step={15}
+                    className="mt-2"
+                  />
+                </div>
+              </>
+            )}
           </>
         )}
       </CardContent>
