@@ -39,10 +39,6 @@ const CMCommunityDashboard = () => {
   const [announcementBody, setAnnouncementBody] = useState('');
   const [announcementAudience, setAnnouncementAudience] = useState('all_residents');
   const [pendingMembers, setPendingMembers] = useState<any[]>([]);
-  const [showSurveyBuilder, setShowSurveyBuilder] = useState(false);
-  const [surveyResultsId, setSurveyResultsId] = useState<string | null>(null);
-  const [editSurveyId, setEditSurveyId] = useState<string | null>(null);
-  const [surveyListKey, setSurveyListKey] = useState(0);
 
   const c = communities.find((x) => x.id === id) || communities[0];
 
