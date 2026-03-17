@@ -331,11 +331,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     playType: 'singles' | 'doubles' | 'family' | 'group' = 'singles'
   ): Promise<void> => {
     try {
-      // Check if user already has a booking for this date
-      const hasBooking = await supabaseHasBookingForDate(userId, date);
+      // Check if user already has a booking for this amenity on this date
+      const { count } = await supabase
+        .from('bookings')
+        .select('id', { count: 'exact', head: true })
+        .eq('court_id', amenityId)
+        .eq('user_id', userId)
+        .eq('date', date)
+        .eq('status', 'confirmed');
       
-      if (hasBooking) {
-        toast.error("You already have a booking for this date");
+      if ((count || 0) > 0) {
+        toast.error("You've already reached your daily booking limit for this amenity");
         return;
       }
 
