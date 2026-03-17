@@ -457,7 +457,7 @@ const BookingFlow: React.FC = () => {
             })}
           </div>
           <div style={{ fontSize: 11, color: '#9CA3AF', fontStyle: 'italic' }}>
-            {playType === 'singles' ? `Singles max: ${fmtDuration(singlesMax)}` : `Doubles max: ${fmtDuration(doublesMax)}`}
+            Max duration: {fmtDuration(maxDuration)}
           </div>
         </div>
 
