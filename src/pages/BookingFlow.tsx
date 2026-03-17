@@ -38,7 +38,7 @@ const BookingFlow: React.FC = () => {
   const amenity = amenities.find(a => a.id === amenityId);
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [playType, setPlayType] = useState<string>('');
+  const [playType, setPlayType] = useState<'singles' | 'doubles' | 'family' | 'group'>('singles');
   const [selectedDuration, setSelectedDuration] = useState<number | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [bookedSlots, setBookedSlots] = useState<BookedSlot[]>([]);
