@@ -321,7 +321,7 @@ const BookingFlow: React.FC = () => {
       </div>
 
       {/* Scrollable body */}
-      <div className="flex-1 overflow-y-auto" style={{ padding: '12px 16px', paddingBottom: selectedSlot ? 180 : 100 }}>
+      <div className="flex-1 overflow-y-auto" style={{ padding: '12px 16px', paddingBottom: selectedSlot ? 240 : 100 }}>
         {/* Options card */}
         <div style={{ background: '#FFFFFF', borderRadius: 16, border: '1px solid #E5E7EB', padding: 16, marginBottom: 12 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 14 }}>
@@ -473,7 +473,7 @@ const BookingFlow: React.FC = () => {
           style={{
             position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50,
             background: '#FFFFFF', borderTop: '1px solid #E5E7EB',
-            padding: '12px 16px 28px',
+            padding: '12px 16px 96px',
             animation: 'slideUp 0.2s ease-out',
           }}
         >
