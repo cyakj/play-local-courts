@@ -350,7 +350,7 @@ const SetMaintenanceSheet: React.FC<SetMaintenanceSheetProps> = ({ open, onClose
                       {/* Sub-info */}
                       {state === 'booked' && (
                         <div className="text-[9px] mt-1" style={{ color: '#9CA3AF' }}>
-                          {slot.playType === 'doubles' ? 'Doubles' : 'Singles'} · 1 hr
+                          {(slot.playType || 'Singles').charAt(0).toUpperCase() + (slot.playType || 'singles').slice(1)} · 1 hr
                         </div>
                       )}
                       {state === 'available' && (

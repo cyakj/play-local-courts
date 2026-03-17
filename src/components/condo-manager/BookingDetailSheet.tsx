@@ -40,7 +40,7 @@ const BookingDetailSheet: React.FC<BookingDetailSheetProps> = ({
   const details = [
     { label: 'Unit', value: slot.unitNumber || 'Unknown' },
     { label: 'Time', value: `${slot.displayStart} – ${slot.displayEnd}` },
-    { label: 'Type', value: slot.playType === 'doubles' ? 'Doubles' : 'Singles' },
+    { label: 'Type', value: (slot.playType || 'Singles').charAt(0).toUpperCase() + (slot.playType || 'singles').slice(1) },
     { label: 'Duration', value: '1 hr' },
     { label: 'Status', value: 'Confirmed', isStatus: true },
   ];
