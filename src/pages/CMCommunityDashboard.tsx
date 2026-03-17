@@ -154,7 +154,8 @@ const CMCommunityDashboard = () => {
         navigate(`/cm/community/${c.id}/documents`);
         break;
       case 'Create Survey':
-        navigate(`/cm/community/${c.id}/surveys`);
+        setEditSurveyId(null);
+        setShowSurveyBuilder(true);
         break;
       case 'Approve Members':
         setTab('members');
