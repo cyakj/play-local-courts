@@ -44,6 +44,8 @@ const BookingFlow: React.FC = () => {
   const [bookedSlots, setBookedSlots] = useState<BookedSlot[]>([]);
   const [maintenanceSlots, setMaintenanceSlots] = useState<MaintenanceSlot[]>([]);
   const [confirming, setConfirming] = useState(false);
+  const [userDailyCount, setUserDailyCount] = useState(0);
+  const [userWeeklyCount, setUserWeeklyCount] = useState(0);
 
   // Advance booking days
   const advanceDays = rules?.advance_booking_days ?? 7;
@@ -112,7 +114,6 @@ const BookingFlow: React.FC = () => {
           .in('id', userIds);
         if (profiles) {
           profiles.forEach((p: any) => {
-            // Use full_name as fallback since unit_number may not exist
             if (p.full_name) profileMap[p.id] = p.full_name;
           });
         }
@@ -129,6 +130,52 @@ const BookingFlow: React.FC = () => {
     fetchSlots();
     setSelectedSlot(null);
   }, [amenityId, selectedDate]);
+
+  // Fetch user's daily + weekly booking count for THIS amenity
+  useEffect(() => {
+    if (!amenityId || !currentUser?.id) return;
+    const dateStr = format(selectedDate, 'yyyy-MM-dd');
+
+    const fetchCounts = async () => {
+      // Daily count
+      const { count: dailyCount } = await supabase
+        .from('bookings')
+        .select('id', { count: 'exact', head: true })
+        .eq('court_id', amenityId)
+        .eq('user_id', currentUser.id)
+        .eq('date', dateStr)
+        .eq('status', 'confirmed');
+      setUserDailyCount(dailyCount || 0);
+
+      // Weekly count (Mon–Sun window around selected date)
+      const sel = new Date(selectedDate);
+      const dayOfWeek = sel.getDay();
+      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      const monday = new Date(sel);
+      monday.setDate(sel.getDate() + mondayOffset);
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      const weekStart = format(monday, 'yyyy-MM-dd');
+      const weekEnd = format(sunday, 'yyyy-MM-dd');
+
+      const { count: weeklyCount } = await supabase
+        .from('bookings')
+        .select('id', { count: 'exact', head: true })
+        .eq('court_id', amenityId)
+        .eq('user_id', currentUser.id)
+        .gte('date', weekStart)
+        .lte('date', weekEnd)
+        .eq('status', 'confirmed');
+      setUserWeeklyCount(weeklyCount || 0);
+    };
+
+    fetchCounts();
+  }, [amenityId, currentUser?.id, selectedDate]);
+
+  const maxPerDay = rules?.max_reservations_per_day ?? 1;
+  const maxPerWeek = rules?.max_reservations_per_week ?? 3;
+  const atDailyLimit = userDailyCount >= maxPerDay;
+  const atWeeklyLimit = userWeeklyCount >= maxPerWeek;
 
   // Operating hours
   const startHour = rules?.booking_start_time ? parseInt(rules.booking_start_time.split(':')[0]) : 6;
@@ -320,8 +367,33 @@ const BookingFlow: React.FC = () => {
         </div>
       </div>
 
+      {/* Limit warning banners */}
+      {(atDailyLimit || atWeeklyLimit) && (
+        <div style={{
+          margin: '0 16px 0',
+          padding: '12px 14px',
+          background: '#FFFBEB',
+          border: '1.5px solid #F59E0B',
+          borderRadius: 12,
+          marginTop: 12,
+        }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#92400E', marginBottom: 2 }}>
+            ⚠️ Booking limit reached
+          </div>
+          <div style={{ fontSize: 12, color: '#92400E', lineHeight: 1.4 }}>
+            {atDailyLimit && (
+              <span>You've reached your daily maximum of {maxPerDay} reservation{maxPerDay > 1 ? 's' : ''} for this amenity. </span>
+            )}
+            {!atDailyLimit && atWeeklyLimit && (
+              <span>You've reached your weekly maximum of {maxPerWeek} reservation{maxPerWeek > 1 ? 's' : ''} for this amenity. </span>
+            )}
+            Please try another {atDailyLimit ? 'date' : 'week'}.
+          </div>
+        </div>
+      )}
+
       {/* Scrollable body */}
-      <div className="flex-1 overflow-y-auto" style={{ padding: '12px 16px', paddingBottom: selectedSlot ? 240 : 100 }}>
+      <div className="flex-1 overflow-y-auto" style={{ padding: '12px 16px', paddingBottom: selectedSlot ? 240 : 100, opacity: (atDailyLimit || atWeeklyLimit) ? 0.5 : 1, pointerEvents: (atDailyLimit || atWeeklyLimit) ? 'none' : 'auto' }}>
         {/* Options card */}
         <div style={{ background: '#FFFFFF', borderRadius: 16, border: '1px solid #E5E7EB', padding: 16, marginBottom: 12 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 14 }}>
