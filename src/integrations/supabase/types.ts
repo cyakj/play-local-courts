@@ -1125,6 +1125,7 @@ export type Database = {
           position: number
           question_text: string
           question_type: string
+          required: boolean
           survey_id: string
         }
         Insert: {
@@ -1133,6 +1134,7 @@ export type Database = {
           position?: number
           question_text: string
           question_type: string
+          required?: boolean
           survey_id: string
         }
         Update: {
@@ -1141,6 +1143,7 @@ export type Database = {
           position?: number
           question_text?: string
           question_type?: string
+          required?: boolean
           survey_id?: string
         }
         Relationships: [
@@ -1187,6 +1190,7 @@ export type Database = {
       }
       hoa_surveys: {
         Row: {
+          anonymous: boolean
           audience: string
           closes_at: string
           created_at: string | null
@@ -1195,10 +1199,13 @@ export type Database = {
           hoa_id: string
           id: string
           opens_at: string
+          results_reveal: string
+          results_visibility: string
           status: string
           title: string
         }
         Insert: {
+          anonymous?: boolean
           audience?: string
           closes_at: string
           created_at?: string | null
@@ -1207,10 +1214,13 @@ export type Database = {
           hoa_id: string
           id?: string
           opens_at?: string
+          results_reveal?: string
+          results_visibility?: string
           status?: string
           title: string
         }
         Update: {
+          anonymous?: boolean
           audience?: string
           closes_at?: string
           created_at?: string | null
@@ -1219,6 +1229,8 @@ export type Database = {
           hoa_id?: string
           id?: string
           opens_at?: string
+          results_reveal?: string
+          results_visibility?: string
           status?: string
           title?: string
         }
