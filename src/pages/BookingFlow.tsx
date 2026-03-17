@@ -72,7 +72,7 @@ const BookingFlow: React.FC = () => {
   }, [amenity?.amenityType]);
 
   // Duration options — use max_duration_minutes from rules as ceiling
-  const maxDuration = (rules as any)?.max_duration_minutes ?? rules?.singles_duration_minutes ?? (isCourtSport ? 60 : 120);
+  const maxDuration = (rules as any)?.max_duration_minutes ?? (isCourtSport ? 60 : 120);
 
   const durationOptions = useMemo(() => {
     const opts: number[] = [];
@@ -409,8 +409,8 @@ const BookingFlow: React.FC = () => {
             Options
           </div>
 
-          {/* Type of Play */}
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#4B5563', marginBottom: 8 }}>Type of Play</div>
+          {/* Usage type */}
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#4B5563', marginBottom: 8 }}>{isCourtSport ? 'Type of Play' : 'Type of Use'}</div>
           <div className="flex gap-2" style={{ marginBottom: 16 }}>
             {playTypeOptions.map(t => {
               const sel = playType === t.value;

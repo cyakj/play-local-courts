@@ -12,92 +12,27 @@ interface DurationLimitsSectionProps {
 }
 
 const DurationLimitsSection = ({ amenity, formData, onUpdate }: DurationLimitsSectionProps) => {
+  const isCourtSport = amenity.amenityType === 'tennis' || amenity.amenityType === 'pickleball';
+  const maxCeiling = isCourtSport ? 240 : 480;
+  const label = isCourtSport ? 'Max Duration per Booking' : 'Max Duration per Reservation';
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Duration Limits by Play Type</CardTitle>
+        <CardTitle>Duration Limits</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {(amenity.amenityType === 'tennis' || amenity.amenityType === 'pickleball') && (
-          <>
-            <div>
-              <Label>Singles Duration (minutes): {formData.singles_duration_minutes}</Label>
-              <Slider
-                value={[formData.singles_duration_minutes]}
-                onValueChange={([value]) => onUpdate('singles_duration_minutes', value)}
-                max={240}
-                min={15}
-                step={15}
-                className="mt-2"
-              />
-            </div>
-            <div>
-              <Label>Doubles Duration (minutes): {formData.doubles_duration_minutes}</Label>
-              <Slider
-                value={[formData.doubles_duration_minutes]}
-                onValueChange={([value]) => onUpdate('doubles_duration_minutes', value)}
-                max={240}
-                min={15}
-                step={15}
-                className="mt-2"
-              />
-            </div>
-          </>
-        )}
-        
-        {(amenity.amenityType === 'pool' || amenity.amenityType === 'barbecue' || amenity.amenityType === 'jacuzzi' || amenity.amenityType === 'clubhouse') && (
-          <>
-            <div>
-              <Label>Family Duration (minutes): {formData.family_duration_minutes}</Label>
-              <Slider
-                value={[formData.family_duration_minutes]}
-                onValueChange={([value]) => onUpdate('family_duration_minutes', value)}
-                max={480}
-                min={15}
-                step={15}
-                className="mt-2"
-              />
-            </div>
-            <div>
-              <Label>Group Duration (minutes): {formData.group_duration_minutes}</Label>
-              <Slider
-                value={[formData.group_duration_minutes]}
-                onValueChange={([value]) => onUpdate('group_duration_minutes', value)}
-                max={480}
-                min={15}
-                step={15}
-                className="mt-2"
-              />
-            </div>
-          </>
-        )}
-        
-        {amenity.amenityType === 'gym' && (
-          <>
-            <div>
-              <Label>Singles Duration (minutes): {formData.singles_duration_minutes}</Label>
-              <Slider
-                value={[formData.singles_duration_minutes]}
-                onValueChange={([value]) => onUpdate('singles_duration_minutes', value)}
-                max={240}
-                min={15}
-                step={15}
-                className="mt-2"
-              />
-            </div>
-            <div>
-              <Label>Group Duration (minutes): {formData.group_duration_minutes}</Label>
-              <Slider
-                value={[formData.group_duration_minutes]}
-                onValueChange={([value]) => onUpdate('group_duration_minutes', value)}
-                max={240}
-                min={15}
-                step={15}
-                className="mt-2"
-              />
-            </div>
-          </>
-        )}
+        <div>
+          <Label>{label} (minutes): {formData.max_duration_minutes ?? 60}</Label>
+          <Slider
+            value={[formData.max_duration_minutes ?? 60]}
+            onValueChange={([value]) => onUpdate('max_duration_minutes', value)}
+            max={maxCeiling}
+            min={30}
+            step={30}
+            className="mt-2"
+          />
+        </div>
       </CardContent>
     </Card>
   );
