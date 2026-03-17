@@ -89,11 +89,16 @@ export const useAmenityRules = (amenityId: string, hoaIdOverride?: string) => {
     // Only include columns that exist in the DB schema
     const validColumns = new Set([
       'booking_start_time', 'booking_end_time', 'max_duration_minutes',
+      'singles_duration_minutes', 'doubles_duration_minutes',
+      'family_duration_minutes', 'group_duration_minutes',
       'max_reservations_per_day', 'max_reservations_per_week',
       'min_time_between_reservations', 'advance_booking_days', 'allow_guests',
       'checkin_required_minutes', 'min_cancellation_hours', 'max_no_shows',
       'no_show_restriction_days', 'enable_peak_hours', 'peak_start_time',
-      'peak_end_time', 'peak_max_duration_minutes', 'requires_admin_approval',
+      'peak_end_time', 'peak_max_duration_minutes',
+      'peak_singles_duration_minutes', 'peak_doubles_duration_minutes',
+      'peak_family_duration_minutes', 'peak_group_duration_minutes',
+      'requires_admin_approval',
       'security_deposit_required', 'security_deposit_amount', 'max_guest_count',
       'requires_cleanup_agreement', 'allow_ball_machine', 'singles_only',
       'doubles_only', 'requires_power_outlet', 'no_lifeguard_acknowledgment',
