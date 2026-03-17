@@ -72,7 +72,7 @@ const BookingFlow: React.FC = () => {
   }, [amenity?.amenityType]);
 
   // Duration options — use max_duration_minutes from rules as ceiling
-  const maxDuration = rules?.max_duration_minutes ?? (isCourtSport ? 60 : 120);
+  const maxDuration = (rules as any)?.max_duration_minutes ?? rules?.singles_duration_minutes ?? (isCourtSport ? 60 : 120);
 
   const durationOptions = useMemo(() => {
     const opts: number[] = [];
