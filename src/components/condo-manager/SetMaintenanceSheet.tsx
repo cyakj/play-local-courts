@@ -211,6 +211,7 @@ const SetMaintenanceSheet: React.FC<SetMaintenanceSheetProps> = ({ open, onClose
                   </div>
                 </div>
               );
+            })}
           </div>
         </div>
 
