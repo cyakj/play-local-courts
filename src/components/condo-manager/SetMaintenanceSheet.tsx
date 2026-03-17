@@ -170,34 +170,48 @@ const SetMaintenanceSheet: React.FC<SetMaintenanceSheetProps> = ({ open, onClose
 
           {/* Time slot grid */}
           <div className="grid grid-cols-2 gap-2 mt-2">
-            {slots.map((slot, idx) => (
-              <div
-                key={slot.time}
-                onClick={() => toggleSlot(idx)}
-                className="border cursor-pointer transition-colors"
-                style={{
-                  backgroundColor: '#FFFFFF',
-                  borderColor: '#E5E7EB',
-                  borderRadius: 10,
-                  padding: '10px 12px',
-                  borderWidth: 1,
-                }}
-              >
-                <div className="text-xs font-bold" style={{ color: '#1A1A2E' }}>{slot.label}</div>
-                <div className="mt-1.5">
-                  {slot.maintenance ? (
-                    <span
-                      className="inline-block px-2 py-0.5 rounded-md text-[11px] font-bold text-white"
-                      style={{ backgroundColor: '#F59E0B' }}
-                    >
-                      Maintenance
-                    </span>
-                  ) : (
-                    <span
-                      className="inline-block px-2 py-0.5 rounded-md text-[11px] font-bold border"
-                      style={{ color: '#2DD4BF', borderColor: '#2DD4BF' }}
-                    >
-                      Available
+            {slots.map((slot, idx) => {
+              const past = isSlotInPast(slot.time, selectedDate);
+              return (
+                <div
+                  key={slot.time}
+                  onClick={() => !past && toggleSlot(idx)}
+                  className="border transition-colors"
+                  style={{
+                    backgroundColor: past ? '#F3F4F6' : '#FFFFFF',
+                    borderColor: '#E5E7EB',
+                    borderRadius: 10,
+                    padding: '10px 12px',
+                    borderWidth: 1,
+                    opacity: past ? 0.5 : 1,
+                    cursor: past ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  <div className="text-xs font-bold" style={{ color: past ? '#9CA3AF' : '#1A1A2E' }}>{slot.label}</div>
+                  <div className="mt-1.5">
+                    {past ? (
+                      <span className="inline-block px-2 py-0.5 rounded-md text-[11px] font-bold" style={{ color: '#9CA3AF' }}>
+                        Passed
+                      </span>
+                    ) : slot.maintenance ? (
+                      <span
+                        className="inline-block px-2 py-0.5 rounded-md text-[11px] font-bold text-white"
+                        style={{ backgroundColor: '#F59E0B' }}
+                      >
+                        Maintenance
+                      </span>
+                    ) : (
+                      <span
+                        className="inline-block px-2 py-0.5 rounded-md text-[11px] font-bold border"
+                        style={{ color: '#2DD4BF', borderColor: '#2DD4BF' }}
+                      >
+                        Available
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
                     </span>
                   )}
                 </div>
