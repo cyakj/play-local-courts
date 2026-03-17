@@ -38,7 +38,7 @@ const BookingFlow: React.FC = () => {
   const amenity = amenities.find(a => a.id === amenityId);
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [playType, setPlayType] = useState<'singles' | 'doubles'>('singles');
+  const [playType, setPlayType] = useState<'singles' | 'doubles' | 'family' | 'group'>('singles');
   const [selectedDuration, setSelectedDuration] = useState<number | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [bookedSlots, setBookedSlots] = useState<BookedSlot[]>([]);
@@ -60,17 +60,26 @@ const BookingFlow: React.FC = () => {
     return pills;
   }, [advanceDays]);
 
-  // Duration options
-  const singlesMax = rules?.singles_duration_minutes ?? 60;
-  const doublesMax = rules?.doubles_duration_minutes ?? 90;
-  const currentMax = playType === 'singles' ? singlesMax : doublesMax;
+  // Amenity-type-aware play types
+  const isCourtSport = amenity?.amenityType === 'tennis' || amenity?.amenityType === 'pickleball';
+  const playTypeOptions: { value: 'singles' | 'doubles' | 'family' | 'group'; label: string }[] = isCourtSport
+    ? [{ value: 'singles', label: 'Singles' }, { value: 'doubles', label: 'Doubles' }]
+    : [{ value: 'family', label: 'Family' }, { value: 'group', label: 'Group' }];
+
+  // Set default play type based on amenity type
+  useEffect(() => {
+    setPlayType(isCourtSport ? 'singles' : 'family');
+  }, [amenity?.amenityType]);
+
+  // Duration options — use max_duration_minutes from rules as ceiling
+  const maxDuration = (rules as any)?.max_duration_minutes ?? rules?.singles_duration_minutes ?? (isCourtSport ? 60 : 120);
 
   const durationOptions = useMemo(() => {
     const opts: number[] = [];
-    for (let d = 30; d <= currentMax; d += 30) opts.push(d);
+    for (let d = 30; d <= maxDuration; d += 30) opts.push(d);
     if (opts.length === 0) opts.push(30);
     return opts;
-  }, [currentMax]);
+  }, [maxDuration]);
 
   // Reset duration and slot when play type changes
   useEffect(() => {
@@ -403,12 +412,12 @@ const BookingFlow: React.FC = () => {
           {/* Type of Play */}
           <div style={{ fontSize: 12, fontWeight: 700, color: '#4B5563', marginBottom: 8 }}>Type of Play</div>
           <div className="flex gap-2" style={{ marginBottom: 16 }}>
-            {(['singles', 'doubles'] as const).map(t => {
-              const sel = playType === t;
+            {playTypeOptions.map(t => {
+              const sel = playType === t.value;
               return (
                 <button
-                  key={t}
-                  onClick={() => setPlayType(t)}
+                  key={t.value}
+                  onClick={() => setPlayType(t.value)}
                   className="flex-1 min-h-[44px]"
                   style={{
                     borderRadius: 10, padding: 11, fontSize: 13, fontWeight: 700,
@@ -418,7 +427,7 @@ const BookingFlow: React.FC = () => {
                     cursor: 'pointer',
                   }}
                 >
-                  {t.charAt(0).toUpperCase() + t.slice(1)}
+                  {t.label}
                 </button>
               );
             })}
@@ -448,7 +457,7 @@ const BookingFlow: React.FC = () => {
             })}
           </div>
           <div style={{ fontSize: 11, color: '#9CA3AF', fontStyle: 'italic' }}>
-            {playType === 'singles' ? `Singles max: ${fmtDuration(singlesMax)}` : `Doubles max: ${fmtDuration(doublesMax)}`}
+            Max duration: {fmtDuration(maxDuration)}
           </div>
         </div>
 
