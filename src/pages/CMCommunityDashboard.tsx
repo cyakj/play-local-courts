@@ -146,9 +146,8 @@ const CMCommunityDashboard = () => {
       case 'Manage Documents':
         navigate(`/cm/community/${c.id}/documents`);
         break;
-      case 'Create Survey':
-        setEditSurveyId(null);
-        setShowSurveyBuilder(true);
+      case 'Manage Surveys':
+        navigate(`/cm/community/${c.id}/surveys`);
         break;
       case 'Approve Members':
         setTab('members');
