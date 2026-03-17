@@ -7,9 +7,6 @@ import { CMStatusBadge } from '@/components/condo-manager/CMStatusBadge';
 import { CMKpiCard } from '@/components/condo-manager/CMKpiCard';
 import { CMIssuesTrendChart, CMPeriodToggle } from '@/components/condo-manager/CMIssuesTrendChart';
 import SetMaintenanceSheet from '@/components/condo-manager/SetMaintenanceSheet';
-import { SurveyList } from '@/components/surveys/SurveyList';
-import { SurveyBuilder } from '@/components/surveys/SurveyBuilder';
-import { SurveyResults } from '@/components/surveys/SurveyResults';
 import { useCondoManagerCommunities } from '@/hooks/useCondoManagerData';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -42,10 +39,6 @@ const CMCommunityDashboard = () => {
   const [announcementBody, setAnnouncementBody] = useState('');
   const [announcementAudience, setAnnouncementAudience] = useState('all_residents');
   const [pendingMembers, setPendingMembers] = useState<any[]>([]);
-  const [showSurveyBuilder, setShowSurveyBuilder] = useState(false);
-  const [surveyResultsId, setSurveyResultsId] = useState<string | null>(null);
-  const [editSurveyId, setEditSurveyId] = useState<string | null>(null);
-  const [surveyListKey, setSurveyListKey] = useState(0);
 
   const c = communities.find((x) => x.id === id) || communities[0];
 
@@ -153,9 +146,8 @@ const CMCommunityDashboard = () => {
       case 'Manage Documents':
         navigate(`/cm/community/${c.id}/documents`);
         break;
-      case 'Create Survey':
-        setEditSurveyId(null);
-        setShowSurveyBuilder(true);
+      case 'Manage Surveys':
+        navigate(`/cm/community/${c.id}/surveys`);
         break;
       case 'Approve Members':
         setTab('members');
@@ -259,7 +251,7 @@ const CMCommunityDashboard = () => {
                 { label: 'Post Announcement', icon: '📢' },
                 { label: 'Approve Members', icon: '✅' },
                 { label: 'Manage Documents', icon: '📁' },
-                { label: 'Create Survey', icon: '📊' },
+                { label: 'Manage Surveys', icon: '📊' },
               ].map((a) => (
                 <div
                   key={a.label}
@@ -272,18 +264,6 @@ const CMCommunityDashboard = () => {
               ))}
             </div>
 
-
-            {/* Surveys Section */}
-            <div className="mt-6">
-              <SurveyList
-                key={surveyListKey}
-                communityId={c.id}
-                communityName={c.name}
-                onNewSurvey={() => { setEditSurveyId(null); setShowSurveyBuilder(true); }}
-                onViewResults={(id) => setSurveyResultsId(id)}
-                onEditSurvey={(s) => { setEditSurveyId(s.id); setShowSurveyBuilder(true); }}
-              />
-            </div>
           </>
         )}
 
@@ -549,24 +529,6 @@ const CMCommunityDashboard = () => {
         />
       )}
 
-      {/* Survey Builder Overlay */}
-      {showSurveyBuilder && c && (
-        <SurveyBuilder
-          communityId={c.id}
-          onBack={() => setShowSurveyBuilder(false)}
-          onComplete={() => { setShowSurveyBuilder(false); setSurveyListKey(k => k + 1); }}
-          editSurveyId={editSurveyId}
-        />
-      )}
-
-      {/* Survey Results Overlay */}
-      {surveyResultsId && c && (
-        <SurveyResults
-          surveyId={surveyResultsId}
-          communityId={c.id}
-          onBack={() => setSurveyResultsId(null)}
-        />
-      )}
     </div>
   );
 };
