@@ -71,8 +71,19 @@ const BookingFlow: React.FC = () => {
     setPlayType(isCourtSport ? 'singles' : 'family');
   }, [amenity?.amenityType]);
 
-  // Duration options — use max_duration_minutes from rules as ceiling
-  const maxDuration = (rules as any)?.max_duration_minutes ?? (isCourtSport ? 60 : 120);
+  // Duration options — per play type from admin rules
+  const maxDuration = useMemo(() => {
+    const r = rules as any;
+    if (!r) return isCourtSport ? 60 : 120;
+    if (isCourtSport) {
+      return playType === 'singles'
+        ? (r.singles_duration_minutes ?? 60)
+        : (r.doubles_duration_minutes ?? 90);
+    }
+    return playType === 'family'
+      ? (r.family_duration_minutes ?? 120)
+      : (r.group_duration_minutes ?? 120);
+  }, [rules, playType, isCourtSport]);
 
   const durationOptions = useMemo(() => {
     const opts: number[] = [];
