@@ -367,8 +367,33 @@ const BookingFlow: React.FC = () => {
         </div>
       </div>
 
+      {/* Limit warning banners */}
+      {(atDailyLimit || atWeeklyLimit) && (
+        <div style={{
+          margin: '0 16px 0',
+          padding: '12px 14px',
+          background: '#FFFBEB',
+          border: '1.5px solid #F59E0B',
+          borderRadius: 12,
+          marginTop: 12,
+        }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#92400E', marginBottom: 2 }}>
+            ⚠️ Booking limit reached
+          </div>
+          <div style={{ fontSize: 12, color: '#92400E', lineHeight: 1.4 }}>
+            {atDailyLimit && (
+              <span>You've reached your daily maximum of {maxPerDay} reservation{maxPerDay > 1 ? 's' : ''} for this amenity. </span>
+            )}
+            {!atDailyLimit && atWeeklyLimit && (
+              <span>You've reached your weekly maximum of {maxPerWeek} reservation{maxPerWeek > 1 ? 's' : ''} for this amenity. </span>
+            )}
+            Please try another {atDailyLimit ? 'date' : 'week'}.
+          </div>
+        </div>
+      )}
+
       {/* Scrollable body */}
-      <div className="flex-1 overflow-y-auto" style={{ padding: '12px 16px', paddingBottom: selectedSlot ? 240 : 100 }}>
+      <div className="flex-1 overflow-y-auto" style={{ padding: '12px 16px', paddingBottom: selectedSlot ? 240 : 100, opacity: (atDailyLimit || atWeeklyLimit) ? 0.5 : 1, pointerEvents: (atDailyLimit || atWeeklyLimit) ? 'none' : 'auto' }}>
         {/* Options card */}
         <div style={{ background: '#FFFFFF', borderRadius: 16, border: '1px solid #E5E7EB', padding: 16, marginBottom: 12 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 14 }}>
