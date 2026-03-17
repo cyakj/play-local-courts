@@ -4,6 +4,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format, addDays, isToday } from 'date-fns';
 
+const isSlotInPast = (slotTime: string, date: Date): boolean => {
+  if (!isToday(date)) return false;
+  const now = new Date();
+  const slotEndHour = parseInt(slotTime.split(':')[0], 10) + 1;
+  return slotEndHour <= now.getHours() || (slotEndHour === now.getHours() + 1 && now.getMinutes() > 0 && parseInt(slotTime.split(':')[0], 10) < now.getHours());
+};
+
 interface SetMaintenanceSheetProps {
   open: boolean;
   onClose: () => void;
