@@ -27,6 +27,8 @@ const Dashboard = () => {
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
   const [activeSurvey, setActiveSurvey] = useState<any>(null);
+  const [cancelledBookings, setCancelledBookings] = useState<any[]>([]);
+  const [dismissedCancellations, setDismissedCancellations] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (currentUser && activeHOA?.hoaId) {
