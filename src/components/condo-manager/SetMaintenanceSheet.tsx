@@ -55,6 +55,7 @@ const generateTimeSlots = (startHour = 6, endHour = 22): SlotState[] => {
 };
 
 const SetMaintenanceSheet: React.FC<SetMaintenanceSheetProps> = ({ open, onClose, amenity }) => {
+  const { currentUser } = useAuth();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [slots, setSlots] = useState<SlotState[]>(generateTimeSlots());
   const [loading, setLoading] = useState(false);
