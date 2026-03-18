@@ -130,7 +130,7 @@ export const MultiStepReportDialog: React.FC<MultiStepReportDialogProps> = ({
         photoUrl = await uploadPhoto(photos[0].file);
       }
 
-      const { error } = await supabase.rpc('create_maintenance_report' as never, {
+      const { error } = await (supabase.rpc as any)('create_maintenance_report', {
         _hoa_id: currentUser.hoaId,
         _category: category,
         _description: `[Severity: ${getSeverityLabel(severity[0])}] ${description}`,
