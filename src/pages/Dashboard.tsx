@@ -278,6 +278,45 @@ const Dashboard = () => {
       {/* Body */}
       <div className="px-4 pt-4 pb-28" style={{ background: '#F0F4F8' }}>
 
+        {/* Admin cancellation banners */}
+        {cancelledBookings
+          .filter(cb => !dismissedCancellations.has(cb.id))
+          .map(cb => (
+            <div
+              key={cb.id}
+              className="rounded-2xl p-3.5 mb-3 relative"
+              style={{
+                background: '#FEF2F2',
+                border: '1px solid #EF4444',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+              }}
+            >
+              <div
+                onClick={() => handleDismissCancellation(cb.id)}
+                className="absolute top-2.5 right-2.5 cursor-pointer w-6 h-6 flex items-center justify-center rounded-full"
+                style={{ color: '#9CA3AF' }}
+              >
+                ✕
+              </div>
+              <div className="flex items-start gap-2.5 pr-5">
+                <span className="text-base mt-0.5">⚠️</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13px] font-bold" style={{ color: '#EF4444' }}>
+                    Your {cb.amenityName} booking on {format(new Date(`${cb.date}T00:00:00`), 'MMM d')} at {formatTime12(cb.start_time)} was cancelled.
+                  </div>
+                  <Link
+                    to="/reserve-court"
+                    className="inline-block mt-1.5 text-[13px] font-bold"
+                    style={{ color: '#00B4D8' }}
+                  >
+                    Book Again →
+                  </Link>
+                </div>
+              </div>
+            </div>
+          ))
+        }
+
         {/* CARD 1 — Upcoming Reservations */}
         <div className={cardStyle} style={cardShadow}>
           <div className="flex justify-between items-center mb-3">
