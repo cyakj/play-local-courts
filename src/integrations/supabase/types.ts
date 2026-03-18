@@ -2811,6 +2811,19 @@ export type Database = {
           user_id: string
         }[]
       }
+      create_maintenance_report: {
+        Args: {
+          _amenity_id?: string
+          _category: string
+          _description: string
+          _hoa_id: string
+          _location_text?: string
+          _photo_url?: string
+          _report_type?: string
+          _status?: string
+        }
+        Returns: string
+      }
       generate_round_robin_matches: {
         Args: { ladder_id_param: string }
         Returns: number
