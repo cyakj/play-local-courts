@@ -120,6 +120,14 @@ export const MultiStepReportDialog: React.FC<MultiStepReportDialogProps> = ({
 
     setLoading(true);
     try {
+      // Get the actual authenticated user id for RLS compliance
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) {
+        toast({ title: "Error", description: "You must be logged in to submit a report", variant: "destructive" });
+        setLoading(false);
+        return;
+      }
+
       let photoUrl = null;
       if (photos.length > 0) {
         photoUrl = await uploadPhoto(photos[0].file);
@@ -127,7 +135,7 @@ export const MultiStepReportDialog: React.FC<MultiStepReportDialogProps> = ({
 
       const reportData: any = {
         hoa_id: currentUser.hoaId!,
-        reporter_id: currentUser.id,
+        reporter_id: authUser.id,
         category,
         description: `[Severity: ${getSeverityLabel(severity[0])}] ${description}`,
         photo_url: photoUrl,
@@ -148,8 +156,11 @@ export const MultiStepReportDialog: React.FC<MultiStepReportDialogProps> = ({
         .insert(reportData);
 
       if (error) throw error;
-      toast({ title: "Issue Reported", description: "Your maintenance request has been submitted successfully." });
-      handleClose();
+      
+      toast({ title: "✅ Issue Reported!", description: "Your maintenance request has been submitted successfully." });
+      resetForm();
+      onOpenChange(false);
+      navigate('/dashboard');
     } catch (error) {
       console.error('Error submitting report:', error);
       toast({ title: "Error", description: "Failed to submit maintenance report", variant: "destructive" });
