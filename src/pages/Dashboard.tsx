@@ -78,18 +78,35 @@ const Dashboard = () => {
         .gte('updated_at', cutoff);
       
       if (data && data.length > 0) {
+        // Check if user has rebooked the same amenity since cancellation
         const courtIds = [...new Set(data.map(b => b.court_id))];
-        const { data: courts } = await supabase
-          .from('courts')
-          .select('id, name')
-          .in('id', courtIds);
+        const [courtsResult, rebookedResult] = await Promise.all([
+          supabase.from('courts').select('id, name').in('id', courtIds),
+          supabase.from('bookings')
+            .select('court_id, created_at')
+            .eq('user_id', currentUser.id)
+            .eq('status', 'confirmed')
+            .in('court_id', courtIds)
+            .gte('created_at', cutoff),
+        ]);
+
         const courtMap: Record<string, string> = {};
-        courts?.forEach(c => { courtMap[c.id] = c.name; });
-        
-        setCancelledBookings(data.map(b => ({
-          ...b,
-          amenityName: courtMap[b.court_id] || 'Amenity',
-        })));
+        courtsResult.data?.forEach(c => { courtMap[c.id] = c.name; });
+
+        // Build set of amenities that have been rebooked after cancellation
+        const rebookedCourts = new Set<string>();
+        rebookedResult.data?.forEach(rb => {
+          const cancelledForCourt = data.find(d => d.court_id === rb.court_id);
+          if (cancelledForCourt && new Date(rb.created_at) > new Date(cancelledForCourt.updated_at)) {
+            rebookedCourts.add(cancelledForCourt.id);
+          }
+        });
+
+        setCancelledBookings(
+          data
+            .filter(b => !rebookedCourts.has(b.id))
+            .map(b => ({ ...b, amenityName: courtMap[b.court_id] || 'Amenity' }))
+        );
       } else {
         setCancelledBookings([]);
       }
