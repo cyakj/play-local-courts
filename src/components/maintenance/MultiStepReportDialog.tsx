@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { useNavigate } from 'react-router-dom';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -11,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Wrench, Zap, Droplets, TreePine, Building2, ShieldAlert, Camera, Loader2, ChevronLeft, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 
 interface MultiStepReportDialogProps {
   open: boolean;
@@ -41,6 +43,7 @@ export const MultiStepReportDialog: React.FC<MultiStepReportDialogProps> = ({
 }) => {
   const { currentUser } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
 
@@ -117,6 +120,14 @@ export const MultiStepReportDialog: React.FC<MultiStepReportDialogProps> = ({
 
     setLoading(true);
     try {
+      // Get the actual authenticated user id for RLS compliance
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) {
+        toast({ title: "Error", description: "You must be logged in to submit a report", variant: "destructive" });
+        setLoading(false);
+        return;
+      }
+
       let photoUrl = null;
       if (photos.length > 0) {
         photoUrl = await uploadPhoto(photos[0].file);
@@ -124,7 +135,7 @@ export const MultiStepReportDialog: React.FC<MultiStepReportDialogProps> = ({
 
       const reportData: any = {
         hoa_id: currentUser.hoaId!,
-        reporter_id: currentUser.id,
+        reporter_id: authUser.id,
         category,
         description: `[Severity: ${getSeverityLabel(severity[0])}] ${description}`,
         photo_url: photoUrl,
@@ -145,8 +156,11 @@ export const MultiStepReportDialog: React.FC<MultiStepReportDialogProps> = ({
         .insert(reportData);
 
       if (error) throw error;
-      toast({ title: "Issue Reported", description: "Your maintenance request has been submitted successfully." });
-      handleClose();
+      
+      toast({ title: "✅ Issue Reported!", description: "Your maintenance request has been submitted successfully." });
+      resetForm();
+      onOpenChange(false);
+      navigate('/dashboard');
     } catch (error) {
       console.error('Error submitting report:', error);
       toast({ title: "Error", description: "Failed to submit maintenance report", variant: "destructive" });
@@ -161,8 +175,8 @@ export const MultiStepReportDialog: React.FC<MultiStepReportDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[425px] p-0 overflow-hidden">
-        {/* Header */}
+      <DialogContent className="sm:max-w-[425px] p-0 overflow-hidden" aria-describedby={undefined}>
+        <VisuallyHidden><DialogTitle>Report Issue</DialogTitle></VisuallyHidden>
         <div className="px-6 pt-6 pb-4 text-center">
           <div className="w-12 h-1.5 bg-muted rounded-full mx-auto mb-6" />
           <h2 className="text-2xl font-bold text-primary mb-2">Report Issue</h2>
