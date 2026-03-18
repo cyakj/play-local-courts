@@ -41,8 +41,9 @@ export const MultiStepReportDialog: React.FC<MultiStepReportDialogProps> = ({
   onOpenChange,
   amenities
 }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, session } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
 
