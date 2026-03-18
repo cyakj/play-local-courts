@@ -120,11 +120,8 @@ export const MultiStepReportDialog: React.FC<MultiStepReportDialogProps> = ({
 
     setLoading(true);
     try {
-      // Get the actual authenticated user id for RLS compliance
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) {
-        toast({ title: "Error", description: "You must be logged in to submit a report", variant: "destructive" });
-        setLoading(false);
+      if (!currentUser.hoaId) {
+        toast({ title: "Error", description: "No active community found for this report", variant: "destructive" });
         return;
       }
 
@@ -133,37 +130,26 @@ export const MultiStepReportDialog: React.FC<MultiStepReportDialogProps> = ({
         photoUrl = await uploadPhoto(photos[0].file);
       }
 
-      const reportData: any = {
-        hoa_id: currentUser.hoaId!,
-        reporter_id: authUser.id,
-        category,
-        description: `[Severity: ${getSeverityLabel(severity[0])}] ${description}`,
-        photo_url: photoUrl,
-        status: 'open',
-      };
-
-      if (isAmenityCategory) {
-        reportData.report_type = 'amenity';
-        reportData.amenity_id = selectedAmenity;
-      } else {
-        reportData.report_type = 'location';
-        reportData.amenity_id = null;
-        reportData.location_text = locationText;
-      }
-
-      const { error } = await supabase
-        .from('maintenance_reports')
-        .insert(reportData);
+      const { error } = await supabase.rpc('create_maintenance_report' as never, {
+        _hoa_id: currentUser.hoaId,
+        _category: category,
+        _description: `[Severity: ${getSeverityLabel(severity[0])}] ${description}`,
+        _photo_url: photoUrl,
+        _report_type: isAmenityCategory ? 'amenity' : 'location',
+        _amenity_id: isAmenityCategory ? selectedAmenity : null,
+        _location_text: isAmenityCategory ? null : locationText.trim(),
+        _status: 'open',
+      });
 
       if (error) throw error;
-      
+
       toast({ title: "✅ Issue Reported!", description: "Your maintenance request has been submitted successfully." });
-      resetForm();
-      onOpenChange(false);
+      handleClose();
       navigate('/dashboard');
     } catch (error) {
       console.error('Error submitting report:', error);
-      toast({ title: "Error", description: "Failed to submit maintenance report", variant: "destructive" });
+      const message = error instanceof Error ? error.message : "Failed to submit maintenance report";
+      toast({ title: "Error", description: message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
