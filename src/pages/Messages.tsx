@@ -54,6 +54,7 @@ export default function Messages() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const shouldScrollToBottomRef = useRef(true);
 
   const loadConversationsCallback = useCallback(() => {
     loadConversations();
@@ -80,7 +81,9 @@ export default function Messages() {
   }, [selectedUserId]);
 
   useEffect(() => {
-    scrollToBottom();
+    if (shouldScrollToBottomRef.current) {
+      scrollToBottom();
+    }
   }, [messages]);
 
   const scrollToBottom = () => {
@@ -185,19 +188,22 @@ export default function Messages() {
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      setMessages(data || []);
-
-      // Scroll to first unread or bottom
+      
+      // Check for unread messages to determine scroll behavior
       const firstUnreadIdx = (data || []).findIndex(
         (m) => m.sender_id === userId && !m.read_at
       );
+      
       if (firstUnreadIdx > 0) {
+        shouldScrollToBottomRef.current = false;
+        setMessages(data || []);
         setTimeout(() => {
           const el = document.getElementById('msg-new-divider');
           el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }, 150);
       } else {
-        scrollToBottom();
+        shouldScrollToBottomRef.current = true;
+        setMessages(data || []);
       }
 
       // Mark messages as read
