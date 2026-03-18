@@ -98,69 +98,88 @@ const ResidentCalendar = () => {
     fetchCommunities();
   }, [currentUser?.id]);
 
+  const fetchAll = async () => {
+    if (!currentUser?.id || communities.length === 0) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const hoaIds = communities.map(c => c.hoaId);
+    const hoaNameMap = new Map(communities.map(c => [c.hoaId, c.name]));
+
+    // HOA events
+    const { data: hoaEvents } = await supabase
+      .from('hoa_events')
+      .select('id, title, event_type, location, starts_at, hoa_id, description')
+      .in('hoa_id', hoaIds)
+      .eq('status', 'active')
+      .order('starts_at');
+
+    const mapped: CalendarEvent[] = (hoaEvents || []).map(e => ({
+      ...e,
+      community_name: hoaNameMap.get(e.hoa_id) || '',
+      location: e.location || null,
+    }));
+
+    // Resident's own bookings
+    const { data: bookings } = await supabase
+      .from('bookings')
+      .select('id, date, start_time, end_time, court_id, courts(name, hoa_id)')
+      .eq('user_id', currentUser.id)
+      .eq('status', 'confirmed');
+
+    if (bookings) {
+      for (const b of bookings) {
+        const court = (b as any).courts;
+        if (!court) continue;
+        const hoaId = court.hoa_id;
+        if (!hoaIds.includes(hoaId)) continue;
+        const startHour = b.start_time?.slice(0, 5) || '';
+        const endHour = b.end_time?.slice(0, 5) || '';
+        const fmtTime = (t: string) => {
+          const [h, m] = t.split(':').map(Number);
+          const ampm = h >= 12 ? 'PM' : 'AM';
+          return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`;
+        };
+        mapped.push({
+          id: b.id,
+          title: `${court.name} · ${fmtTime(startHour)} – ${fmtTime(endHour)}`,
+          event_type: 'amenity_booking',
+          location: court.name,
+          starts_at: `${b.date}T${b.start_time}`,
+          hoa_id: hoaId,
+          community_name: hoaNameMap.get(hoaId) || '',
+          description: null,
+        });
+      }
+    }
+
+    mapped.sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
+    setEvents(mapped);
+    setLoading(false);
+  };
+
   // Fetch events + bookings
   useEffect(() => {
-    const fetchAll = async () => {
-      if (!currentUser?.id || communities.length === 0) {
-        setLoading(false);
-        return;
-      }
-      setLoading(true);
-      const hoaIds = communities.map(c => c.hoaId);
-      const hoaNameMap = new Map(communities.map(c => [c.hoaId, c.name]));
-
-      // HOA events
-      const { data: hoaEvents } = await supabase
-        .from('hoa_events')
-        .select('id, title, event_type, location, starts_at, hoa_id, description')
-        .in('hoa_id', hoaIds)
-        .eq('status', 'active')
-        .order('starts_at');
-
-      const mapped: CalendarEvent[] = (hoaEvents || []).map(e => ({
-        ...e,
-        community_name: hoaNameMap.get(e.hoa_id) || '',
-        location: e.location || null,
-      }));
-
-      // Resident's own bookings
-      const { data: bookings } = await supabase
-        .from('bookings')
-        .select('id, date, start_time, end_time, court_id, courts(name, hoa_id)')
-        .eq('user_id', currentUser.id)
-        .eq('status', 'confirmed');
-
-      if (bookings) {
-        for (const b of bookings) {
-          const court = (b as any).courts;
-          if (!court) continue;
-          const hoaId = court.hoa_id;
-          if (!hoaIds.includes(hoaId)) continue;
-          const startHour = b.start_time?.slice(0, 5) || '';
-          const endHour = b.end_time?.slice(0, 5) || '';
-          const fmtTime = (t: string) => {
-            const [h, m] = t.split(':').map(Number);
-            const ampm = h >= 12 ? 'PM' : 'AM';
-            return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`;
-          };
-          mapped.push({
-            id: b.id,
-            title: `${court.name} · ${fmtTime(startHour)} – ${fmtTime(endHour)}`,
-            event_type: 'amenity_booking',
-            location: court.name,
-            starts_at: `${b.date}T${b.start_time}`,
-            hoa_id: hoaId,
-            community_name: hoaNameMap.get(hoaId) || '',
-            description: null,
-          });
-        }
-      }
-
-      mapped.sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
-      setEvents(mapped);
-      setLoading(false);
-    };
     fetchAll();
+  }, [currentUser?.id, communities]);
+
+  // Re-fetch when bookings change (cancellations, new bookings)
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    const channel = supabase
+      .channel('calendar-bookings')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'bookings',
+        filter: `user_id=eq.${currentUser.id}`,
+      }, () => {
+        fetchAll();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [currentUser?.id, communities]);
 
   // Filtered events
