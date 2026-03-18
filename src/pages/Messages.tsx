@@ -54,6 +54,7 @@ export default function Messages() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const shouldScrollToBottomRef = useRef(true);
 
   const loadConversationsCallback = useCallback(() => {
     loadConversations();
@@ -80,7 +81,9 @@ export default function Messages() {
   }, [selectedUserId]);
 
   useEffect(() => {
-    scrollToBottom();
+    if (shouldScrollToBottomRef.current) {
+      scrollToBottom();
+    }
   }, [messages]);
 
   const scrollToBottom = () => {
