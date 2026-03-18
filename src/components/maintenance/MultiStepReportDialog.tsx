@@ -175,8 +175,8 @@ export const MultiStepReportDialog: React.FC<MultiStepReportDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[425px] p-0 overflow-hidden">
-        {/* Header */}
+      <DialogContent className="sm:max-w-[425px] p-0 overflow-hidden" aria-describedby={undefined}>
+        <VisuallyHidden><DialogTitle>Report Issue</DialogTitle></VisuallyHidden>
         <div className="px-6 pt-6 pb-4 text-center">
           <div className="w-12 h-1.5 bg-muted rounded-full mx-auto mb-6" />
           <h2 className="text-2xl font-bold text-primary mb-2">Report Issue</h2>
