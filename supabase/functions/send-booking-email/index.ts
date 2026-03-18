@@ -37,6 +37,10 @@ interface EmailRequest {
   startTime: string;
   endTime?: string;
   location?: string;
+  // Admin cancellation specific
+  communityName?: string;
+  cancellationReason?: string;
+  isAdminCancellation?: boolean;
 }
 
 const handler = async (req: Request): Promise<Response> => {
