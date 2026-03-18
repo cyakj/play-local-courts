@@ -233,6 +233,8 @@ export type Database = {
       }
       bookings: {
         Row: {
+          cancellation_reason: string | null
+          cancelled_by: string | null
           court_id: string
           created_at: string | null
           date: string
@@ -245,6 +247,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          cancellation_reason?: string | null
+          cancelled_by?: string | null
           court_id: string
           created_at?: string | null
           date: string
@@ -257,6 +261,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          cancellation_reason?: string | null
+          cancelled_by?: string | null
           court_id?: string
           created_at?: string | null
           date?: string
