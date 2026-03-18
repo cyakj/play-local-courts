@@ -18,7 +18,7 @@ interface BookingDetailSheetProps {
   amenityName: string;
   selectedDate: Date;
   onClose: () => void;
-  onCancel: (slot: BookingSlot) => void;
+  onCancel: (slot: BookingSlot, reason?: string) => void;
 }
 
 const BookingDetailSheet: React.FC<BookingDetailSheetProps> = ({
@@ -30,10 +30,11 @@ const BookingDetailSheet: React.FC<BookingDetailSheetProps> = ({
 }) => {
   const [confirming, setConfirming] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [reason, setReason] = useState('');
 
   const handleCancel = async () => {
     setCancelling(true);
-    await onCancel(slot);
+    await onCancel(slot, reason.trim() || undefined);
     setCancelling(false);
   };
 
@@ -110,12 +111,32 @@ const BookingDetailSheet: React.FC<BookingDetailSheetProps> = ({
             </div>
           ) : (
             <div>
+              {/* Reason input */}
+              <div className="mb-3">
+                <label className="block text-[12px] font-semibold mb-1.5" style={{ color: '#4B5563' }}>
+                  Reason for cancellation (optional)
+                </label>
+                <input
+                  type="text"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="e.g. Emergency maintenance required"
+                  className="w-full text-[13px] outline-none"
+                  style={{
+                    border: '1px solid #E5E7EB',
+                    borderRadius: 10,
+                    padding: '10px 12px',
+                    color: '#1A1A2E',
+                  }}
+                />
+              </div>
+
               <div className="text-[13px] text-center mb-3 leading-relaxed" style={{ color: '#4B5563' }}>
                 Are you sure? {slot.unitNumber} will be notified their booking was cancelled.
               </div>
               <div className="flex gap-2.5">
                 <div
-                  onClick={() => setConfirming(false)}
+                  onClick={() => { setConfirming(false); setReason(''); }}
                   className="flex-1 text-center cursor-pointer text-[13px] font-bold"
                   style={{
                     border: '1.5px solid #E5E7EB',

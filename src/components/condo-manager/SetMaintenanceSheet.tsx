@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format, addDays, isToday } from 'date-fns';
+import { useAuth } from '@/contexts/AuthContext';
 import BookingDetailSheet from './BookingDetailSheet';
 
 const isSlotInPast = (slotTime: string, date: Date): boolean => {
