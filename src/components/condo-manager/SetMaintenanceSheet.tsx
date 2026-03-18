@@ -343,7 +343,7 @@ const SetMaintenanceSheet: React.FC<SetMaintenanceSheetProps> = ({ open, onClose
                           borderRadius: 99,
                         }}
                       >
-                        <span>{state === 'available' ? '✓' : state === 'booked' ? '👤' : '🔧'}</span>
+                        <span>{state === 'available' ? '✓' : state === 'booked' ? '🏠' : '🔧'}</span>
                         <span>{state === 'available' ? 'Available' : state === 'booked' ? (slot.unitNumber || 'Booked') : 'Maint.'}</span>
                       </span>
 
