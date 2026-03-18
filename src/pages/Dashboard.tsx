@@ -64,6 +64,55 @@ const Dashboard = () => {
     },
     enabled: !!currentUser?.id
   });
+  // Load admin-cancelled bookings for banner
+  useEffect(() => {
+    if (!currentUser) return;
+    const loadCancelled = async () => {
+      // Get bookings cancelled by admin in the last 48 hours
+      const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+      const { data } = await supabase
+        .from('bookings')
+        .select('id, court_id, date, start_time, end_time, cancelled_by, updated_at')
+        .eq('user_id', currentUser.id)
+        .eq('status', 'cancelled')
+        .eq('cancelled_by', 'admin')
+        .gte('updated_at', cutoff);
+      
+      if (data && data.length > 0) {
+        // Fetch amenity names
+        const courtIds = [...new Set(data.map(b => b.court_id))];
+        const { data: courts } = await supabase
+          .from('courts')
+          .select('id, name')
+          .in('id', courtIds);
+        const courtMap: Record<string, string> = {};
+        courts?.forEach(c => { courtMap[c.id] = c.name; });
+        
+        setCancelledBookings(data.map(b => ({
+          ...b,
+          amenityName: courtMap[b.court_id] || 'Amenity',
+        })));
+      } else {
+        setCancelledBookings([]);
+      }
+    };
+    loadCancelled();
+    
+    // Also check on dismissed from localStorage
+    try {
+      const dismissed = JSON.parse(localStorage.getItem('dismissed_cancellations') || '[]');
+      setDismissedCancellations(new Set(dismissed));
+    } catch {}
+  }, [currentUser, bookings]);
+
+  const handleDismissCancellation = (bookingId: string) => {
+    setDismissedCancellations(prev => {
+      const next = new Set(prev);
+      next.add(bookingId);
+      try { localStorage.setItem('dismissed_cancellations', JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  };
 
   const loadHomeData = async () => {
     if (!currentUser || !activeHOA?.hoaId) return;
