@@ -67,7 +67,7 @@ const EditProfile = () => {
       const fullName = `${firstName} ${lastName}`.trim();
       const { error } = await supabase
         .from('profiles')
-        .update({ full_name: fullName, phone_number: phone } as any)
+        .update({ full_name: fullName, phone_number: phone, unit_number: unitNumber || null } as any)
         .eq('id', currentUser.id);
       if (error) throw error;
       toast({ title: 'Profile updated', description: 'Your changes have been saved.' });
@@ -167,16 +167,14 @@ const EditProfile = () => {
           </FieldLabel>
 
           <FieldLabel label="Unit Number">
-            <div className="relative">
-              <input
-                type="text"
-                value={unitNumber}
-                readOnly
-                className="w-full text-sm pr-10"
-                style={{ ...inputStyle, background: '#F9FAFB', color: '#9CA3AF', cursor: 'not-allowed' }}
-              />
-              <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: '#9CA3AF' }} />
-            </div>
+            <input
+              type="text"
+              value={unitNumber}
+              onChange={(e) => setUnitNumber(e.target.value)}
+              placeholder="e.g. 28-027"
+              className="w-full text-sm"
+              style={inputStyle}
+            />
           </FieldLabel>
         </div>
 
