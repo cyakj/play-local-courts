@@ -364,8 +364,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         day: 'numeric',
         year: 'numeric'
       });
+      const fmt12 = (t: string) => {
+        const [h, m] = t.split(':').map(Number);
+        return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
+      };
       toast.success(`✅ ${amenityName} Reserved!`, {
-        description: `📅 ${formattedDate}\n⏰ ${startTime} - ${endTime}\n🎾 ${playType}\n\nYou'll receive a reminder 1 hour before.`,
+        description: `📅 ${formattedDate}\n⏰ ${fmt12(startTime)} - ${fmt12(endTime)}\n🎾 ${playType}\n\nYou'll receive a reminder 1 hour before.`,
         duration: 5000,
       });
 
