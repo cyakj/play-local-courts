@@ -27,6 +27,8 @@ const Dashboard = () => {
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
   const [activeSurvey, setActiveSurvey] = useState<any>(null);
+  const [cancelledBookings, setCancelledBookings] = useState<any[]>([]);
+  const [dismissedCancellations, setDismissedCancellations] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (currentUser && activeHOA?.hoaId) {
@@ -62,6 +64,55 @@ const Dashboard = () => {
     },
     enabled: !!currentUser?.id
   });
+  // Load admin-cancelled bookings for banner
+  useEffect(() => {
+    if (!currentUser) return;
+    const loadCancelled = async () => {
+      // Get bookings cancelled by admin in the last 48 hours
+      const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+      const { data } = await supabase
+        .from('bookings')
+        .select('id, court_id, date, start_time, end_time, cancelled_by, updated_at')
+        .eq('user_id', currentUser.id)
+        .eq('status', 'cancelled')
+        .eq('cancelled_by', 'admin')
+        .gte('updated_at', cutoff);
+      
+      if (data && data.length > 0) {
+        // Fetch amenity names
+        const courtIds = [...new Set(data.map(b => b.court_id))];
+        const { data: courts } = await supabase
+          .from('courts')
+          .select('id, name')
+          .in('id', courtIds);
+        const courtMap: Record<string, string> = {};
+        courts?.forEach(c => { courtMap[c.id] = c.name; });
+        
+        setCancelledBookings(data.map(b => ({
+          ...b,
+          amenityName: courtMap[b.court_id] || 'Amenity',
+        })));
+      } else {
+        setCancelledBookings([]);
+      }
+    };
+    loadCancelled();
+    
+    // Also check on dismissed from localStorage
+    try {
+      const dismissed = JSON.parse(localStorage.getItem('dismissed_cancellations') || '[]');
+      setDismissedCancellations(new Set(dismissed));
+    } catch {}
+  }, [currentUser, bookings]);
+
+  const handleDismissCancellation = (bookingId: string) => {
+    setDismissedCancellations(prev => {
+      const next = new Set(prev);
+      next.add(bookingId);
+      try { localStorage.setItem('dismissed_cancellations', JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  };
 
   const loadHomeData = async () => {
     if (!currentUser || !activeHOA?.hoaId) return;
@@ -226,6 +277,45 @@ const Dashboard = () => {
 
       {/* Body */}
       <div className="px-4 pt-4 pb-28" style={{ background: '#F0F4F8' }}>
+
+        {/* Admin cancellation banners */}
+        {cancelledBookings
+          .filter(cb => !dismissedCancellations.has(cb.id))
+          .map(cb => (
+            <div
+              key={cb.id}
+              className="rounded-2xl p-3.5 mb-3 relative"
+              style={{
+                background: '#FEF2F2',
+                border: '1px solid #EF4444',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+              }}
+            >
+              <div
+                onClick={() => handleDismissCancellation(cb.id)}
+                className="absolute top-2.5 right-2.5 cursor-pointer w-6 h-6 flex items-center justify-center rounded-full"
+                style={{ color: '#9CA3AF' }}
+              >
+                ✕
+              </div>
+              <div className="flex items-start gap-2.5 pr-5">
+                <span className="text-base mt-0.5">⚠️</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13px] font-bold" style={{ color: '#EF4444' }}>
+                    Your {cb.amenityName} booking on {format(new Date(`${cb.date}T00:00:00`), 'MMM d')} at {formatTime12(cb.start_time)} was cancelled.
+                  </div>
+                  <Link
+                    to="/reserve-court"
+                    className="inline-block mt-1.5 text-[13px] font-bold"
+                    style={{ color: '#00B4D8' }}
+                  >
+                    Book Again →
+                  </Link>
+                </div>
+              </div>
+            </div>
+          ))
+        }
 
         {/* CARD 1 — Upcoming Reservations */}
         <div className={cardStyle} style={cardShadow}>

@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format, addDays, isToday } from 'date-fns';
+import { useAuth } from '@/contexts/AuthContext';
 import BookingDetailSheet from './BookingDetailSheet';
 
 const isSlotInPast = (slotTime: string, date: Date): boolean => {
@@ -54,6 +55,7 @@ const generateTimeSlots = (startHour = 6, endHour = 22): SlotState[] => {
 };
 
 const SetMaintenanceSheet: React.FC<SetMaintenanceSheetProps> = ({ open, onClose, amenity }) => {
+  const { currentUser } = useAuth();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [slots, setSlots] = useState<SlotState[]>(generateTimeSlots());
   const [loading, setLoading] = useState(false);
@@ -147,12 +149,19 @@ const SetMaintenanceSheet: React.FC<SetMaintenanceSheetProps> = ({ open, onClose
     ));
   };
 
-  const handleCancelBooking = async (slot: SlotState) => {
+  const handleCancelBooking = async (slot: SlotState, reason?: string) => {
     if (!slot.bookingId) return;
     
+    const dateStr = format(selectedDate, 'yyyy-MM-dd');
+    
+    // Update booking with cancellation info
     const { error } = await supabase
       .from('bookings')
-      .update({ status: 'cancelled' })
+      .update({ 
+        status: 'cancelled',
+        cancellation_reason: reason || null,
+        cancelled_by: 'admin',
+      } as any)
       .eq('id', slot.bookingId);
     
     if (error) {
@@ -160,15 +169,62 @@ const SetMaintenanceSheet: React.FC<SetMaintenanceSheetProps> = ({ open, onClose
       return;
     }
 
-    // Send notification to resident
+    // Get community name and resident first name
+    const [hoaResult, profileResult] = await Promise.all([
+      supabase.from('hoas').select('name').eq('id', amenity.hoaId).single(),
+      slot.userId 
+        ? supabase.from('profiles').select('full_name').eq('id', slot.userId).single()
+        : Promise.resolve({ data: null }),
+    ]);
+    
+    const communityName = hoaResult.data?.name || 'your community';
+    const residentFirstName = profileResult.data?.full_name?.split(' ')[0] || 'Resident';
+    const formattedDate = format(selectedDate, 'EEEE, MMMM d, yyyy');
+
     if (slot.userId) {
+      // 1. In-app notification (hoa_notifications)
       await supabase.from('hoa_notifications').insert({
         user_id: slot.userId,
         hoa_id: amenity.hoaId,
         type: 'booking_cancelled',
         title: 'Booking Cancelled',
-        body: `Your booking for ${amenity.name} on ${format(selectedDate, 'MMM d')} at ${slot.displayStart} has been cancelled by the admin.`,
+        body: `Your ${amenity.name} booking on ${format(selectedDate, 'MMM d')} at ${slot.displayStart} was cancelled by ${communityName} management.`,
+        metadata: { amenity_id: amenity.id, amenity_name: amenity.name, date: dateStr },
       });
+
+      // 2. Automated in-app message from admin
+      if (currentUser?.id) {
+        let messageBody = `Hi ${residentFirstName}, your ${amenity.name} booking on ${formattedDate} at ${slot.displayStart} – ${slot.displayEnd} has been cancelled by management. We apologize for the inconvenience. If you'd like to rebook, you can do so directly in the app.`;
+        if (reason) {
+          messageBody += ` Reason: ${reason}`;
+        }
+
+        await supabase.from('messages').insert({
+          sender_id: currentUser.id,
+          receiver_id: slot.userId,
+          content: messageBody,
+        });
+      }
+
+      // 3. Email notification
+      try {
+        await supabase.functions.invoke('send-booking-email', {
+          body: {
+            type: 'booking_cancellation',
+            userId: slot.userId,
+            courtName: amenity.name,
+            date: dateStr,
+            startTime: slot.time,
+            endTime: slot.endTime,
+            playType: slot.playType,
+            communityName,
+            cancellationReason: reason || undefined,
+            isAdminCancellation: true,
+          }
+        });
+      } catch (emailError) {
+        console.error('Failed to send cancellation email:', emailError);
+      }
     }
 
     // Revert slot to available

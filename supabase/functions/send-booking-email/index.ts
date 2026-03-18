@@ -37,6 +37,10 @@ interface EmailRequest {
   startTime: string;
   endTime?: string;
   location?: string;
+  // Admin cancellation specific
+  communityName?: string;
+  cancellationReason?: string;
+  isAdminCancellation?: boolean;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -139,20 +143,39 @@ const handler = async (req: Request): Promise<Response> => {
           });
         }
         
-        subject = `Court Reservation Cancelled - ${emailData.courtName}`;
+        const communityLabel = emailData.communityName || 'your community';
+        const reasonLine = emailData.cancellationReason 
+          ? `<p><strong>Reason:</strong> ${emailData.cancellationReason}</p>` 
+          : '';
+        const isAdmin = emailData.isAdminCancellation;
+
+        subject = isAdmin
+          ? `Your booking at ${emailData.courtName} has been cancelled — ${communityLabel}`
+          : `Court Reservation Cancelled - ${emailData.courtName}`;
+
         htmlContent = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h1 style="color: #dc2626;">Court Reservation Cancelled</h1>
+            <h1 style="color: #dc2626;">${isAdmin ? 'Booking Cancelled by Management' : 'Court Reservation Cancelled'}</h1>
             <p>Dear ${userName},</p>
-            <p>Your court reservation has been cancelled. Here were the details:</p>
+            <p>${isAdmin 
+              ? `Your ${emailData.courtName} booking on ${formattedDate} at ${emailData.startTime} – ${emailData.endTime} has been cancelled by ${communityLabel} management. We apologize for the inconvenience.`
+              : 'Your court reservation has been cancelled. Here were the details:'
+            }</p>
             <div style="background-color: #fef2f2; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #dc2626;">
               <h3 style="margin-top: 0; color: #374151;">Cancelled Reservation</h3>
-              <p><strong>Court:</strong> ${emailData.courtName}</p>
+              <p><strong>Amenity:</strong> ${emailData.courtName}</p>
               <p><strong>Date:</strong> ${formattedDate}</p>
               <p><strong>Time:</strong> ${emailData.startTime} - ${emailData.endTime}</p>
-              <p><strong>Play Type:</strong> ${emailData.playType || 'Singles'}</p>
+              ${emailData.playType ? `<p><strong>Type:</strong> ${emailData.playType}</p>` : ''}
+              ${reasonLine}
             </div>
-            <p>You can make a new reservation anytime through our court reservation system.</p>
+            ${isAdmin 
+              ? `<p>If you'd like to rebook, you can do so directly in the app.</p>
+                 <div style="text-align: center; margin: 30px 0;">
+                   <a href="https://play-local-courts.lovable.app/reserve-court" style="display: inline-block; background-color: #00B4D8; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 10px; font-weight: bold; font-size: 14px;">Book Again</a>
+                 </div>`
+              : '<p>You can make a new reservation anytime through our court reservation system.</p>'
+            }
             <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
             <p style="color: #6b7280; font-size: 14px;">This email was sent automatically. Please do not reply to this email.</p>
           </div>
