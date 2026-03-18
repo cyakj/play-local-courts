@@ -67,7 +67,7 @@ const EditProfile = () => {
       const fullName = `${firstName} ${lastName}`.trim();
       const { error } = await supabase
         .from('profiles')
-        .update({ full_name: fullName, phone_number: phone } as any)
+        .update({ full_name: fullName, phone_number: phone, unit_number: unitNumber || null } as any)
         .eq('id', currentUser.id);
       if (error) throw error;
       toast({ title: 'Profile updated', description: 'Your changes have been saved.' });
