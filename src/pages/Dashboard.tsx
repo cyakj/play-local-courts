@@ -68,7 +68,6 @@ const Dashboard = () => {
   useEffect(() => {
     if (!currentUser) return;
     const loadCancelled = async () => {
-      // Get bookings cancelled by admin in the last 48 hours
       const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
       const { data } = await supabase
         .from('bookings')
@@ -79,7 +78,6 @@ const Dashboard = () => {
         .gte('updated_at', cutoff);
       
       if (data && data.length > 0) {
-        // Fetch amenity names
         const courtIds = [...new Set(data.map(b => b.court_id))];
         const { data: courts } = await supabase
           .from('courts')
@@ -96,14 +94,47 @@ const Dashboard = () => {
         setCancelledBookings([]);
       }
     };
+
     loadCancelled();
-    
-    // Also check on dismissed from localStorage
+
     try {
       const dismissed = JSON.parse(localStorage.getItem('dismissed_cancellations') || '[]');
       setDismissedCancellations(new Set(dismissed));
     } catch {}
   }, [currentUser, bookings]);
+
+  useRealtimeSubscription({
+    table: 'bookings',
+    event: '*',
+    filter: currentUser?.id ? `user_id=eq.${currentUser.id}` : undefined,
+    onChange: () => {
+      if (currentUser) {
+        const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+        supabase
+          .from('bookings')
+          .select('id, court_id, date, start_time, end_time, cancelled_by, updated_at')
+          .eq('user_id', currentUser.id)
+          .eq('status', 'cancelled')
+          .eq('cancelled_by', 'admin')
+          .gte('updated_at', cutoff)
+          .then(async ({ data }) => {
+            if (data && data.length > 0) {
+              const courtIds = [...new Set(data.map(b => b.court_id))];
+              const { data: courts } = await supabase
+                .from('courts')
+                .select('id, name')
+                .in('id', courtIds);
+              const courtMap: Record<string, string> = {};
+              courts?.forEach(c => { courtMap[c.id] = c.name; });
+              setCancelledBookings(data.map(b => ({ ...b, amenityName: courtMap[b.court_id] || 'Amenity' })));
+            } else {
+              setCancelledBookings([]);
+            }
+          });
+      }
+    },
+    enabled: !!currentUser?.id
+  });
 
   const handleDismissCancellation = (bookingId: string) => {
     setDismissedCancellations(prev => {
