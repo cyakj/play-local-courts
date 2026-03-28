@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Download, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { getSignedDocumentUrl } from '@/lib/documentUtils';
+import { getSignedDocumentUrl, downloadDocument } from '@/lib/documentUtils';
 
 interface InlinePdfViewerProps {
   document: {
