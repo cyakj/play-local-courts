@@ -8,6 +8,7 @@ interface InlinePdfViewerProps {
     id: string;
     title: string;
     file_url: string;
+    file_name?: string;
   };
   userId: string;
   onClose: () => void;
@@ -51,7 +52,7 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document, userId, onC
   }, [document.id, userId]);
 
   const handleDownload = async () => {
-    await downloadDocument(document.id, document.file_url);
+    await downloadDocument(document.id, document.file_url, document.file_name);
   };
 
   const isImage = /\.(png|jpg|jpeg|gif|webp)/i.test(document.file_url);
