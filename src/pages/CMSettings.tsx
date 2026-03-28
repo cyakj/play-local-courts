@@ -32,12 +32,6 @@ const CMSettings = () => {
 
   const menuSections = [
     {
-      title: 'PORTFOLIO',
-      items: [
-        { icon: Plus, label: 'Add Community', desc: 'Connect a new HOA', path: '/join-community' },
-      ],
-    },
-    {
       title: 'ACCOUNT',
       items: [
         { icon: Mail, label: 'Account Details', desc: 'Email, phone, password', path: '/cm/settings/account' },
