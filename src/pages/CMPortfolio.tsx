@@ -127,7 +127,7 @@ const CMPortfolio = () => {
           <div className="flex flex-col items-end gap-2">
             <div className="flex items-center gap-[10px]">
               <div
-                onClick={() => setShowProfile(true)}
+                onClick={() => navigate('/cm/settings')}
                 className="w-10 h-10 rounded-full bg-[#0D2137] border-2 border-[#00B4D8] flex items-center justify-center cursor-pointer min-h-[44px]"
               >
                 <span className="text-white text-[14px] font-extrabold">{userInitials}</span>
