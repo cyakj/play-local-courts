@@ -535,16 +535,6 @@ export const CMReportDetail: React.FC<CMReportDetailProps> = ({ reportId, onBack
           </div>
         </div>
 
-        {/* Close & Archive button - only when resolved */}
-        {report.status === 'resolved' && (
-          <button
-            onClick={handleCloseArchive}
-            disabled={saving}
-            className="w-full py-3 rounded-[14px] border border-cm-border text-sm font-bold text-cm-text-light bg-white disabled:opacity-50"
-          >
-            Close & Archive Report
-          </button>
-        )}
       </div>
 
       {/* Status Change Bottom Sheet */}
