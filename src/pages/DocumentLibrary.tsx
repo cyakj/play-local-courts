@@ -226,8 +226,6 @@ const DocumentLibrary = () => {
                       >
                         <Download className="h-4 w-4 text-[#00B4D8]" />
                       </button>
-                        <Download className="h-4 w-4 text-[#00B4D8]" />
-                      </a>
                     </div>
                   );
                 })}
