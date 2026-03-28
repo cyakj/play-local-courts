@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ChevronRight, Building2, Plus, Mail, Lock, Bell, Globe, HelpCircle, MessageSquare, LogOut } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Mail, Lock, Bell, Globe, HelpCircle, MessageSquare, LogOut } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useActiveHOA } from '@/contexts/ActiveHOAContext';
 import { CMHeader } from '@/components/condo-manager/CMHeader';
@@ -31,12 +31,6 @@ const CMSettings = () => {
   };
 
   const menuSections = [
-    {
-      title: 'PORTFOLIO',
-      items: [
-        { icon: Plus, label: 'Add Community', desc: 'Connect a new HOA', path: '/join-community' },
-      ],
-    },
     {
       title: 'ACCOUNT',
       items: [
