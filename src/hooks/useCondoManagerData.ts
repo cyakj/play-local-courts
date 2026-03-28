@@ -302,7 +302,18 @@ export function useCondoManagerAlerts(communities: CMCommunityData[]) {
   const [alerts, setAlerts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Stabilize dependency to avoid stale/partial results from reference changes
+  const communitiesKey = communities.map(c => `${c.id}:${c.pendingApprovals}:${c.openIssues}:${c.status}:${c.health}`).join('|');
+
   useEffect(() => {
+    if (communities.length === 0) {
+      setAlerts([]);
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
     const buildAlerts = async () => {
       const result: any[] = [];
 
@@ -368,6 +379,8 @@ export function useCondoManagerAlerts(communities: CMCommunityData[]) {
             .order('created_at', { ascending: false }),
         ]);
 
+        if (cancelled) return;
+
         const hoaMap = new Map(communities.map(c => [c.id, c.name]));
 
         if (oldIssuesRes.data) {
@@ -403,16 +416,15 @@ export function useCondoManagerAlerts(communities: CMCommunityData[]) {
         }
       }
 
-      setAlerts(result);
-      setLoading(false);
+      if (!cancelled) {
+        setAlerts(result);
+        setLoading(false);
+      }
     };
 
-    if (communities.length > 0) {
-      buildAlerts();
-    } else {
-      setLoading(false);
-    }
-  }, [communities]);
+    buildAlerts();
+    return () => { cancelled = true; };
+  }, [communitiesKey]);
 
   return { alerts, loading };
 }
