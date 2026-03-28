@@ -137,9 +137,9 @@ const CMPortfolio = () => {
                 className="relative bg-white/[0.12] rounded-[10px] w-10 h-10 flex items-center justify-center cursor-pointer min-h-[44px]"
               >
                 <Bell className="h-5 w-5 text-white" />
-                {unreadCount > 0 && (
+                {alertCount > 0 && (
                   <div className="absolute -top-1 -right-1 bg-cm-danger text-white rounded-full w-[18px] h-[18px] flex items-center justify-center text-[10px] font-extrabold">
-                    {unreadCount}
+                    {alertCount}
                   </div>
                 )}
               </div>
