@@ -107,7 +107,14 @@ function App() {
                     <Route path="/cm/community/:id/documents" element={<CMDocuments />} />
                     <Route path="/cm/community/:id/surveys" element={<CMSurveys />} />
                     <Route path="/cm/community/:id/amenity/:amenityId/rules" element={<CMAmenityRules />} />
-                  </Route>
+                    <Route path="/cm/settings" element={<CMSettings />} />
+                    <Route path="/cm/settings/edit-profile" element={<CMEditProfile />} />
+                    <Route path="/cm/settings/account" element={<CMAccountDetails />} />
+                    <Route path="/cm/settings/security" element={<CMSecurity />} />
+                    <Route path="/cm/settings/notifications" element={<CMNotifications />} />
+                    <Route path="/cm/settings/help" element={<CMHelpSupport />} />
+                    <Route path="/cm/settings/feedback" element={<CMFeedback />} />
+                    <Route path="/cm/settings/language" element={<CMLanguage />} />
                   {/* Main App Routes */}
                   <Route element={<MainLayout />}>
                     <Route path="/" element={<Dashboard />} />
