@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Download, Loader2 } from 'lucide-react';
-import { pdfjs } from 'pdfjs-dist';
+import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import { supabase } from '@/integrations/supabase/client';
 import { getDocumentBlob, getSignedDocumentUrl, downloadDocument } from '@/lib/documentUtils';
 
-pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
+GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
 
 interface InlinePdfViewerProps {
   document: {
