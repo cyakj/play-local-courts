@@ -1,15 +1,20 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { LayoutGrid, Wrench, CalendarDays, Bell } from 'lucide-react';
+import { useCondoManagerCommunities, useCondoManagerAlerts } from '@/hooks/useCondoManagerData';
 
 const CondoManagerBottomNav = () => {
   const location = useLocation();
+  const { communities } = useCondoManagerCommunities();
+  const { alerts } = useCondoManagerAlerts(communities);
+
+  const alertCount = alerts.length;
 
   const navItems = [
     { path: '/cm', icon: LayoutGrid, label: 'Portfolio' },
     { path: '/cm/reports', icon: Wrench, label: 'Reports' },
     { path: '/cm/calendar', icon: CalendarDays, label: 'Calendar' },
-    { path: '/cm/alerts', icon: Bell, label: 'Alerts', badge: 3 },
+    { path: '/cm/alerts', icon: Bell, label: 'Alerts', badge: alertCount },
   ];
 
   return (
