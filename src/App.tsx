@@ -60,6 +60,7 @@ import CMAmenityRules from "./pages/CMAmenityRules";
 import ResidentCalendar from "./pages/ResidentCalendar";
 import DocumentLibrary from "./pages/DocumentLibrary";
 import SurveyResponse from "./pages/SurveyResponse";
+import SurveyResultsPublic from "./pages/SurveyResultsPublic";
 import { TENNIS_FEATURES_ENABLED } from "./config/featureFlags";
 
 const queryClient = new QueryClient();
