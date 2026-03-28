@@ -53,7 +53,7 @@ export const downloadDocument = async (_documentId: string, fileUrl: string, ori
   const objectUrl = URL.createObjectURL(data);
   const anchor = document.createElement('a');
   anchor.href = objectUrl;
-  anchor.download = path.split('/').pop() || 'document';
+  anchor.download = originalFileName || path.split('/').pop() || 'document';
   document.body.appendChild(anchor);
   anchor.click();
   document.body.removeChild(anchor);
