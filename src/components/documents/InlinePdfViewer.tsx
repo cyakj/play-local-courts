@@ -4,7 +4,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import { supabase } from '@/integrations/supabase/client';
 import { getDocumentBlob, getSignedDocumentUrl, downloadDocument } from '@/lib/documentUtils';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.5.207/pdf.worker.min.mjs`;
+pdfjsLib.GlobalWorkerOptions.workerSrc = window.location.origin + '/pdf.worker.min.mjs';
 
 interface InlinePdfViewerProps {
   document: {
