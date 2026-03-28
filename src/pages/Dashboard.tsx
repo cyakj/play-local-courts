@@ -29,6 +29,9 @@ const Dashboard = () => {
   const [activeSurvey, setActiveSurvey] = useState<any>(null);
   const [cancelledBookings, setCancelledBookings] = useState<any[]>([]);
   const [dismissedCancellations, setDismissedCancellations] = useState<Set<string>>(new Set());
+  const [showAllAnnouncements, setShowAllAnnouncements] = useState(false);
+  const [allAnnouncements, setAllAnnouncements] = useState<any[]>([]);
+  const [expandedAnnouncement, setExpandedAnnouncement] = useState<string | null>(null);
 
   useEffect(() => {
     if (currentUser && activeHOA?.hoaId) {
@@ -441,7 +444,28 @@ const Dashboard = () => {
           <div className="flex justify-between items-center mb-3">
             <span className={cardTitle} style={{ color: '#1A1A2E' }}>Community Announcements</span>
             {announcements.length > 0 && (
-              <span className={viewAll} style={{ color: '#00B4D8', cursor: 'pointer' }}>View All →</span>
+              <span
+                className={viewAll}
+                style={{ color: '#00B4D8', cursor: 'pointer' }}
+                onClick={async () => {
+                  if (showAllAnnouncements) {
+                    setShowAllAnnouncements(false);
+                    return;
+                  }
+                  if (allAnnouncements.length === 0 && activeHOA?.hoaId) {
+                    const { data } = await supabase
+                      .from('hoa_announcements')
+                      .select('*')
+                      .eq('hoa_id', activeHOA.hoaId)
+                      .order('created_at', { ascending: false })
+                      .limit(20);
+                    setAllAnnouncements(data || []);
+                  }
+                  setShowAllAnnouncements(true);
+                }}
+              >
+                {showAllAnnouncements ? '← Show Less' : 'View All →'}
+              </span>
             )}
           </div>
           {announcements.length === 0 ? (
@@ -450,17 +474,26 @@ const Dashboard = () => {
               <p className="text-[13px]" style={{ color: '#9CA3AF' }}>No announcements yet</p>
             </div>
           ) : (
-            announcements.map((a, i) => (
-              <div key={a.id} className={i < announcements.length - 1 ? 'pb-3 mb-3 border-b border-[#E5E7EB]' : ''}>
-                <div className="text-[13px] font-bold" style={{ color: '#1A1A2E' }}>{a.title}</div>
-                <div className="text-[12px] mt-0.5 truncate" style={{ color: '#9CA3AF' }}>
-                  {a.body?.substring(0, 80)}{a.body?.length > 80 ? '…' : ''}
+            (showAllAnnouncements && allAnnouncements.length > 0 ? allAnnouncements : announcements).map((a, i, arr) => {
+              const isExpanded = expandedAnnouncement === a.id;
+              return (
+                <div
+                  key={a.id}
+                  className={`cursor-pointer ${i < arr.length - 1 ? 'pb-3 mb-3 border-b border-[#E5E7EB]' : ''}`}
+                  onClick={() => setExpandedAnnouncement(isExpanded ? null : a.id)}
+                >
+                  <div className="text-[13px] font-bold" style={{ color: '#1A1A2E' }}>{a.title}</div>
+                  <div className={`text-[12px] mt-0.5 ${isExpanded ? '' : 'truncate'}`} style={{ color: '#9CA3AF' }}>
+                    {isExpanded ? a.body : (
+                      <>{a.body?.substring(0, 80)}{a.body?.length > 80 ? '…' : ''}</>
+                    )}
+                  </div>
+                  <div className="text-[11px] mt-1" style={{ color: '#9CA3AF' }}>
+                    {formatDistanceToNow(new Date(a.created_at), { addSuffix: true })}
+                  </div>
                 </div>
-                <div className="text-[11px] mt-1" style={{ color: '#9CA3AF' }}>
-                  {formatDistanceToNow(new Date(a.created_at), { addSuffix: true })}
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 
