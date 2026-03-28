@@ -181,13 +181,21 @@ export const CMReportDetail: React.FC<CMReportDetailProps> = ({ reportId, onBack
     } else {
       toast({ title: 'Report Resolved', description: 'Resolution notes saved' });
       // DB trigger sends the status change notification automatically.
-      // Also send a report_message with resolution details so the resident sees them in messages.
+      // Also send resolution details to both report_messages and the main messages table.
       if (report && currentUser) {
-        await supabase.from('report_messages').insert({
-          report_id: reportId,
-          sender_id: currentUser.id,
-          body: `✅ Report resolved: ${resolutionText}`,
-        });
+        const resolveMsg = `✅ Report resolved: ${resolutionText}`;
+        await Promise.all([
+          supabase.from('report_messages').insert({
+            report_id: reportId,
+            sender_id: currentUser.id,
+            body: resolveMsg,
+          }),
+          supabase.from('messages').insert({
+            sender_id: currentUser.id,
+            receiver_id: report.reporter_id,
+            content: resolveMsg,
+          }),
+        ]);
       }
       await fetchReport();
     }
