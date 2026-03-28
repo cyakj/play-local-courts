@@ -36,7 +36,7 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document, userId, onC
       }
 
       // Get signed URL
-      const url = await getSignedDocumentUrl(document.file_url);
+      const url = await getSignedDocumentUrl(document.id, document.file_url);
       if (!url) {
         setErrorMsg('Could not generate a secure link for this document. The file may have been moved or deleted.');
         setError(true);
