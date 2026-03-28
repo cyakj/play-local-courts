@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Wrench, Users, CalendarCheck, Megaphone } from 'lucide-react';
 import { CMHeader } from '@/components/condo-manager/CMHeader';
-import { Switch } from '@/components/ui/switch';
+import { useToast } from '@/hooks/use-toast';
 
 interface NotifCategory {
   title: string;
   icon: React.ElementType;
-  items: { key: string; label: string; defaultOn: boolean }[];
+  items: { key: string; label: string; defaultPush: boolean; defaultEmail: boolean }[];
 }
 
 const categories: NotifCategory[] = [
@@ -15,43 +15,44 @@ const categories: NotifCategory[] = [
     title: 'Reports & Issues',
     icon: Wrench,
     items: [
-      { key: 'new_report', label: 'New report submitted', defaultOn: true },
-      { key: 'report_status', label: 'Report status changed', defaultOn: true },
-      { key: 'urgent_only', label: 'Urgent reports only mode', defaultOn: false },
+      { key: 'new_report', label: 'New report submitted', defaultPush: true, defaultEmail: true },
+      { key: 'report_status', label: 'Report status changed', defaultPush: true, defaultEmail: true },
+      { key: 'urgent_only', label: 'Urgent reports only mode', defaultPush: false, defaultEmail: false },
     ],
   },
   {
     title: 'Members',
     icon: Users,
     items: [
-      { key: 'new_member', label: 'New member application', defaultOn: true },
-      { key: 'member_confirm', label: 'Member approved/rejected', defaultOn: false },
+      { key: 'new_member', label: 'New member application', defaultPush: true, defaultEmail: true },
+      { key: 'member_confirm', label: 'Member approved/rejected', defaultPush: false, defaultEmail: false },
     ],
   },
   {
     title: 'Bookings',
     icon: CalendarCheck,
     items: [
-      { key: 'booking_cancel', label: 'Booking cancellations', defaultOn: true },
-      { key: 'daily_summary', label: 'Daily booking summary', defaultOn: false },
+      { key: 'booking_cancel', label: 'Booking cancellations', defaultPush: true, defaultEmail: true },
+      { key: 'daily_summary', label: 'Daily booking summary', defaultPush: false, defaultEmail: false },
     ],
   },
   {
     title: 'Community',
     icon: Megaphone,
     items: [
-      { key: 'announcements', label: 'Announcements posted', defaultOn: true },
-      { key: 'survey_milestone', label: 'Survey 50% responded', defaultOn: false },
+      { key: 'announcements', label: 'Announcements posted', defaultPush: true, defaultEmail: true },
+      { key: 'survey_milestone', label: 'Survey 50% responded', defaultPush: false, defaultEmail: false },
     ],
   },
 ];
 
 const CMNotifications = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [prefs, setPrefs] = useState<Record<string, { push: boolean; email: boolean }>>(() => {
     const initial: Record<string, { push: boolean; email: boolean }> = {};
     categories.forEach(cat => cat.items.forEach(item => {
-      initial[item.key] = { push: item.defaultOn, email: item.defaultOn };
+      initial[item.key] = { push: item.defaultPush, email: item.defaultEmail };
     }));
     return initial;
   });
@@ -61,6 +62,10 @@ const CMNotifications = () => {
       ...p,
       [key]: { ...p[key], [channel]: !p[key][channel] },
     }));
+    toast({
+      title: 'Saved',
+      duration: 1500,
+    });
   };
 
   return (
@@ -89,25 +94,73 @@ const CMNotifications = () => {
                 <p className="font-bold text-[14px] text-[#1A1A2E]">{cat.title}</p>
               </div>
               <div className="px-5 pb-4">
-                {/* Column headers */}
-                <div className="flex items-center justify-end gap-4 mb-1 pr-1">
-                  <span className="text-[10px] font-bold text-[#9CA3AF] w-10 text-center">📱</span>
-                  <span className="text-[10px] font-bold text-[#9CA3AF] w-10 text-center">📧</span>
-                </div>
-                {cat.items.map((item) => (
-                  <div key={item.key} className="flex items-center justify-between py-2.5 border-t border-[#F0F4F8]">
-                    <span className="text-[13px] font-medium text-[#1A1A2E] flex-1">{item.label}</span>
-                    <div className="flex items-center gap-4">
-                      <Switch
-                        checked={prefs[item.key]?.push}
-                        onCheckedChange={() => toggle(item.key, 'push')}
-                        className="data-[state=checked]:bg-[#00B4D8] scale-90"
-                      />
-                      <Switch
-                        checked={prefs[item.key]?.email}
-                        onCheckedChange={() => toggle(item.key, 'email')}
-                        className="data-[state=checked]:bg-[#00B4D8] scale-90"
-                      />
+                {cat.items.map((item, idx) => (
+                  <div
+                    key={item.key}
+                    className="py-3.5"
+                    style={idx > 0 ? { borderTop: '1px solid #F3F4F6' } : undefined}
+                  >
+                    <span className="text-[13px] font-semibold text-[#1A1A2E] block mb-2">
+                      {item.label}
+                    </span>
+                    <div className="flex gap-2">
+                      {/* Push chip */}
+                      <button
+                        onClick={() => toggle(item.key, 'push')}
+                        className="min-h-[44px] flex items-center gap-1.5 rounded-full transition-all"
+                        style={
+                          prefs[item.key]?.push
+                            ? {
+                                background: '#E0F7FA',
+                                border: '1.5px solid #00B4D8',
+                                padding: '6px 14px',
+                                color: '#00B4D8',
+                                fontWeight: 700,
+                                fontSize: '12px',
+                              }
+                            : {
+                                background: '#F3F4F6',
+                                border: '1.5px solid #E5E7EB',
+                                padding: '6px 14px',
+                                color: '#9CA3AF',
+                                fontWeight: 600,
+                                fontSize: '12px',
+                              }
+                        }
+                      >
+                        <span>📱</span>
+                        <span>Push</span>
+                        <span>{prefs[item.key]?.push ? '✓' : '—'}</span>
+                      </button>
+
+                      {/* Email chip */}
+                      <button
+                        onClick={() => toggle(item.key, 'email')}
+                        className="min-h-[44px] flex items-center gap-1.5 rounded-full transition-all"
+                        style={
+                          prefs[item.key]?.email
+                            ? {
+                                background: '#E0F7FA',
+                                border: '1.5px solid #00B4D8',
+                                padding: '6px 14px',
+                                color: '#00B4D8',
+                                fontWeight: 700,
+                                fontSize: '12px',
+                              }
+                            : {
+                                background: '#F3F4F6',
+                                border: '1.5px solid #E5E7EB',
+                                padding: '6px 14px',
+                                color: '#9CA3AF',
+                                fontWeight: 600,
+                                fontSize: '12px',
+                              }
+                        }
+                      >
+                        <span>📧</span>
+                        <span>Email</span>
+                        <span>{prefs[item.key]?.email ? '✓' : '—'}</span>
+                      </button>
                     </div>
                   </div>
                 ))}
