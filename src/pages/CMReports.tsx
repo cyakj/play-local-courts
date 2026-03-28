@@ -120,7 +120,7 @@ const CMReports = () => {
   ), [reports, communityFilter, statusFilter, categoryFilter]);
 
   const openCount = filtered.filter(r => ['Open', 'Assigned'].includes(r.status)).length;
-  const inProgCount = filtered.filter(r => r.status === 'In progress').length;
+  const inProgCount = filtered.filter(r => r.status.toLowerCase() === 'in progress').length;
 
   // If a report is selected, show detail view
   if (selectedReportId) {
