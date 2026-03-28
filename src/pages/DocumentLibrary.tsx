@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import ResidentHeader from '@/components/resident/ResidentHeader';
 import InlinePdfViewer from '@/components/documents/InlinePdfViewer';
 import { useMyDocumentViews } from '@/hooks/useDocumentViews';
+import { downloadDocument } from '@/lib/documentUtils';
 import { ArrowLeft, Search, Download, Eye, ChevronDown, ChevronRight } from 'lucide-react';
 
 const CATEGORIES = [
