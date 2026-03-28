@@ -7,7 +7,7 @@ import { CMHealthBar } from '@/components/condo-manager/CMHealthBar';
 import { CMStatusBadge } from '@/components/condo-manager/CMStatusBadge';
 import CMNotificationCenter from '@/components/condo-manager/CMNotificationCenter';
 import CMProfileSheet from '@/components/condo-manager/CMProfileSheet';
-import { useCondoManagerCommunities, useCondoManagerNotifications } from '@/hooks/useCondoManagerData';
+import { useCondoManagerCommunities, useCondoManagerNotifications, useCondoManagerAlerts } from '@/hooks/useCondoManagerData';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
