@@ -454,7 +454,7 @@ export const SurveyBuilder: React.FC<SurveyBuilderProps> = ({ communityId, onBac
       </div>
 
       {/* Sticky bottom bar */}
-      <div className="fixed bottom-0 left-0 right-0 border-t p-4 pb-7 flex gap-2.5" style={{ background: '#fff', borderColor: '#E5E7EB' }}>
+      <div className="fixed bottom-0 left-0 right-0 border-t p-4 pb-7 flex gap-2.5 z-[60]" style={{ background: '#fff', borderColor: '#E5E7EB' }}>
         {step > 0 && (
           <div
             onClick={() => setStep(s => s - 1)}
@@ -464,27 +464,28 @@ export const SurveyBuilder: React.FC<SurveyBuilderProps> = ({ communityId, onBac
             ← Back
           </div>
         )}
-        {step < 2 && (
+        {step < 2 ? (
           <div
             onClick={() => setStep(s => s + 1)}
-            className="flex-1 rounded-xl py-3 text-[13px] font-bold text-center cursor-pointer border"
-            style={{ borderColor: '#E5E7EB', color: '#4B5563' }}
+            className="flex-[2] rounded-xl py-3 text-[13px] font-extrabold text-center cursor-pointer"
+            style={{ background: '#0A1628', color: '#fff' }}
           >
             Next: {STEPS[step + 1]} →
           </div>
+        ) : (
+          <div
+            onClick={() => !saving && handleSave(true)}
+            className="flex-[2] rounded-xl py-3 text-[13px] font-extrabold text-center cursor-pointer"
+            style={{
+              background: 'linear-gradient(135deg, #00B4D8, #0091B5)',
+              color: '#fff',
+              opacity: saving ? 0.6 : 1,
+              boxShadow: '0 4px 12px rgba(0,180,216,0.3)',
+            }}
+          >
+            {saving ? 'Publishing...' : '🚀 Publish Survey'}
+          </div>
         )}
-        <div
-          onClick={() => !saving && handleSave(true)}
-          className="flex-[2] rounded-xl py-3 text-[13px] font-extrabold text-center cursor-pointer"
-          style={{
-            background: 'linear-gradient(135deg, #00B4D8, #0091B5)',
-            color: '#fff',
-            opacity: saving ? 0.6 : 1,
-            boxShadow: '0 4px 12px rgba(0,180,216,0.3)',
-          }}
-        >
-          {saving ? 'Publishing...' : '🚀 Publish Survey'}
-        </div>
         {step === 0 && (
           <div
             onClick={() => !saving && handleSave(false)}
