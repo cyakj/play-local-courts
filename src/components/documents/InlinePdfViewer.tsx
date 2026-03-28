@@ -70,6 +70,17 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document, userId, onC
   };
 
   const isImage = /\.(png|jpg|jpeg|gif|webp)/i.test(document.file_url);
+  const isPdf = /\.pdf/i.test(document.file_url);
+  const canPreview = isImage || isPdf;
+
+  // For non-previewable files, skip iframe entirely and show download prompt
+  useEffect(() => {
+    if (!canPreview && signedUrl) {
+      setLoading(false);
+      setError(true);
+      setErrorMsg('This file type (.docx, .doc, etc.) cannot be previewed inline. Please download it to view.');
+    }
+  }, [canPreview, signedUrl]);
 
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-background">
