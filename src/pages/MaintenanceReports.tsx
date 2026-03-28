@@ -50,7 +50,7 @@ const MaintenanceReports = () => {
   const [selectedReport, setSelectedReport] = useState<MaintenanceReport | null>(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [filters, setFilters] = useState({
-    status: searchParams.get('status') || 'all',
+    status: searchParams.get('status') || 'active',
     category: 'all',
     amenity: searchParams.get('amenity_id') || 'all'
   });
