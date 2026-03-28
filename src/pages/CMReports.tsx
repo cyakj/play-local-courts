@@ -28,7 +28,7 @@ interface Report {
 const CMReports = () => {
   const [searchParams] = useSearchParams();
   const [communityFilter, setCommunityFilter] = useState('All');
-  const [statusFilter, setStatusFilter] = useState('Open');
+  const [statusFilter, setStatusFilter] = useState('Active');
   const [categoryFilter, setCategoryFilter] = useState('All Categories');
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
@@ -108,16 +108,19 @@ const CMReports = () => {
       if (categoryFilter !== 'All Categories' && r.category !== categoryFilter) return false;
       
       // Status filtering
-      if (statusFilter === 'All') {
-        // Hide closed reports from "All" view
-        return r.status.toLowerCase() !== 'closed';
+      const s = r.status.toLowerCase();
+      if (statusFilter === 'Active') {
+        return s === 'open' || s === 'in progress' || s === 'assigned';
       }
-      return r.status.toLowerCase() === statusFilter.toLowerCase();
+      if (statusFilter === 'All') {
+        return s !== 'closed';
+      }
+      return s === statusFilter.toLowerCase();
     }
   ), [reports, communityFilter, statusFilter, categoryFilter]);
 
   const openCount = filtered.filter(r => ['Open', 'Assigned'].includes(r.status)).length;
-  const inProgCount = filtered.filter(r => r.status === 'In progress').length;
+  const inProgCount = filtered.filter(r => r.status.toLowerCase() === 'in progress').length;
 
   // If a report is selected, show detail view
   if (selectedReportId) {
@@ -167,7 +170,7 @@ const CMReports = () => {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="flex-1 px-2.5 py-2 rounded-[10px] border border-cm-border text-xs bg-white text-cm-text"
           >
-            {['All', 'Open', 'In Progress', 'Assigned', 'Resolved', 'Closed'].map((o) => (
+            {['Active', 'All', 'Open', 'In Progress', 'Resolved', 'Closed'].map((o) => (
               <option key={o}>{o}</option>
             ))}
           </select>

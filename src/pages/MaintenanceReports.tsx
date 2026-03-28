@@ -50,7 +50,7 @@ const MaintenanceReports = () => {
   const [selectedReport, setSelectedReport] = useState<MaintenanceReport | null>(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [filters, setFilters] = useState({
-    status: searchParams.get('status') || 'all',
+    status: searchParams.get('status') || 'active',
     category: 'all',
     amenity: searchParams.get('amenity_id') || 'all'
   });
@@ -85,7 +85,9 @@ const MaintenanceReports = () => {
         .eq('hoa_id', currentUser.hoaId)
         .order('created_at', { ascending: false });
 
-      if (filters.status !== 'all') {
+      if (filters.status === 'active') {
+        query = query.in('status', ['open', 'assigned', 'in_progress', 'accepted']);
+      } else if (filters.status !== 'all') {
         query = query.eq('status', filters.status);
       }
       if (filters.category !== 'all') {
