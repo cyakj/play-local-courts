@@ -5,33 +5,47 @@ import { supabase } from '@/integrations/supabase/client';
  * e.g. ".../object/public/hoa-documents/abc/file.pdf" → "abc/file.pdf"
  */
 export const extractStoragePath = (url: string): string | null => {
-  const match = url.match(/\/(?:object|storage\/v1\/object)\/(?:public|sign)\/hoa-documents\/(.+?)(?:\?|$)/);
-  if (match) return decodeURIComponent(match[1]);
-  
-  // Simpler fallback: match after /hoa-documents/
-  const fallback = url.match(/\/hoa-documents\/(.+?)(?:\?|$)/);
-  if (fallback) return decodeURIComponent(fallback[1]);
+  // Match various Supabase URL patterns
+  const patterns = [
+    /\/storage\/v1\/object\/(?:public|sign)\/hoa-documents\/(.+?)(?:\?|$)/,
+    /\/object\/(?:public|sign)\/hoa-documents\/(.+?)(?:\?|$)/,
+    /\/hoa-documents\/(.+?)(?:\?|$)/,
+  ];
 
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) {
+      const path = decodeURIComponent(match[1]);
+      console.log('[DocumentUtils] Extracted path:', path, 'from:', url);
+      return path;
+    }
+  }
+
+  console.warn('[DocumentUtils] Could not extract path from:', url);
   return null;
 };
 
 /**
  * Creates a signed URL for a private hoa-documents file.
- * Falls back to the original URL if path extraction fails.
+ * Returns null if it fails (so callers can show error state).
  */
-export const getSignedDocumentUrl = async (fileUrl: string): Promise<string> => {
+export const getSignedDocumentUrl = async (fileUrl: string): Promise<string | null> => {
   const path = extractStoragePath(fileUrl);
-  if (!path) return fileUrl;
+  if (!path) {
+    console.error('[DocumentUtils] No path extracted, cannot create signed URL');
+    return null;
+  }
 
   const { data, error } = await supabase.storage
     .from('hoa-documents')
     .createSignedUrl(path, 3600);
 
   if (error || !data?.signedUrl) {
-    console.error('Failed to create signed URL:', error);
-    return fileUrl;
+    console.error('[DocumentUtils] createSignedUrl failed:', error?.message);
+    return null;
   }
 
+  console.log('[DocumentUtils] Signed URL created successfully');
   return data.signedUrl;
 };
 
@@ -40,5 +54,10 @@ export const getSignedDocumentUrl = async (fileUrl: string): Promise<string> => 
  */
 export const downloadDocument = async (fileUrl: string) => {
   const url = await getSignedDocumentUrl(fileUrl);
-  window.open(url, '_blank');
+  if (url) {
+    window.open(url, '_blank');
+  } else {
+    // Last resort fallback
+    window.open(fileUrl, '_blank');
+  }
 };
