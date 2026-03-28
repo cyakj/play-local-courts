@@ -145,6 +145,13 @@ export const CMReportDetail: React.FC<CMReportDetailProps> = ({ reportId, onBack
     load();
   }, [fetchReport, fetchNotes, fetchMessages]);
 
+  const getReportPrefix = () => {
+    const label = report?.report_type === 'location'
+      ? `📍 ${report?.location_text || 'your location report'}`
+      : (report?.amenity_name || getCategoryLabel(report?.category || ''));
+    return `Re: Maintenance Report — ${label}`;
+  };
+
   const handleStatusChange = async (newStatus: string) => {
     if (newStatus === 'resolved') {
       setShowStatusSheet(false);
@@ -160,7 +167,16 @@ export const CMReportDetail: React.FC<CMReportDetailProps> = ({ reportId, onBack
       toast({ title: 'Error', description: 'Failed to update status', variant: 'destructive' });
     } else {
       toast({ title: 'Status Updated', description: `Report marked as ${newStatus.replace('_', ' ')}` });
-      // Resident notification is handled automatically by the notify_reporter_on_status_change DB trigger
+      // Send status change message to resident's inbox
+      if (report && currentUser) {
+        const statusLabel = STATUS_OPTIONS.find(s => s.value === newStatus)?.label || newStatus;
+        const statusMsg = `${getReportPrefix()}\n\nStatus updated to: ${statusLabel}`;
+        await supabase.from('messages').insert({
+          sender_id: currentUser.id,
+          receiver_id: report.reporter_id,
+          content: statusMsg,
+        });
+      }
       await fetchReport();
     }
     setSaving(false);
