@@ -79,9 +79,50 @@ export const SurveyList: React.FC<SurveyListProps> = ({
 
   const handleCloseEarly = async (surveyId: string) => {
     if (!confirm('Close this survey early? Residents will no longer be able to respond.')) return;
+    const survey = surveys.find(s => s.id === surveyId);
     const { error } = await supabase.from('hoa_surveys').update({ status: 'closed', closes_at: new Date().toISOString() }).eq('id', surveyId);
     if (error) { toast.error('Failed to close survey'); return; }
-    toast.success('Survey closed');
+
+    // Create announcement + notify residents about results
+    if (survey && currentUser?.id) {
+      const showResults = survey.results_visibility === 'community';
+      const announcementBody = showResults
+        ? `The survey "${survey.title}" has been closed. Results are now available — tap to view.`
+        : `The survey "${survey.title}" has been closed. Thank you to everyone who participated!`;
+
+      // Create announcement
+      await supabase.from('hoa_announcements').insert({
+        hoa_id: communityId,
+        created_by: currentUser.id,
+        title: `Survey Closed: ${survey.title}`,
+        body: announcementBody,
+        audience: 'all',
+      });
+
+      // Notify all approved members
+      const { data: members } = await supabase
+        .from('hoa_memberships')
+        .select('user_id')
+        .eq('hoa_id', communityId)
+        .eq('status', 'approved');
+
+      if (members && members.length > 0) {
+        await supabase.from('hoa_notifications').insert(
+          members.map(m => ({
+            user_id: m.user_id,
+            hoa_id: communityId,
+            type: 'survey_closed',
+            title: `Survey Closed: ${survey.title}`,
+            body: showResults
+              ? 'Results are now available — tap to view'
+              : 'Thank you for participating!',
+            metadata: { survey_id: surveyId, show_results: showResults },
+          }))
+        );
+      }
+    }
+
+    toast.success('Survey closed & residents notified');
     fetchSurveys();
   };
 
