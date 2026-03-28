@@ -2921,6 +2921,13 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_public_survey_results: {
+        Args: { _survey_id: string }
+        Returns: {
+          answers: Json
+        }[]
+      }
+      get_survey_member_count: { Args: { _survey_id: string }; Returns: number }
       grant_admin_role: { Args: { target_user_id: string }; Returns: boolean }
       has_role: {
         Args: {
