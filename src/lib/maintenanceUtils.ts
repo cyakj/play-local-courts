@@ -85,11 +85,12 @@ export const statusConfig: Record<string, { label: string; variant: 'default' | 
 
 /** All status options for filters */
 export const allStatusFilters = [
+  { value: 'active', label: 'Active (Open + In Progress)' },
   { value: 'all', label: 'All' },
   { value: 'open', label: 'Open' },
-  { value: 'assigned', label: 'Assigned' },
-  { value: 'accepted', label: 'Accepted' },
   { value: 'in_progress', label: 'In Progress' },
+  { value: 'accepted', label: 'Accepted' },
   { value: 'completed', label: 'Completed' },
+  { value: 'resolved', label: 'Resolved' },
   { value: 'reopened', label: 'Reopened' },
 ];
