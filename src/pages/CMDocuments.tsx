@@ -234,12 +234,16 @@ const CMDocuments = () => {
               <option value="all_residents">All Residents</option>
               <option value="board_only">Board Only</option>
             </select>
-            <input
-              type="file"
-              accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
-              onChange={e => setUploadFile(e.target.files?.[0] || null)}
-              className="w-full text-sm mb-4"
-            />
+            <label className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-[10px] border-2 border-dashed border-cm-border text-sm font-bold text-cm-text cursor-pointer min-h-[52px] mb-4 hover:border-cm-cyan transition-colors">
+              <Upload className="h-5 w-5 text-cm-text-light" />
+              {uploadFile ? uploadFile.name : 'Choose File'}
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                onChange={e => setUploadFile(e.target.files?.[0] || null)}
+                className="hidden"
+              />
+            </label>
             <div
               onClick={handleUpload}
               className={`bg-cm-navy text-white rounded-[10px] py-3 text-sm font-bold text-center cursor-pointer w-full min-h-[44px] flex items-center justify-center ${uploading ? 'opacity-50' : ''}`}
