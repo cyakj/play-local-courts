@@ -90,15 +90,17 @@ export const MultiStepReportDialog: React.FC<MultiStepReportDialogProps> = ({
   };
 
   const uploadPhoto = async (file: File): Promise<string | null> => {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Math.random()}.${fileExt}`;
+    if (!currentUser?.id) return null;
+
+    const fileExt = file.name.split('.').pop() ?? 'jpg';
+    const fileName = `${currentUser.id}/maintenance/${crypto.randomUUID()}.${fileExt}`;
     const { error: uploadError } = await supabase.storage
       .from('avatars')
-      .upload(`maintenance/${fileName}`, file);
+      .upload(fileName, file);
     if (uploadError) throw uploadError;
     const { data: { publicUrl } } = supabase.storage
       .from('avatars')
-      .getPublicUrl(`maintenance/${fileName}`);
+      .getPublicUrl(fileName);
     return publicUrl;
   };
 
@@ -127,10 +129,14 @@ export const MultiStepReportDialog: React.FC<MultiStepReportDialogProps> = ({
 
       let photoUrl = null;
       if (photos.length > 0) {
-        photoUrl = await uploadPhoto(photos[0].file);
+        try {
+          photoUrl = await uploadPhoto(photos[0].file);
+        } catch (uploadError) {
+          console.error('Error uploading maintenance photo:', uploadError);
+        }
       }
 
-      const { error } = await (supabase.rpc as any)('create_maintenance_report', {
+      const { data, error } = await (supabase.rpc as any)('create_maintenance_report', {
         _hoa_id: currentUser.hoaId,
         _category: category,
         _description: `[Severity: ${getSeverityLabel(severity[0])}] ${description}`,
@@ -142,6 +148,7 @@ export const MultiStepReportDialog: React.FC<MultiStepReportDialogProps> = ({
       });
 
       if (error) throw error;
+      if (!data) throw new Error('Report submission did not return a confirmation.');
 
       toast({ title: "✅ Issue Reported!", description: "Your maintenance request has been submitted successfully." });
       handleClose();
