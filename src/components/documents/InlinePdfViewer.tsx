@@ -17,6 +17,7 @@ interface InlinePdfViewerProps {
 const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document, userId, onClose, onViewed }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -35,23 +36,51 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document, userId, onC
       }
 
       // Get signed URL
-      try {
-        const url = await getSignedDocumentUrl(document.file_url);
-        setSignedUrl(url);
-      } catch {
+      const url = await getSignedDocumentUrl(document.file_url);
+      if (!url) {
+        setErrorMsg('Could not generate a secure link for this document. The file may have been moved or deleted.');
         setError(true);
         setLoading(false);
+        return;
       }
+
+      // Verify the URL actually works before loading in iframe
+      try {
+        const resp = await fetch(url, { method: 'HEAD' });
+        if (!resp.ok) {
+          setErrorMsg(`File not accessible (${resp.status}). It may have been moved or deleted.`);
+          setError(true);
+          setLoading(false);
+          return;
+        }
+      } catch {
+        // HEAD request failed, still try to show it
+        console.warn('HEAD check failed, attempting to load anyway');
+      }
+
+      setSignedUrl(url);
     };
 
     init();
   }, [document.id, userId]);
 
-  const handleDownload = () => {
-    if (signedUrl) window.open(signedUrl, '_blank');
+  const handleDownload = async () => {
+    const url = signedUrl || await getSignedDocumentUrl(document.file_url);
+    if (url) window.open(url, '_blank');
   };
 
   const isImage = /\.(png|jpg|jpeg|gif|webp)/i.test(document.file_url);
+  const isPdf = /\.pdf/i.test(document.file_url);
+  const canPreview = isImage || isPdf;
+
+  // For non-previewable files, skip iframe entirely and show download prompt
+  useEffect(() => {
+    if (!canPreview && signedUrl) {
+      setLoading(false);
+      setError(true);
+      setErrorMsg('This file type (.docx, .doc, etc.) cannot be previewed inline. Please download it to view.');
+    }
+  }, [canPreview, signedUrl]);
 
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-background">
@@ -93,7 +122,7 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document, userId, onC
               Unable to preview this document
             </p>
             <p className="text-sm text-muted-foreground text-center">
-              This file type may not support inline preview. Try downloading it instead.
+              {errorMsg || 'This file type may not support inline preview. Try downloading it instead.'}
             </p>
             <button
               onClick={handleDownload}
@@ -111,7 +140,7 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document, userId, onC
                   alt={document.title}
                   className="max-w-full rounded-lg shadow-md"
                   onLoad={() => setLoading(false)}
-                  onError={() => { setError(true); setLoading(false); }}
+                  onError={() => { setError(true); setErrorMsg('Failed to load image.'); setLoading(false); }}
                   style={{ display: loading ? 'none' : 'block' }}
                 />
               </div>
@@ -121,7 +150,7 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document, userId, onC
                 className="w-full h-full border-0 bg-white"
                 style={{ display: loading ? 'none' : 'block' }}
                 onLoad={() => setLoading(false)}
-                onError={() => { setError(true); setLoading(false); }}
+                onError={() => { setError(true); setErrorMsg('Failed to load document.'); setLoading(false); }}
                 title={document.title}
               />
             )}
