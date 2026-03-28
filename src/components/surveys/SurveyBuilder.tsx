@@ -179,7 +179,7 @@ export const SurveyBuilder: React.FC<SurveyBuilderProps> = ({ communityId, onBac
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: '#F0F4F8' }}>
+    <div className="fixed inset-0 z-[100] flex flex-col" style={{ background: '#F0F4F8' }}>
       {/* Header */}
       <div style={{ background: 'linear-gradient(135deg, #0A1628 0%, #0D2137 60%, #1A3350 100%)', padding: '44px 20px 16px', color: '#fff', flexShrink: 0 }}>
         <div className="flex items-center gap-3 mb-3">
@@ -208,7 +208,10 @@ export const SurveyBuilder: React.FC<SurveyBuilderProps> = ({ communityId, onBac
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 pb-28">
+      <div
+        className="flex-1 overflow-y-auto p-4"
+        style={{ paddingBottom: 'calc(104px + env(safe-area-inset-bottom, 0px))' }}
+      >
         {/* Step 0 - Details */}
         {step === 0 && (
           <>
@@ -351,7 +354,6 @@ export const SurveyBuilder: React.FC<SurveyBuilderProps> = ({ communityId, onBac
                     )}
                   </div>
                 </div>
-                {/* Required toggle */}
                 <div className="flex items-center justify-between mt-2.5 pt-2.5 border-t" style={{ borderColor: '#E5E7EB' }}>
                   <div className="text-[10px]" style={{ color: '#9CA3AF', letterSpacing: 2 }}>⠿ drag to reorder</div>
                   <div className="flex items-center gap-1.5">
@@ -384,7 +386,6 @@ export const SurveyBuilder: React.FC<SurveyBuilderProps> = ({ communityId, onBac
         {/* Step 2 - Settings */}
         {step === 2 && (
           <>
-            {/* Results visibility */}
             <div className="rounded-2xl p-4 mb-3 border" style={{ background: '#fff', borderColor: '#E5E7EB' }}>
               <div className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#9CA3AF' }}>Results Visibility</div>
               <div className="text-xs mb-3" style={{ color: '#4B5563', lineHeight: 1.5 }}>Who can see the results after the survey closes?</div>
@@ -414,7 +415,6 @@ export const SurveyBuilder: React.FC<SurveyBuilderProps> = ({ communityId, onBac
               ))}
             </div>
 
-            {/* Reveal timing */}
             {resultsVisibility === 'community' && (
               <div className="rounded-2xl p-4 mb-3 border" style={{ background: '#E0F7FA', borderColor: '#00B4D8' }}>
                 <div className="text-xs font-bold mb-2.5" style={{ color: '#0A1628' }}>When should residents see results?</div>
@@ -430,7 +430,6 @@ export const SurveyBuilder: React.FC<SurveyBuilderProps> = ({ communityId, onBac
               </div>
             )}
 
-            {/* Anonymous toggle */}
             <div className="rounded-2xl p-4 mb-3 border" style={{ background: '#fff', borderColor: '#E5E7EB' }}>
               <div className="flex justify-between items-center">
                 <div>
@@ -454,7 +453,16 @@ export const SurveyBuilder: React.FC<SurveyBuilderProps> = ({ communityId, onBac
       </div>
 
       {/* Sticky bottom bar */}
-      <div className="fixed bottom-0 left-0 right-0 border-t p-4 pb-7 flex gap-2.5 z-[60]" style={{ background: '#fff', borderColor: '#E5E7EB' }}>
+      <div
+        className="fixed left-0 right-0 border-t p-4 flex gap-2.5 z-[120]"
+        style={{
+          bottom: 0,
+          background: '#fff',
+          borderColor: '#E5E7EB',
+          paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))',
+          boxShadow: '0 -8px 24px rgba(0,0,0,0.08)',
+        }}
+      >
         {step > 0 && (
           <div
             onClick={() => setStep(s => s - 1)}
