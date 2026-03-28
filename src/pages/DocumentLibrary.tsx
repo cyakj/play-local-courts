@@ -220,7 +220,7 @@ const DocumentLibrary = () => {
                         <Eye className="h-4 w-4 text-[#00B4D8]" />
                       </button>
                       <button
-                        onClick={(e) => { e.stopPropagation(); downloadDocument(doc.file_url); }}
+                        onClick={(e) => { e.stopPropagation(); downloadDocument(doc.id, doc.file_url); }}
                         className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 bg-[#E0F7FA]"
                         title="Download"
                       >

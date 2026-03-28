@@ -278,7 +278,7 @@ const CMDocuments = () => {
                         </div>
 
                         {/* Action buttons */}
-                        <button onClick={(e) => { e.stopPropagation(); downloadDocument(doc.file_url); }}
+                        <button onClick={(e) => { e.stopPropagation(); downloadDocument(doc.id, doc.file_url); }}
                           className="bg-cm-cyan text-white rounded-lg p-2 cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center flex-shrink-0">
                           <Download className="h-4 w-4" />
                         </button>

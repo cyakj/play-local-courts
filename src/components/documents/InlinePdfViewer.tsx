@@ -36,7 +36,7 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document, userId, onC
       }
 
       // Get signed URL
-      const url = await getSignedDocumentUrl(document.file_url);
+      const url = await getSignedDocumentUrl(document.id, document.file_url);
       if (!url) {
         setErrorMsg('Could not generate a secure link for this document. The file may have been moved or deleted.');
         setError(true);
@@ -65,7 +65,7 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document, userId, onC
   }, [document.id, userId]);
 
   const handleDownload = async () => {
-    const url = signedUrl || await getSignedDocumentUrl(document.file_url);
+    const url = signedUrl || await getSignedDocumentUrl(document.id, document.file_url);
     if (url) window.open(url, '_blank');
   };
 
@@ -124,12 +124,6 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document, userId, onC
             <p className="text-sm text-muted-foreground text-center">
               {errorMsg || 'This file type may not support inline preview. Try downloading it instead.'}
             </p>
-            <button
-              onClick={handleDownload}
-              className="px-6 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-bold mt-2"
-            >
-              Download File
-            </button>
           </div>
         ) : signedUrl ? (
           <>
