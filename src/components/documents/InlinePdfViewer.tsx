@@ -13,89 +13,148 @@ interface InlinePdfViewerProps {
   onViewed?: () => void;
 }
 
+/**
+ * Extracts the storage path from a full Supabase public URL.
+ * e.g. ".../object/public/hoa-documents/abc/file.pdf" → "abc/file.pdf"
+ */
+const extractStoragePath = (url: string): string | null => {
+  // Match /object/public/hoa-documents/... or /object/sign/hoa-documents/...
+  const match = url.match(/\/object\/(?:public|sign)\/hoa-documents\/(.+)$/);
+  if (match) return decodeURIComponent(match[1]);
+
+  // Also handle /storage/v1/object/public/hoa-documents/...
+  const match2 = url.match(/\/storage\/v1\/object\/(?:public|sign)\/hoa-documents\/(.+)$/);
+  if (match2) return decodeURIComponent(match2[1]);
+
+  return null;
+};
+
 const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document, userId, onClose, onViewed }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    const markAsRead = async () => {
+    const init = async () => {
+      // Mark as read
       try {
-        const { error: upsertError } = await supabase
+        await supabase
           .from('document_views' as any)
           .upsert(
             { document_id: document.id, user_id: userId, viewed_at: new Date().toISOString() },
             { onConflict: 'document_id,user_id' }
           );
-        if (!upsertError) {
-          onViewed?.();
-        }
+        onViewed?.();
       } catch (e) {
         console.error('Failed to track view:', e);
       }
+
+      // Generate signed URL for private bucket
+      const storagePath = extractStoragePath(document.file_url);
+      if (storagePath) {
+        const { data, error: signError } = await supabase.storage
+          .from('hoa-documents')
+          .createSignedUrl(storagePath, 3600); // 1 hour
+
+        if (signError || !data?.signedUrl) {
+          console.error('Signed URL error:', signError);
+          setError(true);
+          setLoading(false);
+          return;
+        }
+        setSignedUrl(data.signedUrl);
+      } else {
+        // Fallback: try using the URL directly
+        setSignedUrl(document.file_url);
+      }
     };
-    markAsRead();
+
+    init();
   }, [document.id, userId]);
 
+  const handleDownload = () => {
+    if (signedUrl) {
+      window.open(signedUrl, '_blank');
+    }
+  };
+
+  const isPdf = document.file_url.toLowerCase().includes('.pdf');
+  const isImage = /\.(png|jpg|jpeg|gif|webp)/i.test(document.file_url);
+
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-[#0A1628]">
-      {/* Navy gradient header */}
+    <div className="fixed inset-0 z-[60] flex flex-col bg-white">
+      {/* Header */}
       <div
-        className="flex items-center gap-3 px-4 py-3 min-h-[56px]"
+        className="flex items-center gap-3 px-4 py-3 min-h-[56px] safe-area-top"
         style={{ background: 'linear-gradient(135deg, #0A1628 0%, #1a2a4a 100%)' }}
       >
         <button
           onClick={onClose}
-          className="w-9 h-9 rounded-[10px] flex items-center justify-center bg-white/[0.12] flex-shrink-0"
+          className="w-10 h-10 rounded-[10px] flex items-center justify-center bg-white/[0.12] flex-shrink-0"
         >
-          <ArrowLeft className="h-4 w-4 text-white" />
+          <ArrowLeft className="h-5 w-5 text-white" />
         </button>
         <div className="flex-1 min-w-0">
           <div className="text-sm font-bold text-white truncate">{document.title}</div>
         </div>
-        <a
-          href={document.file_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="w-9 h-9 rounded-[10px] flex items-center justify-center bg-white/[0.12] flex-shrink-0"
+        <button
+          onClick={handleDownload}
+          className="w-10 h-10 rounded-[10px] flex items-center justify-center bg-white/[0.12] flex-shrink-0"
         >
-          <Download className="h-4 w-4 text-white" />
-        </a>
+          <Download className="h-5 w-5 text-white" />
+        </button>
       </div>
 
-      {/* PDF content area */}
-      <div className="flex-1 relative bg-[#0A1628]">
+      {/* Content area */}
+      <div className="flex-1 relative bg-gray-50 overflow-auto">
         {loading && !error && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gray-50">
             <Loader2 className="h-8 w-8 text-[#00B4D8] animate-spin" />
-            <span className="text-sm text-white/60">Loading document…</span>
+            <span className="text-sm text-gray-500">Loading document…</span>
           </div>
         )}
 
         {error ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-6">
-            <div className="text-4xl">📄</div>
-            <p className="text-sm text-white/70 text-center">
-              Unable to load document. Try downloading instead.
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-6 bg-gray-50">
+            <div className="text-5xl">📄</div>
+            <p className="text-base font-semibold text-gray-800 text-center">
+              Unable to preview this document
             </p>
-            <a
-              href={document.file_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-5 py-2.5 rounded-[10px] bg-[#00B4D8] text-white text-sm font-bold"
+            <p className="text-sm text-gray-500 text-center">
+              This file type may not support inline preview. Try downloading it instead.
+            </p>
+            <button
+              onClick={handleDownload}
+              className="px-6 py-3 rounded-xl bg-[#00B4D8] text-white text-sm font-bold mt-2"
             >
               Download File
-            </a>
+            </button>
           </div>
-        ) : (
-          <iframe
-            src={`${document.file_url}#toolbar=0`}
-            className="w-full h-full border-0"
-            style={{ display: loading ? 'none' : 'block' }}
-            onLoad={() => setLoading(false)}
-            onError={() => { setError(true); setLoading(false); }}
-            title={document.title}
-          />
-        )}
+        ) : signedUrl ? (
+          <>
+            {isImage ? (
+              <div className="p-4 flex items-center justify-center min-h-full">
+                <img
+                  src={signedUrl}
+                  alt={document.title}
+                  className="max-w-full rounded-lg shadow-md"
+                  onLoad={() => setLoading(false)}
+                  onError={() => { setError(true); setLoading(false); }}
+                  style={{ display: loading ? 'none' : 'block' }}
+                />
+              </div>
+            ) : (
+              <iframe
+                src={signedUrl}
+                className="w-full h-full border-0"
+                style={{ display: loading ? 'none' : 'block', background: 'white' }}
+                onLoad={() => setLoading(false)}
+                onError={() => { setError(true); setLoading(false); }}
+                title={document.title}
+              />
+            )}
+          </>
+        ) : null}
       </div>
     </div>
   );
