@@ -59,7 +59,9 @@ const CMDocuments = () => {
   useEffect(() => { fetchDocs(); }, [communityId]);
 
   const handleUpload = async () => {
-    if (!uploadFile || !uploadTitle.trim() || !communityId || !currentUser?.id) return;
+    if (!uploadTitle.trim()) { toast.error('Please enter a document title'); return; }
+    if (!uploadFile) { toast.error('Please select a file to upload'); return; }
+    if (!communityId || !currentUser?.id) return;
     setUploading(true);
 
     const filePath = `${communityId}/${uploadCategory}/${Date.now()}_${uploadFile.name}`;
