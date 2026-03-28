@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import InlinePdfViewer from '@/components/documents/InlinePdfViewer';
 import { useMyDocumentViews, useAdminDocumentViews } from '@/hooks/useDocumentViews';
+import { downloadDocument } from '@/lib/documentUtils';
 
 const CATEGORIES = [
   { key: 'rules_bylaws', label: 'Rules & Bylaws', icon: '📋', color: '#8B5CF6' },
