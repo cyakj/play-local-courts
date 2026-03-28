@@ -115,6 +115,7 @@ function App() {
                     <Route path="/cm/settings/help" element={<CMHelpSupport />} />
                     <Route path="/cm/settings/feedback" element={<CMFeedback />} />
                     <Route path="/cm/settings/language" element={<CMLanguage />} />
+                  </Route>
                   {/* Main App Routes */}
                   <Route element={<MainLayout />}>
                     <Route path="/" element={<Dashboard />} />
