@@ -65,7 +65,7 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document, userId, onC
   }, [document.id, userId]);
 
   const handleDownload = async () => {
-    const url = signedUrl || await getSignedDocumentUrl(document.file_url);
+    const url = signedUrl || await getSignedDocumentUrl(document.id, document.file_url);
     if (url) window.open(url, '_blank');
   };
 
