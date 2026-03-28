@@ -341,17 +341,29 @@ export function useCondoManagerAlerts(communities: CMCommunityData[]) {
       if (hoaIds.length > 0) {
         const fiveDaysAgo = new Date();
         fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+        const twoDaysAgo = new Date();
+        twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
         
-        const { data: oldIssues } = await supabase
-          .from('maintenance_reports')
-          .select('id, hoa_id, category, created_at')
-          .in('hoa_id', hoaIds)
-          .in('status', ['open', 'assigned'])
-          .lt('created_at', fiveDaysAgo.toISOString());
+        const [oldIssuesRes, recentReportsRes] = await Promise.all([
+          supabase
+            .from('maintenance_reports')
+            .select('id, hoa_id, category, created_at')
+            .in('hoa_id', hoaIds)
+            .in('status', ['open', 'assigned'])
+            .lt('created_at', fiveDaysAgo.toISOString()),
+          supabase
+            .from('maintenance_reports')
+            .select('id, hoa_id, category, created_at, report_type, location_text, is_urgent')
+            .in('hoa_id', hoaIds)
+            .eq('status', 'open')
+            .gte('created_at', twoDaysAgo.toISOString())
+            .order('created_at', { ascending: false }),
+        ]);
 
-        if (oldIssues) {
-          const hoaMap = new Map(communities.map(c => [c.id, c.name]));
-          for (const issue of oldIssues) {
+        const hoaMap = new Map(communities.map(c => [c.id, c.name]));
+
+        if (oldIssuesRes.data) {
+          for (const issue of oldIssuesRes.data) {
             result.push({
               type: 'issue',
               community: hoaMap.get(issue.hoa_id) || '',
@@ -359,6 +371,24 @@ export function useCondoManagerAlerts(communities: CMCommunityData[]) {
               text: `Issue unresolved 5+ days: ${issue.category}`,
               time: new Date(issue.created_at).toLocaleDateString(),
               urgent: true,
+            });
+          }
+        }
+
+        // Recent new maintenance reports as alerts
+        if (recentReportsRes.data) {
+          for (const report of recentReportsRes.data) {
+            const categoryLabel = report.category.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+            const label = report.report_type === 'location'
+              ? `📍 ${report.location_text || 'Location issue'}`
+              : categoryLabel;
+            result.push({
+              type: 'issue',
+              community: hoaMap.get(report.hoa_id) || '',
+              communityId: report.hoa_id,
+              text: `New report: ${label}`,
+              time: formatTimeAgo(new Date(report.created_at)),
+              urgent: report.is_urgent ?? false,
             });
           }
         }
