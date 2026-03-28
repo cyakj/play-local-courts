@@ -45,7 +45,6 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document, userId, onC
       }
 
       setSignedUrl(url);
-      setSignedUrl(url);
     };
 
     init();
