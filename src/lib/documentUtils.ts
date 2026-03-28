@@ -22,16 +22,17 @@ export const getSignedDocumentUrl = async (_documentId: string, fileUrl: string)
     return null;
   }
 
+  // Use createSignedUrl for iframe preview (blob URLs get blocked by Chrome)
   const { data, error } = await supabase.storage
     .from('hoa-documents')
-    .download(path);
+    .createSignedUrl(path, 3600); // 1 hour expiry
 
-  if (error || !data) {
-    console.error('[DocumentUtils] storage.download failed:', error?.message);
+  if (error || !data?.signedUrl) {
+    console.error('[DocumentUtils] createSignedUrl failed:', error?.message);
     return null;
   }
 
-  return URL.createObjectURL(data);
+  return data.signedUrl;
 };
 
 export const downloadDocument = async (_documentId: string, fileUrl: string, originalFileName?: string) => {
