@@ -28,10 +28,13 @@ const CMAlerts = () => {
 
   const handleTakeAction = (alert: any) => {
     if (alert.type === 'approval') {
-      // Navigate to community members tab
       navigate(`/cm/community/${alert.communityId}?tab=members`);
     } else if (alert.type === 'issue') {
-      navigate('/cm/reports');
+      if (alert.reportId) {
+        navigate('/cm/reports?reportId=' + alert.reportId);
+      } else {
+        navigate('/cm/reports');
+      }
     } else if (alert.type === 'health') {
       navigate(`/cm/community/${alert.communityId}`);
     }
