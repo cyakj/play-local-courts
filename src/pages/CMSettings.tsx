@@ -34,7 +34,6 @@ const CMSettings = () => {
     {
       title: 'PORTFOLIO',
       items: [
-        { icon: Building2, label: 'My Communities', desc: 'Manage your HOA portfolio', path: '/cm' },
         { icon: Plus, label: 'Add Community', desc: 'Connect a new HOA', path: '/join-community' },
       ],
     },
