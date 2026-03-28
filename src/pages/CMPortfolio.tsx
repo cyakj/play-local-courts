@@ -21,6 +21,8 @@ const CMPortfolio = () => {
   const [showAddCommunity, setShowAddCommunity] = useState(false);
   const { communities, loading, refetch } = useCondoManagerCommunities();
   const { unreadCount } = useCondoManagerNotifications();
+  const { alerts } = useCondoManagerAlerts(communities);
+  const alertCount = alerts.length;
 
   // Add community form
   const [newName, setNewName] = useState('');
