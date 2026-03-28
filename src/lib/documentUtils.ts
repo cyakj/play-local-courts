@@ -34,7 +34,7 @@ export const getSignedDocumentUrl = async (_documentId: string, fileUrl: string)
   return URL.createObjectURL(data);
 };
 
-export const downloadDocument = async (_documentId: string, fileUrl: string) => {
+export const downloadDocument = async (_documentId: string, fileUrl: string, originalFileName?: string) => {
   const path = extractStoragePath(fileUrl);
   if (!path) {
     console.error('[DocumentUtils] Could not extract storage path');
