@@ -124,12 +124,6 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document, userId, onC
             <p className="text-sm text-muted-foreground text-center">
               {errorMsg || 'This file type may not support inline preview. Try downloading it instead.'}
             </p>
-            <button
-              onClick={handleDownload}
-              className="px-6 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-bold mt-2"
-            >
-              Download File
-            </button>
           </div>
         ) : signedUrl ? (
           <>
