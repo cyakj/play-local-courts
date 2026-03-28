@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Download, Loader2 } from 'lucide-react';
-import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
+import * as pdfjsLib from 'pdfjs-dist';
 import { supabase } from '@/integrations/supabase/client';
 import { getDocumentBlob, getSignedDocumentUrl, downloadDocument } from '@/lib/documentUtils';
 
-GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.5.207/pdf.worker.min.mjs`;
 
 interface InlinePdfViewerProps {
   document: {
@@ -18,42 +18,39 @@ interface InlinePdfViewerProps {
   onViewed?: () => void;
 }
 
-const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document, userId, onClose, onViewed }) => {
+const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document: doc, userId, onClose, onViewed }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [pdfPages, setPdfPages] = useState<string[]>([]);
 
-  const isImage = /\.(png|jpg|jpeg|gif|webp)/i.test(document.file_url);
-  const isPdf = /\.pdf/i.test(document.file_url);
+  const isImage = /\.(png|jpg|jpeg|gif|webp)/i.test(doc.file_url);
+  const isPdf = /\.pdf/i.test(doc.file_url);
   const canPreview = isImage || isPdf;
 
   useEffect(() => {
     let cancelled = false;
 
-    const trackView = async () => {
-      try {
-        await supabase
-          .from('document_views' as any)
-          .upsert(
-            { document_id: document.id, user_id: userId, viewed_at: new Date().toISOString() },
-            { onConflict: 'document_id,user_id' }
-          );
-        onViewed?.();
-      } catch (viewError) {
-        console.error('Failed to track view:', viewError);
-      }
-    };
-
-    const loadPreview = async () => {
+    const run = async () => {
       setLoading(true);
       setError(false);
       setErrorMsg('');
       setPreviewUrl(null);
       setPdfPages([]);
 
-      await trackView();
+      // Track view
+      try {
+        await supabase
+          .from('document_views' as any)
+          .upsert(
+            { document_id: doc.id, user_id: userId, viewed_at: new Date().toISOString() },
+            { onConflict: 'document_id,user_id' }
+          );
+        onViewed?.();
+      } catch (e) {
+        console.error('Failed to track view:', e);
+      }
 
       if (!canPreview) {
         if (!cancelled) {
@@ -65,102 +62,102 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document, userId, onC
       }
 
       if (isImage) {
-        const url = await getSignedDocumentUrl(document.id, document.file_url);
+        const url = await getSignedDocumentUrl(doc.id, doc.file_url);
+        if (cancelled) return;
         if (!url) {
-          if (!cancelled) {
-            setError(true);
-            setErrorMsg('Could not generate a secure link for this document. The file may have been moved or deleted.');
-            setLoading(false);
-          }
+          setError(true);
+          setErrorMsg('Could not load this document.');
+          setLoading(false);
           return;
         }
-
-        if (!cancelled) {
-          setPreviewUrl(url);
-        }
+        setPreviewUrl(url);
         return;
       }
 
-      const blob = await getDocumentBlob(document.file_url);
-      if (!blob) {
-        if (!cancelled) {
+      // PDF path
+      try {
+        console.time('PDFDownload');
+        const blob = await getDocumentBlob(doc.file_url);
+        console.timeEnd('PDFDownload');
+
+        if (cancelled) return;
+        if (!blob) {
           setError(true);
           setErrorMsg('Could not load this PDF. The file may have been moved or deleted.');
           setLoading(false);
+          return;
         }
-        return;
-      }
 
-      try {
+        console.time('PDFRender');
         const arrayBuffer = await blob.arrayBuffer();
-        const pdf = await getDocument({ data: arrayBuffer }).promise;
-        const renderedPages: string[] = [];
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const pages: string[] = [];
         const targetWidth = Math.max(320, Math.min(window.innerWidth - 32, 900));
+        const dpr = window.devicePixelRatio || 1;
 
-        for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-          const page = await pdf.getPage(pageNumber);
-          const baseViewport = page.getViewport({ scale: 1 });
-          const scale = targetWidth / baseViewport.width;
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const baseVp = page.getViewport({ scale: 1 });
+          const scale = (targetWidth / baseVp.width) * dpr;
           const viewport = page.getViewport({ scale });
+
           const canvas = window.document.createElement('canvas');
-          const context = canvas.getContext('2d');
-
-          if (!context) {
-            throw new Error('Canvas rendering is not available.');
-          }
-
           canvas.width = Math.ceil(viewport.width);
           canvas.height = Math.ceil(viewport.height);
+          const ctx = canvas.getContext('2d')!;
 
-          await page.render({ canvas, canvasContext: context, viewport }).promise;
-          renderedPages.push(canvas.toDataURL('image/png'));
+          await page.render({ canvas, canvasContext: ctx, viewport }).promise;
+          pages.push(canvas.toDataURL('image/jpeg', 0.92));
         }
+        console.timeEnd('PDFRender');
 
         if (!cancelled) {
-          setPdfPages(renderedPages);
+          setPdfPages(pages);
           setLoading(false);
         }
-      } catch (pdfError) {
-        console.error('Failed to render PDF:', pdfError);
+      } catch (err) {
+        console.error('Failed to render PDF:', err);
         if (!cancelled) {
           setError(true);
-          setErrorMsg('This PDF could not be rendered inline. You can still download it.');
+          setErrorMsg('This PDF could not be rendered. You can still download it.');
           setLoading(false);
         }
       }
     };
 
-    loadPreview();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [document.id, document.file_url, onViewed, userId, canPreview, isImage]);
+    run();
+    return () => { cancelled = true; };
+  }, [doc.id, doc.file_url, userId]);
 
   const handleDownload = async () => {
-    await downloadDocument(document.id, document.file_url, document.file_name);
+    await downloadDocument(doc.id, doc.file_url, doc.file_name);
   };
 
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-background">
-      <div className="flex items-center gap-3 px-4 py-3 min-h-[56px] bg-cm-navy">
+      {/* Header */}
+      <div
+        className="flex items-center gap-3 px-4 py-3 min-h-[56px]"
+        style={{ background: 'linear-gradient(135deg, #0A1628 0%, #1a2a4a 100%)' }}
+      >
         <button
           onClick={onClose}
-          className="w-10 h-10 rounded-[10px] flex items-center justify-center bg-white/10 flex-shrink-0"
+          className="w-10 h-10 rounded-[10px] flex items-center justify-center bg-white/[0.12] flex-shrink-0"
         >
           <ArrowLeft className="h-5 w-5 text-white" />
         </button>
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-bold text-white truncate">{document.title}</div>
+          <div className="text-sm font-bold text-white truncate">{doc.title}</div>
         </div>
         <button
           onClick={handleDownload}
-          className="w-10 h-10 rounded-[10px] flex items-center justify-center bg-white/10 flex-shrink-0"
+          className="w-10 h-10 rounded-[10px] flex items-center justify-center bg-white/[0.12] flex-shrink-0"
         >
           <Download className="h-5 w-5 text-white" />
         </button>
       </div>
 
+      {/* Content */}
       <div className="flex-1 relative bg-muted overflow-auto">
         {loading && !error && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-muted">
@@ -172,35 +169,37 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document, userId, onC
         {error ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-6 bg-muted">
             <div className="text-5xl">📄</div>
-            <p className="text-base font-semibold text-foreground text-center">Unable to preview this document</p>
+            <p className="text-base font-semibold text-foreground text-center">Unable to preview</p>
             <p className="text-sm text-muted-foreground text-center">
-              {errorMsg || 'This file type may not support inline preview. Try downloading it instead.'}
+              {errorMsg || 'Try downloading the file instead.'}
             </p>
+            <button
+              onClick={handleDownload}
+              className="min-h-[44px] rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground"
+            >
+              Download
+            </button>
           </div>
         ) : isImage && previewUrl ? (
           <div className="p-4 flex items-center justify-center min-h-full">
             <img
               src={previewUrl}
-              alt={document.title}
+              alt={doc.title}
               className="max-w-full rounded-lg shadow-md"
               onLoad={() => setLoading(false)}
-              onError={() => {
-                setError(true);
-                setErrorMsg('Failed to load image.');
-                setLoading(false);
-              }}
+              onError={() => { setError(true); setErrorMsg('Failed to load image.'); setLoading(false); }}
               style={{ display: loading ? 'none' : 'block' }}
             />
           </div>
         ) : isPdf && pdfPages.length > 0 ? (
           <div className="p-4 space-y-4">
-            {pdfPages.map((pageSrc, index) => (
+            {pdfPages.map((src, i) => (
               <img
-                key={`${document.id}-page-${index + 1}`}
-                src={pageSrc}
-                alt={`${document.title} page ${index + 1}`}
-                className="block w-full max-w-full mx-auto rounded-lg border border-border bg-card shadow-sm"
-                loading={index === 0 ? 'eager' : 'lazy'}
+                key={`page-${i}`}
+                src={src}
+                alt={`Page ${i + 1}`}
+                className="block w-full rounded-lg border border-border bg-card shadow-sm"
+                loading={i === 0 ? 'eager' : 'lazy'}
               />
             ))}
           </div>
