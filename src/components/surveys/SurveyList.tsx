@@ -209,6 +209,15 @@ export const SurveyList: React.FC<SurveyListProps> = ({
 
                 {/* Action buttons */}
                 <div className="flex gap-2">
+                  {s.status === 'draft' && (
+                    <div
+                      onClick={() => !publishing && handlePublish(s)}
+                      className="flex-1 rounded-[10px] py-2.5 text-xs font-bold text-center cursor-pointer min-h-[40px] flex items-center justify-center"
+                      style={{ background: '#00B4D8', color: '#fff', opacity: publishing === s.id ? 0.6 : 1 }}
+                    >
+                      {publishing === s.id ? 'Publishing...' : '🚀 Publish'}
+                    </div>
+                  )}
                   {s.status !== 'draft' && (
                     <div
                       onClick={() => onViewResults(s.id)}
@@ -223,7 +232,7 @@ export const SurveyList: React.FC<SurveyListProps> = ({
                     className="flex-1 rounded-[10px] py-2.5 text-xs font-bold text-center cursor-pointer border min-h-[40px] flex items-center justify-center"
                     style={{ borderColor: '#E5E7EB', color: '#4B5563' }}
                   >
-                    {s.status === 'draft' ? 'Edit & Publish' : 'Edit'}
+                    Edit
                   </div>
                   {s.status === 'active' && (
                     <div
