@@ -160,17 +160,7 @@ export const CMReportDetail: React.FC<CMReportDetailProps> = ({ reportId, onBack
       toast({ title: 'Error', description: 'Failed to update status', variant: 'destructive' });
     } else {
       toast({ title: 'Status Updated', description: `Report marked as ${newStatus.replace('_', ' ')}` });
-      // Send notification to resident
-      if (report) {
-        await supabase.from('hoa_notifications').insert({
-          user_id: report.reporter_id,
-          hoa_id: report.hoa_id,
-          type: 'report_status_changed',
-          title: 'Report Updated',
-          body: `Your report has been updated to ${newStatus.replace('_', ' ')} by management`,
-          metadata: { report_id: reportId, new_status: newStatus },
-        });
-      }
+      // Resident notification is handled automatically by the notify_reporter_on_status_change DB trigger
       await fetchReport();
     }
     setSaving(false);
@@ -190,14 +180,13 @@ export const CMReportDetail: React.FC<CMReportDetailProps> = ({ reportId, onBack
       toast({ title: 'Error', description: 'Failed to resolve report', variant: 'destructive' });
     } else {
       toast({ title: 'Report Resolved', description: 'Resolution notes saved' });
-      if (report) {
-        await supabase.from('hoa_notifications').insert({
-          user_id: report.reporter_id,
-          hoa_id: report.hoa_id,
-          type: 'report_status_changed',
-          title: 'Report Resolved',
-          body: `Your report has been resolved. Resolution: ${resolutionText.slice(0, 100)}`,
-          metadata: { report_id: reportId, new_status: 'resolved' },
+      // DB trigger sends the status change notification automatically.
+      // Also send a report_message with resolution details so the resident sees them in messages.
+      if (report && currentUser) {
+        await supabase.from('report_messages').insert({
+          report_id: reportId,
+          sender_id: currentUser.id,
+          body: `✅ Report resolved: ${resolutionText}`,
         });
       }
       await fetchReport();
