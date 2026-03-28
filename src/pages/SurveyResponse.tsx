@@ -385,7 +385,7 @@ const SurveyResponse = () => {
       </div>
 
       {/* Sticky bottom */}
-      <div className="fixed bottom-0 left-0 right-0 border-t p-4 pb-7" style={{ background: '#fff', borderColor: '#E5E7EB' }}>
+      <div className="fixed bottom-0 left-0 right-0 z-[60] border-t p-4" style={{ background: '#fff', borderColor: '#E5E7EB', paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' }}>
         <div
           onClick={() => {
             if (!canProceed) return;
