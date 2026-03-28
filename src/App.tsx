@@ -4,7 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { NotificationContainer } from "@/components/ui/notification-banner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import ScrollToTop from "./components/ScrollToTop";
+import ScrollToTop from "@/components/ScrollToTop";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ActiveHOAProvider } from "./contexts/ActiveHOAContext";
 import { DataProvider } from "./contexts/DataContext";
