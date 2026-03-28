@@ -25,12 +25,13 @@ interface Report {
 }
 
 const CMReports = () => {
+  const [searchParams] = useSearchParams();
   const [communityFilter, setCommunityFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('Open');
   const [categoryFilter, setCategoryFilter] = useState('All Categories');
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(searchParams.get('reportId'));
   const { communities } = useCondoManagerCommunities();
 
   const communityOptions = ['All', ...communities.map(c => c.name)];
