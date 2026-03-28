@@ -85,6 +85,47 @@ export const SurveyList: React.FC<SurveyListProps> = ({
     fetchSurveys();
   };
 
+  const handlePublish = async (survey: Survey) => {
+    // Check it has questions
+    const { data: questions } = await supabase
+      .from('hoa_survey_questions')
+      .select('id')
+      .eq('survey_id', survey.id);
+    if (!questions || questions.length === 0) {
+      toast.error('Add at least one question before publishing');
+      return;
+    }
+    if (!confirm('Publish this survey? Residents will be notified.')) return;
+    setPublishing(survey.id);
+    const { error } = await supabase
+      .from('hoa_surveys')
+      .update({ status: 'active' })
+      .eq('id', survey.id);
+    if (error) { toast.error('Failed to publish survey'); setPublishing(null); return; }
+
+    // Send notifications
+    const { data: members } = await supabase
+      .from('hoa_memberships')
+      .select('user_id')
+      .eq('hoa_id', communityId)
+      .eq('status', 'approved');
+    if (members && members.length > 0 && currentUser?.id) {
+      await supabase.from('hoa_notifications').insert(
+        members.map(m => ({
+          user_id: m.user_id,
+          hoa_id: communityId,
+          type: 'survey_published',
+          title: `New survey: ${survey.title}`,
+          body: `A new community survey is available — closes ${new Date(survey.closes_at).toLocaleDateString()}`,
+        }))
+      );
+    }
+
+    toast.success('Survey published!');
+    setPublishing(null);
+    fetchSurveys();
+  };
+
   const filtered = surveys.filter(s => {
     if (filter === 'All') return true;
     return s.status === filter.toLowerCase();
