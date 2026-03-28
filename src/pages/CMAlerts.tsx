@@ -87,7 +87,7 @@ const CMAlerts = () => {
                         <div className="text-[10px] text-cm-text-light">{a.time}</div>
                       </div>
                       <div className="text-[13px] font-semibold text-cm-text mt-1">{a.text}</div>
-                      {a.urgent && (
+                      {(a.urgent || a.type === 'issue') && (
                         <div className="mt-2 flex gap-2">
                           <div
                             onClick={() => handleTakeAction(a)}
