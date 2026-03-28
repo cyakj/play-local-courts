@@ -58,6 +58,14 @@ import CMAlerts from "./pages/CMAlerts";
 import CMDocuments from "./pages/CMDocuments";
 import CMSurveys from "./pages/CMSurveys";
 import CMAmenityRules from "./pages/CMAmenityRules";
+import CMSettings from "./pages/CMSettings";
+import CMEditProfile from "./pages/CMEditProfile";
+import CMAccountDetails from "./pages/CMAccountDetails";
+import CMSecurity from "./pages/CMSecurity";
+import CMNotifications from "./pages/CMNotifications";
+import CMHelpSupport from "./pages/CMHelpSupport";
+import CMFeedback from "./pages/CMFeedback";
+import CMLanguage from "./pages/CMLanguage";
 import ResidentCalendar from "./pages/ResidentCalendar";
 import DocumentLibrary from "./pages/DocumentLibrary";
 import SurveyResponse from "./pages/SurveyResponse";
@@ -99,6 +107,14 @@ function App() {
                     <Route path="/cm/community/:id/documents" element={<CMDocuments />} />
                     <Route path="/cm/community/:id/surveys" element={<CMSurveys />} />
                     <Route path="/cm/community/:id/amenity/:amenityId/rules" element={<CMAmenityRules />} />
+                    <Route path="/cm/settings" element={<CMSettings />} />
+                    <Route path="/cm/settings/edit-profile" element={<CMEditProfile />} />
+                    <Route path="/cm/settings/account" element={<CMAccountDetails />} />
+                    <Route path="/cm/settings/security" element={<CMSecurity />} />
+                    <Route path="/cm/settings/notifications" element={<CMNotifications />} />
+                    <Route path="/cm/settings/help" element={<CMHelpSupport />} />
+                    <Route path="/cm/settings/feedback" element={<CMFeedback />} />
+                    <Route path="/cm/settings/language" element={<CMLanguage />} />
                   </Route>
                   {/* Main App Routes */}
                   <Route element={<MainLayout />}>
