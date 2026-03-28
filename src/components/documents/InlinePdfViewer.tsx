@@ -51,7 +51,6 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document, userId, onC
   }, [document.id, userId]);
 
   const handleDownload = async () => {
-    const { downloadDocument } = await import('@/lib/documentUtils');
     await downloadDocument(document.id, document.file_url);
   };
 
