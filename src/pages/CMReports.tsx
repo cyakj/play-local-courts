@@ -108,11 +108,14 @@ const CMReports = () => {
       if (categoryFilter !== 'All Categories' && r.category !== categoryFilter) return false;
       
       // Status filtering
-      if (statusFilter === 'All') {
-        // Hide closed reports from "All" view
-        return r.status.toLowerCase() !== 'closed';
+      const s = r.status.toLowerCase();
+      if (statusFilter === 'Active') {
+        return s === 'open' || s === 'in progress' || s === 'assigned';
       }
-      return r.status.toLowerCase() === statusFilter.toLowerCase();
+      if (statusFilter === 'All') {
+        return s !== 'closed';
+      }
+      return s === statusFilter.toLowerCase();
     }
   ), [reports, communityFilter, statusFilter, categoryFilter]);
 
