@@ -96,7 +96,7 @@ export const SurveyList: React.FC<SurveyListProps> = ({
         created_by: currentUser.id,
         title: `Survey Closed: ${survey.title}`,
         body: announcementBody,
-        audience: 'all',
+        audience: 'all_residents',
       });
 
       // Notify all approved members
