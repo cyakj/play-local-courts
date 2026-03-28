@@ -1900,17 +1900,20 @@ export type Database = {
           amenity_id: string | null
           assignee: string | null
           category: string
+          closed_at: string | null
           completed_at: string | null
           completion_notes: string | null
           created_at: string
           description: string
           hoa_id: string
           id: string
+          is_urgent: boolean
           location_text: string | null
           photo_url: string | null
           priority: string | null
           report_type: string
           reporter_id: string
+          resolution_notes: string | null
           status: string
           updated_at: string
         }
@@ -1919,17 +1922,20 @@ export type Database = {
           amenity_id?: string | null
           assignee?: string | null
           category: string
+          closed_at?: string | null
           completed_at?: string | null
           completion_notes?: string | null
           created_at?: string
           description: string
           hoa_id: string
           id?: string
+          is_urgent?: boolean
           location_text?: string | null
           photo_url?: string | null
           priority?: string | null
           report_type?: string
           reporter_id: string
+          resolution_notes?: string | null
           status?: string
           updated_at?: string
         }
@@ -1938,17 +1944,20 @@ export type Database = {
           amenity_id?: string | null
           assignee?: string | null
           category?: string
+          closed_at?: string | null
           completed_at?: string | null
           completion_notes?: string | null
           created_at?: string
           description?: string
           hoa_id?: string
           id?: string
+          is_urgent?: boolean
           location_text?: string | null
           photo_url?: string | null
           priority?: string | null
           report_type?: string
           reporter_id?: string
+          resolution_notes?: string | null
           status?: string
           updated_at?: string
         }
@@ -2498,6 +2507,73 @@ export type Database = {
             columns: ["referrer_id"]
             isOneToOne: false
             referencedRelation: "referral_leaderboard"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_messages: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          report_id: string
+          sender_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          report_id: string
+          sender_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          report_id?: string
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_messages_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "maintenance_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_notes: {
+        Row: {
+          author_id: string
+          body: string
+          created_at: string
+          id: string
+          is_internal: boolean
+          report_id: string
+        }
+        Insert: {
+          author_id: string
+          body: string
+          created_at?: string
+          id?: string
+          is_internal?: boolean
+          report_id: string
+        }
+        Update: {
+          author_id?: string
+          body?: string
+          created_at?: string
+          id?: string
+          is_internal?: boolean
+          report_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_notes_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "maintenance_reports"
             referencedColumns: ["id"]
           },
         ]
