@@ -93,7 +93,7 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document, userId, onC
 
       try {
         const arrayBuffer = await blob.arrayBuffer();
-        const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+        const pdf = await getDocument({ data: arrayBuffer }).promise;
         const renderedPages: string[] = [];
         const targetWidth = Math.max(320, Math.min(window.innerWidth - 32, 900));
 
@@ -102,7 +102,7 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document, userId, onC
           const baseViewport = page.getViewport({ scale: 1 });
           const scale = targetWidth / baseViewport.width;
           const viewport = page.getViewport({ scale });
-          const canvas = document.createElement('canvas');
+          const canvas = window.document.createElement('canvas');
           const context = canvas.getContext('2d');
 
           if (!context) {
