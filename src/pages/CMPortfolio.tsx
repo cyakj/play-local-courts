@@ -7,7 +7,7 @@ import { CMHealthBar } from '@/components/condo-manager/CMHealthBar';
 import { CMStatusBadge } from '@/components/condo-manager/CMStatusBadge';
 import CMNotificationCenter from '@/components/condo-manager/CMNotificationCenter';
 import CMProfileSheet from '@/components/condo-manager/CMProfileSheet';
-import { useCondoManagerCommunities, useCondoManagerNotifications } from '@/hooks/useCondoManagerData';
+import { useCondoManagerCommunities, useCondoManagerNotifications, useCondoManagerAlerts } from '@/hooks/useCondoManagerData';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -21,6 +21,8 @@ const CMPortfolio = () => {
   const [showAddCommunity, setShowAddCommunity] = useState(false);
   const { communities, loading, refetch } = useCondoManagerCommunities();
   const { unreadCount } = useCondoManagerNotifications();
+  const { alerts } = useCondoManagerAlerts(communities);
+  const alertCount = alerts.length;
 
   // Add community form
   const [newName, setNewName] = useState('');
@@ -135,9 +137,9 @@ const CMPortfolio = () => {
                 className="relative bg-white/[0.12] rounded-[10px] w-10 h-10 flex items-center justify-center cursor-pointer min-h-[44px]"
               >
                 <Bell className="h-5 w-5 text-white" />
-                {unreadCount > 0 && (
+                {alertCount > 0 && (
                   <div className="absolute -top-1 -right-1 bg-cm-danger text-white rounded-full w-[18px] h-[18px] flex items-center justify-center text-[10px] font-extrabold">
-                    {unreadCount}
+                    {alertCount}
                   </div>
                 )}
               </div>
