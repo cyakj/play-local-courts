@@ -19,7 +19,7 @@ export function useMyDocumentViews(userId: string | undefined, documentIds: stri
       .eq('user_id', userId)
       .in('document_id', documentIds);
     if (data) {
-      setViewedIds(new Set((data as any[]).map(v => v.document_id)));
+      setViewedIds(new Set((data as unknown as { document_id: string }[]).map(v => v.document_id)));
     }
   };
 
