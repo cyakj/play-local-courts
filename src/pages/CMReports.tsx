@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { CMHeader } from '@/components/condo-manager/CMHeader';
 import { CMChips } from '@/components/condo-manager/CMChips';
 import { CMStatusPill, CMPriorityBadge } from '@/components/condo-manager/CMStatusBadge';
