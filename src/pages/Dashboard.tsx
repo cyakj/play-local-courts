@@ -474,17 +474,26 @@ const Dashboard = () => {
               <p className="text-[13px]" style={{ color: '#9CA3AF' }}>No announcements yet</p>
             </div>
           ) : (
-            announcements.map((a, i) => (
-              <div key={a.id} className={i < announcements.length - 1 ? 'pb-3 mb-3 border-b border-[#E5E7EB]' : ''}>
-                <div className="text-[13px] font-bold" style={{ color: '#1A1A2E' }}>{a.title}</div>
-                <div className="text-[12px] mt-0.5 truncate" style={{ color: '#9CA3AF' }}>
-                  {a.body?.substring(0, 80)}{a.body?.length > 80 ? '…' : ''}
+            (showAllAnnouncements && allAnnouncements.length > 0 ? allAnnouncements : announcements).map((a, i, arr) => {
+              const isExpanded = expandedAnnouncement === a.id;
+              return (
+                <div
+                  key={a.id}
+                  className={`cursor-pointer ${i < arr.length - 1 ? 'pb-3 mb-3 border-b border-[#E5E7EB]' : ''}`}
+                  onClick={() => setExpandedAnnouncement(isExpanded ? null : a.id)}
+                >
+                  <div className="text-[13px] font-bold" style={{ color: '#1A1A2E' }}>{a.title}</div>
+                  <div className={`text-[12px] mt-0.5 ${isExpanded ? '' : 'truncate'}`} style={{ color: '#9CA3AF' }}>
+                    {isExpanded ? a.body : (
+                      <>{a.body?.substring(0, 80)}{a.body?.length > 80 ? '…' : ''}</>
+                    )}
+                  </div>
+                  <div className="text-[11px] mt-1" style={{ color: '#9CA3AF' }}>
+                    {formatDistanceToNow(new Date(a.created_at), { addSuffix: true })}
+                  </div>
                 </div>
-                <div className="text-[11px] mt-1" style={{ color: '#9CA3AF' }}>
-                  {formatDistanceToNow(new Date(a.created_at), { addSuffix: true })}
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 
