@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Download, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { getSignedDocumentUrl } from '@/lib/documentUtils';
+import { getSignedDocumentUrl, downloadDocument } from '@/lib/documentUtils';
 
 interface InlinePdfViewerProps {
   document: {
@@ -44,20 +44,6 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document, userId, onC
         return;
       }
 
-      // Verify the URL actually works before loading in iframe
-      try {
-        const resp = await fetch(url, { method: 'HEAD' });
-        if (!resp.ok) {
-          setErrorMsg(`File not accessible (${resp.status}). It may have been moved or deleted.`);
-          setError(true);
-          setLoading(false);
-          return;
-        }
-      } catch {
-        // HEAD request failed, still try to show it
-        console.warn('HEAD check failed, attempting to load anyway');
-      }
-
       setSignedUrl(url);
     };
 
@@ -65,8 +51,7 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document, userId, onC
   }, [document.id, userId]);
 
   const handleDownload = async () => {
-    const url = signedUrl || await getSignedDocumentUrl(document.id, document.file_url);
-    if (url) window.open(url, '_blank');
+    await downloadDocument(document.id, document.file_url);
   };
 
   const isImage = /\.(png|jpg|jpeg|gif|webp)/i.test(document.file_url);
