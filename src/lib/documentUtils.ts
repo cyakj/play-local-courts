@@ -22,10 +22,9 @@ export const getSignedDocumentUrl = async (_documentId: string, fileUrl: string)
     return null;
   }
 
-  // Use createSignedUrl for iframe preview (blob URLs get blocked by Chrome)
   const { data, error } = await supabase.storage
     .from('hoa-documents')
-    .createSignedUrl(path, 3600); // 1 hour expiry
+    .createSignedUrl(path, 3600);
 
   if (error || !data?.signedUrl) {
     console.error('[DocumentUtils] createSignedUrl failed:', error?.message);
@@ -35,11 +34,11 @@ export const getSignedDocumentUrl = async (_documentId: string, fileUrl: string)
   return data.signedUrl;
 };
 
-export const downloadDocument = async (_documentId: string, fileUrl: string, originalFileName?: string) => {
+export const getDocumentBlob = async (fileUrl: string): Promise<Blob | null> => {
   const path = extractStoragePath(fileUrl);
   if (!path) {
     console.error('[DocumentUtils] Could not extract storage path');
-    return;
+    return null;
   }
 
   const { data, error } = await supabase.storage
@@ -48,6 +47,17 @@ export const downloadDocument = async (_documentId: string, fileUrl: string, ori
 
   if (error || !data) {
     console.error('[DocumentUtils] storage.download failed:', error?.message);
+    return null;
+  }
+
+  return data;
+};
+
+export const downloadDocument = async (_documentId: string, fileUrl: string, originalFileName?: string) => {
+  const data = await getDocumentBlob(fileUrl);
+  const path = extractStoragePath(fileUrl);
+
+  if (!data || !path) {
     return;
   }
 
