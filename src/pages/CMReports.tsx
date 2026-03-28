@@ -37,75 +37,70 @@ const CMReports = () => {
 
   const communityOptions = ['All', ...communities.map(c => c.name)];
 
+  const fetchReports = useCallback(async () => {
+    if (communities.length === 0) { setLoading(false); return; }
+
+    const hoaIds = communities.map(c => c.id);
+    const hoaMap = new Map(communities.map(c => [c.id, c.name]));
+
+    const { data, error } = await supabase
+      .from('maintenance_reports')
+      .select('id, hoa_id, amenity_id, status, priority, category, description, reporter_id, created_at, report_type, location_text, is_urgent')
+      .in('hoa_id', hoaIds)
+      .order('created_at', { ascending: false });
+
+    if (error) { console.error(error); setLoading(false); return; }
+
+    const amenityIds = [...new Set((data || []).map(r => r.amenity_id).filter(Boolean))];
+    const reporterIds = [...new Set((data || []).map(r => r.reporter_id))];
+
+    const [amenitiesRes, profilesRes] = await Promise.all([
+      amenityIds.length > 0 ? supabase.from('courts').select('id, name').in('id', amenityIds) : { data: [] },
+      reporterIds.length > 0 ? supabase.from('profiles').select('id, full_name').in('id', reporterIds) : { data: [] },
+    ]);
+
+    const amenityMap = new Map((amenitiesRes.data || []).map(a => [a.id, a.name]));
+    const profileMap = new Map((profilesRes.data || []).map(p => [p.id, p.full_name]));
+
+    const mapped = (data || []).map((r: any) => ({
+      id: r.id,
+      community: hoaMap.get(r.hoa_id) || '',
+      amenity: r.amenity_id ? (amenityMap.get(r.amenity_id) || null) : null,
+      displayTitle: r.report_type === 'location'
+        ? `📍 ${(r.location_text || 'Unknown location').slice(0, 30)}${(r.location_text || '').length > 30 ? '…' : ''}`
+        : (amenityMap.get(r.amenity_id) || getCategoryLabel(r.category)),
+      status: r.status.charAt(0).toUpperCase() + r.status.slice(1).replace('_', ' '),
+      priority: r.priority || 'medium',
+      category: r.category,
+      description: r.description,
+      reporter: profileMap.get(r.reporter_id) || 'Unknown',
+      date: new Date(r.created_at).toLocaleDateString(),
+      report_type: r.report_type,
+      location_text: r.location_text,
+      is_urgent: r.is_urgent ?? false,
+    }));
+
+    mapped.sort((a: Report, b: Report) => {
+      if (a.is_urgent && !b.is_urgent) return -1;
+      if (!a.is_urgent && b.is_urgent) return 1;
+      return 0;
+    });
+
+    setReports(mapped);
+    setLoading(false);
+  }, [communities]);
+
   // Real-time: auto-refresh when reports are created or updated
   useRealtimeSubscription({
     table: 'maintenance_reports',
     event: '*',
-    onChange: useCallback(() => {
-      // Re-trigger the effect by toggling a refresh flag
-      setLoading(true);
-      // We'll call fetchReports by re-running the effect
-      setReports([]);
-    }, []),
+    onChange: fetchReports,
     enabled: communities.length > 0
   });
 
   useEffect(() => {
-    const fetchReports = async () => {
-      if (communities.length === 0) { setLoading(false); return; }
-
-      const hoaIds = communities.map(c => c.id);
-      const hoaMap = new Map(communities.map(c => [c.id, c.name]));
-
-      const { data, error } = await supabase
-        .from('maintenance_reports')
-        .select('id, hoa_id, amenity_id, status, priority, category, description, reporter_id, created_at, report_type, location_text, is_urgent')
-        .in('hoa_id', hoaIds)
-        .order('created_at', { ascending: false });
-
-      if (error) { console.error(error); setLoading(false); return; }
-
-      const amenityIds = [...new Set((data || []).map(r => r.amenity_id).filter(Boolean))];
-      const reporterIds = [...new Set((data || []).map(r => r.reporter_id))];
-
-      const [amenitiesRes, profilesRes] = await Promise.all([
-        amenityIds.length > 0 ? supabase.from('courts').select('id, name').in('id', amenityIds) : { data: [] },
-        reporterIds.length > 0 ? supabase.from('profiles').select('id, full_name').in('id', reporterIds) : { data: [] },
-      ]);
-
-      const amenityMap = new Map((amenitiesRes.data || []).map(a => [a.id, a.name]));
-      const profileMap = new Map((profilesRes.data || []).map(p => [p.id, p.full_name]));
-
-      const mapped = (data || []).map((r: any) => ({
-        id: r.id,
-        community: hoaMap.get(r.hoa_id) || '',
-        amenity: r.amenity_id ? (amenityMap.get(r.amenity_id) || null) : null,
-        displayTitle: r.report_type === 'location'
-          ? `📍 ${(r.location_text || 'Unknown location').slice(0, 30)}${(r.location_text || '').length > 30 ? '…' : ''}`
-          : (amenityMap.get(r.amenity_id) || getCategoryLabel(r.category)),
-        status: r.status.charAt(0).toUpperCase() + r.status.slice(1).replace('_', ' '),
-        priority: r.priority || 'medium',
-        category: r.category,
-        description: r.description,
-        reporter: profileMap.get(r.reporter_id) || 'Unknown',
-        date: new Date(r.created_at).toLocaleDateString(),
-        report_type: r.report_type,
-        location_text: r.location_text,
-        is_urgent: r.is_urgent ?? false,
-      }));
-
-      // Sort urgent to top
-      mapped.sort((a: Report, b: Report) => {
-        if (a.is_urgent && !b.is_urgent) return -1;
-        if (!a.is_urgent && b.is_urgent) return 1;
-        return 0;
-      });
-
-      setReports(mapped);
-      setLoading(false);
-    };
     fetchReports();
-  }, [communities]);
+  }, [fetchReports]);
 
   const filtered = useMemo(() => reports.filter(
     (r) => {
