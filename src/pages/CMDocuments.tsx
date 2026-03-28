@@ -61,43 +61,53 @@ const CMDocuments = () => {
   const handleUpload = async () => {
     if (!uploadTitle.trim()) { toast.error('Please enter a document title'); return; }
     if (!uploadFile) { toast.error('Please select a file to upload'); return; }
-    if (!communityId || !currentUser?.id) return;
-    setUploading(true);
-
-    const filePath = `${communityId}/${uploadCategory}/${Date.now()}_${uploadFile.name}`;
-    const { error: storageError } = await supabase.storage
-      .from('hoa-documents')
-      .upload(filePath, uploadFile);
-
-    if (storageError) {
-      toast.error('Failed to upload file');
-      setUploading(false);
+    if (!communityId || !currentUser?.id) {
+      toast.error('You must be signed in to upload documents');
       return;
     }
 
-    const { data: urlData } = supabase.storage.from('hoa-documents').getPublicUrl(filePath);
+    setUploading(true);
 
-    const { error } = await supabase.from('hoa_documents').insert({
-      hoa_id: communityId,
-      uploaded_by: currentUser.id,
-      title: uploadTitle.trim(),
-      category: uploadCategory,
-      file_url: urlData.publicUrl,
-      file_name: uploadFile.name,
-      file_size_bytes: uploadFile.size,
-      visibility: uploadVisibility,
-    });
+    try {
+      const sanitizedFileName = uploadFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const filePath = `${communityId}/${uploadCategory}/${Date.now()}_${sanitizedFileName}`;
 
-    if (error) {
-      toast.error('Failed to save document');
-    } else {
+      const { error: storageError } = await supabase.storage
+        .from('hoa-documents')
+        .upload(filePath, uploadFile, { upsert: false });
+
+      if (storageError) {
+        toast.error(storageError.message || 'Failed to upload file');
+        return;
+      }
+
+      const { data: urlData } = supabase.storage.from('hoa-documents').getPublicUrl(filePath);
+
+      const { error } = await supabase.from('hoa_documents').insert({
+        hoa_id: communityId,
+        uploaded_by: currentUser.id,
+        title: uploadTitle.trim(),
+        category: uploadCategory,
+        file_url: urlData.publicUrl,
+        file_name: uploadFile.name,
+        file_size_bytes: uploadFile.size,
+        visibility: uploadVisibility,
+      });
+
+      if (error) {
+        await supabase.storage.from('hoa-documents').remove([filePath]);
+        toast.error(error.message || 'Failed to save document');
+        return;
+      }
+
       toast.success('Document uploaded');
       setShowUpload(false);
       setUploadTitle('');
       setUploadFile(null);
       fetchDocs();
+    } finally {
+      setUploading(false);
     }
-    setUploading(false);
   };
 
   const handleDelete = async (docId: string) => {
