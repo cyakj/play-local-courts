@@ -268,6 +268,7 @@ export const CMReportDetail: React.FC<CMReportDetailProps> = ({ reportId, onBack
     if (!newMessage.trim() || !currentUser || !report) return;
     setSaving(true);
     const messageText = newMessage.trim();
+    const prefixedMessage = `${getReportPrefix()}\n\n${messageText}`;
     const { error } = await supabase.from('report_messages').insert({
       report_id: reportId,
       sender_id: currentUser.id,
@@ -276,12 +277,12 @@ export const CMReportDetail: React.FC<CMReportDetailProps> = ({ reportId, onBack
     if (error) {
       toast({ title: 'Error', description: 'Failed to send message', variant: 'destructive' });
     } else {
-      // Also insert into the main messages table so resident sees it in their inbox
+      // Also insert into the main messages table so resident sees it in their inbox (with report context)
       await Promise.all([
         supabase.from('messages').insert({
           sender_id: currentUser.id,
           receiver_id: report.reporter_id,
-          content: messageText,
+          content: prefixedMessage,
         }),
         supabase.from('hoa_notifications').insert({
           user_id: report.reporter_id,
