@@ -125,14 +125,32 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document, userId, onC
                 />
               </div>
             ) : (
-              <iframe
-                src={signedUrl}
-                className="w-full h-full border-0 bg-white"
+              <object
+                data={signedUrl}
+                type="application/pdf"
+                className="w-full h-full bg-white"
                 style={{ display: loading ? 'none' : 'block' }}
+                aria-label={document.title}
                 onLoad={() => setLoading(false)}
-                onError={() => { setError(true); setErrorMsg('Failed to load document.'); setLoading(false); }}
-                title={document.title}
-              />
+              >
+                <embed
+                  src={signedUrl}
+                  type="application/pdf"
+                  className="w-full h-full bg-white"
+                  onLoad={() => setLoading(false)}
+                />
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 bg-muted">
+                  <p className="text-sm text-muted-foreground text-center">
+                    PDF preview isn't available in this browser view.
+                  </p>
+                  <button
+                    onClick={handleDownload}
+                    className="min-h-[44px] rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+                  >
+                    Download PDF
+                  </button>
+                </div>
+              </object>
             )}
           </>
         ) : null}
