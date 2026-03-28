@@ -13,12 +13,16 @@ interface QuestionResult {
   position: number;
 }
 
+interface SurveyAnswerRow {
+  answers: Record<string, any>;
+}
+
 const SurveyResultsPublic = () => {
   const { surveyId } = useParams();
   const { currentUser } = useAuth();
   const [survey, setSurvey] = useState<any>(null);
   const [questions, setQuestions] = useState<QuestionResult[]>([]);
-  const [responses, setResponses] = useState<any[]>([]);
+  const [responses, setResponses] = useState<SurveyAnswerRow[]>([]);
   const [totalMembers, setTotalMembers] = useState(0);
   const [loading, setLoading] = useState(true);
   const [accessDenied, setAccessDenied] = useState(false);
@@ -33,41 +37,44 @@ const SurveyResultsPublic = () => {
         .eq('id', surveyId)
         .single();
 
-      if (!surveyData) { setLoading(false); return; }
+      if (!surveyData) {
+        setLoading(false);
+        return;
+      }
+
       setSurvey(surveyData);
 
-      // Check access: survey must be closed AND results_visibility = community
-      // OR results_reveal = on_submit (resident already submitted)
       const isClosed = surveyData.status === 'closed';
       const isCommunityVisible = surveyData.results_visibility === 'community';
       const revealOnSubmit = surveyData.results_reveal === 'on_submit';
 
-      if (!isCommunityVisible) {
+      if (!isCommunityVisible || (!isClosed && !revealOnSubmit)) {
         setAccessDenied(true);
         setLoading(false);
         return;
       }
 
-      if (!isClosed && !revealOnSubmit) {
-        setAccessDenied(true);
-        setLoading(false);
-        return;
-      }
-
-      const [questionsRes, responsesRes, membersRes] = await Promise.all([
+      const [questionsRes, responsesRes, memberCountRes] = await Promise.all([
         supabase.from('hoa_survey_questions').select('*').eq('survey_id', surveyId).order('position'),
-        supabase.from('hoa_survey_responses').select('answers').eq('survey_id', surveyId),
-        supabase.from('hoa_memberships').select('id', { count: 'exact', head: true }).eq('hoa_id', surveyData.hoa_id).eq('status', 'approved'),
+        supabase.rpc('get_public_survey_results', { _survey_id: surveyId }),
+        supabase.rpc('get_survey_member_count', { _survey_id: surveyId }),
       ]);
+
+      if (responsesRes.error || memberCountRes.error) {
+        setAccessDenied(true);
+        setLoading(false);
+        return;
+      }
 
       setQuestions((questionsRes.data || []).map(q => ({
         ...q,
         options: Array.isArray(q.options) ? q.options as string[] : null,
       })));
-      setResponses(responsesRes.data || []);
-      setTotalMembers(membersRes.count || 0);
+      setResponses((responsesRes.data as SurveyAnswerRow[] | null) || []);
+      setTotalMembers(memberCountRes.data || 0);
       setLoading(false);
     };
+
     load();
   }, [surveyId, currentUser]);
 
@@ -122,7 +129,6 @@ const SurveyResultsPublic = () => {
       </ResidentHeader>
 
       <div className="p-4">
-        {/* Response summary */}
         <div className="rounded-2xl p-4 mb-4 border" style={{ background: '#fff', borderColor: '#E5E7EB' }}>
           <div className="flex justify-between items-center">
             <div>
@@ -137,7 +143,6 @@ const SurveyResultsPublic = () => {
           </div>
         </div>
 
-        {/* Question results */}
         {questions.map((q, qi) => {
           const total = responses.length || 1;
           return (
@@ -145,7 +150,6 @@ const SurveyResultsPublic = () => {
               <div className="text-[11px] font-bold uppercase tracking-wide mb-1.5" style={{ color: '#00B4D8' }}>Q{qi + 1}</div>
               <div className="text-[13px] font-bold mb-3.5" style={{ color: '#1A1A2E', lineHeight: 1.4 }}>{q.question_text}</div>
 
-              {/* Rating */}
               {q.question_type === 'rating' && (() => {
                 const ratings = responses.map(r => Number(r.answers?.[q.id] || 0)).filter(n => n > 0);
                 const avg = ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
@@ -173,7 +177,6 @@ const SurveyResultsPublic = () => {
                 );
               })()}
 
-              {/* Multiple Choice */}
               {q.question_type === 'multiple_choice' && (() => {
                 const opts = q.options || [];
                 const counts: Record<string, number> = {};
@@ -196,7 +199,6 @@ const SurveyResultsPublic = () => {
                 ));
               })()}
 
-              {/* Yes/No */}
               {q.question_type === 'yes_no' && (() => {
                 let yesCount = 0, noCount = 0;
                 responses.forEach(r => {
@@ -221,7 +223,6 @@ const SurveyResultsPublic = () => {
                 });
               })()}
 
-              {/* Open Text */}
               {q.question_type === 'open_text' && (
                 <div className="space-y-2 max-h-40 overflow-y-auto">
                   {responses.map((r, ri) => {

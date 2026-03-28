@@ -491,13 +491,29 @@ const Dashboard = () => {
                     return;
                   }
                   if (allAnnouncements.length === 0 && activeHOA?.hoaId) {
-                    const { data } = await supabase
-                      .from('hoa_announcements')
-                      .select('*')
-                      .eq('hoa_id', activeHOA.hoaId)
-                      .order('created_at', { ascending: false })
-                      .limit(20);
-                    setAllAnnouncements(data || []);
+                    const [announcementResponse, closedSurveysResponse] = await Promise.all([
+                      supabase
+                        .from('hoa_announcements')
+                        .select('*')
+                        .eq('hoa_id', activeHOA.hoaId)
+                        .order('created_at', { ascending: false })
+                        .limit(20),
+                      supabase
+                        .from('hoa_surveys')
+                        .select('id, title, created_at, closes_at')
+                        .eq('hoa_id', activeHOA.hoaId)
+                        .eq('status', 'closed')
+                        .eq('results_visibility', 'community')
+                        .order('closes_at', { ascending: false })
+                        .limit(20),
+                    ]);
+
+                    setAllAnnouncements(
+                      mergeAnnouncementFeed(
+                        announcementResponse.data || [],
+                        closedSurveysResponse.data || []
+                      ).slice(0, 20)
+                    );
                   }
                   setShowAllAnnouncements(true);
                 }}
@@ -518,14 +534,27 @@ const Dashboard = () => {
                 <div
                   key={a.id}
                   className={`cursor-pointer ${i < arr.length - 1 ? 'pb-3 mb-3 border-b border-[#E5E7EB]' : ''}`}
-                  onClick={() => setExpandedAnnouncement(isExpanded ? null : a.id)}
+                  onClick={() => {
+                    if (a.href) {
+                      navigate(a.href);
+                      return;
+                    }
+                    setExpandedAnnouncement(isExpanded ? null : a.id);
+                  }}
                 >
                   <div className="text-[13px] font-bold" style={{ color: '#1A1A2E' }}>{a.title}</div>
-                  <div className={`text-[12px] mt-0.5 ${isExpanded ? '' : 'truncate'}`} style={{ color: '#9CA3AF' }}>
-                    {isExpanded ? a.body : (
+                  <div className={`text-[12px] mt-0.5 ${a.href ? 'truncate' : isExpanded ? '' : 'truncate'}`} style={{ color: '#9CA3AF' }}>
+                    {a.href ? (
+                      <>{a.body?.substring(0, 80)}{a.body?.length > 80 ? '…' : ''}</>
+                    ) : isExpanded ? a.body : (
                       <>{a.body?.substring(0, 80)}{a.body?.length > 80 ? '…' : ''}</>
                     )}
                   </div>
+                  {a.href && (
+                    <div className="text-[11px] font-bold mt-1.5" style={{ color: '#00B4D8' }}>
+                      View results →
+                    </div>
+                  )}
                   <div className="text-[11px] mt-1" style={{ color: '#9CA3AF' }}>
                     {formatDistanceToNow(new Date(a.created_at), { addSuffix: true })}
                   </div>
