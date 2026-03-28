@@ -8,6 +8,7 @@ interface InlinePdfViewerProps {
     id: string;
     title: string;
     file_url: string;
+    file_name?: string;
   };
   userId: string;
   onClose: () => void;
