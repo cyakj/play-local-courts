@@ -51,9 +51,21 @@ const DocumentLibrary = () => {
     d.category.toLowerCase().includes(search.toLowerCase())
   );
 
+  const formatCategory = (key: string) => {
+    const map: Record<string, string> = {
+      'rules_bylaws': 'Rules & Bylaws',
+      'meeting_minutes': 'Meeting Minutes',
+      'financial_statements': 'Financial Statements',
+      'maintenance_records': 'Maintenance Records',
+      'forms_applications': 'Forms & Applications',
+    };
+    return map[key] || key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  };
+
   const grouped = filtered.reduce((acc, d) => {
-    if (!acc[d.category]) acc[d.category] = [];
-    acc[d.category].push(d);
+    const label = formatCategory(d.category);
+    if (!acc[label]) acc[label] = [];
+    acc[label].push(d);
     return acc;
   }, {} as Record<string, DocumentItem[]>);
 
