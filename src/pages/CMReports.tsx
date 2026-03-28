@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { CMHeader } from '@/components/condo-manager/CMHeader';
 import { CMChips } from '@/components/condo-manager/CMChips';
 import { CMStatusPill, CMPriorityBadge } from '@/components/condo-manager/CMStatusBadge';
@@ -24,12 +25,13 @@ interface Report {
 }
 
 const CMReports = () => {
+  const [searchParams] = useSearchParams();
   const [communityFilter, setCommunityFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('Open');
   const [categoryFilter, setCategoryFilter] = useState('All Categories');
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(searchParams.get('reportId'));
   const { communities } = useCondoManagerCommunities();
 
   const communityOptions = ['All', ...communities.map(c => c.name)];

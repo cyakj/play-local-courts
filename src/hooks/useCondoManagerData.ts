@@ -394,6 +394,7 @@ export function useCondoManagerAlerts(communities: CMCommunityData[]) {
               type: 'issue',
               community: hoaMap.get(report.hoa_id) || '',
               communityId: report.hoa_id,
+              reportId: report.id,
               text: `New report: ${label}`,
               time: formatTimeAgo(new Date(report.created_at)),
               urgent: report.is_urgent ?? false,

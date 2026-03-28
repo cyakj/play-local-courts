@@ -28,10 +28,13 @@ const CMAlerts = () => {
 
   const handleTakeAction = (alert: any) => {
     if (alert.type === 'approval') {
-      // Navigate to community members tab
       navigate(`/cm/community/${alert.communityId}?tab=members`);
     } else if (alert.type === 'issue') {
-      navigate('/cm/reports');
+      if (alert.reportId) {
+        navigate('/cm/reports?reportId=' + alert.reportId);
+      } else {
+        navigate('/cm/reports');
+      }
     } else if (alert.type === 'health') {
       navigate(`/cm/community/${alert.communityId}`);
     }
@@ -84,7 +87,7 @@ const CMAlerts = () => {
                         <div className="text-[10px] text-cm-text-light">{a.time}</div>
                       </div>
                       <div className="text-[13px] font-semibold text-cm-text mt-1">{a.text}</div>
-                      {a.urgent && (
+                      {(a.urgent || a.type === 'issue') && (
                         <div className="mt-2 flex gap-2">
                           <div
                             onClick={() => handleTakeAction(a)}
