@@ -37,6 +37,19 @@ const CMReports = () => {
 
   const communityOptions = ['All', ...communities.map(c => c.name)];
 
+  // Real-time: auto-refresh when reports are created or updated
+  useRealtimeSubscription({
+    table: 'maintenance_reports',
+    event: '*',
+    onChange: useCallback(() => {
+      // Re-trigger the effect by toggling a refresh flag
+      setLoading(true);
+      // We'll call fetchReports by re-running the effect
+      setReports([]);
+    }, []),
+    enabled: communities.length > 0
+  });
+
   useEffect(() => {
     const fetchReports = async () => {
       if (communities.length === 0) { setLoading(false); return; }

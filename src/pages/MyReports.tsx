@@ -54,6 +54,19 @@ const MyReports = () => {
   const [selectedReport, setSelectedReport] = useState<UserReport | null>(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
 
+  const loadReportsCallback = useCallback(() => {
+    loadReports();
+  }, [currentUser, activeHOA?.hoaId]);
+
+  // Real-time: auto-refresh when reports change (status updates, new messages, etc.)
+  useRealtimeSubscription({
+    table: 'maintenance_reports',
+    event: '*',
+    filter: currentUser?.id ? `reporter_id=eq.${currentUser.id}` : undefined,
+    onChange: loadReportsCallback,
+    enabled: !!currentUser?.id && !!activeHOA?.hoaId
+  });
+
   useEffect(() => {
     loadReports();
   }, [currentUser, activeHOA?.hoaId, showReportDialog]);
