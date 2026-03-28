@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { SurveyStatusBadge } from './SurveyStatusBadge';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Survey {
   id: string;
@@ -34,9 +35,11 @@ export const SurveyList: React.FC<SurveyListProps> = ({
   onViewResults,
   onEditSurvey,
 }) => {
+  const { currentUser } = useAuth();
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('All');
+  const [publishing, setPublishing] = useState<string | null>(null);
 
   const fetchSurveys = async () => {
     const { data } = await supabase
@@ -79,6 +82,47 @@ export const SurveyList: React.FC<SurveyListProps> = ({
     const { error } = await supabase.from('hoa_surveys').update({ status: 'closed', closes_at: new Date().toISOString() }).eq('id', surveyId);
     if (error) { toast.error('Failed to close survey'); return; }
     toast.success('Survey closed');
+    fetchSurveys();
+  };
+
+  const handlePublish = async (survey: Survey) => {
+    // Check it has questions
+    const { data: questions } = await supabase
+      .from('hoa_survey_questions')
+      .select('id')
+      .eq('survey_id', survey.id);
+    if (!questions || questions.length === 0) {
+      toast.error('Add at least one question before publishing');
+      return;
+    }
+    if (!confirm('Publish this survey? Residents will be notified.')) return;
+    setPublishing(survey.id);
+    const { error } = await supabase
+      .from('hoa_surveys')
+      .update({ status: 'active' })
+      .eq('id', survey.id);
+    if (error) { toast.error('Failed to publish survey'); setPublishing(null); return; }
+
+    // Send notifications
+    const { data: members } = await supabase
+      .from('hoa_memberships')
+      .select('user_id')
+      .eq('hoa_id', communityId)
+      .eq('status', 'approved');
+    if (members && members.length > 0 && currentUser?.id) {
+      await supabase.from('hoa_notifications').insert(
+        members.map(m => ({
+          user_id: m.user_id,
+          hoa_id: communityId,
+          type: 'survey_published',
+          title: `New survey: ${survey.title}`,
+          body: `A new community survey is available — closes ${new Date(survey.closes_at).toLocaleDateString()}`,
+        }))
+      );
+    }
+
+    toast.success('Survey published!');
+    setPublishing(null);
     fetchSurveys();
   };
 
@@ -165,6 +209,15 @@ export const SurveyList: React.FC<SurveyListProps> = ({
 
                 {/* Action buttons */}
                 <div className="flex gap-2">
+                  {s.status === 'draft' && (
+                    <div
+                      onClick={() => !publishing && handlePublish(s)}
+                      className="flex-1 rounded-[10px] py-2.5 text-xs font-bold text-center cursor-pointer min-h-[40px] flex items-center justify-center"
+                      style={{ background: '#00B4D8', color: '#fff', opacity: publishing === s.id ? 0.6 : 1 }}
+                    >
+                      {publishing === s.id ? 'Publishing...' : '🚀 Publish'}
+                    </div>
+                  )}
                   {s.status !== 'draft' && (
                     <div
                       onClick={() => onViewResults(s.id)}
@@ -179,7 +232,7 @@ export const SurveyList: React.FC<SurveyListProps> = ({
                     className="flex-1 rounded-[10px] py-2.5 text-xs font-bold text-center cursor-pointer border min-h-[40px] flex items-center justify-center"
                     style={{ borderColor: '#E5E7EB', color: '#4B5563' }}
                   >
-                    {s.status === 'draft' ? 'Edit & Publish' : 'Edit'}
+                    Edit
                   </div>
                   {s.status === 'active' && (
                     <div
