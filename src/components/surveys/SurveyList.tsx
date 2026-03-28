@@ -35,9 +35,11 @@ export const SurveyList: React.FC<SurveyListProps> = ({
   onViewResults,
   onEditSurvey,
 }) => {
+  const { currentUser } = useAuth();
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('All');
+  const [publishing, setPublishing] = useState<string | null>(null);
 
   const fetchSurveys = async () => {
     const { data } = await supabase
