@@ -42,7 +42,7 @@ export function useAdminDocumentViews(documentIds: string[]) {
     if (data) {
       const counts: Record<string, number> = {};
       const details: Record<string, ViewRecord[]> = {};
-      (data as ViewRecord[]).forEach(v => {
+      (data as unknown as ViewRecord[]).forEach(v => {
         counts[v.document_id] = (counts[v.document_id] || 0) + 1;
         if (!details[v.document_id]) details[v.document_id] = [];
         details[v.document_id].push(v);
