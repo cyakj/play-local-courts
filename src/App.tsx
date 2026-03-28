@@ -150,6 +150,7 @@ function App() {
                     <Route path="/community-calendar" element={<ResidentCalendar />} />
                     <Route path="/documents" element={<DocumentLibrary />} />
                     <Route path="/surveys/:surveyId" element={<SurveyResponse />} />
+                    <Route path="/surveys/:surveyId/results" element={<SurveyResultsPublic />} />
                     <Route path="/faq" element={<FAQ />} />
                     <Route path="/terms" element={<Terms />} />
                     <Route path="/privacy" element={<Privacy />} />
