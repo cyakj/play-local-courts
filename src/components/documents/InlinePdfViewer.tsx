@@ -36,7 +36,7 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document, userId, onC
         console.error('Failed to track view:', e);
       }
 
-      // Get signed URL
+      // Get preview URL
       const url = await getSignedDocumentUrl(document.id, document.file_url);
       if (!url) {
         setErrorMsg('Could not generate a secure link for this document. The file may have been moved or deleted.');
@@ -46,6 +46,9 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document, userId, onC
       }
 
       setSignedUrl(url);
+      if (!isPdf) {
+        setLoading(false);
+      }
     };
 
     init();
