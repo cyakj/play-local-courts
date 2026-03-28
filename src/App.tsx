@@ -60,6 +60,7 @@ import CMAmenityRules from "./pages/CMAmenityRules";
 import ResidentCalendar from "./pages/ResidentCalendar";
 import DocumentLibrary from "./pages/DocumentLibrary";
 import SurveyResponse from "./pages/SurveyResponse";
+import SurveyResultsPublic from "./pages/SurveyResultsPublic";
 import { TENNIS_FEATURES_ENABLED } from "./config/featureFlags";
 
 const queryClient = new QueryClient();
@@ -149,6 +150,7 @@ function App() {
                     <Route path="/community-calendar" element={<ResidentCalendar />} />
                     <Route path="/documents" element={<DocumentLibrary />} />
                     <Route path="/surveys/:surveyId" element={<SurveyResponse />} />
+                    <Route path="/surveys/:surveyId/results" element={<SurveyResultsPublic />} />
                     <Route path="/faq" element={<FAQ />} />
                     <Route path="/terms" element={<Terms />} />
                     <Route path="/privacy" element={<Privacy />} />
