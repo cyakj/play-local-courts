@@ -72,6 +72,7 @@ function App() {
         <NotificationContainer />
         <Toaster />
         <BrowserRouter>
+          <ScrollToTop />
           <AuthProvider>
             <ActiveHOAProvider>
               <DataProvider>
