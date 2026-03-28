@@ -444,7 +444,28 @@ const Dashboard = () => {
           <div className="flex justify-between items-center mb-3">
             <span className={cardTitle} style={{ color: '#1A1A2E' }}>Community Announcements</span>
             {announcements.length > 0 && (
-              <span className={viewAll} style={{ color: '#00B4D8', cursor: 'pointer' }}>View All →</span>
+              <span
+                className={viewAll}
+                style={{ color: '#00B4D8', cursor: 'pointer' }}
+                onClick={async () => {
+                  if (showAllAnnouncements) {
+                    setShowAllAnnouncements(false);
+                    return;
+                  }
+                  if (allAnnouncements.length === 0 && activeHOA?.hoaId) {
+                    const { data } = await supabase
+                      .from('hoa_announcements')
+                      .select('*')
+                      .eq('hoa_id', activeHOA.hoaId)
+                      .order('created_at', { ascending: false })
+                      .limit(20);
+                    setAllAnnouncements(data || []);
+                  }
+                  setShowAllAnnouncements(true);
+                }}
+              >
+                {showAllAnnouncements ? '← Show Less' : 'View All →'}
+              </span>
             )}
           </div>
           {announcements.length === 0 ? (
