@@ -28,7 +28,7 @@ interface Report {
 const CMReports = () => {
   const [searchParams] = useSearchParams();
   const [communityFilter, setCommunityFilter] = useState('All');
-  const [statusFilter, setStatusFilter] = useState('Open');
+  const [statusFilter, setStatusFilter] = useState('Active');
   const [categoryFilter, setCategoryFilter] = useState('All Categories');
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
