@@ -76,15 +76,19 @@ const MyReports = () => {
       if (error) throw error;
 
       const reportsWithNames = await Promise.all((data || []).map(async (report: any) => {
-        const { data: amenity } = await supabase
-          .from('courts')
-          .select('name')
-          .eq('id', report.amenity_id)
-          .single();
+        let amenityName: string | null = null;
+        if (report.amenity_id) {
+          const { data: amenity } = await supabase
+            .from('courts')
+            .select('name')
+            .eq('id', report.amenity_id)
+            .single();
+          amenityName = amenity?.name || null;
+        }
 
         return {
           ...report,
-          amenity_name: amenity?.name || 'Unknown Amenity',
+          amenity_name: amenityName || getCategoryLabel(report.category),
         };
       }));
 
