@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import InlinePdfViewer from '@/components/documents/InlinePdfViewer';
 import { useMyDocumentViews, useAdminDocumentViews } from '@/hooks/useDocumentViews';
+import { downloadDocument } from '@/lib/documentUtils';
 
 const CATEGORIES = [
   { key: 'rules_bylaws', label: 'Rules & Bylaws', icon: '📋', color: '#8B5CF6' },
@@ -277,11 +278,10 @@ const CMDocuments = () => {
                         </div>
 
                         {/* Action buttons */}
-                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer"
-                          onClick={e => e.stopPropagation()}
+                        <button onClick={(e) => { e.stopPropagation(); downloadDocument(doc.file_url); }}
                           className="bg-cm-cyan text-white rounded-lg p-2 cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center flex-shrink-0">
                           <Download className="h-4 w-4" />
-                        </a>
+                        </button>
                         <div onClick={(e) => { e.stopPropagation(); handleDelete(doc.id); }}
                           className="bg-cm-danger text-white rounded-lg p-2 cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center flex-shrink-0">
                           <Trash2 className="h-4 w-4" />
