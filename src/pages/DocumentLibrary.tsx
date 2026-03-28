@@ -1,17 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useActiveHOA } from '@/contexts/ActiveHOAContext';
 import { supabase } from '@/integrations/supabase/client';
 import ResidentHeader from '@/components/resident/ResidentHeader';
-import { ArrowLeft, Search, Download } from 'lucide-react';
+import InlinePdfViewer from '@/components/documents/InlinePdfViewer';
+import { useMyDocumentViews } from '@/hooks/useDocumentViews';
+import { ArrowLeft, Search, Download, Eye, ChevronDown, ChevronRight } from 'lucide-react';
 
-const CATEGORY_CONFIG: Record<string, { icon: string; color: string }> = {
-  'Rules & Bylaws': { icon: '📋', color: '#8B5CF6' },
-  'Meeting Minutes': { icon: '📝', color: '#0A1628' },
-  'Financial Statements': { icon: '💰', color: '#2DD4BF' },
-  'Maintenance Records': { icon: '🔧', color: '#F59E0B' },
-  'Forms & Applications': { icon: '📄', color: '#00B4D8' },
+const CATEGORIES = [
+  { key: 'rules_bylaws', label: 'Rules & Bylaws', icon: '📋', color: '#8B5CF6' },
+  { key: 'meeting_minutes', label: 'Meeting Minutes', icon: '📝', color: '#0A1628' },
+  { key: 'financial_statements', label: 'Financial Statements', icon: '💰', color: '#2DD4BF' },
+  { key: 'maintenance_records', label: 'Maintenance Records', icon: '🔧', color: '#F59E0B' },
+  { key: 'forms_applications', label: 'Forms & Applications', icon: '📄', color: '#00B4D8' },
+];
+
+const FILE_ICONS: Record<string, string> = {
+  pdf: '📄',
+  doc: '📝',
+  docx: '📝',
+  xls: '📊',
+  xlsx: '📊',
+  csv: '📊',
+  png: '🖼️',
+  jpg: '🖼️',
+  jpeg: '🖼️',
 };
 
 interface DocumentItem {
@@ -30,6 +44,8 @@ const DocumentLibrary = () => {
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set(CATEGORIES.map(c => c.key)));
+  const [viewingDoc, setViewingDoc] = useState<DocumentItem | null>(null);
 
   useEffect(() => {
     const loadDocs = async () => {
@@ -46,28 +62,23 @@ const DocumentLibrary = () => {
     loadDocs();
   }, [activeHOA?.hoaId]);
 
+  const docIds = useMemo(() => documents.map(d => d.id), [documents]);
+  const { viewedIds, refetch: refetchViews } = useMyDocumentViews(currentUser?.id, docIds);
+
   const filtered = documents.filter(d =>
     d.title.toLowerCase().includes(search.toLowerCase()) ||
     d.category.toLowerCase().includes(search.toLowerCase())
   );
 
-  const formatCategory = (key: string) => {
-    const map: Record<string, string> = {
-      'rules_bylaws': 'Rules & Bylaws',
-      'meeting_minutes': 'Meeting Minutes',
-      'financial_statements': 'Financial Statements',
-      'maintenance_records': 'Maintenance Records',
-      'forms_applications': 'Forms & Applications',
-    };
-    return map[key] || key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  const formatCategoryLabel = (key: string) => {
+    const cat = CATEGORIES.find(c => c.key === key);
+    return cat?.label || key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   };
 
-  const grouped = filtered.reduce((acc, d) => {
-    const label = formatCategory(d.category);
-    if (!acc[label]) acc[label] = [];
-    acc[label].push(d);
-    return acc;
-  }, {} as Record<string, DocumentItem[]>);
+  const groupedDocs = CATEGORIES.map(cat => ({
+    ...cat,
+    docs: filtered.filter(d => d.category === cat.key),
+  }));
 
   const formatSize = (bytes: number | null) => {
     if (!bytes) return '';
@@ -75,6 +86,34 @@ const DocumentLibrary = () => {
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
+
+  const getFileIcon = (fileName: string) => {
+    const ext = fileName.split('.').pop()?.toLowerCase() || '';
+    return FILE_ICONS[ext] || '📄';
+  };
+
+  const toggleCat = (key: string) => {
+    setExpandedCats(prev => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  };
+
+  const handleOpenDoc = (doc: DocumentItem) => {
+    setViewingDoc(doc);
+  };
+
+  if (viewingDoc && currentUser?.id) {
+    return (
+      <InlinePdfViewer
+        document={viewingDoc}
+        userId={currentUser.id}
+        onClose={() => setViewingDoc(null)}
+        onViewed={refetchViews}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -113,31 +152,85 @@ const DocumentLibrary = () => {
             <p className="text-sm text-muted-foreground">No community documents available yet.</p>
           </div>
         ) : (
-          Object.entries(grouped).map(([category, docs]) => {
-            const cfg = CATEGORY_CONFIG[category] || { icon: '📄', color: '#00B4D8' };
+          groupedDocs.map(cat => {
+            const unreadCount = cat.docs.filter(d => !viewedIds.has(d.id)).length;
+            if (cat.docs.length === 0) return null;
             return (
-              <div key={category} className="mb-5">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-2 h-2 rounded-sm" style={{ background: cfg.color }} />
-                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{category}</span>
+              <div key={cat.key} className="mb-4">
+                {/* Category header */}
+                <div
+                  onClick={() => toggleCat(cat.key)}
+                  className="flex items-center gap-2 mb-2 cursor-pointer"
+                >
+                  <div className="w-[3px] h-4 rounded-full" style={{ background: '#00B4D8' }} />
+                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex-1">
+                    {cat.label}
+                  </span>
+                  {unreadCount > 0 ? (
+                    <span className="text-[10px] font-bold text-white bg-[#00B4D8] rounded-full px-2 py-0.5">
+                      {unreadCount} new
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-2 py-0.5">
+                      {cat.docs.length}
+                    </span>
+                  )}
+                  {expandedCats.has(cat.key) ? (
+                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                  )}
                 </div>
-                {docs.map(doc => (
-                  <div key={doc.id} className="bg-card rounded-2xl p-4 border border-border mb-2 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0" style={{ background: 'hsl(var(--cyan-light))' }}>
-                      {cfg.icon}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-bold text-foreground truncate">{doc.title}</div>
-                      <div className="text-[11px] text-muted-foreground mt-0.5">
-                        {new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                        {doc.file_size_bytes ? ` · ${formatSize(doc.file_size_bytes)}` : ''}
+
+                {/* Document cards */}
+                {expandedCats.has(cat.key) && cat.docs.map(doc => {
+                  const isUnread = !viewedIds.has(doc.id);
+                  return (
+                    <div
+                      key={doc.id}
+                      className="bg-card rounded-[14px] p-[14px_16px] border border-border mb-2 flex items-center gap-3 relative cursor-pointer active:bg-muted/50 transition-colors"
+                      onClick={() => handleOpenDoc(doc)}
+                    >
+                      {/* Unread dot */}
+                      {isUnread && (
+                        <div className="absolute top-2 left-2 w-2 h-2 rounded-full bg-[#00B4D8]" />
+                      )}
+
+                      {/* File type icon */}
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0 bg-[#E0F7FA]">
+                        {getFileIcon(doc.file_name)}
                       </div>
+
+                      {/* Title + meta */}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-bold text-foreground truncate">{doc.title}</div>
+                        <div className="text-[11px] text-muted-foreground mt-0.5">
+                          {new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          {doc.file_size_bytes ? ` · ${formatSize(doc.file_size_bytes)}` : ''}
+                        </div>
+                      </div>
+
+                      {/* Read + Download buttons */}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleOpenDoc(doc); }}
+                        className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 bg-muted/60"
+                        title="Read"
+                      >
+                        <Eye className="h-4 w-4 text-[#00B4D8]" />
+                      </button>
+                      <a
+                        href={doc.file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 bg-[#E0F7FA]"
+                        title="Download"
+                      >
+                        <Download className="h-4 w-4 text-[#00B4D8]" />
+                      </a>
                     </div>
-                    <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'hsl(var(--cyan-light))' }}>
-                      <Download className="h-4 w-4 text-primary" />
-                    </a>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             );
           })
