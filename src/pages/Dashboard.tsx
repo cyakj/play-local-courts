@@ -551,8 +551,8 @@ const Dashboard = () => {
                     )}
                   </div>
                   {a.href && (
-                    <div className="text-[11px] font-bold mt-1.5" style={{ color: '#00B4D8' }}>
-                      View results →
+                    <div className="mt-2 inline-block px-3 py-2 rounded-lg text-[13px] font-bold" style={{ color: '#00B4D8', background: '#E0F7FA', minHeight: 44, display: 'flex', alignItems: 'center' }}>
+                      📊 View Results →
                     </div>
                   )}
                   <div className="text-[11px] mt-1" style={{ color: '#9CA3AF' }}>
