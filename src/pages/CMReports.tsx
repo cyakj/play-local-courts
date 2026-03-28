@@ -4,6 +4,10 @@ import { CMChips } from '@/components/condo-manager/CMChips';
 import { CMStatusPill, CMPriorityBadge } from '@/components/condo-manager/CMStatusBadge';
 import { useCondoManagerCommunities } from '@/hooks/useCondoManagerData';
 import { supabase } from '@/integrations/supabase/client';
+import { getCategoryLabel, cleanDescription } from '@/lib/maintenanceUtils';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+import { format } from 'date-fns';
 
 interface Report {
   id: string;
@@ -25,6 +29,7 @@ const CMReports = () => {
   const [categoryFilter, setCategoryFilter] = useState('All Categories');
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const { communities } = useCondoManagerCommunities();
 
   const communityOptions = ['All', ...communities.map(c => c.name)];
@@ -60,9 +65,10 @@ const CMReports = () => {
       setReports((data || []).map((r: any) => ({
         id: r.id,
         community: hoaMap.get(r.hoa_id) || '',
-        amenity: r.report_type === 'location'
+        amenity: r.amenity_id ? (amenityMap.get(r.amenity_id) || null) : null,
+        displayTitle: r.report_type === 'location'
           ? `📍 ${(r.location_text || 'Unknown location').slice(0, 30)}${(r.location_text || '').length > 30 ? '…' : ''}`
-          : (amenityMap.get(r.amenity_id) || 'Unknown Amenity'),
+          : (amenityMap.get(r.amenity_id) || getCategoryLabel(r.category)),
         status: r.status.charAt(0).toUpperCase() + r.status.slice(1).replace('_', ' '),
         priority: r.priority || 'medium',
         category: r.category,
@@ -155,10 +161,10 @@ const CMReports = () => {
           ) : (
             <>
               {filtered.map((r) => (
-                <div key={r.id} className="bg-white rounded-[14px] p-3.5 mb-2.5 border border-cm-border">
+                <div key={r.id} className="bg-white rounded-[14px] p-3.5 mb-2.5 border border-cm-border" onClick={() => setSelectedReport(r)}>
                   <div className="flex justify-between mb-2">
                     <div>
-                      <div className="text-sm font-extrabold text-cm-text">{r.amenity}</div>
+                      <div className="text-sm font-extrabold text-cm-text">{(r as any).displayTitle}</div>
                       <div className="text-[11px] text-cm-cyan font-semibold mt-0.5">{r.community}</div>
                     </div>
                     <div className="flex flex-col items-end gap-1">
@@ -166,11 +172,10 @@ const CMReports = () => {
                       <CMPriorityBadge priority={r.priority} />
                     </div>
                   </div>
-                  <span className="text-[10px] bg-cm-app-bg text-cm-text-light px-2 py-0.5 rounded-full">{r.category}</span>
-                  <div className="text-xs text-cm-text my-2">{r.description}</div>
+                  <div className="text-xs text-cm-text my-2">{cleanDescription(r.description)}</div>
                   <div className="flex justify-between">
                     <div className="text-[11px] text-cm-text-light">👤 {r.reporter} · {r.date}</div>
-                    <div className="text-[11px] text-cm-cyan font-bold cursor-pointer">View Details →</div>
+                    <div className="text-[11px] text-cm-cyan font-bold cursor-pointer" onClick={(e) => { e.stopPropagation(); setSelectedReport(r); }}>View Details →</div>
                   </div>
                 </div>
               ))}
@@ -181,6 +186,42 @@ const CMReports = () => {
           )}
         </div>
       </div>
+
+      {/* Detail Dialog */}
+      <Dialog open={!!selectedReport} onOpenChange={(open) => { if (!open) setSelectedReport(null); }}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Report Details</DialogTitle>
+          </DialogHeader>
+          {selectedReport && (
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-semibold text-base">{(selectedReport as any).displayTitle}</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">{selectedReport.community}</p>
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  <CMStatusPill status={selectedReport.status} />
+                  <CMPriorityBadge priority={selectedReport.priority} />
+                  <Badge variant="outline" className="text-xs">{getCategoryLabel(selectedReport.category)}</Badge>
+                </div>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Description</p>
+                <p className="bg-muted/50 p-3 rounded-lg text-sm">{cleanDescription(selectedReport.description)}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Submitted</p>
+                  <p className="font-medium">{selectedReport.date}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Reporter</p>
+                  <p className="font-medium">{selectedReport.reporter}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
