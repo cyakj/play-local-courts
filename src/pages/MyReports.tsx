@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useActiveHOA } from '@/contexts/ActiveHOAContext';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useData } from '@/contexts/DataContext';
 import { MultiStepReportDialog } from '@/components/maintenance/MultiStepReportDialog';
+import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 import { 
   Plus, 
   Calendar, 

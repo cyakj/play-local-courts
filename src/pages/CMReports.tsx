@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { CMHeader } from '@/components/condo-manager/CMHeader';
 import { CMChips } from '@/components/condo-manager/CMChips';
@@ -7,6 +7,7 @@ import { CMReportDetail } from '@/components/condo-manager/CMReportDetail';
 import { useCondoManagerCommunities } from '@/hooks/useCondoManagerData';
 import { supabase } from '@/integrations/supabase/client';
 import { getCategoryLabel, cleanDescription } from '@/lib/maintenanceUtils';
+import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 
 interface Report {
   id: string;
