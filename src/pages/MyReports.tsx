@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useActiveHOA } from '@/contexts/ActiveHOAContext';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useData } from '@/contexts/DataContext';
 import { MultiStepReportDialog } from '@/components/maintenance/MultiStepReportDialog';
+import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 import { 
   Plus, 
   Calendar, 
@@ -52,6 +53,19 @@ const MyReports = () => {
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [selectedReport, setSelectedReport] = useState<UserReport | null>(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
+
+  const loadReportsCallback = useCallback(() => {
+    loadReports();
+  }, [currentUser, activeHOA?.hoaId]);
+
+  // Real-time: auto-refresh when reports change (status updates, new messages, etc.)
+  useRealtimeSubscription({
+    table: 'maintenance_reports',
+    event: '*',
+    filter: currentUser?.id ? `reporter_id=eq.${currentUser.id}` : undefined,
+    onChange: loadReportsCallback,
+    enabled: !!currentUser?.id && !!activeHOA?.hoaId
+  });
 
   useEffect(() => {
     loadReports();

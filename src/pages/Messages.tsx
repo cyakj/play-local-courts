@@ -56,14 +56,21 @@ export default function Messages() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const shouldScrollToBottomRef = useRef(true);
 
-  const loadConversationsCallback = useCallback(() => {
+  const selectedUserIdRef = useRef(selectedUserId);
+  selectedUserIdRef.current = selectedUserId;
+
+  const handleRealtimeMessage = useCallback(() => {
     loadConversations();
+    // Also reload the active thread so new messages appear instantly
+    if (selectedUserIdRef.current) {
+      loadMessages(selectedUserIdRef.current);
+    }
   }, [currentUser]);
 
   useRealtimeSubscription({
     table: 'messages',
     event: '*',
-    onChange: loadConversationsCallback,
+    onChange: handleRealtimeMessage,
     enabled: !!currentUser
   });
 
