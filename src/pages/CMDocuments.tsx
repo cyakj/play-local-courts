@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Download, Trash2, Search, Upload, ChevronDown, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Download, Trash2, Search, Upload, ChevronDown, ChevronRight, Eye } from 'lucide-react';
 import { CMHeader } from '@/components/condo-manager/CMHeader';
 import { useCondoManagerCommunities } from '@/hooks/useCondoManagerData';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import InlinePdfViewer from '@/components/documents/InlinePdfViewer';
+import { useMyDocumentViews, useAdminDocumentViews } from '@/hooks/useDocumentViews';
 
 const CATEGORIES = [
   { key: 'rules_bylaws', label: 'Rules & Bylaws', icon: '📋', color: '#8B5CF6' },
@@ -14,6 +16,11 @@ const CATEGORIES = [
   { key: 'maintenance_records', label: 'Maintenance Records', icon: '🔧', color: '#F59E0B' },
   { key: 'forms_applications', label: 'Forms & Applications', icon: '📄', color: '#00B4D8' },
 ];
+
+const FILE_ICONS: Record<string, string> = {
+  pdf: '📄', doc: '📝', docx: '📝', xls: '📊', xlsx: '📊', csv: '📊',
+  png: '🖼️', jpg: '🖼️', jpeg: '🖼️',
+};
 
 interface Doc {
   id: string;
@@ -44,6 +51,12 @@ const CMDocuments = () => {
   const [uploadVisibility, setUploadVisibility] = useState('all_residents');
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [viewingDoc, setViewingDoc] = useState<Doc | null>(null);
+  const [expandedViews, setExpandedViews] = useState<Set<string>>(new Set());
+
+  const docIds = useMemo(() => documents.map(d => d.id), [documents]);
+  const { viewedIds, refetch: refetchMyViews } = useMyDocumentViews(currentUser?.id, docIds);
+  const { viewCounts, viewDetails, refetch: refetchAdminViews } = useAdminDocumentViews(docIds);
 
   const fetchDocs = async () => {
     if (!communityId) return;
@@ -132,6 +145,19 @@ const CMDocuments = () => {
     });
   };
 
+  const toggleViewDetails = (docId: string) => {
+    setExpandedViews(prev => {
+      const next = new Set(prev);
+      next.has(docId) ? next.delete(docId) : next.add(docId);
+      return next;
+    });
+  };
+
+  const getFileIcon = (fileName: string) => {
+    const ext = fileName.split('.').pop()?.toLowerCase() || '';
+    return FILE_ICONS[ext] || '📄';
+  };
+
   const filteredDocs = documents.filter(d =>
     d.title.toLowerCase().includes(search.toLowerCase()) ||
     d.file_name.toLowerCase().includes(search.toLowerCase())
@@ -141,6 +167,26 @@ const CMDocuments = () => {
     ...cat,
     docs: filteredDocs.filter(d => d.category === cat.key),
   }));
+
+  const handleOpenDoc = (doc: Doc) => {
+    setViewingDoc(doc);
+  };
+
+  const handleViewed = () => {
+    refetchMyViews();
+    refetchAdminViews();
+  };
+
+  if (viewingDoc && currentUser?.id) {
+    return (
+      <InlinePdfViewer
+        document={viewingDoc}
+        userId={currentUser.id}
+        onClose={() => setViewingDoc(null)}
+        onViewed={handleViewed}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-cm-app-bg flex flex-col">
@@ -178,39 +224,106 @@ const CMDocuments = () => {
             <div className="w-8 h-8 border-3 border-cm-cyan/20 border-t-cm-cyan rounded-full animate-spin" />
           </div>
         ) : (
-          groupedDocs.map(cat => (
-            <div key={cat.key} className="mb-3">
-              <div onClick={() => toggleCat(cat.key)} className="flex items-center gap-2 cursor-pointer mb-2">
-                {expandedCats.has(cat.key) ? <ChevronDown className="h-4 w-4 text-cm-text-light" /> : <ChevronRight className="h-4 w-4 text-cm-text-light" />}
-                <span className="text-lg">{cat.icon}</span>
-                <span className="text-[13px] font-bold" style={{ color: cat.color }}>{cat.label}</span>
-                <span className="text-[11px] text-cm-text-light">({cat.docs.length})</span>
-              </div>
-              {expandedCats.has(cat.key) && cat.docs.map(doc => (
-                <div key={doc.id} className="bg-white rounded-xl p-3 mb-2 border border-cm-border flex items-center gap-3">
-                  <div className="w-1 h-10 rounded-full flex-shrink-0" style={{ background: cat.color }} />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-bold text-cm-text truncate">{doc.title}</div>
-                    <div className="text-[11px] text-cm-text-light">
-                      {new Date(doc.created_at).toLocaleDateString()} · {formatSize(doc.file_size_bytes)}
-                      {doc.visibility === 'board_only' && <span className="ml-1 text-cm-warning">· Board Only</span>}
-                    </div>
-                  </div>
-                  <a href={doc.file_url} target="_blank" rel="noopener noreferrer"
-                    className="bg-cm-cyan text-white rounded-lg p-2 cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center">
-                    <Download className="h-4 w-4" />
-                  </a>
-                  <div onClick={() => handleDelete(doc.id)}
-                    className="bg-cm-danger text-white rounded-lg p-2 cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center">
-                    <Trash2 className="h-4 w-4" />
-                  </div>
+          groupedDocs.map(cat => {
+            const unreadCount = cat.docs.filter(d => !viewedIds.has(d.id)).length;
+            return (
+              <div key={cat.key} className="mb-4">
+                {/* Category header */}
+                <div onClick={() => toggleCat(cat.key)} className="flex items-center gap-2 cursor-pointer mb-2">
+                  <div className="w-[3px] h-4 rounded-full bg-cm-cyan flex-shrink-0" />
+                  <span className="text-lg">{cat.icon}</span>
+                  <span className="text-xs font-bold text-cm-text-light uppercase tracking-wider flex-1">{cat.label}</span>
+                  {unreadCount > 0 ? (
+                    <span className="text-[10px] font-bold text-white bg-cm-cyan rounded-full px-2 py-0.5">
+                      {unreadCount} new
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-cm-text-light bg-cm-app-bg rounded-full px-2 py-0.5 border border-cm-border">
+                      {cat.docs.length}
+                    </span>
+                  )}
+                  {expandedCats.has(cat.key) ? <ChevronDown className="h-3.5 w-3.5 text-cm-text-light" /> : <ChevronRight className="h-3.5 w-3.5 text-cm-text-light" />}
                 </div>
-              ))}
-              {expandedCats.has(cat.key) && cat.docs.length === 0 && (
-                <div className="text-xs text-cm-text-light pl-8 mb-2">No documents</div>
-              )}
-            </div>
-          ))
+
+                {expandedCats.has(cat.key) && cat.docs.map(doc => {
+                  const isUnread = !viewedIds.has(doc.id);
+                  const vCount = viewCounts[doc.id] || 0;
+                  const vDetails = viewDetails[doc.id] || [];
+                  const isViewExpanded = expandedViews.has(doc.id);
+
+                  return (
+                    <div key={doc.id} className="mb-2">
+                      <div
+                        className="bg-white rounded-[14px] p-[14px_16px] border border-cm-border flex items-center gap-3 relative cursor-pointer active:bg-cm-app-bg transition-colors"
+                        onClick={() => handleOpenDoc(doc)}
+                      >
+                        {/* Unread dot */}
+                        {isUnread && (
+                          <div className="absolute top-2 left-2 w-2 h-2 rounded-full bg-cm-cyan" />
+                        )}
+
+                        {/* File type icon */}
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0 bg-[#E0F7FA]">
+                          {getFileIcon(doc.file_name)}
+                        </div>
+
+                        {/* Title + meta */}
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-bold text-cm-text truncate">{doc.title}</div>
+                          <div className="text-[11px] text-cm-text-light">
+                            {new Date(doc.created_at).toLocaleDateString()} · {formatSize(doc.file_size_bytes)}
+                            {doc.visibility === 'board_only' && <span className="ml-1 text-cm-warning">· Board Only</span>}
+                          </div>
+                        </div>
+
+                        {/* Action buttons */}
+                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer"
+                          onClick={e => e.stopPropagation()}
+                          className="bg-cm-cyan text-white rounded-lg p-2 cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center flex-shrink-0">
+                          <Download className="h-4 w-4" />
+                        </a>
+                        <div onClick={(e) => { e.stopPropagation(); handleDelete(doc.id); }}
+                          className="bg-cm-danger text-white rounded-lg p-2 cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center flex-shrink-0">
+                          <Trash2 className="h-4 w-4" />
+                        </div>
+                      </div>
+
+                      {/* View tracking row */}
+                      <div
+                        className="flex items-center gap-1.5 px-4 pt-1.5 pb-1 cursor-pointer"
+                        onClick={() => toggleViewDetails(doc.id)}
+                      >
+                        <Eye className="h-3 w-3 text-cm-text-light" />
+                        <span className="text-[11px] text-cm-text-light">
+                          {vCount} {vCount === 1 ? 'view' : 'views'}
+                        </span>
+                        {vCount > 0 && (
+                          isViewExpanded
+                            ? <ChevronDown className="h-3 w-3 text-cm-text-light" />
+                            : <ChevronRight className="h-3 w-3 text-cm-text-light" />
+                        )}
+                      </div>
+
+                      {/* Expanded view details */}
+                      {isViewExpanded && vDetails.length > 0 && (
+                        <div className="mx-4 mb-1 bg-cm-app-bg rounded-lg border border-cm-border p-2.5">
+                          {vDetails.map((v, i) => (
+                            <div key={i} className="text-[11px] text-cm-text-light py-0.5">
+                              {v.user_id.slice(0, 8)}… · {new Date(v.viewed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {expandedCats.has(cat.key) && cat.docs.length === 0 && (
+                  <div className="text-xs text-cm-text-light pl-8 mb-2">No documents</div>
+                )}
+              </div>
+            );
+          })
         )}
       </div>
 

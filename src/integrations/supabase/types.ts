@@ -724,6 +724,49 @@ export type Database = {
           },
         ]
       }
+      document_views: {
+        Row: {
+          document_id: string
+          id: string
+          user_id: string
+          viewed_at: string
+        }
+        Insert: {
+          document_id: string
+          id?: string
+          user_id: string
+          viewed_at?: string
+        }
+        Update: {
+          document_id?: string
+          id?: string
+          user_id?: string
+          viewed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_views_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "hoa_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_views_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_views_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_preferences: {
         Row: {
           admin_announcements: boolean
