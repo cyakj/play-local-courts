@@ -181,13 +181,21 @@ export const CMReportDetail: React.FC<CMReportDetailProps> = ({ reportId, onBack
     } else {
       toast({ title: 'Report Resolved', description: 'Resolution notes saved' });
       // DB trigger sends the status change notification automatically.
-      // Also send a report_message with resolution details so the resident sees them in messages.
+      // Also send resolution details to both report_messages and the main messages table.
       if (report && currentUser) {
-        await supabase.from('report_messages').insert({
-          report_id: reportId,
-          sender_id: currentUser.id,
-          body: `✅ Report resolved: ${resolutionText}`,
-        });
+        const resolveMsg = `✅ Report resolved: ${resolutionText}`;
+        await Promise.all([
+          supabase.from('report_messages').insert({
+            report_id: reportId,
+            sender_id: currentUser.id,
+            body: resolveMsg,
+          }),
+          supabase.from('messages').insert({
+            sender_id: currentUser.id,
+            receiver_id: report.reporter_id,
+            content: resolveMsg,
+          }),
+        ]);
       }
       await fetchReport();
     }
@@ -243,23 +251,31 @@ export const CMReportDetail: React.FC<CMReportDetailProps> = ({ reportId, onBack
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !currentUser || !report) return;
     setSaving(true);
+    const messageText = newMessage.trim();
     const { error } = await supabase.from('report_messages').insert({
       report_id: reportId,
       sender_id: currentUser.id,
-      body: newMessage.trim(),
+      body: messageText,
     });
     if (error) {
       toast({ title: 'Error', description: 'Failed to send message', variant: 'destructive' });
     } else {
-      // Notify resident
-      await supabase.from('hoa_notifications').insert({
-        user_id: report.reporter_id,
-        hoa_id: report.hoa_id,
-        type: 'report_message',
-        title: 'New message about your report',
-        body: newMessage.trim().slice(0, 100),
-        metadata: { report_id: reportId },
-      });
+      // Also insert into the main messages table so resident sees it in their inbox
+      await Promise.all([
+        supabase.from('messages').insert({
+          sender_id: currentUser.id,
+          receiver_id: report.reporter_id,
+          content: messageText,
+        }),
+        supabase.from('hoa_notifications').insert({
+          user_id: report.reporter_id,
+          hoa_id: report.hoa_id,
+          type: 'report_message',
+          title: 'New message about your report',
+          body: messageText.slice(0, 100),
+          metadata: { report_id: reportId },
+        }),
+      ]);
       setNewMessage('');
       await fetchMessages();
     }
