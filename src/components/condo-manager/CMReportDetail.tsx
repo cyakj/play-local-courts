@@ -199,7 +199,7 @@ export const CMReportDetail: React.FC<CMReportDetailProps> = ({ reportId, onBack
       // DB trigger sends the status change notification automatically.
       // Also send resolution details to both report_messages and the main messages table.
       if (report && currentUser) {
-        const resolveMsg = `✅ Report resolved: ${resolutionText}`;
+        const resolveMsg = `${getReportPrefix()}\n\n✅ Resolved: ${resolutionText}`;
         await Promise.all([
           supabase.from('report_messages').insert({
             report_id: reportId,
