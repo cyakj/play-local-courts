@@ -44,20 +44,7 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document, userId, onC
         return;
       }
 
-      // Verify the URL actually works before loading in iframe
-      try {
-        const resp = await fetch(url, { method: 'HEAD' });
-        if (!resp.ok) {
-          setErrorMsg(`File not accessible (${resp.status}). It may have been moved or deleted.`);
-          setError(true);
-          setLoading(false);
-          return;
-        }
-      } catch {
-        // HEAD request failed, still try to show it
-        console.warn('HEAD check failed, attempting to load anyway');
-      }
-
+      setSignedUrl(url);
       setSignedUrl(url);
     };
 
