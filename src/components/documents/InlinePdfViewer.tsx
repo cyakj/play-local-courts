@@ -51,8 +51,8 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document, userId, onC
   }, [document.id, userId]);
 
   const handleDownload = async () => {
-    const url = signedUrl || await getSignedDocumentUrl(document.id, document.file_url);
-    if (url) window.open(url, '_blank');
+    const { downloadDocument } = await import('@/lib/documentUtils');
+    await downloadDocument(document.id, document.file_url);
   };
 
   const isImage = /\.(png|jpg|jpeg|gif|webp)/i.test(document.file_url);
