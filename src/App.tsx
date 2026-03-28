@@ -1,5 +1,5 @@
 
-import { Toaster } from "@/components/ui/sonner";
+import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { NotificationContainer } from "@/components/ui/notification-banner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -69,7 +69,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <NotificationContainer />
-        <Toaster position="top-center" duration={2000} />
+        <Toaster />
         <BrowserRouter>
           <AuthProvider>
             <ActiveHOAProvider>
