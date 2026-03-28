@@ -290,6 +290,14 @@ export function useCondoManagerNotifications() {
   return { notifications, unreadCount, loading, markAllRead, markRead, refetch: fetchNotifications };
 }
 
+const formatTimeAgo = (date: Date) => {
+  const mins = Math.floor((Date.now() - date.getTime()) / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+};
+
 export function useCondoManagerAlerts(communities: CMCommunityData[]) {
   const [alerts, setAlerts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
