@@ -15,6 +15,32 @@ import {
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 
+interface AnnouncementFeedItem {
+  id: string;
+  title: string;
+  body: string;
+  created_at: string;
+  href?: string;
+}
+
+const mergeAnnouncementFeed = (announcementRows: any[] = [], closedSurveyRows: any[] = []): AnnouncementFeedItem[] => {
+  return [
+    ...announcementRows.map((announcement) => ({
+      id: announcement.id,
+      title: announcement.title,
+      body: announcement.body,
+      created_at: announcement.created_at,
+    })),
+    ...closedSurveyRows.map((survey) => ({
+      id: `survey-results-${survey.id}`,
+      title: `Survey Results: ${survey.title}`,
+      body: `Results are now available for "${survey.title}" — tap to view the community results.`,
+      created_at: survey.closes_at || survey.created_at,
+      href: `/surveys/${survey.id}/results`,
+    })),
+  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+};
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const { currentUser, isAdmin, isPending, isCoach, isPlatformReviewer } = useAuth();
@@ -24,13 +50,13 @@ const Dashboard = () => {
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [myReportsCount, setMyReportsCount] = useState(0);
   const [myReports, setMyReports] = useState<any[]>([]);
-  const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [announcements, setAnnouncements] = useState<AnnouncementFeedItem[]>([]);
   const [events, setEvents] = useState<any[]>([]);
   const [activeSurvey, setActiveSurvey] = useState<any>(null);
   const [cancelledBookings, setCancelledBookings] = useState<any[]>([]);
   const [dismissedCancellations, setDismissedCancellations] = useState<Set<string>>(new Set());
   const [showAllAnnouncements, setShowAllAnnouncements] = useState(false);
-  const [allAnnouncements, setAllAnnouncements] = useState<any[]>([]);
+  const [allAnnouncements, setAllAnnouncements] = useState<AnnouncementFeedItem[]>([]);
   const [expandedAnnouncement, setExpandedAnnouncement] = useState<string | null>(null);
 
   useEffect(() => {
@@ -39,7 +65,6 @@ const Dashboard = () => {
     }
   }, [currentUser, activeHOA?.hoaId]);
 
-  // Unread messages
   useEffect(() => {
     if (!currentUser) return;
     const loadUnread = async () => {
@@ -67,7 +92,7 @@ const Dashboard = () => {
     },
     enabled: !!currentUser?.id
   });
-  // Load admin-cancelled bookings for banner
+
   useEffect(() => {
     if (!currentUser) return;
     const loadCancelled = async () => {
@@ -81,7 +106,6 @@ const Dashboard = () => {
         .gte('updated_at', cutoff);
       
       if (data && data.length > 0) {
-        // Check if user has rebooked the same amenity since cancellation
         const courtIds = [...new Set(data.map(b => b.court_id))];
         const [courtsResult, rebookedResult] = await Promise.all([
           supabase.from('courts').select('id, name').in('id', courtIds),
@@ -96,7 +120,6 @@ const Dashboard = () => {
         const courtMap: Record<string, string> = {};
         courtsResult.data?.forEach(c => { courtMap[c.id] = c.name; });
 
-        // Build set of amenities that have been rebooked after cancellation
         const rebookedCourts = new Set<string>();
         rebookedResult.data?.forEach(rb => {
           const cancelledForCourt = data.find(d => d.court_id === rb.court_id);
@@ -184,7 +207,6 @@ const Dashboard = () => {
     if (!currentUser || !activeHOA?.hoaId) return;
     const hoaId = activeHOA.hoaId;
 
-    // Open reports with details
     const { data: reportsData, count: reportsCount } = await supabase
       .from('maintenance_reports')
       .select('*', { count: 'exact' })
@@ -196,16 +218,33 @@ const Dashboard = () => {
     setMyReportsCount(reportsCount || 0);
     setMyReports(reportsData || []);
 
-    // Announcements
-    const { data: announcementsData } = await supabase
-      .from('hoa_announcements')
-      .select('*')
-      .eq('hoa_id', hoaId)
-      .order('created_at', { ascending: false })
-      .limit(3);
-    setAnnouncements(announcementsData || []);
+    const [announcementsResult, closedSurveysResult] = await Promise.all([
+      supabase
+        .from('hoa_announcements')
+        .select('*')
+        .eq('hoa_id', hoaId)
+        .order('created_at', { ascending: false })
+        .limit(10),
+      supabase
+        .from('hoa_surveys')
+        .select('id, title, created_at, closes_at')
+        .eq('hoa_id', hoaId)
+        .eq('status', 'closed')
+        .eq('results_visibility', 'community')
+        .order('closes_at', { ascending: false })
+        .limit(10),
+    ]);
 
-    // Events
+    const mergedAnnouncements = mergeAnnouncementFeed(
+      announcementsResult.data || [],
+      closedSurveysResult.data || []
+    );
+
+    setAnnouncements(mergedAnnouncements.slice(0, 3));
+    setAllAnnouncements([]);
+    setShowAllAnnouncements(false);
+    setExpandedAnnouncement(null);
+
     const { data: eventsData } = await supabase
       .from('hoa_events')
       .select('*')
@@ -217,7 +256,6 @@ const Dashboard = () => {
       .limit(3);
     setEvents(eventsData || []);
 
-    // Active survey (not yet responded)
     const { data: surveyData } = await supabase
       .from('hoa_surveys')
       .select('*')
@@ -453,13 +491,29 @@ const Dashboard = () => {
                     return;
                   }
                   if (allAnnouncements.length === 0 && activeHOA?.hoaId) {
-                    const { data } = await supabase
-                      .from('hoa_announcements')
-                      .select('*')
-                      .eq('hoa_id', activeHOA.hoaId)
-                      .order('created_at', { ascending: false })
-                      .limit(20);
-                    setAllAnnouncements(data || []);
+                    const [announcementResponse, closedSurveysResponse] = await Promise.all([
+                      supabase
+                        .from('hoa_announcements')
+                        .select('*')
+                        .eq('hoa_id', activeHOA.hoaId)
+                        .order('created_at', { ascending: false })
+                        .limit(20),
+                      supabase
+                        .from('hoa_surveys')
+                        .select('id, title, created_at, closes_at')
+                        .eq('hoa_id', activeHOA.hoaId)
+                        .eq('status', 'closed')
+                        .eq('results_visibility', 'community')
+                        .order('closes_at', { ascending: false })
+                        .limit(20),
+                    ]);
+
+                    setAllAnnouncements(
+                      mergeAnnouncementFeed(
+                        announcementResponse.data || [],
+                        closedSurveysResponse.data || []
+                      ).slice(0, 20)
+                    );
                   }
                   setShowAllAnnouncements(true);
                 }}
@@ -480,14 +534,27 @@ const Dashboard = () => {
                 <div
                   key={a.id}
                   className={`cursor-pointer ${i < arr.length - 1 ? 'pb-3 mb-3 border-b border-[#E5E7EB]' : ''}`}
-                  onClick={() => setExpandedAnnouncement(isExpanded ? null : a.id)}
+                  onClick={() => {
+                    if (a.href) {
+                      navigate(a.href);
+                      return;
+                    }
+                    setExpandedAnnouncement(isExpanded ? null : a.id);
+                  }}
                 >
                   <div className="text-[13px] font-bold" style={{ color: '#1A1A2E' }}>{a.title}</div>
-                  <div className={`text-[12px] mt-0.5 ${isExpanded ? '' : 'truncate'}`} style={{ color: '#9CA3AF' }}>
-                    {isExpanded ? a.body : (
+                  <div className={`text-[12px] mt-0.5 ${a.href ? 'truncate' : isExpanded ? '' : 'truncate'}`} style={{ color: '#9CA3AF' }}>
+                    {a.href ? (
+                      <>{a.body?.substring(0, 80)}{a.body?.length > 80 ? '…' : ''}</>
+                    ) : isExpanded ? a.body : (
                       <>{a.body?.substring(0, 80)}{a.body?.length > 80 ? '…' : ''}</>
                     )}
                   </div>
+                  {a.href && (
+                    <div className="text-[11px] font-bold mt-1.5" style={{ color: '#00B4D8' }}>
+                      View results →
+                    </div>
+                  )}
                   <div className="text-[11px] mt-1" style={{ color: '#9CA3AF' }}>
                     {formatDistanceToNow(new Date(a.created_at), { addSuffix: true })}
                   </div>
