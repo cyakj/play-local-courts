@@ -170,7 +170,7 @@ const CMReports = () => {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="flex-1 px-2.5 py-2 rounded-[10px] border border-cm-border text-xs bg-white text-cm-text"
           >
-            {['All', 'Open', 'In Progress', 'Assigned', 'Resolved', 'Closed'].map((o) => (
+            {['Active', 'All', 'Open', 'In Progress', 'Resolved', 'Closed'].map((o) => (
               <option key={o}>{o}</option>
             ))}
           </select>
