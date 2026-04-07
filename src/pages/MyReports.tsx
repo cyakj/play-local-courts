@@ -49,7 +49,7 @@ const MyReports = () => {
   const { toast } = useToast();
   const [reports, setReports] = useState<UserReport[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('active');
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [selectedReport, setSelectedReport] = useState<UserReport | null>(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
