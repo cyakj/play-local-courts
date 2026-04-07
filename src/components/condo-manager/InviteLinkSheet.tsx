@@ -62,18 +62,38 @@ const InviteLinkSheet: React.FC<InviteLinkSheetProps> = ({ open, onClose, commun
   };
 
   const handleShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `Join ${community.name} on TenisX`,
-          text: `You've been invited to join ${community.name} on TenisX. Click the link to create your account and get access to bookings, announcements, and community features.`,
-          url: inviteUrl,
-        });
-      } catch (e: any) {
-        if (e.name !== 'AbortError') handleCopy();
+    const shareData = {
+      title: `Join ${community.name} on TenisX`,
+      text: `You've been invited to join ${community.name} on TenisX. Click the link to create your account and get access to bookings, announcements, and community features.`,
+      url: inviteUrl,
+    };
+    try {
+      if (navigator.share && navigator.canShare?.(shareData)) {
+        await navigator.share(shareData);
+        return;
       }
-    } else {
-      handleCopy();
+    } catch (e: any) {
+      if (e.name === 'AbortError') return;
+    }
+    // Fallback: copy to clipboard
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      setCopied(true);
+      toast.success('Link copied to clipboard ✓', { duration: 2000 });
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Final fallback for restricted contexts
+      const textarea = document.createElement('textarea');
+      textarea.value = inviteUrl;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      setCopied(true);
+      toast.success('Link copied to clipboard ✓', { duration: 2000 });
+      setTimeout(() => setCopied(false), 2000);
     }
   };
 
