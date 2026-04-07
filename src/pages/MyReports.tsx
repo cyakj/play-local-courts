@@ -24,7 +24,6 @@ import {
   cleanDescription,
   priorityConfig,
   statusConfig,
-  allStatusFilters,
 } from '@/lib/maintenanceUtils';
 
 interface UserReport {
@@ -49,7 +48,7 @@ const MyReports = () => {
   const { toast } = useToast();
   const [reports, setReports] = useState<UserReport[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('active');
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [selectedReport, setSelectedReport] = useState<UserReport | null>(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
@@ -115,9 +114,20 @@ const MyReports = () => {
     }
   };
 
-  const filteredReports = statusFilter === 'all' 
-    ? reports 
-    : reports.filter(r => r.status === statusFilter);
+  const activeStatuses = ['open', 'in_progress', 'accepted', 'reopened'];
+  const resolvedStatuses = ['completed', 'resolved'];
+
+  const filteredReports = statusFilter === 'all'
+    ? reports
+    : statusFilter === 'active'
+    ? reports.filter(r => activeStatuses.includes(r.status))
+    : reports.filter(r => resolvedStatuses.includes(r.status));
+
+  const residentFilters = [
+    { value: 'active', label: 'Active' },
+    { value: 'all', label: 'All' },
+    { value: 'resolved', label: 'Resolved' },
+  ];
 
   const getStatusBadge = (status: string) => {
     const config = statusConfig[status];
@@ -156,7 +166,13 @@ const MyReports = () => {
       {/* Filter Chips */}
       <div className="bg-card border-b border-border px-4 py-2.5 overflow-x-auto -mt-4">
         <div className="flex gap-2">
-          {allStatusFilters.map((option) => (
+          {residentFilters.map((option) => {
+            const count = option.value === 'all'
+              ? reports.length
+              : option.value === 'active'
+              ? reports.filter(r => activeStatuses.includes(r.status)).length
+              : reports.filter(r => resolvedStatuses.includes(r.status)).length;
+            return (
             <button
               key={option.value}
               onClick={() => setStatusFilter(option.value)}
@@ -168,13 +184,10 @@ const MyReports = () => {
               }}
             >
               {option.label}
-              {option.value !== 'all' && (
-                <span className="ml-1 opacity-70">
-                  ({reports.filter(r => r.status === option.value).length})
-                </span>
-              )}
+              <span className="ml-1 opacity-70">({count})</span>
             </button>
-          ))}
+            );
+          })}
         </div>
       </div>
 
