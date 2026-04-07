@@ -70,6 +70,7 @@ import ResidentCalendar from "./pages/ResidentCalendar";
 import DocumentLibrary from "./pages/DocumentLibrary";
 import SurveyResponse from "./pages/SurveyResponse";
 import SurveyResultsPublic from "./pages/SurveyResultsPublic";
+import JoinByInvite from "./pages/JoinByInvite";
 import { TENNIS_FEATURES_ENABLED } from "./config/featureFlags";
 
 const queryClient = new QueryClient();
@@ -116,6 +117,8 @@ function App() {
                     <Route path="/cm/settings/feedback" element={<CMFeedback />} />
                     <Route path="/cm/settings/language" element={<CMLanguage />} />
                   </Route>
+                  {/* Public invite join route */}
+                  <Route path="/join/:inviteCode" element={<JoinByInvite />} />
                   {/* Main App Routes */}
                   <Route element={<MainLayout />}>
                     <Route path="/" element={<Dashboard />} />
