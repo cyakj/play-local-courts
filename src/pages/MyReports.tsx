@@ -24,7 +24,6 @@ import {
   cleanDescription,
   priorityConfig,
   statusConfig,
-  allStatusFilters,
 } from '@/lib/maintenanceUtils';
 
 interface UserReport {
