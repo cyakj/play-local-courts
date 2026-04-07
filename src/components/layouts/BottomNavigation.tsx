@@ -18,7 +18,10 @@ const BottomNavigation = () => {
     { path: '/documents', icon: FileText, label: 'Docs' },
   ];
 
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) => {
+    if (path === '/') return location.pathname === '/' || location.pathname === '/dashboard';
+    return location.pathname === path;
+  };
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50" style={{ paddingTop: 10, paddingBottom: 20 }}>
