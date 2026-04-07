@@ -115,9 +115,20 @@ const MyReports = () => {
     }
   };
 
-  const filteredReports = statusFilter === 'all' 
-    ? reports 
-    : reports.filter(r => r.status === statusFilter);
+  const activeStatuses = ['open', 'in_progress', 'accepted', 'reopened'];
+  const resolvedStatuses = ['completed', 'resolved'];
+
+  const filteredReports = statusFilter === 'all'
+    ? reports
+    : statusFilter === 'active'
+    ? reports.filter(r => activeStatuses.includes(r.status))
+    : reports.filter(r => resolvedStatuses.includes(r.status));
+
+  const residentFilters = [
+    { value: 'active', label: 'Active' },
+    { value: 'all', label: 'All' },
+    { value: 'resolved', label: 'Resolved' },
+  ];
 
   const getStatusBadge = (status: string) => {
     const config = statusConfig[status];
