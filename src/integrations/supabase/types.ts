@@ -1108,7 +1108,9 @@ export type Database = {
           created_at: string
           hoa_id: string
           id: string
+          invite_code_used: string | null
           is_primary: boolean
+          joined_via_invite: boolean
           last_active_at: string | null
           role: string
           status: string
@@ -1119,7 +1121,9 @@ export type Database = {
           created_at?: string
           hoa_id: string
           id?: string
+          invite_code_used?: string | null
           is_primary?: boolean
+          joined_via_invite?: boolean
           last_active_at?: string | null
           role?: string
           status?: string
@@ -1130,7 +1134,9 @@ export type Database = {
           created_at?: string
           hoa_id?: string
           id?: string
+          invite_code_used?: string | null
           is_primary?: boolean
+          joined_via_invite?: boolean
           last_active_at?: string | null
           role?: string
           status?: string
@@ -1326,6 +1332,9 @@ export type Database = {
           description: string | null
           email: string | null
           id: string
+          invite_code: string | null
+          invite_enabled: boolean
+          invite_expires_at: string | null
           logo_url: string | null
           name: string
           phone: string | null
@@ -1339,6 +1348,9 @@ export type Database = {
           description?: string | null
           email?: string | null
           id?: string
+          invite_code?: string | null
+          invite_enabled?: boolean
+          invite_expires_at?: string | null
           logo_url?: string | null
           name: string
           phone?: string | null
@@ -1352,6 +1364,9 @@ export type Database = {
           description?: string | null
           email?: string | null
           id?: string
+          invite_code?: string | null
+          invite_enabled?: boolean
+          invite_expires_at?: string | null
           logo_url?: string | null
           name?: string
           phone?: string | null
@@ -2943,6 +2958,7 @@ export type Database = {
         }
         Returns: string
       }
+      generate_invite_code: { Args: { _name: string }; Returns: string }
       generate_round_robin_matches: {
         Args: { ladder_id_param: string }
         Returns: number
@@ -2989,6 +3005,7 @@ export type Database = {
       }
       is_ladder_admin: { Args: { _ladder_id: string }; Returns: boolean }
       migrate_existing_hoa_memberships: { Args: never; Returns: undefined }
+      regenerate_invite_code: { Args: { _hoa_id: string }; Returns: string }
       reject_hoa_membership: {
         Args: { membership_id: string }
         Returns: boolean
