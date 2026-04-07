@@ -167,7 +167,13 @@ const MyReports = () => {
       {/* Filter Chips */}
       <div className="bg-card border-b border-border px-4 py-2.5 overflow-x-auto -mt-4">
         <div className="flex gap-2">
-          {allStatusFilters.map((option) => (
+          {residentFilters.map((option) => {
+            const count = option.value === 'all'
+              ? reports.length
+              : option.value === 'active'
+              ? reports.filter(r => activeStatuses.includes(r.status)).length
+              : reports.filter(r => resolvedStatuses.includes(r.status)).length;
+            return (
             <button
               key={option.value}
               onClick={() => setStatusFilter(option.value)}
@@ -179,13 +185,10 @@ const MyReports = () => {
               }}
             >
               {option.label}
-              {option.value !== 'all' && (
-                <span className="ml-1 opacity-70">
-                  ({reports.filter(r => r.status === option.value).length})
-                </span>
-              )}
+              <span className="ml-1 opacity-70">({count})</span>
             </button>
-          ))}
+            );
+          })}
         </div>
       </div>
 
