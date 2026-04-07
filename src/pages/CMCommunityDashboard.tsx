@@ -7,6 +7,7 @@ import { CMStatusBadge } from '@/components/condo-manager/CMStatusBadge';
 import { CMKpiCard } from '@/components/condo-manager/CMKpiCard';
 import { CMIssuesTrendChart, CMPeriodToggle } from '@/components/condo-manager/CMIssuesTrendChart';
 import SetMaintenanceSheet from '@/components/condo-manager/SetMaintenanceSheet';
+import InviteLinkSheet from '@/components/condo-manager/InviteLinkSheet';
 import { useCondoManagerCommunities } from '@/hooks/useCondoManagerData';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -33,6 +34,7 @@ const CMCommunityDashboard = () => {
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
   const [showAddAmenityModal, setShowAddAmenityModal] = useState(false);
   const [maintenanceAmenity, setMaintenanceAmenity] = useState<{ id: string; name: string; type: string; hoaId: string } | null>(null);
+  const [showInviteSheet, setShowInviteSheet] = useState(false);
   const [newAmenityName, setNewAmenityName] = useState('');
   const [newAmenityType, setNewAmenityType] = useState<string>('tennis');
   const [announcementTitle, setAnnouncementTitle] = useState('');
@@ -402,8 +404,18 @@ const CMCommunityDashboard = () => {
                 <div className="text-xs font-bold text-cm-warning">
                   {c.totalUnits - c.activeMembers} units not yet on the platform
                 </div>
-                <div className="mt-2.5 bg-cm-warning text-white rounded-lg py-2 px-3.5 text-xs font-bold text-center cursor-pointer min-h-[44px] flex items-center justify-center">
+                <div
+                  onClick={() => setShowInviteSheet(true)}
+                  className="mt-2.5 bg-cm-warning text-white rounded-lg py-2 px-3.5 text-xs font-bold text-center cursor-pointer min-h-[44px] flex items-center justify-center"
+                >
                   Send Invite Reminders
+                </div>
+                <div
+                  onClick={() => setShowInviteSheet(true)}
+                  className="mt-2 text-[12px] font-semibold cursor-pointer min-h-[44px] flex items-center"
+                  style={{ color: '#00B4D8' }}
+                >
+                  View invite link →
                 </div>
               </div>
             )}
@@ -526,6 +538,15 @@ const CMCommunityDashboard = () => {
           open={!!maintenanceAmenity}
           onClose={() => setMaintenanceAmenity(null)}
           amenity={maintenanceAmenity}
+        />
+      )}
+
+      {/* Invite Link Sheet */}
+      {c && (
+        <InviteLinkSheet
+          open={showInviteSheet}
+          onClose={() => setShowInviteSheet(false)}
+          community={{ id: c.id, name: c.name }}
         />
       )}
 

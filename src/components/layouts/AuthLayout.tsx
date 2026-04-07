@@ -1,10 +1,11 @@
 
 import React from 'react';
-import { Outlet, Navigate } from 'react-router-dom';
+import { Outlet, Navigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
 const AuthLayout = () => {
   const { currentUser, loading } = useAuth();
+  const [searchParams] = useSearchParams();
 
   if (loading) {
     return (
@@ -16,7 +17,8 @@ const AuthLayout = () => {
 
   // If already logged in, redirect to dashboard
   if (currentUser) {
-    return <Navigate to="/dashboard" replace />;
+    const redirect = searchParams.get('redirect');
+    return <Navigate to={redirect || '/dashboard'} replace />;
   }
 
   return (
