@@ -28,7 +28,7 @@ interface Report {
 const CMReports = () => {
   const [searchParams] = useSearchParams();
   const [communityFilter, setCommunityFilter] = useState('All');
-  const [statusFilter, setStatusFilter] = useState('Active');
+  const [statusFilter, setStatusFilter] = useState('All');
   const [categoryFilter, setCategoryFilter] = useState('All Categories');
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
@@ -108,14 +108,8 @@ const CMReports = () => {
       if (categoryFilter !== 'All Categories' && r.category !== categoryFilter) return false;
       
       // Status filtering
-      const s = r.status.toLowerCase();
-      if (statusFilter === 'Active') {
-        return s === 'open' || s === 'in progress' || s === 'assigned';
-      }
-      if (statusFilter === 'All') {
-        return s !== 'closed';
-      }
-      return s === statusFilter.toLowerCase();
+      if (statusFilter === 'All') return true;
+      return r.status.toLowerCase() === statusFilter.toLowerCase().replace(/ /g, '_');
     }
   ), [reports, communityFilter, statusFilter, categoryFilter]);
 
@@ -170,7 +164,7 @@ const CMReports = () => {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="flex-1 px-2.5 py-2 rounded-[10px] border border-cm-border text-xs bg-white text-cm-text"
           >
-            {['Active', 'All', 'Open', 'In Progress', 'Resolved', 'Closed'].map((o) => (
+            {['All', 'Open', 'In Progress', 'Resolved', 'Closed'].map((o) => (
               <option key={o}>{o}</option>
             ))}
           </select>
