@@ -410,13 +410,6 @@ const CMCommunityDashboard = () => {
                 >
                   Send Invite Reminders
                 </div>
-                <div
-                  onClick={() => setShowInviteSheet(true)}
-                  className="mt-2 text-[12px] font-semibold cursor-pointer min-h-[44px] flex items-center"
-                  style={{ color: '#00B4D8' }}
-                >
-                  View invite link →
-                </div>
               </div>
             )}
           </>
