@@ -69,7 +69,7 @@ const CMReports = () => {
       displayTitle: r.report_type === 'location'
         ? `📍 ${(r.location_text || 'Unknown location').slice(0, 30)}${(r.location_text || '').length > 30 ? '…' : ''}`
         : (amenityMap.get(r.amenity_id) || getCategoryLabel(r.category)),
-      status: r.status.charAt(0).toUpperCase() + r.status.slice(1).replace('_', ' '),
+      status: r.status === 'closed' ? 'Resolved' : r.status.charAt(0).toUpperCase() + r.status.slice(1).replace('_', ' '),
       priority: r.priority || 'medium',
       category: r.category,
       description: r.description,
@@ -109,6 +109,10 @@ const CMReports = () => {
       
       // Status filtering
       if (statusFilter === 'All') return true;
+      // Merge Closed into Resolved
+      if (statusFilter === 'Resolved') {
+        return r.status.toLowerCase() === 'resolved' || r.status.toLowerCase() === 'closed';
+      }
       return r.status.toLowerCase() === statusFilter.toLowerCase().replace(/ /g, '_');
     }
   ), [reports, communityFilter, statusFilter, categoryFilter]);
@@ -164,7 +168,7 @@ const CMReports = () => {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="flex-1 px-2.5 py-2 rounded-[10px] border border-cm-border text-xs bg-white text-cm-text"
           >
-            {['All', 'Open', 'In Progress', 'Resolved', 'Closed'].map((o) => (
+            {['All', 'Open', 'In Progress', 'Resolved'].map((o) => (
               <option key={o}>{o}</option>
             ))}
           </select>
