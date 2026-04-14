@@ -1,8 +1,8 @@
 import React from 'react';
 
 const STATUS_CFG: Record<string, { color: string; bg: string; label: string }> = {
-  excellent: { color: 'hsl(var(--cm-success))', bg: 'hsl(var(--cm-success-bg))', label: 'Excellent' },
-  good: { color: 'hsl(var(--cm-cyan))', bg: 'hsl(var(--cm-cyan-light))', label: 'Good' },
+  excellent: { color: '#15803d', bg: '#f0fdf4', label: '● Optimal' },
+  good: { color: '#15803d', bg: '#f0fdf4', label: '● Optimal' },
   warning: { color: 'hsl(var(--cm-warning))', bg: 'hsl(var(--cm-warning-bg))', label: 'Needs Attention' },
   critical: { color: 'hsl(var(--cm-danger))', bg: 'hsl(var(--cm-danger-bg))', label: 'Critical' },
 };

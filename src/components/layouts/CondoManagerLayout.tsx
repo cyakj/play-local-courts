@@ -26,7 +26,7 @@ const CondoManagerLayout = () => {
   }
 
   return (
-    <div className="min-h-screen bg-cm-app-bg">
+    <div className="min-h-screen bg-white">
       <main className="pb-20">
         <Outlet />
       </main>
