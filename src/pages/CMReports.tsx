@@ -67,7 +67,7 @@ const CMReports = () => {
       community: hoaMap.get(r.hoa_id) || '',
       amenity: r.amenity_id ? (amenityMap.get(r.amenity_id) || null) : null,
       displayTitle: r.report_type === 'location'
-        ? `📍 ${(r.location_text || 'Unknown location').slice(0, 30)}${(r.location_text || '').length > 30 ? '…' : ''}`
+        ? `${(r.location_text || 'Unknown location').slice(0, 30)}${(r.location_text || '').length > 30 ? '…' : ''}`
         : (amenityMap.get(r.amenity_id) || getCategoryLabel(r.category)),
       status: r.status === 'closed' ? 'Resolved' : r.status.charAt(0).toUpperCase() + r.status.slice(1).replace('_', ' '),
       priority: r.priority || 'medium',
@@ -205,7 +205,7 @@ const CMReports = () => {
                 >
                   <div className="flex justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      {r.is_urgent && <span className="text-sm">🚨</span>}
+                      {r.is_urgent && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: '#FEF2F2', color: '#EF4444' }}>URGENT</span>}
                       <div>
                         <div className="text-sm font-extrabold text-cm-text">{r.displayTitle}</div>
                         <div className="text-[11px] text-cm-cyan font-semibold mt-0.5">{r.community}</div>
@@ -218,7 +218,7 @@ const CMReports = () => {
                   </div>
                   <div className="text-xs text-cm-text my-2">{cleanDescription(r.description)}</div>
                   <div className="flex justify-between">
-                    <div className="text-[11px] text-cm-text-light">👤 {r.reporter} · {r.date}</div>
+                    <div className="text-[11px] text-cm-text-light">{r.reporter} · {r.date}</div>
                     <div className="text-[11px] text-cm-cyan font-bold">View Details →</div>
                   </div>
                 </div>

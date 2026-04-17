@@ -69,7 +69,7 @@ const CMNotifications = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F0F4F8]">
+    <div className="min-h-screen bg-[#F9FAFB]">
       <CMHeader compact>
         <div className="flex items-center gap-3">
           <button onClick={() => navigate(-1)} className="w-9 h-9 rounded-[10px] flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.12)' }}>
@@ -88,10 +88,10 @@ const CMNotifications = () => {
           return (
             <div key={cat.title} className="bg-white rounded-2xl border border-[#E5E7EB] overflow-hidden">
               <div className="flex items-center gap-3 px-5 pt-4 pb-2">
-                <div className="p-1.5 bg-[#F0F4F8] rounded-lg">
+                <div className="p-1.5 bg-[#F9FAFB] rounded-lg">
                   <Icon className="h-4 w-4 text-[#4B5563]" />
                 </div>
-                <p className="font-bold text-[14px] text-[#1A1A2E]">{cat.title}</p>
+                <p className="font-bold text-[14px] text-[#0F1F3D]">{cat.title}</p>
               </div>
               <div className="px-5 pb-4">
                 {cat.items.map((item, idx) => (
@@ -100,7 +100,7 @@ const CMNotifications = () => {
                     className="py-3.5"
                     style={idx > 0 ? { borderTop: '1px solid #F3F4F6' } : undefined}
                   >
-                    <span className="text-[13px] font-semibold text-[#1A1A2E] block mb-2">
+                    <span className="text-[13px] font-semibold text-[#0F1F3D] block mb-2">
                       {item.label}
                     </span>
                     <div className="flex gap-2">
@@ -112,9 +112,9 @@ const CMNotifications = () => {
                           prefs[item.key]?.push
                             ? {
                                 background: '#E0F7FA',
-                                border: '1.5px solid #00B4D8',
+                                border: '1.5px solid #00D4FF',
                                 padding: '6px 14px',
-                                color: '#00B4D8',
+                                color: '#00D4FF',
                                 fontWeight: 700,
                                 fontSize: '12px',
                               }
@@ -141,9 +141,9 @@ const CMNotifications = () => {
                           prefs[item.key]?.email
                             ? {
                                 background: '#E0F7FA',
-                                border: '1.5px solid #00B4D8',
+                                border: '1.5px solid #00D4FF',
                                 padding: '6px 14px',
-                                color: '#00B4D8',
+                                color: '#00D4FF',
                                 fontWeight: 700,
                                 fontSize: '12px',
                               }

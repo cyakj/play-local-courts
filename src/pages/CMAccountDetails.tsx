@@ -57,7 +57,7 @@ const CMAccountDetails = () => {
   const Row = ({ icon: Icon, label, value, editing, onEdit, onCancel, onSave, editValue, onEditChange, actionLabel }: any) => (
     <div className="py-4 border-b border-[#E5E7EB] last:border-0">
       <div className="flex items-start gap-3">
-        <div className="p-2 bg-[#F0F4F8] rounded-lg mt-0.5">
+        <div className="p-2 bg-[#F9FAFB] rounded-lg mt-0.5">
           <Icon className="h-4 w-4 text-[#4B5563]" />
         </div>
         <div className="flex-1 min-w-0">
@@ -67,26 +67,26 @@ const CMAccountDetails = () => {
               <input
                 value={editValue}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => onEditChange(e.target.value)}
-                className="w-full px-3 py-2 rounded-[10px] border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#00B4D8]/30"
+                className="w-full px-3 py-2 rounded-[10px] border border-[#E5E7EB] text-sm focus:outline-none focus:ring-2 focus:ring-[#00D4FF]/30"
               />
               <div className="flex gap-2">
-                <button onClick={onSave} className="px-4 py-1.5 rounded-lg bg-[#00B4D8] text-white text-xs font-bold">Save</button>
-                <button onClick={onCancel} className="px-4 py-1.5 rounded-lg bg-[#F0F4F8] text-[#9CA3AF] text-xs font-semibold">Cancel</button>
+                <button onClick={onSave} className="px-4 py-1.5 rounded-lg bg-[#00D4FF] text-white text-xs font-bold">Save</button>
+                <button onClick={onCancel} className="px-4 py-1.5 rounded-lg bg-[#F9FAFB] text-[#9CA3AF] text-xs font-semibold">Cancel</button>
               </div>
             </div>
           ) : (
-            <p className="text-sm font-medium text-[#1A1A2E] mt-0.5">{value || '—'}</p>
+            <p className="text-sm font-medium text-[#0F1F3D] mt-0.5">{value || '—'}</p>
           )}
         </div>
         {!editing && onEdit && (
-          <button onClick={onEdit} className="text-[12px] font-bold text-[#00B4D8] mt-1">{actionLabel || 'Edit'}</button>
+          <button onClick={onEdit} className="text-[12px] font-bold text-[#00D4FF] mt-1">{actionLabel || 'Edit'}</button>
         )}
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[#F0F4F8]">
+    <div className="min-h-screen bg-[#F9FAFB]">
       <CMHeader compact>
         <div className="flex items-center gap-3">
           <button onClick={() => navigate(-1)} className="w-9 h-9 rounded-[10px] flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.12)' }}>
@@ -111,14 +111,14 @@ const CMAccountDetails = () => {
             onSave={handleSavePhone} actionLabel="Edit" />
           <div className="py-4">
             <div className="flex items-start gap-3">
-              <div className="p-2 bg-[#F0F4F8] rounded-lg mt-0.5">
+              <div className="p-2 bg-[#F9FAFB] rounded-lg mt-0.5">
                 <Lock className="h-4 w-4 text-[#4B5563]" />
               </div>
               <div className="flex-1">
                 <p className="text-[12px] font-bold text-[#9CA3AF]">Password</p>
-                <p className="text-sm font-medium text-[#1A1A2E] mt-0.5">••••••••••••</p>
+                <p className="text-sm font-medium text-[#0F1F3D] mt-0.5">••••••••••••</p>
               </div>
-              <button onClick={handlePasswordReset} className="text-[12px] font-bold text-[#00B4D8] mt-1">Reset Password</button>
+              <button onClick={handlePasswordReset} className="text-[12px] font-bold text-[#00D4FF] mt-1">Reset Password</button>
             </div>
           </div>
         </div>

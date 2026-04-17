@@ -7,10 +7,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 const EVENT_TYPE_CONFIG: Record<string, { color: string; label: string }> = {
-  community_event: { color: '#00B4D8', label: 'Community Event' },
-  board_meeting: { color: '#0A1628', label: 'Board Meeting' },
-  maintenance_scheduled: { color: '#F59E0B', label: 'Maintenance' },
-  amenity_booking: { color: '#2DD4BF', label: 'Amenity Booking' },
+  community_event: { color: '#00D4FF', label: 'Community Event' },
+  board_meeting: { color: '#0F1F3D', label: 'Board Meeting' },
+  maintenance_scheduled: { color: '#F97066', label: 'Maintenance' },
+  amenity_booking: { color: '#8892A4', label: 'Amenity Booking' },
 };
 
 const TYPE_MAP: Record<string, string> = {
@@ -276,12 +276,12 @@ const CMCalendar = () => {
               const dots = getDotsForDay(dt);
               return (
                 <div key={d} onClick={() => setSelectedDay(dt)} className="flex-1 flex flex-col items-center gap-1 cursor-pointer">
-                  <div className="text-[10px] font-bold" style={{ color: isSel ? '#00B4D8' : '#9CA3AF' }}>{d}</div>
+                  <div className="text-[10px] font-bold" style={{ color: isSel ? '#00D4FF' : '#9CA3AF' }}>{d}</div>
                   <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{
-                    background: isSel ? '#0A1628' : 'transparent',
-                    border: isSel ? '2px solid #00B4D8' : '2px solid transparent',
+                    background: isSel ? '#0F1F3D' : 'transparent',
+                    border: isSel ? '2px solid #00D4FF' : '2px solid transparent',
                   }}>
-                    <span className="text-[13px] font-extrabold" style={{ color: isSel ? '#fff' : '#1A1A2E' }}>{dt}</span>
+                    <span className="text-[13px] font-extrabold" style={{ color: isSel ? '#fff' : '#0F1F3D' }}>{dt}</span>
                   </div>
                   <div className="flex gap-0.5">
                     {dots.length > 0 ? dots.map((c, j) => (
@@ -307,14 +307,14 @@ const CMCalendar = () => {
                 return (
                   <div key={idx} onClick={() => cell.inMonth && setSelectedDay(cell.day)} className="flex flex-col items-center cursor-pointer py-0.5">
                     <div className="w-8 h-8 rounded-full flex items-center justify-center relative" style={{
-                      background: isSel ? '#0A1628' : 'transparent',
-                      border: isSel ? '2px solid #00B4D8' : '2px solid transparent',
+                      background: isSel ? '#0F1F3D' : 'transparent',
+                      border: isSel ? '2px solid #00D4FF' : '2px solid transparent',
                     }}>
                       <span className="text-[13px] font-extrabold" style={{
-                        color: !cell.inMonth ? '#E5E7EB' : isSel ? '#fff' : '#1A1A2E',
+                        color: !cell.inMonth ? '#E5E7EB' : isSel ? '#fff' : '#0F1F3D',
                       }}>{cell.day}</span>
                       {isToday && !isSel && (
-                        <div className="absolute -bottom-0.5 w-3 h-[2px] rounded-full" style={{ background: '#00B4D8' }} />
+                        <div className="absolute -bottom-0.5 w-3 h-[2px] rounded-full" style={{ background: '#00D4FF' }} />
                       )}
                     </div>
                     <div className="flex gap-0.5 mt-0.5 h-1.5">

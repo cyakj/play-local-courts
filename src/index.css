@@ -56,19 +56,19 @@
     --compete-light: 245 58% 95%;
     --compete-muted: 245 30% 70%;
 
-    /* Condo Manager brand colors (aliased from main tokens) */
-    --cm-navy: 216 74% 10%;
-    --cm-navy-mid: 213 64% 13%;
-    --cm-navy-light: 212 47% 21%;
-    --cm-cyan: 193 100% 42%;
-    --cm-cyan-light: 187 100% 94%;
-    --cm-app-bg: 210 33% 96%;
-    --cm-text: 240 33% 14%;
-    --cm-text-mid: 220 9% 35%;
-    --cm-text-light: 218 11% 65%;
-    --cm-border: 220 13% 91%;
-    --cm-success: 168 65% 51%;
-    --cm-success-bg: 168 100% 95%;
+    /* Condo Manager brand colors — Lumina Slate */
+    --cm-navy: 218 60% 15%;
+    --cm-navy-mid: 218 60% 15%;
+    --cm-navy-light: 218 42% 22%;
+    --cm-cyan: 192 100% 50%;
+    --cm-cyan-light: 192 100% 93%;
+    --cm-app-bg: 210 20% 98%;
+    --cm-text: 218 60% 15%;
+    --cm-text-mid: 218 15% 35%;
+    --cm-text-light: 218 13% 53%;
+    --cm-border: 218 13% 91%;
+    --cm-success: 192 100% 50%;
+    --cm-success-bg: 192 100% 93%;
     --cm-warning: 38 92% 50%;
     --cm-warning-bg: 48 100% 96%;
     --cm-danger: 0 84% 60%;

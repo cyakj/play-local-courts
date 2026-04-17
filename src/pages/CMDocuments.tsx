@@ -12,10 +12,10 @@ import { downloadDocument } from '@/lib/documentUtils';
 
 const CATEGORIES = [
   { key: 'rules_bylaws', label: 'Rules & Bylaws', icon: '📋', color: '#8B5CF6' },
-  { key: 'meeting_minutes', label: 'Meeting Minutes', icon: '📝', color: '#0A1628' },
-  { key: 'financial_statements', label: 'Financial Statements', icon: '💰', color: '#2DD4BF' },
+  { key: 'meeting_minutes', label: 'Meeting Minutes', icon: '📝', color: '#0F1F3D' },
+  { key: 'financial_statements', label: 'Financial Statements', icon: '💰', color: '#00D4FF' },
   { key: 'maintenance_records', label: 'Maintenance Records', icon: '🔧', color: '#F59E0B' },
-  { key: 'forms_applications', label: 'Forms & Applications', icon: '📄', color: '#00B4D8' },
+  { key: 'forms_applications', label: 'Forms & Applications', icon: '📄', color: '#00D4FF' },
 ];
 
 const FILE_ICONS: Record<string, string> = {

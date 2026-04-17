@@ -9,7 +9,7 @@ const CMLanguage = () => {
   const { toast } = useToast();
 
   return (
-    <div className="min-h-screen bg-[#F0F4F8]">
+    <div className="min-h-screen bg-[#F9FAFB]">
       <CMHeader compact>
         <div className="flex items-center gap-3">
           <button onClick={() => navigate(-1)} className="w-9 h-9 rounded-[10px] flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.12)' }}>
@@ -29,11 +29,11 @@ const CMLanguage = () => {
             <div key={item.label} className="flex items-center justify-between py-2">
               <div>
                 <p className="text-[12px] font-bold text-[#9CA3AF]">{item.label}</p>
-                <p className="text-sm font-medium text-[#1A1A2E] mt-0.5">{item.value}</p>
+                <p className="text-sm font-medium text-[#0F1F3D] mt-0.5">{item.value}</p>
               </div>
               <button
                 onClick={() => toast({ title: 'Coming Soon', description: 'This setting will be configurable in a future update.' })}
-                className="text-[12px] font-bold text-[#00B4D8]"
+                className="text-[12px] font-bold text-[#00D4FF]"
               >
                 Change
               </button>

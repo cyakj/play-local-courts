@@ -3,10 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { CMHeader } from '@/components/condo-manager/CMHeader';
 import { CMChips } from '@/components/condo-manager/CMChips';
 import { useCondoManagerCommunities, useCondoManagerAlerts } from '@/hooks/useCondoManagerData';
+import { UserCheck, Wrench, CalendarDays, TrendingUp, Bell } from 'lucide-react';
 
-const ALERT_ICON: Record<string, string> = { approval: '✅', issue: '🔧', booking: '📅', health: '📊' };
-const ALERT_COLOR: Record<string, string> = {
-  approval: '#00B4D8', issue: '#EF4444', booking: '#2DD4BF', health: '#F59E0B',
+const ALERT_CONFIG: Record<string, { icon: React.ElementType; color: string }> = {
+  approval: { icon: UserCheck, color: '#00D4FF' },
+  issue:    { icon: Wrench,     color: '#EF4444' },
+  booking:  { icon: CalendarDays, color: '#8892A4' },
+  health:   { icon: TrendingUp, color: '#F97066' },
 };
 
 const CMAlerts = () => {
@@ -30,11 +33,7 @@ const CMAlerts = () => {
     if (alert.type === 'approval') {
       navigate(`/cm/community/${alert.communityId}?tab=members`);
     } else if (alert.type === 'issue') {
-      if (alert.reportId) {
-        navigate('/cm/reports?reportId=' + alert.reportId);
-      } else {
-        navigate('/cm/reports');
-      }
+      navigate(alert.reportId ? '/cm/reports?reportId=' + alert.reportId : '/cm/reports');
     } else if (alert.type === 'health') {
       navigate(`/cm/community/${alert.communityId}`);
     }
@@ -48,7 +47,7 @@ const CMAlerts = () => {
             <div className="text-xl font-extrabold">Alerts</div>
             <div className="text-xs opacity-65">Pending actions</div>
           </div>
-          <div className="bg-cm-danger rounded-full px-3.5 py-1.5 text-[13px] font-extrabold">
+          <div className="rounded-full px-3.5 py-1.5 text-[13px] font-extrabold" style={{ backgroundColor: urgentCount > 0 ? 'rgba(239,68,68,0.25)' : 'rgba(255,255,255,0.12)' }}>
             {urgentCount} Urgent
           </div>
         </div>
@@ -61,43 +60,45 @@ const CMAlerts = () => {
       <div className="flex-1 overflow-y-auto p-4 pb-24">
         {loading ? (
           <div className="flex justify-center py-10">
-            <div className="w-8 h-8 border-3 border-cm-cyan/20 border-t-cm-cyan rounded-full animate-spin" />
+            <div className="w-8 h-8 border-2 rounded-full animate-spin" style={{ borderColor: 'rgba(0,212,255,0.2)', borderTopColor: '#00D4FF' }} />
           </div>
         ) : (
           <>
             {filtered.map((a, i) => {
-              const color = ALERT_COLOR[a.type] || '#9CA3AF';
-              const icon = ALERT_ICON[a.type] || '📋';
+              const cfg = ALERT_CONFIG[a.type] || { icon: Bell, color: '#8892A4' };
+              const Icon = cfg.icon;
               return (
                 <div
                   key={i}
-                  className="bg-white rounded-[14px] p-3.5 mb-2.5 border"
-                  style={{ borderColor: a.urgent ? `${color}44` : 'hsl(var(--cm-border))' }}
+                  className="bg-white rounded-2xl p-4 mb-3 border"
+                  style={{ borderColor: a.urgent ? `${cfg.color}44` : 'rgba(15,31,61,0.08)', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}
                 >
                   <div className="flex gap-3">
                     <div
-                      className="w-9 h-9 rounded-[10px] flex items-center justify-center text-lg flex-shrink-0"
-                      style={{ background: `${color}18` }}
+                      className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                      style={{ background: `${cfg.color}18` }}
                     >
-                      {icon}
+                      <Icon className="h-4 w-4" style={{ color: cfg.color }} />
                     </div>
                     <div className="flex-1">
                       <div className="flex justify-between">
-                        <div className="text-[11px] text-cm-cyan font-bold">{a.community}</div>
-                        <div className="text-[10px] text-cm-text-light">{a.time}</div>
+                        <div className="text-[11px] font-bold uppercase" style={{ color: '#00D4FF', letterSpacing: '0.08em' }}>{a.community}</div>
+                        <div className="text-[10px]" style={{ color: '#8892A4' }}>{a.time}</div>
                       </div>
-                      <div className="text-[13px] font-semibold text-cm-text mt-1">{a.text}</div>
+                      <div className="text-[13px] font-semibold mt-1" style={{ color: '#0F1F3D' }}>{a.text}</div>
                       {(a.urgent || a.type === 'issue') && (
-                        <div className="mt-2 flex gap-2">
-                          <div
+                        <div className="mt-3 flex gap-2">
+                          <button
                             onClick={() => handleTakeAction(a)}
-                            className="flex-1 bg-cm-navy text-white rounded-lg py-1.5 px-3 text-[11px] font-bold text-center cursor-pointer min-h-[44px] flex items-center justify-center"
+                            className="flex-1 rounded-xl py-2 text-[12px] font-bold text-white text-center cursor-pointer min-h-[44px]"
+                            style={{ backgroundColor: '#0F1F3D' }}
                           >
                             Take Action
-                          </div>
-                          <div className="flex-1 bg-cm-app-bg text-cm-text-mid rounded-lg py-1.5 px-3 text-[11px] font-bold text-center cursor-pointer border border-cm-border min-h-[44px] flex items-center justify-center">
+                          </button>
+                          <button className="flex-1 rounded-xl py-2 text-[12px] font-bold text-center cursor-pointer min-h-[44px] border"
+                            style={{ backgroundColor: '#F9FAFB', color: '#8892A4', borderColor: 'rgba(15,31,61,0.08)' }}>
                             Dismiss
-                          </div>
+                          </button>
                         </div>
                       )}
                     </div>
@@ -106,7 +107,7 @@ const CMAlerts = () => {
               );
             })}
             {filtered.length === 0 && (
-              <div className="text-center py-10 text-cm-text-light">No alerts — everything looks good! 🎉</div>
+              <div className="text-center py-10" style={{ color: '#8892A4' }}>No alerts — everything looks good!</div>
             )}
           </>
         )}

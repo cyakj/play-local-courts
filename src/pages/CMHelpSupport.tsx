@@ -14,7 +14,7 @@ const CMHelpSupport = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-[#F0F4F8]">
+    <div className="min-h-screen bg-[#F9FAFB]">
       <CMHeader compact>
         <div className="flex items-center gap-3">
           <button onClick={() => navigate(-1)} className="w-9 h-9 rounded-[10px] flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.12)' }}>
@@ -35,15 +35,15 @@ const CMHelpSupport = () => {
               <button
                 key={item.label}
                 onClick={item.action}
-                className={`w-full flex items-center gap-3 px-4 py-3.5 hover:bg-[#F0F4F8] transition-colors min-h-[52px] ${
+                className={`w-full flex items-center gap-3 px-4 py-3.5 hover:bg-[#F9FAFB] transition-colors min-h-[52px] ${
                   idx < items.length - 1 ? 'border-b border-[#E5E7EB]' : ''
                 }`}
               >
-                <div className="p-2 bg-[#F0F4F8] rounded-lg">
+                <div className="p-2 bg-[#F9FAFB] rounded-lg">
                   <Icon className="h-4 w-4 text-[#4B5563]" />
                 </div>
                 <div className="flex-1 text-left">
-                  <p className="font-semibold text-sm text-[#1A1A2E]">{item.label}</p>
+                  <p className="font-semibold text-sm text-[#0F1F3D]">{item.label}</p>
                   <p className="text-[11px] text-[#9CA3AF]">{item.desc}</p>
                 </div>
                 <ChevronRight className="h-4 w-4 text-[#9CA3AF]" />

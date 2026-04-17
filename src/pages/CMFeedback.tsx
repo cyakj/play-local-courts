@@ -28,7 +28,7 @@ const CMFeedback = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F0F4F8]">
+    <div className="min-h-screen bg-[#F9FAFB]">
       <CMHeader compact>
         <div className="flex items-center gap-3">
           <button onClick={() => navigate(-1)} className="w-9 h-9 rounded-[10px] flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.12)' }}>
@@ -49,8 +49,8 @@ const CMFeedback = () => {
                   onClick={() => setCategory(c)}
                   className={`px-4 py-2 rounded-full text-[12px] font-bold transition-all ${
                     category === c
-                      ? 'bg-[#00B4D8] text-white'
-                      : 'bg-[#F0F4F8] text-[#4B5563]'
+                      ? 'bg-[#00D4FF] text-white'
+                      : 'bg-[#F9FAFB] text-[#4B5563]'
                   }`}
                 >
                   {c}
@@ -65,7 +65,7 @@ const CMFeedback = () => {
               onChange={(e) => setBody(e.target.value)}
               placeholder="Tell us what's on your mind..."
               rows={5}
-              className="w-full px-3.5 py-3 rounded-[10px] border border-[#E5E7EB] text-sm text-[#1A1A2E] resize-none focus:outline-none focus:ring-2 focus:ring-[#00B4D8]/30 focus:border-[#00B4D8]"
+              className="w-full px-3.5 py-3 rounded-[10px] border border-[#E5E7EB] text-sm text-[#0F1F3D] resize-none focus:outline-none focus:ring-2 focus:ring-[#00D4FF]/30 focus:border-[#00D4FF]"
             />
           </div>
         </div>
@@ -74,7 +74,7 @@ const CMFeedback = () => {
           onClick={handleSubmit}
           disabled={submitting}
           className="w-full py-3 rounded-[12px] text-sm font-bold text-white disabled:opacity-50"
-          style={{ background: 'linear-gradient(135deg, #00B4D8 0%, #0095B6 100%)' }}
+          style={{ background: 'linear-gradient(135deg, #00D4FF 0%, #0095B6 100%)' }}
         >
           {submitting ? 'Sending...' : 'Submit Feedback'}
         </button>

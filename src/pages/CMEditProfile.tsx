@@ -71,13 +71,13 @@ const CMEditProfile = () => {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
-        className="w-full px-3.5 py-3 rounded-[10px] border border-[#E5E7EB] text-sm text-[#1A1A2E] bg-white disabled:bg-[#F0F4F8] disabled:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#00B4D8]/30 focus:border-[#00B4D8]"
+        className="w-full px-3.5 py-3 rounded-[10px] border border-[#E5E7EB] text-sm text-[#0F1F3D] bg-white disabled:bg-[#F9FAFB] disabled:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#00D4FF]/30 focus:border-[#00D4FF]"
       />
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[#F0F4F8]">
+    <div className="min-h-screen bg-[#F9FAFB]">
       <CMHeader compact>
         <div className="flex items-center gap-3">
           <button onClick={() => navigate(-1)} className="w-9 h-9 rounded-[10px] flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.12)' }}>
@@ -91,10 +91,10 @@ const CMEditProfile = () => {
         {/* Avatar */}
         <div className="flex justify-center">
           <div className="relative">
-            <div className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-extrabold text-white" style={{ background: '#0A1628', border: '3px solid #00B4D8' }}>
+            <div className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-extrabold text-white" style={{ background: '#0F1F3D', border: '3px solid #00D4FF' }}>
               {initials}
             </div>
-            <div className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-[#00B4D8] flex items-center justify-center border-2 border-white">
+            <div className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-[#00D4FF] flex items-center justify-center border-2 border-white">
               <Camera className="h-3.5 w-3.5 text-white" />
             </div>
           </div>
@@ -114,7 +114,7 @@ const CMEditProfile = () => {
           onClick={handleSave}
           disabled={saving}
           className="w-full py-3 rounded-[12px] text-sm font-bold text-white disabled:opacity-50"
-          style={{ background: 'linear-gradient(135deg, #00B4D8 0%, #0095B6 100%)' }}
+          style={{ background: 'linear-gradient(135deg, #00D4FF 0%, #0095B6 100%)' }}
         >
           {saving ? 'Saving...' : 'Save Changes'}
         </button>

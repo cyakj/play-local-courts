@@ -55,7 +55,7 @@ const CMSettings = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-[#F0F4F8]">
+    <div className="min-h-screen bg-[#F9FAFB]">
       <CMHeader compact>
         <div className="flex items-center gap-3">
           <button
@@ -75,12 +75,12 @@ const CMSettings = () => {
           <div className="flex items-center gap-3.5">
             <div
               className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-extrabold text-white flex-shrink-0"
-              style={{ background: '#0A1628', border: '2px solid #00B4D8' }}
+              style={{ background: '#0F1F3D', border: '2px solid #00D4FF' }}
             >
               {initials}
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="font-extrabold text-[16px] text-[#1A1A2E] truncate">
+              <h2 className="font-extrabold text-[16px] text-[#0F1F3D] truncate">
                 {currentUser?.fullName || 'Your Name'}
               </h2>
               <p className="text-[13px] text-[#9CA3AF] mt-0.5">Property Manager</p>
@@ -90,7 +90,7 @@ const CMSettings = () => {
           <button
             onClick={() => navigate('/cm/settings/edit-profile')}
             className="w-full mt-3.5 py-2.5 rounded-[10px] text-xs font-bold text-white"
-            style={{ background: '#00B4D8' }}
+            style={{ background: '#00D4FF' }}
           >
             Edit Profile
           </button>
@@ -109,15 +109,15 @@ const CMSettings = () => {
                   <button
                     key={item.label}
                     onClick={() => navigate(item.path)}
-                    className={`w-full flex items-center gap-3 px-4 py-3.5 hover:bg-[#F0F4F8] transition-colors min-h-[52px] ${
+                    className={`w-full flex items-center gap-3 px-4 py-3.5 hover:bg-[#F9FAFB] transition-colors min-h-[52px] ${
                       idx < section.items.length - 1 ? 'border-b border-[#E5E7EB]' : ''
                     }`}
                   >
-                    <div className="p-2 bg-[#F0F4F8] rounded-lg">
+                    <div className="p-2 bg-[#F9FAFB] rounded-lg">
                       <Icon className="h-4 w-4 text-[#4B5563]" />
                     </div>
                     <div className="flex-1 text-left">
-                      <p className="font-semibold text-sm text-[#1A1A2E]">{item.label}</p>
+                      <p className="font-semibold text-sm text-[#0F1F3D]">{item.label}</p>
                       <p className="text-[11px] text-[#9CA3AF]">{item.desc}</p>
                     </div>
                     <ChevronRight className="h-4 w-4 text-[#9CA3AF]" />
@@ -139,13 +139,13 @@ const CMSettings = () => {
           </button>
         ) : (
           <div className="bg-white rounded-2xl p-5 border border-[#E5E7EB] space-y-3">
-            <p className="text-center text-[14px] font-semibold text-[#1A1A2E]">
+            <p className="text-center text-[14px] font-semibold text-[#0F1F3D]">
               Are you sure you want to sign out?
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowSignOutConfirm(false)}
-                className="flex-1 py-2.5 rounded-[10px] bg-[#F0F4F8] text-[14px] font-semibold text-[#9CA3AF]"
+                className="flex-1 py-2.5 rounded-[10px] bg-[#F9FAFB] text-[14px] font-semibold text-[#9CA3AF]"
               >
                 Cancel
               </button>
