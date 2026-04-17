@@ -1,13 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Bell, Menu, Wrench, CalendarDays, ChevronRight, Plus, TrendingUp } from 'lucide-react';
+import { Bell, Menu, TrendingUp, Plus, Building2, AlertTriangle, Calendar, Clock } from 'lucide-react';
 import CMNotificationCenter from '@/components/condo-manager/CMNotificationCenter';
 import CMProfileSheet from '@/components/condo-manager/CMProfileSheet';
 import { useCondoManagerCommunities, useCondoManagerNotifications, useCondoManagerAlerts } from '@/hooks/useCondoManagerData';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import { CMStatusBadge } from '@/components/condo-manager/CMStatusBadge';
 import AddCommunityModal from '@/components/condo-manager/AddCommunityModal';
 
 const CMPortfolio = () => {
@@ -31,8 +28,19 @@ const CMPortfolio = () => {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
-  // Find community needing most attention
   const needsAttention = communities.find(c => c.status === 'warning' || c.status === 'critical');
+
+  const getHealthColor = (score: number) => {
+    if (score >= 70) return '#059669';
+    if (score >= 40) return '#F97066';
+    return '#EF4444';
+  };
+
+  const getStatusPill = (score: number) => {
+    if (score >= 70) return { label: 'Optimal', bg: '#F0FDF4', text: '#065F46', border: '#34D399' };
+    if (score >= 40) return { label: 'Needs Attention', bg: '#FFF5F5', text: '#C0392B', border: '#F97066' };
+    return { label: 'Critical', bg: '#FEF2F2', text: '#991B1B', border: '#EF4444' };
+  };
 
   if (showNotifs) {
     return <CMNotificationCenter onClose={() => setShowNotifs(false)} />;
@@ -40,189 +48,256 @@ const CMPortfolio = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="w-10 h-10 border-3 border-emerald-100 border-t-emerald-600 rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#F9FAFB] flex items-center justify-center">
+        <div className="w-10 h-10 border-2 border-emerald-100 border-t-[#059669] rounded-full animate-spin" />
       </div>
     );
   }
 
+  const statCards = [
+    { icon: <Building2 className="h-5 w-5" />, value: totalUnits, label: 'Total Units' },
+    { icon: <AlertTriangle className="h-5 w-5" />, value: totalIssues, label: 'Open Issues' },
+    { icon: <Calendar className="h-5 w-5" />, value: totalBookings, label: "Today's Bookings" },
+    { icon: <Clock className="h-5 w-5" />, value: totalPending, label: 'Pending' },
+  ];
+
   return (
-    <div className="min-h-screen bg-white pb-24">
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-5 pt-12 pb-2">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-emerald-700 flex items-center justify-center">
-            <span className="text-white text-xs font-black">TX</span>
-          </div>
-          <div>
-            <div className="text-sm font-extrabold text-foreground tracking-tight">TenisX</div>
-            <div className="text-[10px] text-muted-foreground uppercase tracking-widest">Portfolio Management</div>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <div
-            onClick={() => setShowNotifs(true)}
-            className="relative w-10 h-10 flex items-center justify-center cursor-pointer"
-          >
-            <Bell className="h-5 w-5 text-foreground" />
-            {alertCount > 0 && (
-              <div className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px] font-bold">
-                {alertCount}
-              </div>
-            )}
-          </div>
-          <div
-            onClick={() => navigate('/cm/settings')}
-            className="w-10 h-10 flex items-center justify-center cursor-pointer"
-          >
-            <Menu className="h-5 w-5 text-foreground" />
-          </div>
-        </div>
-      </div>
+    <div className="min-h-screen bg-[#F9FAFB] pb-24">
 
-      {/* Greeting */}
-      <div className="px-5 pt-4 pb-6">
-        <div className="text-[11px] text-muted-foreground uppercase tracking-[0.15em] font-semibold mb-1">Welcome back</div>
-        <h1 className="text-[32px] font-black text-foreground leading-[1.1] tracking-tight">
-          {greeting},<br />{firstName}
-        </h1>
-        <p className="text-sm text-muted-foreground mt-3 leading-relaxed">
-          Your architectural portfolio is currently being monitored for performance and occupancy efficiency.
-        </p>
-      </div>
+      {/* Header */}
+      <div style={{ backgroundColor: '#064E3B' }} className="px-5 pt-12 pb-8 relative overflow-visible">
 
-      {/* Portfolio Health Card */}
-      <div className="mx-5 mb-6 border border-border rounded-2xl p-5">
-        <div className="flex justify-between items-start mb-3">
-          <div>
-            <div className="text-[10px] text-muted-foreground uppercase tracking-[0.15em] font-semibold mb-2">Portfolio Health</div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-[40px] font-black text-foreground leading-none">{avgHealth}</span>
-              <span className="text-lg text-muted-foreground font-medium">/100</span>
+        {/* Top bar */}
+        <div className="flex items-center justify-between mb-6">
+          <img
+            src="/images/TenisX_logo-removebg-preview.png"
+            style={{ height: '88px', width: 'auto', maxWidth: '220px', display: 'block' }}
+            alt="TenisX"
+          />
+          <div className="flex items-center gap-3">
+            <div
+              onClick={() => setShowNotifs(true)}
+              className="relative w-10 h-10 flex items-center justify-center cursor-pointer"
+            >
+              <Bell className="h-5 w-5 text-white" />
+              {alertCount > 0 && (
+                <div className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] font-bold">
+                  {alertCount}
+                </div>
+              )}
+            </div>
+            <div
+              onClick={() => navigate('/cm/settings')}
+              className="w-10 h-10 flex items-center justify-center cursor-pointer"
+            >
+              <Menu className="h-5 w-5 text-white" />
             </div>
           </div>
-          <div className="w-10 h-10 rounded-xl border border-border flex items-center justify-center">
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </div>
         </div>
-        <div className="w-full bg-gray-100 rounded-full h-1.5 mb-3">
-          <div
-            className="h-full rounded-full transition-all"
-            style={{
-              width: `${avgHealth}%`,
-              backgroundColor: avgHealth >= 80 ? 'hsl(var(--cm-success))' : avgHealth >= 50 ? 'hsl(var(--cm-warning))' : 'hsl(var(--cm-danger))',
-            }}
-          />
+
+        {/* Greeting */}
+        <div className="text-[13px] uppercase font-semibold mb-1" style={{ color: '#34D399', letterSpacing: '0.15em' }}>
+          Welcome back
         </div>
-        {needsAttention && (
-          <div className="flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-            <span className="text-xs text-amber-600 font-medium">Needs attention at {needsAttention.name}</span>
-          </div>
-        )}
+        <h1 className="text-[32px] font-black text-white leading-[1.1] tracking-tight">
+          {greeting},<br />{firstName}
+        </h1>
+        <p className="text-emerald-200 mt-3 leading-relaxed" style={{ fontSize: '15px', opacity: 0.9 }}>
+          Your portfolio is currently being monitored for performance and occupancy efficiency.
+        </p>
+
+        {/* Bottom fade */}
+        <div
+          className="absolute -bottom-6 left-0 right-0 h-8 pointer-events-none z-0"
+          style={{ background: 'linear-gradient(to bottom, #064E3B, transparent)' }}
+        />
       </div>
 
-      {/* Stats Grid 2x2 */}
-      <div className="mx-5 mb-8">
-        <div className="grid grid-cols-2">
-          {[
-            { icon: '🏠', value: totalUnits, label: 'Total Units' },
-            { icon: '⚠️', value: totalIssues, label: 'Open Issues' },
-            { icon: '📅', value: totalBookings, label: 'Bookings' },
-            { icon: '⏳', value: totalPending, label: 'Pending' },
-          ].map((stat, i) => (
+      {/* Page content */}
+      <div className="px-5 pt-8 space-y-4">
+
+        {/* Stats — 2×2 white card grid */}
+        <div className="grid grid-cols-2 gap-3">
+          {statCards.map((stat, i) => (
             <div
               key={i}
-              className="py-5 px-4"
-              style={{
-                borderBottom: i < 2 ? '1px solid hsl(var(--border))' : 'none',
-                borderRight: i % 2 === 0 ? '1px solid hsl(var(--border))' : 'none',
-              }}
+              className="bg-white rounded-2xl p-5 border border-gray-100 h-28 flex flex-col justify-between"
+              style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}
             >
-              <div className="text-base mb-1">{stat.icon}</div>
-              <div className="text-[28px] font-black text-foreground leading-none">{stat.value}</div>
-              <div className="text-[11px] text-muted-foreground mt-1.5 uppercase tracking-wide font-medium">{stat.label}</div>
+              <div style={{ color: '#059669' }}>{stat.icon}</div>
+              <div>
+                <div
+                  className="font-bold text-2xl leading-none"
+                  style={{ color: '#064E3B', fontFamily: 'Manrope, sans-serif' }}
+                >
+                  {stat.value}
+                </div>
+                <div
+                  className="text-[11px] uppercase font-semibold mt-1"
+                  style={{ color: '#4B5563', letterSpacing: '0.08em' }}
+                >
+                  {stat.label}
+                </div>
+              </div>
             </div>
           ))}
         </div>
-      </div>
 
-      {/* My Communities */}
-      <div className="px-5">
-        <div className="flex justify-between items-baseline mb-4">
-          <h2 className="text-xl font-black text-foreground">My Communities</h2>
-        </div>
-
-        {communities.length === 0 && (
-          <div className="text-center py-10 text-muted-foreground text-sm">
-            No communities found. Add one to get started.
-          </div>
-        )}
-
-        {communities.map((c) => {
-          const isWarning = c.status === 'warning' || c.status === 'critical';
-          const barColor = isWarning ? 'hsl(var(--cm-warning))' : 'hsl(var(--cm-success))';
-
-          return (
-            <div
-              key={c.id}
-              onClick={() => navigate(`/cm/community/${c.id}`)}
-              className="border-b border-border pb-5 mb-5 cursor-pointer last:border-b-0"
-            >
-              {/* Name + Badge */}
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="text-lg font-extrabold text-foreground">{c.name}</h3>
-                <CMStatusBadge status={c.status} />
+        {/* Portfolio Health Card */}
+        <div
+          className="bg-white rounded-2xl p-5 border border-gray-100"
+          style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}
+        >
+          <div className="flex justify-between items-start mb-3">
+            <div>
+              <div
+                className="text-[11px] uppercase font-semibold mb-2"
+                style={{ color: '#4B5563', letterSpacing: '0.08em' }}
+              >
+                Portfolio Health
               </div>
-
-              {/* Health Score */}
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Health Score</span>
-                <span className="text-sm font-extrabold text-foreground">{c.health}/100</span>
-              </div>
-              <div className="w-full bg-gray-100 rounded-full h-1.5 mb-4">
-                <div
-                  className="h-full rounded-full transition-all"
-                  style={{ width: `${c.health}%`, backgroundColor: barColor }}
-                />
-              </div>
-
-              {/* Mini stats 2x2 */}
-              <div className="grid grid-cols-4 gap-3 mb-3">
-                {[
-                  { label: 'Units', value: c.totalUnits },
-                  { label: 'Amenities', value: c.amenities.length },
-                  { label: 'Members', value: c.activeMembers },
-                  { label: 'Alerts', value: c.openIssues + c.pendingApprovals },
-                ].map((item, i) => (
-                  <div key={i}>
-                    <div className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium mb-0.5">{item.label}</div>
-                    <div className="text-lg font-extrabold text-foreground">{item.value}</div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Action row */}
-              <div className="flex items-center justify-between pt-2">
-                <div className="flex items-center gap-3">
-                  <Wrench className="h-4 w-4 text-muted-foreground" />
-                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              <div className="flex items-baseline gap-1">
+                <span
+                  className="text-[40px] font-black leading-none"
+                  style={{ color: getHealthColor(avgHealth), fontFamily: 'Manrope, sans-serif' }}
+                >
+                  {avgHealth}
+                </span>
+                <span className="text-lg font-medium" style={{ color: '#4B5563' }}>/100</span>
               </div>
             </div>
-          );
-        })}
-
-        {/* Add Community */}
-        <div
-          onClick={() => setShowAddCommunity(true)}
-          className="flex flex-col items-center py-8 cursor-pointer"
-        >
-          <div className="w-12 h-12 rounded-full border-2 border-border flex items-center justify-center mb-2 hover:border-emerald-500 transition-colors">
-            <Plus className="h-5 w-5 text-muted-foreground" />
+            <div className="w-10 h-10 rounded-xl border border-gray-200 flex items-center justify-center">
+              <TrendingUp className="h-4 w-4" style={{ color: '#9CA3AF' }} />
+            </div>
           </div>
-          <span className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Add Community</span>
+          <div className="w-full bg-gray-100 rounded-full h-1 mb-3">
+            <div
+              className="h-full rounded-full transition-all"
+              style={{ width: `${avgHealth}%`, backgroundColor: getHealthColor(avgHealth) }}
+            />
+          </div>
+          {needsAttention && (
+            <div className="flex items-center gap-1.5">
+              <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#F97066' }} />
+              <span className="text-[13px] font-medium" style={{ color: '#4B5563' }}>
+                Needs attention at {needsAttention.name}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* My Communities */}
+        <div>
+          <h2
+            className="text-[18px] font-bold mb-4"
+            style={{ color: '#064E3B', fontFamily: 'Manrope, sans-serif' }}
+          >
+            My Communities
+          </h2>
+
+          {communities.length === 0 && (
+            <div className="text-center py-10 text-sm" style={{ color: '#4B5563' }}>
+              No communities found. Add one to get started.
+            </div>
+          )}
+
+          {communities.map((c) => {
+            const pill = getStatusPill(c.health);
+            const healthColor = getHealthColor(c.health);
+
+            return (
+              <div
+                key={c.id}
+                onClick={() => navigate(`/cm/community/${c.id}`)}
+                className="bg-white rounded-2xl mb-3 p-5 cursor-pointer border border-gray-100"
+                style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}
+              >
+                {/* Name + Status pill */}
+                <div className="flex justify-between items-center mb-3">
+                  <h3
+                    className="text-[18px] font-extrabold"
+                    style={{ color: '#064E3B', fontFamily: 'Manrope, sans-serif' }}
+                  >
+                    {c.name}
+                  </h3>
+                  <span
+                    className="text-[11px] font-bold px-2.5 py-0.5 rounded-full shrink-0 ml-2"
+                    style={{
+                      backgroundColor: pill.bg,
+                      color: pill.text,
+                      border: `1px solid ${pill.border}`,
+                    }}
+                  >
+                    {pill.label}
+                  </span>
+                </div>
+
+                {/* Health Score */}
+                <div className="flex justify-between items-center mb-2">
+                  <span
+                    className="text-[11px] uppercase font-semibold"
+                    style={{ color: '#4B5563', letterSpacing: '0.08em' }}
+                  >
+                    Health Score
+                  </span>
+                  <span className="text-[14px] font-extrabold" style={{ color: healthColor }}>
+                    {c.health}/100
+                  </span>
+                </div>
+                <div className="w-full bg-gray-100 rounded-full h-1 mb-4">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{ width: `${c.health}%`, backgroundColor: healthColor }}
+                  />
+                </div>
+
+                {/* 4-column stats */}
+                <div className="grid grid-cols-4 mb-3">
+                  {[
+                    { label: 'Units', value: c.totalUnits },
+                    { label: 'Amenities', value: c.amenities.length },
+                    { label: 'Members', value: c.activeMembers },
+                    { label: 'Alerts', value: c.openIssues + c.pendingApprovals },
+                  ].map((item, i) => (
+                    <div key={i} className="text-center">
+                      <div
+                        className="text-[20px] font-extrabold leading-none"
+                        style={{ color: '#064E3B', fontFamily: 'Manrope, sans-serif' }}
+                      >
+                        {item.value}
+                      </div>
+                      <div
+                        className="text-[11px] uppercase font-medium mt-1"
+                        style={{ color: '#4B5563', letterSpacing: '0.08em' }}
+                      >
+                        {item.label}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Manage link */}
+                <div className="flex justify-end pt-1 border-t border-gray-100">
+                  <span className="text-[14px] font-extrabold mt-2" style={{ color: '#059669' }}>
+                    Manage →
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Add Community */}
+          <div
+            onClick={() => setShowAddCommunity(true)}
+            className="flex flex-col items-center py-8 cursor-pointer border-2 border-dashed border-gray-200 rounded-2xl"
+          >
+            <div className="w-12 h-12 rounded-full flex items-center justify-center mb-2">
+              <Plus className="h-5 w-5" style={{ color: '#9CA3AF' }} />
+            </div>
+            <span className="text-xs font-bold uppercase tracking-wide" style={{ color: '#4B5563' }}>
+              Add Community
+            </span>
+          </div>
         </div>
       </div>
 

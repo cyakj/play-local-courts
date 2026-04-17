@@ -1,11 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Settings, Wrench, X } from 'lucide-react';
-import { CMHeader } from '@/components/condo-manager/CMHeader';
-import { CMHealthBar } from '@/components/condo-manager/CMHealthBar';
-import { CMStatusBadge } from '@/components/condo-manager/CMStatusBadge';
-import { CMKpiCard } from '@/components/condo-manager/CMKpiCard';
-import { CMIssuesTrendChart, CMPeriodToggle } from '@/components/condo-manager/CMIssuesTrendChart';
+import {
+  ArrowLeft, Plus, Trash2, Settings, Wrench, X,
+  Users, AlertTriangle, Calendar, UserCheck, Megaphone, FileText, BarChart2,
+} from 'lucide-react';
+import { CMIssuesTrendChart } from '@/components/condo-manager/CMIssuesTrendChart';
 import SetMaintenanceSheet from '@/components/condo-manager/SetMaintenanceSheet';
 import InviteLinkSheet from '@/components/condo-manager/InviteLinkSheet';
 import { useCondoManagerCommunities } from '@/hooks/useCondoManagerData';
@@ -22,6 +21,39 @@ const AMENITY_TYPES = [
   { value: 'barbecue', label: 'Barbecue' },
   { value: 'jacuzzi', label: 'Jacuzzi' },
 ] as const;
+
+const getHealthColor = (score: number) => {
+  if (score >= 70) return '#059669';
+  if (score >= 40) return '#F97066';
+  return '#EF4444';
+};
+
+type StatCardProps = {
+  icon: React.ReactNode;
+  value: React.ReactNode;
+  label: string;
+  badge?: React.ReactNode;
+};
+const StatCard = ({ icon, value, label, badge }: StatCardProps) => (
+  <div className="bg-white rounded-2xl p-5 border border-gray-100 flex flex-col justify-between h-28"
+    style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+    <div className="flex justify-between items-start">
+      <div style={{ color: '#059669' }}>{icon}</div>
+      {badge}
+    </div>
+    <div>
+      <div className="font-bold text-2xl" style={{ color: '#064E3B', fontFamily: 'Manrope, sans-serif' }}>{value}</div>
+      <div className="text-[11px] uppercase font-semibold mt-1" style={{ color: '#4B5563', letterSpacing: '0.08em' }}>{label}</div>
+    </div>
+  </div>
+);
+
+const GreenBadge = ({ label }: { label: string }) => (
+  <span className="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full"
+    style={{ backgroundColor: '#F0FDF4', color: '#065F46', border: '1px solid #34D399' }}>
+    {label}
+  </span>
+);
 
 const CMCommunityDashboard = () => {
   const { id } = useParams();
@@ -49,7 +81,6 @@ const CMCommunityDashboard = () => {
     if (tabParam) setTab(tabParam);
   }, [searchParams]);
 
-  // Fetch pending members when on members tab
   useEffect(() => {
     if (tab !== 'members' || !c) return;
     const fetchPending = async () => {
@@ -58,18 +89,12 @@ const CMCommunityDashboard = () => {
         .select('id, user_id, created_at')
         .eq('hoa_id', c.id)
         .eq('status', 'pending');
-
       if (data && data.length > 0) {
         const userIds = data.map(m => m.user_id);
         const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, full_name')
-          .in('id', userIds);
+          .from('profiles').select('id, full_name').in('id', userIds);
         const nameMap = new Map((profiles || []).map(p => [p.id, p.full_name]));
-        setPendingMembers(data.map(m => ({
-          ...m,
-          name: nameMap.get(m.user_id) || 'Unknown',
-        })));
+        setPendingMembers(data.map(m => ({ ...m, name: nameMap.get(m.user_id) || 'Unknown' })));
       } else {
         setPendingMembers([]);
       }
@@ -79,63 +104,31 @@ const CMCommunityDashboard = () => {
 
   const handleApproveMember = async (membershipId: string) => {
     const { error } = await supabase.rpc('approve_hoa_membership', { membership_id: membershipId });
-    if (error) {
-      toast.error('Failed to approve member');
-    } else {
-      toast.success('Member approved');
-      setPendingMembers(prev => prev.filter(m => m.id !== membershipId));
-    }
+    if (error) toast.error('Failed to approve member');
+    else { toast.success('Member approved'); setPendingMembers(prev => prev.filter(m => m.id !== membershipId)); }
   };
 
   const handleRejectMember = async (membershipId: string) => {
     const { error } = await supabase.rpc('reject_hoa_membership', { membership_id: membershipId });
-    if (error) {
-      toast.error('Failed to reject member');
-    } else {
-      toast.success('Member rejected');
-      setPendingMembers(prev => prev.filter(m => m.id !== membershipId));
-    }
+    if (error) toast.error('Failed to reject member');
+    else { toast.success('Member rejected'); setPendingMembers(prev => prev.filter(m => m.id !== membershipId)); }
   };
 
   const handlePostAnnouncement = async () => {
     if (!announcementTitle.trim() || !announcementBody.trim() || !c || !currentUser?.id) return;
-
     const { error } = await supabase.from('hoa_announcements').insert({
-      hoa_id: c.id,
-      created_by: currentUser.id,
-      title: announcementTitle.trim(),
-      body: announcementBody.trim(),
-      audience: announcementAudience,
+      hoa_id: c.id, created_by: currentUser.id,
+      title: announcementTitle.trim(), body: announcementBody.trim(), audience: announcementAudience,
     });
-
-    if (error) {
-      toast.error('Failed to post announcement');
-      return;
-    }
-
-    // Send notification to all community members
+    if (error) { toast.error('Failed to post announcement'); return; }
     const { data: members } = await supabase
-      .from('hoa_memberships')
-      .select('user_id')
-      .eq('hoa_id', c.id)
-      .eq('status', 'approved');
-
+      .from('hoa_memberships').select('user_id').eq('hoa_id', c.id).eq('status', 'approved');
     if (members) {
       const notifs = members
         .filter(m => announcementAudience === 'all_residents' || m.user_id === currentUser.id)
-        .map(m => ({
-          user_id: m.user_id,
-          hoa_id: c.id,
-          type: 'announcement' as const,
-          title: announcementTitle.trim(),
-          body: announcementBody.trim(),
-        }));
-
-      if (notifs.length > 0) {
-        await supabase.from('hoa_notifications').insert(notifs);
-      }
+        .map(m => ({ user_id: m.user_id, hoa_id: c.id, type: 'announcement' as const, title: announcementTitle.trim(), body: announcementBody.trim() }));
+      if (notifs.length > 0) await supabase.from('hoa_notifications').insert(notifs);
     }
-
     toast.success('Announcement posted');
     setShowAnnouncementModal(false);
     setAnnouncementTitle('');
@@ -145,253 +138,302 @@ const CMCommunityDashboard = () => {
   const handleQuickAction = (label: string) => {
     if (!c) return;
     switch (label) {
-      case 'Manage Documents':
-        navigate(`/cm/community/${c.id}/documents`);
-        break;
-      case 'Manage Surveys':
-        navigate(`/cm/community/${c.id}/surveys`);
-        break;
-      case 'Approve Members':
-        setTab('members');
-        break;
-      case 'Post Announcement':
-        setShowAnnouncementModal(true);
-        break;
+      case 'Manage Documents': navigate(`/cm/community/${c.id}/documents`); break;
+      case 'Manage Surveys': navigate(`/cm/community/${c.id}/surveys`); break;
+      case 'Approve Members': setTab('members'); break;
+      case 'Post Announcement': setShowAnnouncementModal(true); break;
     }
   };
 
   if (!c) {
     return (
-      <div className="min-h-screen bg-cm-app-bg flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cm-cyan" />
+      <div className="min-h-screen bg-[#F9FAFB] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#059669]" />
       </div>
     );
   }
 
+  const healthColor = getHealthColor(c.health);
+  const statusPill = c.status === 'critical'
+    ? { label: 'Critical', bg: '#EF4444', text: '#fff' }
+    : c.status === 'warning'
+    ? { label: 'Needs Attention', bg: '#823f3a', text: '#fff' }
+    : { label: 'Optimal', bg: '#065f46', text: '#fff' };
+
   const tabs = ['overview', 'reports', 'amenities', 'members'];
 
   return (
-    <div className="min-h-screen bg-cm-app-bg flex flex-col">
-      <CMHeader compact>
-        <div className="flex items-center gap-3 mb-4">
-          <div
-            onClick={() => navigate('/cm')}
-            className="bg-white/[0.12] rounded-[10px] w-9 h-9 flex items-center justify-center cursor-pointer min-h-[44px]"
-          >
-            <ArrowLeft className="h-4 w-4" />
+    <div className="min-h-screen bg-[#F9FAFB] pb-24">
+
+      {/* Header — no floating card, clean height */}
+      <header
+        className="sticky top-0 z-50 px-5 pt-10 pb-6 shadow-md"
+        style={{ background: 'linear-gradient(135deg, #004532 0%, #065f46 100%)' }}
+      >
+        <div className="flex items-center w-full mt-2">
+          <button onClick={() => navigate('/cm')} className="mr-4 text-white active:scale-95 transition-transform">
+            <ArrowLeft className="h-6 w-6" />
+          </button>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl font-extrabold text-white" style={{ fontFamily: 'Manrope, sans-serif' }}>
+                {c.name}
+              </h1>
+              <span
+                className="text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full shrink-0"
+                style={{ backgroundColor: statusPill.bg, color: statusPill.text }}
+              >
+                {statusPill.label}
+              </span>
+            </div>
+            <p className="text-xs mt-0.5" style={{ color: '#a7f3d0' }}>{c.totalUnits} units</p>
           </div>
-          <div className="flex-1">
-            <div className="text-xl font-extrabold">{c.name}</div>
-            <div className="text-xs opacity-65">{c.totalUnits} units</div>
-          </div>
-          <CMStatusBadge status={c.status} />
         </div>
-        <div className="bg-[rgba(0,180,216,0.12)] border border-[rgba(0,180,216,0.2)] rounded-[14px] p-3">
-          <div className="flex justify-between items-center mb-2">
+      </header>
+
+      {/* Scrollable content */}
+      <div className="overflow-y-auto px-5 pt-5 space-y-4 max-w-2xl mx-auto">
+
+        {/* Health Score card — first item in scroll flow */}
+        <div className="bg-white rounded-2xl p-5 border border-gray-100" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+          <div className="flex justify-between items-end mb-3">
             <div>
-              <div className="text-[13px] opacity-85 font-semibold">Community Health Score</div>
-              <div className="text-[10px] opacity-55 italic mt-0.5">updated daily</div>
+              <p className="text-[11px] uppercase font-semibold mb-1" style={{ color: '#4B5563', letterSpacing: '0.08em' }}>
+                Community Health Score
+              </p>
+              <div className="flex items-baseline gap-1">
+                <span className="font-black text-[40px] leading-none" style={{ color: healthColor, fontFamily: 'Manrope, sans-serif' }}>
+                  {c.health}
+                </span>
+                <span className="text-lg font-medium" style={{ color: '#4B5563' }}>/100</span>
+              </div>
             </div>
-            <div className="text-[28px] font-black text-cm-cyan">
-              {c.health}<span className="text-sm opacity-70">/100</span>
-            </div>
+            <p className="text-xs italic" style={{ color: '#9CA3AF' }}>updated daily</p>
           </div>
-          <CMHealthBar value={c.health} status={c.status} />
+          <div className="w-full h-1 rounded-full overflow-hidden bg-gray-100">
+            <div className="h-full rounded-full transition-all" style={{ width: `${c.health}%`, backgroundColor: healthColor }} />
+          </div>
         </div>
+
+        {/* Tab bar — scrollable so "Members" never clips */}
+        <div className="flex gap-6 border-b border-gray-200 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+          {tabs.map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className="text-[13px] font-semibold pb-2 whitespace-nowrap capitalize transition-colors shrink-0"
+              style={{
+                color: tab === t ? '#059669' : '#71717A',
+                borderBottom: tab === t ? '2px solid #059669' : '2px solid transparent',
+              }}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+
+        {/* Timeframe pill tabs */}
         {(tab === 'overview' || tab === 'reports') && (
-          <div className="flex items-center justify-between mt-3">
-            <div className="text-[11px] opacity-60 font-semibold">Issues Period</div>
-            <CMPeriodToggle value={trendPeriod} onChange={setTrendPeriod} />
+          <div className="flex gap-2 p-1 rounded-full w-fit" style={{ backgroundColor: '#F3F4F6' }}>
+            {['Week', '3M', '12M', 'YTD'].map((p) => (
+              <button
+                key={p}
+                onClick={() => setTrendPeriod(p)}
+                className="text-xs font-semibold px-4 py-1.5 rounded-full transition-colors"
+                style={{
+                  backgroundColor: trendPeriod === p ? '#fff' : 'transparent',
+                  color: trendPeriod === p ? '#064E3B' : '#6B7280',
+                  boxShadow: trendPeriod === p ? '0 1px 4px rgba(25,28,29,0.08)' : 'none',
+                }}
+              >
+                {p}
+              </button>
+            ))}
           </div>
         )}
-      </CMHeader>
 
-      {/* Tabs */}
-      <div className="flex bg-white border-b border-cm-border flex-shrink-0">
-        {tabs.map((t) => (
-          <div
-            key={t}
-            onClick={() => setTab(t)}
-            className="flex-1 py-3 px-1 text-center text-[11px] font-bold capitalize cursor-pointer transition-colors"
-            style={{
-              color: tab === t ? 'hsl(var(--cm-cyan))' : 'hsl(var(--cm-text-light))',
-              borderBottom: tab === t ? '2px solid hsl(var(--cm-cyan))' : '2px solid transparent',
-            }}
-          >
-            {t}
-          </div>
-        ))}
-      </div>
-
-      {/* Tab content */}
-      <div className="flex-1 overflow-y-auto p-4 pb-24">
+        {/* OVERVIEW */}
         {tab === 'overview' && (
           <>
-            <div className="grid grid-cols-2 gap-2.5 mb-4">
-              <CMKpiCard label="Active Members" value={`${c.activeMembers}/${c.totalUnits}`} period="logged in last 30 days" color="hsl(var(--cm-cyan))" />
-              <CMKpiCard
-                label="Open Issues" value={c.openIssues} period="right now"
-                color={c.openIssues > 3 ? 'hsl(var(--cm-danger))' : 'hsl(var(--cm-success))'}
-                sub={c.openIssues > 3 ? '⚠ Needs attention' : '✓ Under control'}
-                subColor={c.openIssues > 3 ? 'hsl(var(--cm-danger))' : 'hsl(var(--cm-success))'}
+            <div className="grid grid-cols-2 gap-3">
+              <StatCard
+                icon={<Users className="h-5 w-5" />}
+                value={<>{c.activeMembers}<span className="text-base font-normal" style={{ color: '#9CA3AF' }}>/{c.totalUnits}</span></>}
+                label="Active Members"
               />
-              <CMKpiCard label="Today's Bookings" value={c.todayBookings} period="today" />
-              <CMKpiCard
-                label="Pending Approvals" value={c.pendingApprovals} period="awaiting review"
-                color={c.pendingApprovals > 0 ? 'hsl(var(--cm-warning))' : 'hsl(var(--cm-success))'}
-                sub={c.pendingApprovals > 0 ? 'Action required' : 'All clear'}
-                subColor={c.pendingApprovals > 0 ? 'hsl(var(--cm-warning))' : 'hsl(var(--cm-success))'}
+              <StatCard
+                icon={<AlertTriangle className="h-5 w-5" />}
+                value={c.openIssues}
+                label="Open Issues"
+                badge={c.openIssues === 0 ? <GreenBadge label="Perfect" /> : undefined}
+              />
+              <StatCard
+                icon={<Calendar className="h-5 w-5" />}
+                value={c.todayBookings}
+                label="Today's Bookings"
+              />
+              <StatCard
+                icon={<UserCheck className="h-5 w-5" />}
+                value={c.pendingApprovals}
+                label="Pending Approvals"
+                badge={c.pendingApprovals === 0 ? <GreenBadge label="Clear" /> : undefined}
               />
             </div>
 
+            {/* Issues Trend — chart has its own white card */}
             <CMIssuesTrendChart hoaIds={[c.id]} period={trendPeriod} />
 
             {/* Quick Actions */}
-            <div className="text-[13px] font-extrabold text-cm-text mb-3">Quick Actions</div>
-            <div className="grid grid-cols-2 gap-2.5">
-              {[
-                { label: 'Post Announcement', icon: '📢' },
-                { label: 'Approve Members', icon: '✅' },
-                { label: 'Manage Documents', icon: '📁' },
-                { label: 'Manage Surveys', icon: '📊' },
-              ].map((a) => (
-                <div
-                  key={a.label}
-                  onClick={() => handleQuickAction(a.label)}
-                  className="bg-white border border-cm-border rounded-[14px] p-3.5 flex items-center gap-2.5 cursor-pointer hover:shadow-sm transition-shadow min-h-[44px]"
-                >
-                  <span className="text-xl">{a.icon}</span>
-                  <span className="text-xs font-bold text-cm-navy">{a.label}</span>
-                </div>
-              ))}
+            <div>
+              <h2 className="font-bold text-[18px] mb-3" style={{ color: '#064E3B', fontFamily: 'Manrope, sans-serif' }}>
+                Quick Actions
+              </h2>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: 'Post Announcement', icon: <Megaphone className="h-5 w-5" />, iconBg: '#FFF5F5', iconColor: '#F97066' },
+                  { label: 'Approve Members', icon: <UserCheck className="h-5 w-5" />, iconBg: '#F0FDF4', iconColor: '#059669' },
+                  { label: 'Manage Documents', icon: <FileText className="h-5 w-5" />, iconBg: '#FFFBEB', iconColor: '#D97706' },
+                  { label: 'Manage Surveys', icon: <BarChart2 className="h-5 w-5" />, iconBg: '#EFF6FF', iconColor: '#3B82F6' },
+                ].map((a) => (
+                  <button
+                    key={a.label}
+                    onClick={() => handleQuickAction(a.label)}
+                    className="bg-white rounded-2xl border border-gray-100 text-left active:scale-95 transition-transform"
+                    style={{
+                      boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+                      padding: '16px',
+                      minHeight: '72px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 40, height: 40, flexShrink: 0,
+                        borderRadius: 10,
+                        backgroundColor: a.iconBg, color: a.iconColor,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}
+                    >
+                      {a.icon}
+                    </div>
+                    <span style={{
+                      fontSize: 13, fontWeight: 600, lineHeight: 1.3,
+                      color: '#064E3B', fontFamily: 'Manrope, sans-serif',
+                    }}>
+                      {a.label}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
-
           </>
         )}
 
+        {/* REPORTS */}
         {tab === 'reports' && (
           <>
-            <div className="grid grid-cols-2 gap-2.5 mb-4">
-              <CMKpiCard
-                label="Open Issues" value={c.openIssues} period="right now"
-                color={c.openIssues > 3 ? 'hsl(var(--cm-danger))' : 'hsl(var(--cm-success))'}
-              />
-              <CMKpiCard
-                label="Avg Resolution" value={`${c.avgResolutionDays}d`} period="issues closed this month"
-                color={c.avgResolutionDays > 4 ? 'hsl(var(--cm-danger))' : 'hsl(var(--cm-success))'}
-                sub={c.avgResolutionDays > 4 ? '⚠ Above 4d target' : '✓ Within target'}
-                subColor={c.avgResolutionDays > 4 ? 'hsl(var(--cm-danger))' : 'hsl(var(--cm-success))'}
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <StatCard icon={<AlertTriangle className="h-5 w-5" />} value={c.openIssues} label="Open Issues" />
+              <StatCard icon={<Calendar className="h-5 w-5" />} value={`${c.avgResolutionDays}d`} label="Avg Resolution" />
             </div>
             <CMIssuesTrendChart hoaIds={[c.id]} period={trendPeriod} />
           </>
         )}
 
+        {/* AMENITIES */}
         {tab === 'amenities' && (
           <>
-            <CMKpiCard
-              label="Utilization Rate" value={`${c.utilization}%`} period="this week Mon–Sun"
-              color={c.utilization > 85 ? 'hsl(var(--cm-warning))' : 'hsl(var(--cm-cyan))'}
-              sub={c.utilization > 85 ? '⚠ High demand' : c.utilization < 30 ? '⚠ Low usage' : '✓ Healthy (50–85% ideal)'}
-              subColor={c.utilization > 85 || c.utilization < 30 ? 'hsl(var(--cm-warning))' : 'hsl(var(--cm-success))'}
-            />
-            <div className="mt-4 flex items-center justify-between mb-3">
-              <div className="text-[13px] font-extrabold text-cm-text">Amenities</div>
-              <div
+            <div className="grid grid-cols-2 gap-3">
+              <StatCard icon={<BarChart2 className="h-5 w-5" />} value={`${c.utilization}%`} label="Utilization Rate" />
+            </div>
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold text-base" style={{ color: '#064E3B', fontFamily: 'Manrope, sans-serif' }}>Amenities</h2>
+              <button
                 onClick={() => setShowAddAmenityModal(true)}
-                className="flex items-center gap-1 bg-cm-navy text-white rounded-lg px-3 py-1.5 text-[11px] font-bold cursor-pointer min-h-[36px]"
+                className="flex items-center gap-1 text-white rounded-lg px-3 py-1.5 text-xs font-bold min-h-[36px]"
+                style={{ backgroundColor: '#064E3B' }}
               >
                 <Plus className="h-3.5 w-3.5" />
                 Add Amenity
-              </div>
+              </button>
             </div>
             {c.amenities.map((a) => (
-              <div key={a.id} className="bg-white rounded-xl mb-2 flex justify-between items-center border border-cm-border" style={{ padding: '14px 16px' }}>
+              <div key={a.id} className="bg-white rounded-2xl flex justify-between items-center border border-gray-100 px-4 py-3.5"
+                style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
                 <div>
-                  <div className="text-sm font-bold" style={{ color: '#1A1A2E' }}>{a.name}</div>
-                  <div className="text-xs capitalize" style={{ color: '#9CA3AF', fontSize: 12 }}>{a.type}</div>
+                  <div className="text-sm font-bold" style={{ color: '#064E3B' }}>{a.name}</div>
+                  <div className="text-xs capitalize mt-0.5" style={{ color: '#9CA3AF' }}>{a.type}</div>
                 </div>
-                <div className="flex items-center" style={{ gap: 8 }}>
-                  {/* Edit Rules */}
-                  <div
-                    onClick={() => navigate(`/cm/community/${c.id}/amenity/${a.id}/rules`)}
-                    className="flex items-center justify-center cursor-pointer"
-                    style={{ width: 44, height: 44, backgroundColor: '#F0F4F8', borderRadius: 10 }}
-                  >
-                    <Settings className="h-5 w-5" style={{ color: '#00B4D8' }} />
-                  </div>
-                  {/* Set Maintenance */}
-                  <div
-                    onClick={() => setMaintenanceAmenity({ id: a.id, name: a.name, type: a.type, hoaId: c.id })}
-                    className="flex items-center justify-center cursor-pointer"
-                    style={{ width: 44, height: 44, backgroundColor: '#F0F4F8', borderRadius: 10 }}
-                  >
-                    <Wrench className="h-5 w-5" style={{ color: '#F59E0B' }} />
-                  </div>
-                  {/* Remove Amenity */}
-                  <div
+                <div className="flex items-center gap-2">
+                  <button onClick={() => navigate(`/cm/community/${c.id}/amenity/${a.id}/rules`)}
+                    className="w-10 h-10 flex items-center justify-center rounded-xl" style={{ backgroundColor: '#F3F4F6' }}>
+                    <Settings className="h-5 w-5 text-[#059669]" />
+                  </button>
+                  <button onClick={() => setMaintenanceAmenity({ id: a.id, name: a.name, type: a.type, hoaId: c.id })}
+                    className="w-10 h-10 flex items-center justify-center rounded-xl" style={{ backgroundColor: '#F3F4F6' }}>
+                    <Wrench className="h-5 w-5 text-amber-500" />
+                  </button>
+                  <button
                     onClick={async () => {
                       if (!confirm(`Remove "${a.name}"? This will also remove all bookings for this amenity.`)) return;
                       const { error } = await supabase.from('courts').delete().eq('id', a.id);
-                      if (error) {
-                        toast.error('Failed to remove amenity');
-                      } else {
-                        toast.success('Amenity removed');
-                        refetch();
-                      }
+                      if (error) toast.error('Failed to remove amenity');
+                      else { toast.success('Amenity removed'); refetch(); }
                     }}
-                    className="flex items-center justify-center cursor-pointer"
-                    style={{ width: 44, height: 44, backgroundColor: '#F0F4F8', borderRadius: 10 }}
-                  >
-                    <Trash2 className="h-5 w-5" style={{ color: '#EF4444' }} />
-                  </div>
+                    className="w-10 h-10 flex items-center justify-center rounded-xl" style={{ backgroundColor: '#F3F4F6' }}>
+                    <Trash2 className="h-5 w-5 text-red-500" />
+                  </button>
                 </div>
               </div>
             ))}
             {c.amenities.length === 0 && (
-              <div className="text-center py-8 text-cm-text-light">No amenities configured</div>
+              <div className="text-center py-8 text-sm" style={{ color: '#9CA3AF' }}>No amenities configured</div>
             )}
           </>
         )}
 
+        {/* MEMBERS */}
         {tab === 'members' && (
           <>
-            <div className="grid grid-cols-2 gap-2.5 mb-4">
-              <CMKpiCard label="Active Members" value={c.activeMembers} period="logged in last 30 days" color="hsl(var(--cm-cyan))" />
-              <CMKpiCard label="Total Units" value={c.totalUnits} period="physical units" />
-              <CMKpiCard
-                label="Pending Approvals" value={c.pendingApprovals} period="awaiting review"
-                color={c.pendingApprovals > 0 ? 'hsl(var(--cm-warning))' : 'hsl(var(--cm-success))'}
+            <div className="grid grid-cols-2 gap-3">
+              <StatCard icon={<Users className="h-5 w-5" />} value={c.activeMembers} label="Active Members" />
+              <StatCard icon={<UserCheck className="h-5 w-5" />} value={c.totalUnits} label="Total Units" />
+              <StatCard
+                icon={<AlertTriangle className="h-5 w-5" />}
+                value={c.pendingApprovals}
+                label="Pending Approvals"
+                badge={c.pendingApprovals === 0 ? <GreenBadge label="Clear" /> : undefined}
               />
-              <CMKpiCard
-                label="Occupancy" value={`${Math.round((c.activeMembers / c.totalUnits) * 100)}%`} period="with app login"
-              />
+              <StatCard icon={<BarChart2 className="h-5 w-5" />}
+                value={`${Math.round((c.activeMembers / c.totalUnits) * 100)}%`} label="Occupancy" />
             </div>
 
-            {/* Pending approvals section */}
             {pendingMembers.length > 0 && (
-              <div className="mb-4">
-                <div className="text-[13px] font-extrabold text-cm-text mb-2">Pending Approvals</div>
+              <div>
+                <h2 className="font-bold text-base mb-3" style={{ color: '#064E3B', fontFamily: 'Manrope, sans-serif' }}>
+                  Pending Approvals
+                </h2>
                 {pendingMembers.map((m) => (
-                  <div key={m.id} className="bg-white rounded-[14px] p-3.5 mb-2 border border-cm-border">
+                  <div key={m.id} className="bg-white rounded-2xl p-4 mb-3 border border-gray-100"
+                    style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
                     <div className="flex justify-between items-center">
                       <div>
-                        <div className="text-sm font-bold text-cm-text">{m.name}</div>
-                        <div className="text-[11px] text-cm-text-light">Applied {new Date(m.created_at).toLocaleDateString()}</div>
+                        <div className="text-sm font-bold" style={{ color: '#064E3B' }}>{m.name}</div>
+                        <div className="text-xs mt-0.5" style={{ color: '#9CA3AF' }}>Applied {new Date(m.created_at).toLocaleDateString()}</div>
                       </div>
                       <div className="flex gap-2">
-                        <div
-                          onClick={() => handleApproveMember(m.id)}
-                          className="bg-cm-success text-white rounded-lg px-3 py-1.5 text-[11px] font-bold cursor-pointer min-h-[44px] flex items-center"
-                        >
+                        <button onClick={() => handleApproveMember(m.id)}
+                          className="text-white rounded-lg px-3 py-1.5 text-xs font-bold min-h-[44px]"
+                          style={{ backgroundColor: '#059669' }}>
                           Approve
-                        </div>
-                        <div
-                          onClick={() => handleRejectMember(m.id)}
-                          className="bg-cm-app-bg text-cm-text-mid rounded-lg px-3 py-1.5 text-[11px] font-bold cursor-pointer border border-cm-border min-h-[44px] flex items-center"
-                        >
+                        </button>
+                        <button onClick={() => handleRejectMember(m.id)}
+                          className="rounded-lg px-3 py-1.5 text-xs font-bold border border-gray-200 min-h-[44px]"
+                          style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}>
                           Reject
-                        </div>
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -400,16 +442,14 @@ const CMCommunityDashboard = () => {
             )}
 
             {c.totalUnits - c.activeMembers > 0 && (
-              <div className="bg-cm-warning-bg rounded-[14px] p-3.5 mb-4 border border-yellow-300">
-                <div className="text-xs font-bold text-cm-warning">
+              <div className="rounded-2xl p-4 border border-amber-200" style={{ backgroundColor: '#FFFBEB' }}>
+                <div className="text-xs font-bold text-amber-700">
                   {c.totalUnits - c.activeMembers} units not yet on the platform
                 </div>
-                <div
-                  onClick={() => setShowInviteSheet(true)}
-                  className="mt-2.5 bg-cm-warning text-white rounded-lg py-2 px-3.5 text-xs font-bold text-center cursor-pointer min-h-[44px] flex items-center justify-center"
-                >
+                <button onClick={() => setShowInviteSheet(true)}
+                  className="mt-2.5 bg-amber-500 text-white rounded-lg py-2 px-3.5 text-xs font-bold w-full min-h-[44px]">
                   Send Invite Reminders
-                </div>
+                </button>
               </div>
             )}
           </>
@@ -420,40 +460,22 @@ const CMCommunityDashboard = () => {
       {showAnnouncementModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-md p-5">
-            <div className="text-lg font-extrabold text-cm-navy mb-4">Post Announcement</div>
-            <input
-              value={announcementTitle}
-              onChange={(e) => setAnnouncementTitle(e.target.value)}
+            <div className="text-lg font-extrabold mb-4" style={{ color: '#064E3B', fontFamily: 'Manrope, sans-serif' }}>Post Announcement</div>
+            <input value={announcementTitle} onChange={(e) => setAnnouncementTitle(e.target.value)}
               placeholder="Announcement Title"
-              className="w-full px-3 py-2.5 rounded-[10px] border border-cm-border text-sm mb-3"
-            />
-            <textarea
-              value={announcementBody}
-              onChange={(e) => setAnnouncementBody(e.target.value)}
-              placeholder="Write your announcement..."
-              rows={4}
-              className="w-full px-3 py-2.5 rounded-[10px] border border-cm-border text-sm mb-3 resize-none"
-            />
-            <select
-              value={announcementAudience}
-              onChange={(e) => setAnnouncementAudience(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-[10px] border border-cm-border text-sm mb-4"
-            >
+              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm mb-3 outline-none focus:border-[#059669]" />
+            <textarea value={announcementBody} onChange={(e) => setAnnouncementBody(e.target.value)}
+              placeholder="Write your announcement..." rows={4}
+              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm mb-3 resize-none outline-none focus:border-[#059669]" />
+            <select value={announcementAudience} onChange={(e) => setAnnouncementAudience(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm mb-4 outline-none">
               <option value="all_residents">All Residents</option>
               <option value="board_only">Board Only</option>
             </select>
-            <div
-              onClick={handlePostAnnouncement}
-              className="bg-cm-navy text-white rounded-[10px] py-3 text-sm font-bold text-center cursor-pointer w-full min-h-[44px] flex items-center justify-center"
-            >
-              Post
-            </div>
-            <div
-              onClick={() => setShowAnnouncementModal(false)}
-              className="text-center mt-3 text-sm text-cm-text-light cursor-pointer"
-            >
-              Cancel
-            </div>
+            <button onClick={handlePostAnnouncement}
+              className="text-white rounded-xl py-3 text-sm font-bold w-full min-h-[44px]"
+              style={{ backgroundColor: '#064E3B' }}>Post</button>
+            <button onClick={() => setShowAnnouncementModal(false)} className="text-center mt-3 text-sm w-full" style={{ color: '#9CA3AF' }}>Cancel</button>
           </div>
         </div>
       )}
@@ -463,86 +485,46 @@ const CMCommunityDashboard = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-md p-5">
             <div className="flex items-center justify-between mb-4">
-              <div className="text-lg font-extrabold text-cm-navy">Add Amenity</div>
-              <div onClick={() => setShowAddAmenityModal(false)} className="cursor-pointer text-cm-text-light">
-                <X className="h-5 w-5" />
-              </div>
+              <div className="text-lg font-extrabold" style={{ color: '#064E3B', fontFamily: 'Manrope, sans-serif' }}>Add Amenity</div>
+              <button onClick={() => setShowAddAmenityModal(false)} style={{ color: '#9CA3AF' }}><X className="h-5 w-5" /></button>
             </div>
-            <input
-              value={newAmenityName}
-              onChange={(e) => setNewAmenityName(e.target.value)}
+            <input value={newAmenityName} onChange={(e) => setNewAmenityName(e.target.value)}
               placeholder="Amenity Name (e.g., Tennis Court 1, Pool Area)"
-              className="w-full px-3 py-2.5 rounded-[10px] border border-cm-border text-sm mb-3"
-            />
-            <div className="text-xs font-bold text-cm-text mb-2">Amenity Type</div>
+              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm mb-3 outline-none focus:border-[#059669]" />
+            <div className="text-xs font-bold mb-2" style={{ color: '#4B5563' }}>Amenity Type</div>
             <div className="grid grid-cols-2 gap-2 mb-4">
               {AMENITY_TYPES.map((t) => (
-                <div
-                  key={t.value}
-                  onClick={() => setNewAmenityType(t.value)}
-                  className={`rounded-[10px] border px-3 py-2.5 text-xs font-semibold text-center cursor-pointer transition-colors ${
-                    newAmenityType === t.value
-                      ? 'border-cm-cyan bg-[rgba(0,180,216,0.08)] text-cm-cyan'
-                      : 'border-cm-border text-cm-text-mid'
-                  }`}
-                >
+                <button key={t.value} onClick={() => setNewAmenityType(t.value)}
+                  className={`rounded-xl border px-3 py-2.5 text-xs font-semibold text-center transition-colors`}
+                  style={{
+                    borderColor: newAmenityType === t.value ? '#059669' : '#E5E7EB',
+                    backgroundColor: newAmenityType === t.value ? 'rgba(5,150,105,0.08)' : 'transparent',
+                    color: newAmenityType === t.value ? '#059669' : '#6B7280',
+                  }}>
                   {t.label}
-                </div>
+                </button>
               ))}
             </div>
-            <div
+            <button
               onClick={async () => {
-                if (!newAmenityName.trim() || !c) {
-                  toast.error('Please enter an amenity name');
-                  return;
-                }
-                const { error } = await supabase.from('courts').insert({
-                  name: newAmenityName.trim(),
-                  court_type: newAmenityType,
-                  hoa_id: c.id,
-                });
-                if (error) {
-                  toast.error('Failed to add amenity');
-                } else {
-                  toast.success(`${newAmenityName.trim()} added`);
-                  setNewAmenityName('');
-                  setNewAmenityType('tennis');
-                  setShowAddAmenityModal(false);
-                  refetch();
-                }
+                if (!newAmenityName.trim() || !c) { toast.error('Please enter an amenity name'); return; }
+                const { error } = await supabase.from('courts').insert({ name: newAmenityName.trim(), court_type: newAmenityType, hoa_id: c.id });
+                if (error) toast.error('Failed to add amenity');
+                else { toast.success(`${newAmenityName.trim()} added`); setNewAmenityName(''); setNewAmenityType('tennis'); setShowAddAmenityModal(false); refetch(); }
               }}
-              className="bg-cm-navy text-white rounded-[10px] py-3 text-sm font-bold text-center cursor-pointer w-full min-h-[44px] flex items-center justify-center"
-            >
-              Add Amenity
-            </div>
-            <div
-              onClick={() => setShowAddAmenityModal(false)}
-              className="text-center mt-3 text-sm text-cm-text-light cursor-pointer"
-            >
-              Cancel
-            </div>
+              className="text-white rounded-xl py-3 text-sm font-bold w-full min-h-[44px]"
+              style={{ backgroundColor: '#064E3B' }}>Add Amenity</button>
+            <button onClick={() => setShowAddAmenityModal(false)} className="text-center mt-3 text-sm w-full" style={{ color: '#9CA3AF' }}>Cancel</button>
           </div>
         </div>
       )}
 
-      {/* Maintenance Bottom Sheet */}
       {maintenanceAmenity && (
-        <SetMaintenanceSheet
-          open={!!maintenanceAmenity}
-          onClose={() => setMaintenanceAmenity(null)}
-          amenity={maintenanceAmenity}
-        />
+        <SetMaintenanceSheet open={!!maintenanceAmenity} onClose={() => setMaintenanceAmenity(null)} amenity={maintenanceAmenity} />
       )}
-
-      {/* Invite Link Sheet */}
       {c && (
-        <InviteLinkSheet
-          open={showInviteSheet}
-          onClose={() => setShowInviteSheet(false)}
-          community={{ id: c.id, name: c.name }}
-        />
+        <InviteLinkSheet open={showInviteSheet} onClose={() => setShowInviteSheet(false)} community={{ id: c.id, name: c.name }} />
       )}
-
     </div>
   );
 };

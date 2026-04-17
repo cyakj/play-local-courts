@@ -5,7 +5,7 @@ const PERIOD_LABELS: Record<string, string> = {
   Week: 'Issues reported Mon–Sun this week',
   '3M': 'Rolling last 3 months',
   '12M': 'Rolling last 12 months',
-  YTD: 'January 1 – today',
+  YTD: 'Rolling last 12 months',
 };
 
 interface Props {
@@ -32,7 +32,7 @@ export const CMPeriodToggle = ({
         onClick={() => onChange(t)}
         className="px-2 py-1 rounded-lg cursor-pointer text-[10px] font-bold transition-colors"
         style={{
-          background: value === t ? 'rgba(0,180,216,0.35)' : 'transparent',
+          background: value === t ? 'rgba(5,150,105,0.35)' : 'transparent',
           color: value === t ? '#fff' : 'rgba(255,255,255,0.6)',
         }}
       >
@@ -44,6 +44,13 @@ export const CMPeriodToggle = ({
 
 const getDayLabel = (d: Date) => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()];
 const getMonthLabel = (d: Date) => ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()];
+
+// 0 = Resolved (gray), above avg = Critical (red), otherwise = Moderate (coral)
+const barColor = (v: number, avg: number) => {
+  if (v === 0) return '#E5E7EB';
+  if (v > avg * 1.2) return '#EF4444';
+  return '#F97066';
+};
 
 export const CMIssuesTrendChart = ({ hoaIds, period }: Props) => {
   const [data, setData] = useState<DataPoint[]>([]);
@@ -76,8 +83,10 @@ export const CMIssuesTrendChart = ({ hoaIds, period }: Props) => {
         startDate.setMonth(now.getMonth() - 11);
         startDate.setDate(1);
       } else {
-        // YTD
-        startDate = new Date(now.getFullYear(), 0, 1);
+        // YTD: full 12 months back from today
+        startDate = new Date(now);
+        startDate.setMonth(now.getMonth() - 12);
+        startDate.setDate(1);
       }
 
       const { data: reports, error } = await supabase
@@ -97,7 +106,6 @@ export const CMIssuesTrendChart = ({ hoaIds, period }: Props) => {
       const rows = reports || [];
 
       if (period === 'Week') {
-        // Group by day of week Mon-Sun
         const buckets: DataPoint[] = [];
         for (let i = 0; i < 7; i++) {
           const d = new Date(startDate);
@@ -109,10 +117,8 @@ export const CMIssuesTrendChart = ({ hoaIds, period }: Props) => {
         }
         setData(buckets);
       } else {
-        // Group by month
         const monthMap = new Map<string, number>();
         const monthLabels: string[] = [];
-
         const cursor = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
         const endMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         while (cursor <= endMonth) {
@@ -121,15 +127,11 @@ export const CMIssuesTrendChart = ({ hoaIds, period }: Props) => {
           monthLabels.push(key);
           cursor.setMonth(cursor.getMonth() + 1);
         }
-
         for (const r of rows) {
           const d = new Date(r.created_at);
           const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-          if (monthMap.has(key)) {
-            monthMap.set(key, (monthMap.get(key) || 0) + 1);
-          }
+          if (monthMap.has(key)) monthMap.set(key, (monthMap.get(key) || 0) + 1);
         }
-
         setData(
           monthLabels.map((key) => {
             const [y, m] = key.split('-');
@@ -147,9 +149,9 @@ export const CMIssuesTrendChart = ({ hoaIds, period }: Props) => {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-2xl p-4 mb-4 border border-cm-border shadow-sm">
+      <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
         <div className="flex justify-center py-8">
-          <div className="w-6 h-6 border-2 border-cm-cyan/20 border-t-cm-cyan rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-emerald-100 border-t-[#059669] rounded-full animate-spin" />
         </div>
       </div>
     );
@@ -157,9 +159,9 @@ export const CMIssuesTrendChart = ({ hoaIds, period }: Props) => {
 
   if (data.length === 0) {
     return (
-      <div className="bg-white rounded-2xl p-4 mb-4 border border-cm-border shadow-sm">
-        <div className="text-sm font-extrabold text-cm-text mb-1">Issues Trend</div>
-        <div className="text-center py-6 text-cm-text-light text-xs">No data for this period</div>
+      <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+        <div className="text-[18px] font-bold mb-1" style={{ color: '#064E3B', fontFamily: 'Manrope, sans-serif' }}>Issues Trend</div>
+        <div className="text-center py-6 text-sm" style={{ color: '#4B5563' }}>No data for this period</div>
       </div>
     );
   }
@@ -169,75 +171,84 @@ export const CMIssuesTrendChart = ({ hoaIds, period }: Props) => {
   const latest = data[data.length - 1].value;
   const prev = data.length > 1 ? data[data.length - 2].value : null;
   const arrow = prev !== null ? (latest < prev ? '↓' : latest > prev ? '↑' : '→') : '→';
-
-  const barColor = (v: number) =>
-    avg === 0
-      ? 'hsl(var(--cm-success))'
-      : v <= avg * 0.8
-        ? 'hsl(var(--cm-success))'
-        : v <= avg * 1.2
-          ? 'hsl(var(--cm-warning))'
-          : 'hsl(var(--cm-danger))';
+  const total = data.reduce((s, d) => s + d.value, 0);
 
   const summaryStats = [
-    { label: period === 'Week' ? 'Latest Day' : 'Latest Month', value: `${latest} ${arrow}`, color: barColor(latest) },
-    { label: 'Period Avg', value: avg, color: 'hsl(var(--cm-text))' },
-    { label: 'Period Total', value: data.reduce((s, d) => s + d.value, 0), color: 'hsl(var(--cm-text))' },
+    { label: period === 'Week' ? 'Latest Day' : 'Latest Month', value: `${latest}`, suffix: arrow, color: barColor(latest, avg) },
+    { label: 'Period Avg', value: `${avg}`, color: '#064E3B' },
+    { label: 'Period Total', value: `${total}`, color: '#064E3B' },
   ];
 
   return (
-    <div className="bg-white rounded-2xl p-4 mb-4 border border-cm-border shadow-sm">
+    <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
       {/* Header */}
-      <div className="mb-3">
-        <div className="text-sm font-extrabold text-cm-text">Issues Trend</div>
-        <div className="text-[10px] text-cm-text-light mt-0.5 italic">{PERIOD_LABELS[period]}</div>
+      <div className="mb-4">
+        <div className="text-[18px] font-bold" style={{ color: '#064E3B', fontFamily: 'Manrope, sans-serif' }}>
+          Issues Trend
+        </div>
+        <div className="text-[13px] mt-0.5" style={{ color: '#4B5563' }}>
+          {PERIOD_LABELS[period]}
+        </div>
       </div>
 
-      {/* Summary stats */}
-      <div className="flex gap-2 mb-3">
+      {/* Summary stat boxes */}
+      <div className="flex gap-2 mb-4">
         {summaryStats.map((s, i) => (
-          <div key={i} className="flex-1 bg-cm-app-bg rounded-[10px] p-2">
-            <div className="text-[10px] text-cm-text-light">{s.label}</div>
-            <div className="text-[17px] font-black" style={{ color: s.color }}>{s.value}</div>
+          <div key={i} className="flex-1 rounded-lg p-2.5" style={{ backgroundColor: '#F9FAFB' }}>
+            <div className="text-[11px] font-medium mb-1" style={{ color: '#4B5563' }}>{s.label}</div>
+            <div className="text-[17px] font-bold leading-none" style={{ color: s.color, fontFamily: 'Manrope, sans-serif' }}>
+              {s.value}
+              {s.suffix && <span className="text-sm ml-0.5">{s.suffix}</span>}
+            </div>
           </div>
         ))}
       </div>
 
-      {/* Chart */}
+      {/* Bar chart */}
       <div className="relative pt-2">
-        {/* Avg line */}
         {avg > 0 && (
           <div
-            className="absolute left-7 right-0 border-t-[1.5px] border-dashed border-cm-text-light z-[2]"
-            style={{ top: `${8 + (1 - avg / (max + 2)) * 88}px` }}
+            className="absolute left-0 right-0 border-t border-dashed z-[2]"
+            style={{ borderColor: '#9CA3AF', top: `${8 + (1 - avg / (max + 2)) * 88}px` }}
           >
-            <span className="absolute -left-7 -top-2 text-[9px] text-cm-text-light font-bold bg-white px-0.5">avg</span>
+            <span
+              className="absolute right-0 bg-white pl-1"
+              style={{ fontSize: 12, fontWeight: 600, color: '#4B5563', top: -10 }}
+            >
+              avg
+            </span>
           </div>
         )}
 
-        {/* Bars */}
-        <div className="ml-7 flex items-end gap-1" style={{ height: 100 }}>
+        <div className="flex items-end gap-1" style={{ height: 100 }}>
           {data.map((d, i) => {
             const isLast = i === data.length - 1;
             const bh = d.value === 0 ? 0 : Math.max((d.value / (max + 2)) * 88, 4);
-            const col = barColor(d.value);
+            const col = barColor(d.value, avg);
             return (
               <div key={i} className="flex-1 flex flex-col items-center h-full justify-end">
-                {d.value > 0 && <div className="text-[9px] font-extrabold mb-0.5" style={{ color: col }}>{d.value}</div>}
+                {d.value > 0 && (
+                  <div
+                    className="mb-0.5"
+                    style={{ fontSize: 12, fontWeight: 600, color: '#064E3B' }}
+                  >
+                    {d.value}
+                  </div>
+                )}
                 <div
                   className="w-full rounded-t"
                   style={{
                     height: bh,
-                    background: isLast ? col : `${col}77`,
-                    border: isLast ? `1.5px solid ${col}` : 'none',
+                    backgroundColor: isLast && col === '#E5E7EB' ? '#D1D5DB' : col,
+                    opacity: isLast ? 1 : 0.75,
                   }}
                 />
                 <div
-                  className="mt-1"
+                  className="mt-1 text-center"
                   style={{
                     fontSize: data.length > 6 ? 8 : 10,
-                    color: isLast ? 'hsl(var(--cm-text))' : 'hsl(var(--cm-text-light))',
-                    fontWeight: isLast ? 800 : 500,
+                    color: isLast ? '#064E3B' : '#6B7280',
+                    fontWeight: isLast ? 700 : 500,
                   }}
                 >
                   {d.label}
@@ -249,21 +260,17 @@ export const CMIssuesTrendChart = ({ hoaIds, period }: Props) => {
       </div>
 
       {/* Legend */}
-      <div className="flex gap-3 mt-3 justify-center">
+      <div className="flex gap-4 mt-4 pt-3 border-t border-gray-100">
         {[
-          { label: 'Below avg', color: 'hsl(var(--cm-success))' },
-          { label: 'Near avg', color: 'hsl(var(--cm-warning))' },
-          { label: 'Above avg', color: 'hsl(var(--cm-danger))' },
+          { label: 'Critical', color: '#EF4444' },
+          { label: 'Moderate', color: '#F97066' },
+          { label: 'Resolved', color: '#E5E7EB' },
         ].map((l) => (
-          <div key={l.label} className="flex items-center gap-1">
-            <div className="w-2.5 h-2.5 rounded-sm" style={{ background: l.color }} />
-            <span className="text-[9px] text-cm-text-light">{l.label}</span>
+          <div key={l.label} className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full block" style={{ backgroundColor: l.color }} />
+            <span className="text-[11px] uppercase tracking-wider font-medium" style={{ color: '#4B5563' }}>{l.label}</span>
           </div>
         ))}
-        <div className="flex items-center gap-1">
-          <div className="w-4 h-0 border-t border-dashed border-cm-text-light" />
-          <span className="text-[9px] text-cm-text-light">avg</span>
-        </div>
       </div>
     </div>
   );

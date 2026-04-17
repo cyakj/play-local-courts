@@ -10,27 +10,27 @@ interface QuickActionButtonProps {
   iconBgColor?: string;
 }
 
-export const QuickActionButton = ({ 
-  icon, 
-  title, 
-  subtitle, 
-  to, 
-  iconBgColor = 'bg-primary' 
+export const QuickActionButton = ({
+  icon,
+  title,
+  subtitle,
+  to,
+  iconBgColor = 'bg-primary'
 }: QuickActionButtonProps) => {
   return (
     <Link
       to={to}
-      className="flex items-center gap-3 p-4 rounded-xl border border-border bg-card hover:shadow-md hover:border-primary/20 transition-all group"
+      className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-card border border-border/60 hover:border-primary/20 hover:shadow-md active:scale-95 transition-all duration-150 group"
     >
       <div className={cn(
-        "flex-shrink-0 p-2.5 rounded-lg text-white",
+        "w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-sm",
         iconBgColor
       )}>
         {icon}
       </div>
-      <div>
-        <div className="font-medium text-sm group-hover:text-primary transition-colors">{title}</div>
-        <div className="text-xs text-muted-foreground">{subtitle}</div>
+      <div className="text-center">
+        <div className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors leading-tight">{title}</div>
+        <div className="text-[11px] text-muted-foreground leading-tight mt-0.5 hidden sm:block">{subtitle}</div>
       </div>
     </Link>
   );
