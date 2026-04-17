@@ -11,7 +11,8 @@ import { TENNIS_FEATURES_ENABLED } from '@/config/featureFlags';
 import PendingApprovalMessage from '../components/PendingApprovalMessage';
 import { ActiveCommunitySelector } from '@/components/community/ActiveCommunitySelector';
 import {
-  Settings, MessageCircle, CalendarDays, Megaphone, Sparkles, ClipboardList, Calendar
+  Settings, MessageCircle, CalendarDays, Megaphone, Sparkles, ClipboardList,
+  Calendar, Building2, BarChart2, X, AlertTriangle
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 
@@ -104,7 +105,7 @@ const Dashboard = () => {
         .eq('status', 'cancelled')
         .eq('cancelled_by', 'admin')
         .gte('updated_at', cutoff);
-      
+
       if (data && data.length > 0) {
         const courtIds = [...new Set(data.map(b => b.court_id))];
         const [courtsResult, rebookedResult] = await Promise.all([
@@ -290,11 +291,11 @@ const Dashboard = () => {
 
   if (loading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <div className="relative">
-          <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto" />
-          <Sparkles className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 h-6 w-6 text-primary" />
-        </div>
+      <div className="flex h-screen w-full items-center justify-center" style={{ background: '#F9FAFB' }}>
+        <div
+          className="w-12 h-12 border-2 rounded-full animate-spin"
+          style={{ borderColor: 'rgba(0,212,255,0.2)', borderTopColor: '#00D4FF' }}
+        />
       </div>
     );
   }
@@ -307,8 +308,8 @@ const Dashboard = () => {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <div className="text-center">
-          <h2 className="text-xl font-semibold mb-4">Please log in to continue</h2>
-          <Link to="/login" className="text-primary font-medium">Go to Login</Link>
+          <h2 className="text-xl font-semibold mb-4" style={{ color: '#0F1F3D' }}>Please log in to continue</h2>
+          <Link to="/login" className="font-medium" style={{ color: '#00D4FF' }}>Go to Login</Link>
         </div>
       </div>
     );
@@ -318,7 +319,6 @@ const Dashboard = () => {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning,' : hour < 18 ? 'Good afternoon,' : 'Good evening,';
 
-  // Upcoming reservations
   const now = new Date();
   const upcomingReservations = bookings
     .filter(b => new Date(`${b.date}T${b.startTime}`) > now)
@@ -331,22 +331,27 @@ const Dashboard = () => {
     return `${hr % 12 || 12}:${m} ${hr >= 12 ? 'PM' : 'AM'}`;
   };
 
-  const cardStyle = "bg-white rounded-2xl p-4 border border-[#E5E7EB] mb-3" as const;
-  const cardShadow = { boxShadow: '0 2px 8px rgba(0,0,0,0.06)' };
-  const cardTitle = "text-[16px] font-bold" as const;
-  const viewAll = "text-[13px] font-bold" as const;
+  const cardStyle: React.CSSProperties = {
+    background: 'white',
+    borderRadius: 16,
+    padding: 16,
+    border: '1px solid rgba(15,31,61,0.08)',
+    marginBottom: 12,
+    boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+  };
 
   return (
-    <div className="animate-fade-scale">
-      {/* Navy Gradient Header */}
+    <div style={{ background: '#F9FAFB', minHeight: '100vh' }}>
+      {/* Navy Header */}
       <ResidentHeader>
         <div className="flex justify-between items-start">
           <div>
             <div className="text-[13px] opacity-75">{greeting}</div>
             <div className="text-2xl font-extrabold mt-0.5">{firstName}</div>
             {activeHOA && (
-              <div className="text-xs opacity-60 mt-1 flex items-center gap-1">
-                🏘 {activeHOA.hoaName}
+              <div className="text-xs opacity-60 mt-1 flex items-center gap-1.5">
+                <Building2 className="h-3 w-3" />
+                {activeHOA.hoaName}
               </div>
             )}
           </div>
@@ -365,7 +370,10 @@ const Dashboard = () => {
             >
               <MessageCircle className="h-[18px] w-[18px] text-white" />
               {unreadMessages > 0 && (
-                <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2" style={{ background: '#00B4D8', borderColor: '#0A1628' }} />
+                <div
+                  className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2"
+                  style={{ background: '#00D4FF', borderColor: '#0F1F3D' }}
+                />
               )}
             </Link>
           </div>
@@ -380,7 +388,7 @@ const Dashboard = () => {
       )}
 
       {/* Body */}
-      <div className="px-4 pt-4 pb-28" style={{ background: '#F0F4F8' }}>
+      <div className="px-4 pt-4 pb-28">
 
         {/* Admin cancellation banners */}
         {cancelledBookings
@@ -389,21 +397,17 @@ const Dashboard = () => {
             <div
               key={cb.id}
               className="rounded-2xl p-3.5 mb-3 relative"
-              style={{
-                background: '#FEF2F2',
-                border: '1px solid #EF4444',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-              }}
+              style={{ background: '#FEF2F2', border: '1px solid #EF4444', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}
             >
-              <div
+              <button
                 onClick={() => handleDismissCancellation(cb.id)}
-                className="absolute top-2.5 right-2.5 cursor-pointer w-6 h-6 flex items-center justify-center rounded-full"
-                style={{ color: '#9CA3AF' }}
+                className="absolute top-2.5 right-2.5 w-6 h-6 flex items-center justify-center rounded-full min-h-0"
+                style={{ color: '#8892A4' }}
               >
-                ✕
-              </div>
+                <X className="h-3.5 w-3.5" />
+              </button>
               <div className="flex items-start gap-2.5 pr-5">
-                <span className="text-base mt-0.5">⚠️</span>
+                <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" style={{ color: '#EF4444' }} />
                 <div className="flex-1 min-w-0">
                   <div className="text-[13px] font-bold" style={{ color: '#EF4444' }}>
                     Your {cb.amenityName} booking on {format(new Date(`${cb.date}T00:00:00`), 'MMM d')} at {formatTime12(cb.start_time)} was cancelled.
@@ -411,7 +415,7 @@ const Dashboard = () => {
                   <Link
                     to="/reserve-court"
                     className="inline-block mt-1.5 text-[13px] font-bold"
-                    style={{ color: '#00B4D8' }}
+                    style={{ color: '#00D4FF' }}
                   >
                     Book Again →
                   </Link>
@@ -422,28 +426,32 @@ const Dashboard = () => {
         }
 
         {/* CARD 1 — Upcoming Reservations */}
-        <div className={cardStyle} style={cardShadow}>
+        <div style={cardStyle}>
           <div className="flex justify-between items-center mb-3">
-            <span className={cardTitle} style={{ color: '#1A1A2E' }}>Upcoming Reservations</span>
+            <span className="text-[16px] font-extrabold" style={{ color: '#0F1F3D' }}>Upcoming Reservations</span>
             {upcomingReservations.length > 0 && (
-              <Link to="/book" className={viewAll} style={{ color: '#00B4D8' }}>View All →</Link>
+              <Link to="/book" className="text-[13px] font-bold" style={{ color: '#00D4FF' }}>View All →</Link>
             )}
           </div>
           {upcomingReservations.length === 0 ? (
             <div className="text-center py-5">
-              <Calendar className="h-10 w-10 mx-auto mb-2" style={{ color: '#9CA3AF' }} />
-              <p className="text-[13px] mb-3" style={{ color: '#9CA3AF' }}>No upcoming reservations</p>
-              <Link to="/reserve-court" className="inline-block px-4 py-2 rounded-xl text-xs font-bold text-white" style={{ background: '#00B4D8' }}>
+              <Calendar className="h-10 w-10 mx-auto mb-2" style={{ color: '#8892A4' }} />
+              <p className="text-[13px] mb-3" style={{ color: '#8892A4' }}>No upcoming reservations</p>
+              <Link
+                to="/reserve-court"
+                className="inline-block px-4 py-2 rounded-xl text-xs font-bold text-white"
+                style={{ background: '#00D4FF' }}
+              >
                 Book an Amenity
               </Link>
             </div>
           ) : (
             upcomingReservations.map((b, i) => (
-              <div key={b.id} className={`flex items-center gap-3 ${i < upcomingReservations.length - 1 ? 'pb-3 mb-3 border-b border-[#E5E7EB]' : ''}`}>
-                <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: '#2DD4BF' }} />
+              <div key={b.id} className={`flex items-center gap-3 ${i < upcomingReservations.length - 1 ? 'pb-3 mb-3 border-b' : ''}`} style={{ borderColor: 'rgba(15,31,61,0.08)' }}>
+                <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: '#00D4FF' }} />
                 <div className="flex-1 min-w-0">
-                  <div className="text-[13px] font-bold truncate" style={{ color: '#1A1A2E' }}>{b.amenityName}</div>
-                  <div className="text-[12px] mt-0.5" style={{ color: '#9CA3AF' }}>
+                  <div className="text-[13px] font-bold truncate" style={{ color: '#0F1F3D' }}>{b.amenityName}</div>
+                  <div className="text-[12px] mt-0.5" style={{ color: '#8892A4' }}>
                     {format(new Date(`${b.date}T00:00:00`), 'EEE, MMM d')} · {formatTime12(b.startTime)} – {formatTime12(b.endTime)}
                   </div>
                 </div>
@@ -456,14 +464,11 @@ const Dashboard = () => {
         {activeSurvey && (
           <div
             className="rounded-2xl p-4 mb-3 flex items-center gap-3"
-            style={{
-              background: 'linear-gradient(135deg, #00B4D8 0%, #0091B5 100%)',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-            }}
+            style={{ background: 'linear-gradient(135deg, #00D4FF 0%, #0091B5 100%)', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}
           >
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-lg">📋</span>
+                <ClipboardList className="h-4 w-4 text-white flex-shrink-0" />
                 <span className="text-[14px] font-bold text-white">You have a survey to complete</span>
               </div>
               <div className="text-[12px] text-white/70 truncate">{activeSurvey.title}</div>
@@ -478,13 +483,13 @@ const Dashboard = () => {
         )}
 
         {/* CARD 3 — Community Announcements */}
-        <div className={cardStyle} style={cardShadow}>
+        <div style={cardStyle}>
           <div className="flex justify-between items-center mb-3">
-            <span className={cardTitle} style={{ color: '#1A1A2E' }}>Community Announcements</span>
+            <span className="text-[16px] font-extrabold" style={{ color: '#0F1F3D' }}>Community Announcements</span>
             {announcements.length > 0 && (
               <span
-                className={viewAll}
-                style={{ color: '#00B4D8', cursor: 'pointer' }}
+                className="text-[13px] font-bold cursor-pointer"
+                style={{ color: '#00D4FF' }}
                 onClick={async () => {
                   if (showAllAnnouncements) {
                     setShowAllAnnouncements(false);
@@ -524,8 +529,8 @@ const Dashboard = () => {
           </div>
           {announcements.length === 0 ? (
             <div className="text-center py-5">
-              <Megaphone className="h-10 w-10 mx-auto mb-2" style={{ color: '#9CA3AF' }} />
-              <p className="text-[13px]" style={{ color: '#9CA3AF' }}>No announcements yet</p>
+              <Megaphone className="h-10 w-10 mx-auto mb-2" style={{ color: '#8892A4' }} />
+              <p className="text-[13px]" style={{ color: '#8892A4' }}>No announcements yet</p>
             </div>
           ) : (
             (showAllAnnouncements && allAnnouncements.length > 0 ? allAnnouncements : announcements).map((a, i, arr) => {
@@ -533,7 +538,8 @@ const Dashboard = () => {
               return (
                 <div
                   key={a.id}
-                  className={`cursor-pointer ${i < arr.length - 1 ? 'pb-3 mb-3 border-b border-[#E5E7EB]' : ''}`}
+                  className={`cursor-pointer ${i < arr.length - 1 ? 'pb-3 mb-3 border-b' : ''}`}
+                  style={{ borderColor: 'rgba(15,31,61,0.08)' }}
                   onClick={() => {
                     if (a.href) {
                       navigate(a.href);
@@ -542,8 +548,8 @@ const Dashboard = () => {
                     setExpandedAnnouncement(isExpanded ? null : a.id);
                   }}
                 >
-                  <div className="text-[13px] font-bold" style={{ color: '#1A1A2E' }}>{a.title}</div>
-                  <div className={`text-[12px] mt-0.5 ${a.href ? 'truncate' : isExpanded ? '' : 'truncate'}`} style={{ color: '#9CA3AF' }}>
+                  <div className="text-[13px] font-bold" style={{ color: '#0F1F3D' }}>{a.title}</div>
+                  <div className={`text-[12px] mt-0.5 ${a.href ? 'truncate' : isExpanded ? '' : 'truncate'}`} style={{ color: '#8892A4' }}>
                     {a.href ? (
                       <>{a.body?.substring(0, 80)}{a.body?.length > 80 ? '…' : ''}</>
                     ) : isExpanded ? a.body : (
@@ -551,11 +557,15 @@ const Dashboard = () => {
                     )}
                   </div>
                   {a.href && (
-                    <div className="mt-2 inline-block px-3 py-2 rounded-lg text-[13px] font-bold" style={{ color: '#00B4D8', background: '#E0F7FA', minHeight: 44, display: 'flex', alignItems: 'center' }}>
-                      📊 View Results →
+                    <div
+                      className="mt-2 inline-flex items-center gap-1.5 px-3 rounded-xl text-[13px] font-bold"
+                      style={{ color: '#00D4FF', background: '#E0F9FF', minHeight: 44 }}
+                    >
+                      <BarChart2 className="h-3.5 w-3.5" />
+                      View Results →
                     </div>
                   )}
-                  <div className="text-[11px] mt-1" style={{ color: '#9CA3AF' }}>
+                  <div className="text-[11px] mt-1" style={{ color: '#8892A4' }}>
                     {formatDistanceToNow(new Date(a.created_at), { addSuffix: true })}
                   </div>
                 </div>
@@ -565,27 +575,27 @@ const Dashboard = () => {
         </div>
 
         {/* CARD 4 — Community Events */}
-        <div className={cardStyle} style={cardShadow}>
+        <div style={cardStyle}>
           <div className="flex justify-between items-center mb-3">
-            <span className={cardTitle} style={{ color: '#1A1A2E' }}>Community Events</span>
+            <span className="text-[16px] font-extrabold" style={{ color: '#0F1F3D' }}>Community Events</span>
             {events.length > 0 && (
-              <Link to="/community-calendar" className={viewAll} style={{ color: '#00B4D8' }}>View All →</Link>
+              <Link to="/community-calendar" className="text-[13px] font-bold" style={{ color: '#00D4FF' }}>View All →</Link>
             )}
           </div>
           {events.length === 0 ? (
             <div className="text-center py-5">
-              <CalendarDays className="h-10 w-10 mx-auto mb-2" style={{ color: '#9CA3AF' }} />
-              <p className="text-[13px]" style={{ color: '#9CA3AF' }}>No upcoming events</p>
+              <CalendarDays className="h-10 w-10 mx-auto mb-2" style={{ color: '#8892A4' }} />
+              <p className="text-[13px]" style={{ color: '#8892A4' }}>No upcoming events</p>
             </div>
           ) : (
             events.map((e, i) => {
               const dt = new Date(e.starts_at);
               return (
-                <div key={e.id} className={`flex items-center gap-3 ${i < events.length - 1 ? 'pb-3 mb-3 border-b border-[#E5E7EB]' : ''}`}>
-                  <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: '#00B4D8' }} />
+                <div key={e.id} className={`flex items-center gap-3 ${i < events.length - 1 ? 'pb-3 mb-3 border-b' : ''}`} style={{ borderColor: 'rgba(15,31,61,0.08)' }}>
+                  <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: '#00D4FF' }} />
                   <div className="flex-1 min-w-0">
-                    <div className="text-[13px] font-bold" style={{ color: '#1A1A2E' }}>{e.title}</div>
-                    <div className="text-[12px] mt-0.5" style={{ color: '#9CA3AF' }}>
+                    <div className="text-[13px] font-bold" style={{ color: '#0F1F3D' }}>{e.title}</div>
+                    <div className="text-[12px] mt-0.5" style={{ color: '#8892A4' }}>
                       {format(dt, 'EEE, MMM d')} · {dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
                       {e.location && <span className="text-[11px]"> · {e.location}</span>}
                     </div>
@@ -598,32 +608,39 @@ const Dashboard = () => {
 
         {/* CARD 5 — My Open Reports */}
         {myReportsCount > 0 && (
-          <div className={cardStyle} style={cardShadow}>
+          <div style={cardStyle}>
             <div className="flex justify-between items-center mb-3">
-              <span className={cardTitle} style={{ color: '#1A1A2E' }}>My Open Reports</span>
+              <span className="text-[16px] font-extrabold" style={{ color: '#0F1F3D' }}>My Open Reports</span>
               {myReportsCount > 3 && (
-                <Link to="/my-reports" className={viewAll} style={{ color: '#00B4D8' }}>View All →</Link>
+                <Link to="/my-reports" className="text-[13px] font-bold" style={{ color: '#00D4FF' }}>View All →</Link>
               )}
             </div>
             {myReports.map((r, i) => (
-              <Link to="/my-reports" key={r.id} className={`flex items-center justify-between ${i < myReports.length - 1 ? 'pb-3 mb-3 border-b border-[#E5E7EB]' : ''}`}>
+              <Link
+                to="/my-reports"
+                key={r.id}
+                className={`flex items-center justify-between ${i < myReports.length - 1 ? 'pb-3 mb-3 border-b' : ''}`}
+                style={{ borderColor: 'rgba(15,31,61,0.08)' }}
+              >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-[13px] font-bold truncate" style={{ color: '#1A1A2E' }}>{r.title || r.issue_type || 'Report'}</span>
+                    <span className="text-[13px] font-bold truncate" style={{ color: '#0F1F3D' }}>
+                      {r.title || r.issue_type || 'Report'}
+                    </span>
                     <span
                       className="text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0"
                       style={{
-                        background: r.status === 'open' ? '#FEF3C7' : '#CFFAFE',
-                        color: r.status === 'open' ? '#F59E0B' : '#00B4D8',
+                        background: r.status === 'open' ? '#FFF5F5' : '#E0F9FF',
+                        color: r.status === 'open' ? '#F97066' : '#00D4FF',
                       }}
                     >
                       {r.status === 'open' ? 'Open' : 'In Progress'}
                     </span>
                   </div>
                   {r.location && (
-                    <div className="text-[12px] mt-0.5" style={{ color: '#9CA3AF' }}>{r.location}</div>
+                    <div className="text-[12px] mt-0.5" style={{ color: '#8892A4' }}>{r.location}</div>
                   )}
-                  <div className="text-[11px] mt-0.5" style={{ color: '#9CA3AF' }}>
+                  <div className="text-[11px] mt-0.5" style={{ color: '#8892A4' }}>
                     {formatDistanceToNow(new Date(r.created_at), { addSuffix: true })}
                   </div>
                 </div>

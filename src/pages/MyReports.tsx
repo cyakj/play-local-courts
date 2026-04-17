@@ -1,29 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useActiveHOA } from '@/contexts/ActiveHOAContext';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useData } from '@/contexts/DataContext';
 import { MultiStepReportDialog } from '@/components/maintenance/MultiStepReportDialog';
 import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
-import { 
-  Plus, 
-  Calendar, 
-  ChevronRight,
-  ClipboardList
-} from 'lucide-react';
+import { Plus, Calendar, ChevronRight, ClipboardList, MapPin } from 'lucide-react';
 import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
 import {
   getCategoryLabel,
-  parsePriorityFromDescription,
   cleanDescription,
-  priorityConfig,
-  statusConfig,
 } from '@/lib/maintenanceUtils';
 
 interface UserReport {
@@ -41,6 +29,23 @@ interface UserReport {
   location_text?: string;
 }
 
+const getStatusPill = (status: string): { bg: string; color: string; label: string } => {
+  switch (status) {
+    case 'open':
+    case 'accepted':
+      return { bg: '#FFF5F5', color: '#F97066', label: 'Open' };
+    case 'in_progress':
+      return { bg: '#FFF5F5', color: '#F97066', label: 'In Progress' };
+    case 'completed':
+    case 'resolved':
+      return { bg: '#E0F9FF', color: '#00D4FF', label: 'Resolved' };
+    case 'reopened':
+      return { bg: '#FEF2F2', color: '#EF4444', label: 'Reopened' };
+    default:
+      return { bg: '#F9FAFB', color: '#8892A4', label: status };
+  }
+};
+
 const MyReports = () => {
   const { currentUser } = useAuth();
   const { activeHOA } = useActiveHOA();
@@ -57,7 +62,6 @@ const MyReports = () => {
     loadReports();
   }, [currentUser, activeHOA?.hoaId]);
 
-  // Real-time: auto-refresh when reports change (status updates, new messages, etc.)
   useRealtimeSubscription({
     table: 'maintenance_reports',
     event: '*',
@@ -129,23 +133,18 @@ const MyReports = () => {
     { value: 'resolved', label: 'Resolved' },
   ];
 
-  const getStatusBadge = (status: string) => {
-    const config = statusConfig[status];
-    if (!config) return <Badge variant="outline">{status}</Badge>;
-    return <Badge className={config.className}>{config.label}</Badge>;
-  };
-
-  const getPriorityBadge = (description: string) => {
-    const priority = parsePriorityFromDescription(description);
-    const config = priorityConfig[priority];
-    if (!config) return null;
-    return <Badge variant="outline" className={config.className}>{config.label}</Badge>;
+  const getReportTitle = (report: UserReport) => {
+    if (report.report_type === 'location') {
+      const loc = report.location_text || 'Unknown location';
+      return loc.length > 30 ? loc.slice(0, 30) + '…' : loc;
+    }
+    return report.amenity_name || getCategoryLabel(report.category);
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen pb-24" style={{ background: '#F9FAFB' }}>
       {/* Navy Header */}
-      <div className="navy-gradient text-white px-5 pt-[50px] pb-5">
+      <div className="text-white px-5 pt-[50px] pb-5" style={{ backgroundColor: '#0F1F3D' }}>
         <div className="flex justify-between items-center">
           <div>
             <div className="text-xl font-extrabold">My Reports</div>
@@ -153,18 +152,16 @@ const MyReports = () => {
           </div>
           <button
             onClick={() => setShowReportDialog(true)}
-            className="px-3.5 py-2 rounded-[10px] text-xs font-bold"
-            style={{ background: '#00B4D8' }}
+            className="w-10 h-10 rounded-[10px] flex items-center justify-center"
+            style={{ background: '#00D4FF' }}
           >
-            ＋ New
+            <Plus className="h-5 w-5 text-white" />
           </button>
         </div>
       </div>
 
-      <div className="px-4 pt-4 space-y-4">
-
       {/* Filter Chips */}
-      <div className="bg-card border-b border-border px-4 py-2.5 overflow-x-auto -mt-4">
+      <div className="bg-white border-b px-4 py-2.5" style={{ borderColor: 'rgba(15,31,61,0.08)' }}>
         <div className="flex gap-2">
           {residentFilters.map((option) => {
             const count = option.value === 'all'
@@ -172,90 +169,105 @@ const MyReports = () => {
               : option.value === 'active'
               ? reports.filter(r => activeStatuses.includes(r.status)).length
               : reports.filter(r => resolvedStatuses.includes(r.status)).length;
+            const active = statusFilter === option.value;
             return (
-            <button
-              key={option.value}
-              onClick={() => setStatusFilter(option.value)}
-              className="px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all min-h-[36px]"
-              style={{
-                background: statusFilter === option.value ? '#0A1628' : '#F0F4F8',
-                color: statusFilter === option.value ? 'white' : '#9CA3AF',
-                border: `1px solid ${statusFilter === option.value ? '#0A1628' : '#E5E7EB'}`,
-              }}
-            >
-              {option.label}
-              <span className="ml-1 opacity-70">({count})</span>
-            </button>
+              <button
+                key={option.value}
+                onClick={() => setStatusFilter(option.value)}
+                className="px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all min-h-[36px]"
+                style={{
+                  background: active ? '#0F1F3D' : '#F9FAFB',
+                  color: active ? 'white' : '#8892A4',
+                  border: `1px solid ${active ? '#0F1F3D' : 'rgba(15,31,61,0.08)'}`,
+                }}
+              >
+                {option.label}
+                <span className="ml-1 opacity-70">({count})</span>
+              </button>
             );
           })}
         </div>
       </div>
 
       {/* Reports List */}
-      <div className="space-y-3">
+      <div className="px-4 pt-4 space-y-3">
         {loading ? (
-          <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground">Loading reports...</p>
+          <div className="flex justify-center py-10">
+            <div
+              className="w-8 h-8 border-2 rounded-full animate-spin"
+              style={{ borderColor: 'rgba(0,212,255,0.2)', borderTopColor: '#00D4FF' }}
+            />
           </div>
         ) : filteredReports.length === 0 ? (
-          <Card>
-            <CardContent className="text-center py-12">
-              <ClipboardList className="h-12 w-12 mx-auto text-muted-foreground/30 mb-4" />
-              <h3 className="text-lg font-semibold mb-2">
-                {statusFilter === 'all' ? 'No Reports Yet' : `No ${statusFilter.replace('_', ' ')} reports`}
-              </h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                {statusFilter === 'all' 
-                  ? 'Submit a maintenance report to track issues in your community.' 
-                  : 'No reports match the selected filter.'}
-              </p>
-            </CardContent>
-          </Card>
+          <div className="bg-white rounded-2xl p-8 text-center border" style={{ borderColor: 'rgba(15,31,61,0.08)' }}>
+            <ClipboardList className="h-10 w-10 mx-auto mb-3" style={{ color: '#8892A4' }} />
+            <h3 className="text-[15px] font-extrabold mb-1" style={{ color: '#0F1F3D' }}>
+              {statusFilter === 'all' ? 'No Reports Yet' : `No ${statusFilter} reports`}
+            </h3>
+            <p className="text-[13px]" style={{ color: '#8892A4' }}>
+              {statusFilter === 'all'
+                ? 'Submit a maintenance report to track issues in your community.'
+                : 'No reports match the selected filter.'}
+            </p>
+          </div>
         ) : (
-          filteredReports.map((report) => (
-            <Card 
-              key={report.id} 
-              className="cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => {
-                setSelectedReport(report);
-                setShowDetailDialog(true);
-              }}
-            >
-              <CardContent className="p-4">
+          filteredReports.map((report) => {
+            const pill = getStatusPill(report.status);
+            const isLocation = report.report_type === 'location';
+            return (
+              <div
+                key={report.id}
+                className="bg-white rounded-2xl p-4 border cursor-pointer active:scale-[0.98] transition-transform"
+                style={{ borderColor: 'rgba(15,31,61,0.08)', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}
+                onClick={() => {
+                  setSelectedReport(report);
+                  setShowDetailDialog(true);
+                }}
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-sm truncate mb-1.5">
-                      {report.report_type === 'location'
-                        ? `📍 ${(report.location_text || 'Unknown location').slice(0, 30)}${(report.location_text || '').length > 30 ? '…' : ''}`
-                        : report.amenity_name}
-                    </h3>
-                    <div className="flex items-center gap-2 mb-2 flex-wrap">
-                      {getStatusBadge(report.status)}
-                      {getPriorityBadge(report.description)}
-                      <Badge variant="outline" className="text-xs">{getCategoryLabel(report.category)}</Badge>
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      {isLocation && <MapPin className="h-3.5 w-3.5 flex-shrink-0" style={{ color: '#8892A4' }} />}
+                      <h3 className="font-extrabold text-[14px] truncate" style={{ color: '#0F1F3D' }}>
+                        {getReportTitle(report)}
+                      </h3>
                     </div>
-                    <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
-                      {cleanDescription(report.description)}
-                    </p>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {format(new Date(report.created_at), 'MMM d, yyyy')}
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      <span
+                        className="text-[11px] font-bold px-2 py-0.5 rounded-full"
+                        style={{ background: pill.bg, color: pill.color }}
+                      >
+                        {pill.label}
+                      </span>
+                      <span
+                        className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                        style={{ background: '#F9FAFB', color: '#8892A4', border: '1px solid rgba(15,31,61,0.08)' }}
+                      >
+                        {getCategoryLabel(report.category)}
                       </span>
                     </div>
+                    <p className="text-[12px] line-clamp-2 mb-2" style={{ color: '#8892A4' }}>
+                      {cleanDescription(report.description)}
+                    </p>
+                    <div className="flex items-center gap-1.5 text-[11px]" style={{ color: '#8892A4' }}>
+                      <Calendar className="h-3 w-3" />
+                      {format(new Date(report.created_at), 'MMM d, yyyy')}
+                    </div>
                     {report.admin_notes && (
-                      <div className="mt-2 p-2 bg-muted/50 rounded-lg text-xs">
-                        <span className="font-medium">Admin update: </span>
+                      <div
+                        className="mt-2 p-2.5 rounded-xl text-[12px]"
+                        style={{ background: '#E0F9FF', color: '#0369A1' }}
+                      >
+                        <span className="font-bold">Admin update: </span>
                         {report.admin_notes}
                       </div>
                     )}
                   </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-1" />
+                  <ChevronRight className="h-4 w-4 flex-shrink-0 mt-1" style={{ color: '#8892A4' }} />
                 </div>
-              </CardContent>
-            </Card>
-          ))
+              </div>
+            );
+          })
         )}
       </div>
 
@@ -268,41 +280,56 @@ const MyReports = () => {
           {selectedReport && (
             <div className="space-y-4">
               <div>
-                <h3 className="font-semibold">
-                  {selectedReport.report_type === 'location'
-                    ? `📍 ${selectedReport.location_text || 'Unknown location'}`
-                    : selectedReport.amenity_name}
-                </h3>
-                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  {getStatusBadge(selectedReport.status)}
-                  {getPriorityBadge(selectedReport.description)}
-                  <Badge variant="outline">{getCategoryLabel(selectedReport.category)}</Badge>
+                <div className="flex items-center gap-1.5">
+                  {selectedReport.report_type === 'location' && (
+                    <MapPin className="h-4 w-4 flex-shrink-0" style={{ color: '#8892A4' }} />
+                  )}
+                  <h3 className="font-extrabold text-[15px]" style={{ color: '#0F1F3D' }}>
+                    {getReportTitle(selectedReport)}
+                  </h3>
+                </div>
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  {(() => {
+                    const pill = getStatusPill(selectedReport.status);
+                    return (
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: pill.bg, color: pill.color }}>
+                        {pill.label}
+                      </span>
+                    );
+                  })()}
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ background: '#F9FAFB', color: '#8892A4', border: '1px solid rgba(15,31,61,0.08)' }}>
+                    {getCategoryLabel(selectedReport.category)}
+                  </span>
                 </div>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Description</p>
-                <p className="bg-muted/50 p-3 rounded-lg text-sm">{cleanDescription(selectedReport.description)}</p>
+                <p className="text-[12px] font-bold uppercase tracking-wider mb-1.5" style={{ color: '#8892A4' }}>Description</p>
+                <p className="rounded-xl p-3 text-[13px]" style={{ background: '#F9FAFB', color: '#0F1F3D' }}>
+                  {cleanDescription(selectedReport.description)}
+                </p>
               </div>
               {selectedReport.photo_url && (
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Photo</p>
-                  <img src={selectedReport.photo_url} alt="Report" className="rounded-lg border max-w-full" />
+                  <p className="text-[12px] font-bold uppercase tracking-wider mb-1.5" style={{ color: '#8892A4' }}>Photo</p>
+                  <img src={selectedReport.photo_url} alt="Report" className="rounded-xl border max-w-full" />
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-2 gap-4 text-[13px]">
                 <div>
-                  <p className="text-muted-foreground">Submitted</p>
-                  <p className="font-medium">{format(new Date(selectedReport.created_at), 'MMM d, yyyy h:mm a')}</p>
+                  <p className="text-[11px] font-bold uppercase tracking-wider mb-0.5" style={{ color: '#8892A4' }}>Submitted</p>
+                  <p className="font-semibold" style={{ color: '#0F1F3D' }}>{format(new Date(selectedReport.created_at), 'MMM d, yyyy h:mm a')}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Last Updated</p>
-                  <p className="font-medium">{format(new Date(selectedReport.updated_at), 'MMM d, yyyy h:mm a')}</p>
+                  <p className="text-[11px] font-bold uppercase tracking-wider mb-0.5" style={{ color: '#8892A4' }}>Last Updated</p>
+                  <p className="font-semibold" style={{ color: '#0F1F3D' }}>{format(new Date(selectedReport.updated_at), 'MMM d, yyyy h:mm a')}</p>
                 </div>
               </div>
               {selectedReport.admin_notes && (
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Admin Notes</p>
-                  <p className="bg-primary/5 border border-primary/10 p-3 rounded-lg text-sm">{selectedReport.admin_notes}</p>
+                  <p className="text-[12px] font-bold uppercase tracking-wider mb-1.5" style={{ color: '#8892A4' }}>Admin Notes</p>
+                  <p className="rounded-xl p-3 text-[13px]" style={{ background: '#E0F9FF', color: '#0369A1' }}>
+                    {selectedReport.admin_notes}
+                  </p>
                 </div>
               )}
             </div>
@@ -315,7 +342,6 @@ const MyReports = () => {
         onOpenChange={setShowReportDialog}
         amenities={amenities.map(a => ({ id: a.id, name: a.name, amenityType: a.amenityType }))}
       />
-      </div>
     </div>
   );
 };
