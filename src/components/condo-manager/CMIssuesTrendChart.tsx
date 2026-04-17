@@ -5,7 +5,7 @@ const PERIOD_LABELS: Record<string, string> = {
   Week: 'Issues reported Mon–Sun this week',
   '3M': 'Rolling last 3 months',
   '12M': 'Rolling last 12 months',
-  YTD: 'Rolling last 12 months',
+  YTD: 'Year to date — Jan 1 to today',
 };
 
 interface Props {
@@ -25,14 +25,14 @@ export const CMPeriodToggle = ({
   value: string;
   onChange: (v: string) => void;
 }) => (
-  <div className="flex bg-white/[0.1] rounded-[10px] p-0.5 gap-0.5">
+  <div className="flex rounded-[10px] p-0.5 gap-0.5" style={{ background: 'rgba(255,255,255,0.1)' }}>
     {['Week', '3M', '12M', 'YTD'].map((t) => (
       <div
         key={t}
         onClick={() => onChange(t)}
         className="px-2 py-1 rounded-lg cursor-pointer text-[10px] font-bold transition-colors"
         style={{
-          background: value === t ? 'rgba(5,150,105,0.35)' : 'transparent',
+          background: value === t ? 'rgba(0,212,255,0.3)' : 'transparent',
           color: value === t ? '#fff' : 'rgba(255,255,255,0.6)',
         }}
       >
@@ -45,7 +45,6 @@ export const CMPeriodToggle = ({
 const getDayLabel = (d: Date) => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()];
 const getMonthLabel = (d: Date) => ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()];
 
-// 0 = Resolved (gray), above avg = Critical (red), otherwise = Moderate (coral)
 const barColor = (v: number, avg: number) => {
   if (v === 0) return '#E5E7EB';
   if (v > avg * 1.2) return '#EF4444';
@@ -83,10 +82,8 @@ export const CMIssuesTrendChart = ({ hoaIds, period }: Props) => {
         startDate.setMonth(now.getMonth() - 11);
         startDate.setDate(1);
       } else {
-        // YTD: full 12 months back from today
-        startDate = new Date(now);
-        startDate.setMonth(now.getMonth() - 12);
-        startDate.setDate(1);
+        // YTD: January 1 of current year
+        startDate = new Date(now.getFullYear(), 0, 1);
       }
 
       const { data: reports, error } = await supabase
@@ -97,7 +94,6 @@ export const CMIssuesTrendChart = ({ hoaIds, period }: Props) => {
         .order('created_at', { ascending: true });
 
       if (error) {
-        console.error('Issues trend fetch error:', error);
         setData([]);
         setLoading(false);
         return;
@@ -149,9 +145,9 @@ export const CMIssuesTrendChart = ({ hoaIds, period }: Props) => {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+      <div className="bg-white rounded-2xl p-5 border border-gray-100" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
         <div className="flex justify-center py-8">
-          <div className="w-6 h-6 border-2 border-emerald-100 border-t-[#059669] rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 rounded-full animate-spin" style={{ borderColor: 'rgba(0,212,255,0.2)', borderTopColor: '#00D4FF' }} />
         </div>
       </div>
     );
@@ -159,9 +155,9 @@ export const CMIssuesTrendChart = ({ hoaIds, period }: Props) => {
 
   if (data.length === 0) {
     return (
-      <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
-        <div className="text-[18px] font-bold mb-1" style={{ color: '#064E3B', fontFamily: 'Manrope, sans-serif' }}>Issues Trend</div>
-        <div className="text-center py-6 text-sm" style={{ color: '#4B5563' }}>No data for this period</div>
+      <div className="bg-white rounded-2xl p-5 border border-gray-100" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+        <div className="text-[18px] font-bold mb-1" style={{ color: '#0F1F3D', fontFamily: 'Manrope, sans-serif' }}>Issues Trend</div>
+        <div className="text-center py-6 text-sm" style={{ color: '#8892A4' }}>No data for this period</div>
       </div>
     );
   }
@@ -175,27 +171,25 @@ export const CMIssuesTrendChart = ({ hoaIds, period }: Props) => {
 
   const summaryStats = [
     { label: period === 'Week' ? 'Latest Day' : 'Latest Month', value: `${latest}`, suffix: arrow, color: barColor(latest, avg) },
-    { label: 'Period Avg', value: `${avg}`, color: '#064E3B' },
-    { label: 'Period Total', value: `${total}`, color: '#064E3B' },
+    { label: 'Period Avg', value: `${avg}`, color: '#0F1F3D' },
+    { label: 'Period Total', value: `${total}`, color: '#0F1F3D' },
   ];
 
   return (
-    <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
-      {/* Header */}
+    <div className="bg-white rounded-2xl p-5 border border-gray-100" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
       <div className="mb-4">
-        <div className="text-[18px] font-bold" style={{ color: '#064E3B', fontFamily: 'Manrope, sans-serif' }}>
+        <div className="text-[18px] font-bold" style={{ color: '#0F1F3D', fontFamily: 'Manrope, sans-serif' }}>
           Issues Trend
         </div>
-        <div className="text-[13px] mt-0.5" style={{ color: '#4B5563' }}>
+        <div className="text-[13px] mt-0.5" style={{ color: '#8892A4' }}>
           {PERIOD_LABELS[period]}
         </div>
       </div>
 
-      {/* Summary stat boxes */}
       <div className="flex gap-2 mb-4">
         {summaryStats.map((s, i) => (
-          <div key={i} className="flex-1 rounded-lg p-2.5" style={{ backgroundColor: '#F9FAFB' }}>
-            <div className="text-[11px] font-medium mb-1" style={{ color: '#4B5563' }}>{s.label}</div>
+          <div key={i} className="flex-1 rounded-xl p-2.5" style={{ backgroundColor: '#F9FAFB' }}>
+            <div className="text-[11px] font-semibold mb-1 uppercase" style={{ color: '#8892A4', letterSpacing: '0.08em' }}>{s.label}</div>
             <div className="text-[17px] font-bold leading-none" style={{ color: s.color, fontFamily: 'Manrope, sans-serif' }}>
               {s.value}
               {s.suffix && <span className="text-sm ml-0.5">{s.suffix}</span>}
@@ -204,16 +198,15 @@ export const CMIssuesTrendChart = ({ hoaIds, period }: Props) => {
         ))}
       </div>
 
-      {/* Bar chart */}
       <div className="relative pt-2">
         {avg > 0 && (
           <div
             className="absolute left-0 right-0 border-t border-dashed z-[2]"
-            style={{ borderColor: '#9CA3AF', top: `${8 + (1 - avg / (max + 2)) * 88}px` }}
+            style={{ borderColor: '#D1D5DB', top: `${8 + (1 - avg / (max + 2)) * 88}px` }}
           >
             <span
               className="absolute right-0 bg-white pl-1"
-              style={{ fontSize: 12, fontWeight: 600, color: '#4B5563', top: -10 }}
+              style={{ fontSize: 10, fontWeight: 600, color: '#8892A4', top: -10 }}
             >
               avg
             </span>
@@ -228,10 +221,7 @@ export const CMIssuesTrendChart = ({ hoaIds, period }: Props) => {
             return (
               <div key={i} className="flex-1 flex flex-col items-center h-full justify-end">
                 {d.value > 0 && (
-                  <div
-                    className="mb-0.5"
-                    style={{ fontSize: 12, fontWeight: 600, color: '#064E3B' }}
-                  >
+                  <div className="mb-0.5" style={{ fontSize: 10, fontWeight: 600, color: '#0F1F3D' }}>
                     {d.value}
                   </div>
                 )}
@@ -247,7 +237,7 @@ export const CMIssuesTrendChart = ({ hoaIds, period }: Props) => {
                   className="mt-1 text-center"
                   style={{
                     fontSize: data.length > 6 ? 8 : 10,
-                    color: isLast ? '#064E3B' : '#6B7280',
+                    color: isLast ? '#0F1F3D' : '#8892A4',
                     fontWeight: isLast ? 700 : 500,
                   }}
                 >
@@ -259,7 +249,6 @@ export const CMIssuesTrendChart = ({ hoaIds, period }: Props) => {
         </div>
       </div>
 
-      {/* Legend */}
       <div className="flex gap-4 mt-4 pt-3 border-t border-gray-100">
         {[
           { label: 'Critical', color: '#EF4444' },
@@ -268,7 +257,7 @@ export const CMIssuesTrendChart = ({ hoaIds, period }: Props) => {
         ].map((l) => (
           <div key={l.label} className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full block" style={{ backgroundColor: l.color }} />
-            <span className="text-[11px] uppercase tracking-wider font-medium" style={{ color: '#4B5563' }}>{l.label}</span>
+            <span className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: '#8892A4' }}>{l.label}</span>
           </div>
         ))}
       </div>

@@ -31,13 +31,13 @@ const CMPortfolio = () => {
   const needsAttention = communities.find(c => c.status === 'warning' || c.status === 'critical');
 
   const getHealthColor = (score: number) => {
-    if (score >= 70) return '#059669';
+    if (score >= 70) return '#00D4FF';
     if (score >= 40) return '#F97066';
     return '#EF4444';
   };
 
   const getStatusPill = (score: number) => {
-    if (score >= 70) return { label: 'Optimal', bg: '#F0FDF4', text: '#065F46', border: '#34D399' };
+    if (score >= 70) return { label: 'Optimal', bg: '#E0F9FF', text: '#0369A1', border: '#00D4FF' };
     if (score >= 40) return { label: 'Needs Attention', bg: '#FFF5F5', text: '#C0392B', border: '#F97066' };
     return { label: 'Critical', bg: '#FEF2F2', text: '#991B1B', border: '#EF4444' };
   };
@@ -49,7 +49,7 @@ const CMPortfolio = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F9FAFB] flex items-center justify-center">
-        <div className="w-10 h-10 border-2 border-emerald-100 border-t-[#059669] rounded-full animate-spin" />
+        <div className="w-10 h-10 border-2 border-cyan-100 border-t-[#00D4FF] rounded-full animate-spin" />
       </div>
     );
   }
@@ -65,7 +65,7 @@ const CMPortfolio = () => {
     <div className="min-h-screen bg-[#F9FAFB] pb-24">
 
       {/* Header */}
-      <div style={{ backgroundColor: '#064E3B' }} className="px-5 pt-12 pb-8 relative overflow-visible">
+      <div style={{ backgroundColor: '#0F1F3D' }} className="px-5 pt-12 pb-8 relative overflow-visible">
 
         {/* Top bar */}
         <div className="flex items-center justify-between mb-6">
@@ -96,20 +96,20 @@ const CMPortfolio = () => {
         </div>
 
         {/* Greeting */}
-        <div className="text-[13px] uppercase font-semibold mb-1" style={{ color: '#34D399', letterSpacing: '0.15em' }}>
+        <div className="text-[13px] uppercase font-semibold mb-1" style={{ color: '#00D4FF', letterSpacing: '0.15em' }}>
           Welcome back
         </div>
         <h1 className="text-[32px] font-black text-white leading-[1.1] tracking-tight">
           {greeting},<br />{firstName}
         </h1>
-        <p className="text-emerald-200 mt-3 leading-relaxed" style={{ fontSize: '15px', opacity: 0.9 }}>
+        <p className="text-cyan-200 mt-3 leading-relaxed" style={{ fontSize: '15px', opacity: 0.9 }}>
           Your portfolio is currently being monitored for performance and occupancy efficiency.
         </p>
 
         {/* Bottom fade */}
         <div
           className="absolute -bottom-6 left-0 right-0 h-8 pointer-events-none z-0"
-          style={{ background: 'linear-gradient(to bottom, #064E3B, transparent)' }}
+          style={{ background: 'linear-gradient(to bottom, #0F1F3D, transparent)' }}
         />
       </div>
 
@@ -124,11 +124,11 @@ const CMPortfolio = () => {
               className="bg-white rounded-2xl p-5 border border-gray-100 h-28 flex flex-col justify-between"
               style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}
             >
-              <div style={{ color: '#059669' }}>{stat.icon}</div>
+              <div style={{ color: '#00D4FF' }}>{stat.icon}</div>
               <div>
                 <div
                   className="font-bold text-2xl leading-none"
-                  style={{ color: '#064E3B', fontFamily: 'Manrope, sans-serif' }}
+                  style={{ color: '#0F1F3D', fontFamily: 'Manrope, sans-serif' }}
                 >
                   {stat.value}
                 </div>
@@ -190,7 +190,7 @@ const CMPortfolio = () => {
         <div>
           <h2
             className="text-[18px] font-bold mb-4"
-            style={{ color: '#064E3B', fontFamily: 'Manrope, sans-serif' }}
+            style={{ color: '#0F1F3D', fontFamily: 'Manrope, sans-serif' }}
           >
             My Communities
           </h2>
@@ -216,7 +216,7 @@ const CMPortfolio = () => {
                 <div className="flex justify-between items-center mb-3">
                   <h3
                     className="text-[18px] font-extrabold"
-                    style={{ color: '#064E3B', fontFamily: 'Manrope, sans-serif' }}
+                    style={{ color: '#0F1F3D', fontFamily: 'Manrope, sans-serif' }}
                   >
                     {c.name}
                   </h3>
@@ -262,7 +262,7 @@ const CMPortfolio = () => {
                     <div key={i} className="text-center">
                       <div
                         className="text-[20px] font-extrabold leading-none"
-                        style={{ color: '#064E3B', fontFamily: 'Manrope, sans-serif' }}
+                        style={{ color: '#0F1F3D', fontFamily: 'Manrope, sans-serif' }}
                       >
                         {item.value}
                       </div>
@@ -278,7 +278,7 @@ const CMPortfolio = () => {
 
                 {/* Manage link */}
                 <div className="flex justify-end pt-1 border-t border-gray-100">
-                  <span className="text-[14px] font-extrabold mt-2" style={{ color: '#059669' }}>
+                  <span className="text-[14px] font-extrabold mt-2" style={{ color: '#00D4FF' }}>
                     Manage →
                   </span>
                 </div>

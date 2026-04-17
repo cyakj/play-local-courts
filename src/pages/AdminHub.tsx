@@ -26,7 +26,7 @@ const AdminHub = () => {
       description: 'Set booking rules, guest policies, time restrictions, and cancellation rules for each amenity.',
       icon: Shield,
       path: '/amenity-rules',
-      color: 'text-green-600 bg-green-50'
+      color: 'text-[#00D4FF] bg-[#E0F9FF]'
     },
     {
       title: 'Maintenance Reports',

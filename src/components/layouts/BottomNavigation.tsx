@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Home, Calendar, ClipboardList, CalendarDays, FileText } from 'lucide-react';
@@ -24,7 +23,17 @@ const BottomNavigation = () => {
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50" style={{ paddingTop: 10, paddingBottom: 20 }}>
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-50"
+      style={{
+        background: 'rgba(255,255,255,0.8)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        borderTop: '1px solid rgba(15,31,61,0.08)',
+        paddingTop: 12,
+        paddingBottom: 28,
+      }}
+    >
       <div className="flex justify-around items-center max-w-md mx-auto">
         {navItems.map((item) => {
           const Icon = item.icon;
@@ -33,26 +42,22 @@ const BottomNavigation = () => {
             <Link
               key={item.path}
               to={item.path}
-              className="flex flex-col items-center gap-1 min-h-[44px] min-w-[44px] justify-center"
+              className="flex flex-col items-center gap-0.5 min-h-[44px] min-w-[44px] justify-center"
             >
               <Icon
-                className="h-5 w-5"
-                style={{
-                  color: active ? '#4B5563' : '#9CA3AF',
-                  filter: 'grayscale(1)',
-                  opacity: active ? 1 : 0.45,
-                }}
+                className="h-[22px] w-[22px]"
+                style={{ color: active ? '#00D4FF' : '#8892A4' }}
               />
               <span
-                className="text-[10px] font-bold"
-                style={{ color: active ? '#1A1A2E' : '#9CA3AF' }}
+                className="text-[10px] font-bold uppercase tracking-wide"
+                style={{ color: active ? '#00D4FF' : '#8892A4' }}
               >
                 {item.label}
               </span>
               {active ? (
-                <div className="w-5 h-[3px] rounded-full" style={{ background: '#00B4D8' }} />
+                <div className="w-1 h-1 rounded-full" style={{ backgroundColor: '#00D4FF' }} />
               ) : (
-                <div className="w-5 h-[3px]" />
+                <div className="w-1 h-1" />
               )}
             </Link>
           );

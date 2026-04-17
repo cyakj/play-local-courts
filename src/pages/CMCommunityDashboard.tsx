@@ -23,7 +23,7 @@ const AMENITY_TYPES = [
 ] as const;
 
 const getHealthColor = (score: number) => {
-  if (score >= 70) return '#059669';
+  if (score >= 70) return '#00D4FF';
   if (score >= 40) return '#F97066';
   return '#EF4444';
 };
@@ -38,11 +38,11 @@ const StatCard = ({ icon, value, label, badge }: StatCardProps) => (
   <div className="bg-white rounded-2xl p-5 border border-gray-100 flex flex-col justify-between h-28"
     style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
     <div className="flex justify-between items-start">
-      <div style={{ color: '#059669' }}>{icon}</div>
+      <div style={{ color: '#00D4FF' }}>{icon}</div>
       {badge}
     </div>
     <div>
-      <div className="font-bold text-2xl" style={{ color: '#064E3B', fontFamily: 'Manrope, sans-serif' }}>{value}</div>
+      <div className="font-bold text-2xl" style={{ color: '#0F1F3D', fontFamily: 'Manrope, sans-serif' }}>{value}</div>
       <div className="text-[11px] uppercase font-semibold mt-1" style={{ color: '#4B5563', letterSpacing: '0.08em' }}>{label}</div>
     </div>
   </div>
@@ -50,7 +50,7 @@ const StatCard = ({ icon, value, label, badge }: StatCardProps) => (
 
 const GreenBadge = ({ label }: { label: string }) => (
   <span className="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full"
-    style={{ backgroundColor: '#F0FDF4', color: '#065F46', border: '1px solid #34D399' }}>
+    style={{ backgroundColor: '#E0F9FF', color: '#0369A1', border: '1px solid #00D4FF' }}>
     {label}
   </span>
 );
@@ -148,7 +148,7 @@ const CMCommunityDashboard = () => {
   if (!c) {
     return (
       <div className="min-h-screen bg-[#F9FAFB] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#059669]" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00D4FF]" />
       </div>
     );
   }
@@ -158,7 +158,7 @@ const CMCommunityDashboard = () => {
     ? { label: 'Critical', bg: '#EF4444', text: '#fff' }
     : c.status === 'warning'
     ? { label: 'Needs Attention', bg: '#823f3a', text: '#fff' }
-    : { label: 'Optimal', bg: '#065f46', text: '#fff' };
+    : { label: 'Optimal', bg: '#0F1F3D', text: '#fff' };
 
   const tabs = ['overview', 'reports', 'amenities', 'members'];
 
@@ -168,7 +168,7 @@ const CMCommunityDashboard = () => {
       {/* Header — no floating card, clean height */}
       <header
         className="sticky top-0 z-50 px-5 pt-10 pb-6 shadow-md"
-        style={{ background: 'linear-gradient(135deg, #004532 0%, #065f46 100%)' }}
+        style={{ background: 'linear-gradient(135deg, #0F1F3D 0%, #0F1F3D 100%)' }}
       >
         <div className="flex items-center w-full mt-2">
           <button onClick={() => navigate('/cm')} className="mr-4 text-white active:scale-95 transition-transform">
@@ -186,7 +186,7 @@ const CMCommunityDashboard = () => {
                 {statusPill.label}
               </span>
             </div>
-            <p className="text-xs mt-0.5" style={{ color: '#a7f3d0' }}>{c.totalUnits} units</p>
+            <p className="text-xs mt-0.5" style={{ color: 'rgba(0,212,255,0.7)' }}>{c.totalUnits} units</p>
           </div>
         </div>
       </header>
@@ -223,8 +223,8 @@ const CMCommunityDashboard = () => {
               onClick={() => setTab(t)}
               className="text-[13px] font-semibold pb-2 whitespace-nowrap capitalize transition-colors shrink-0"
               style={{
-                color: tab === t ? '#059669' : '#71717A',
-                borderBottom: tab === t ? '2px solid #059669' : '2px solid transparent',
+                color: tab === t ? '#00D4FF' : '#71717A',
+                borderBottom: tab === t ? '2px solid #00D4FF' : '2px solid transparent',
               }}
             >
               {t}
@@ -242,7 +242,7 @@ const CMCommunityDashboard = () => {
                 className="text-xs font-semibold px-4 py-1.5 rounded-full transition-colors"
                 style={{
                   backgroundColor: trendPeriod === p ? '#fff' : 'transparent',
-                  color: trendPeriod === p ? '#064E3B' : '#6B7280',
+                  color: trendPeriod === p ? '#0F1F3D' : '#6B7280',
                   boxShadow: trendPeriod === p ? '0 1px 4px rgba(25,28,29,0.08)' : 'none',
                 }}
               >
@@ -285,13 +285,13 @@ const CMCommunityDashboard = () => {
 
             {/* Quick Actions */}
             <div>
-              <h2 className="font-bold text-[18px] mb-3" style={{ color: '#064E3B', fontFamily: 'Manrope, sans-serif' }}>
+              <h2 className="font-bold text-[18px] mb-3" style={{ color: '#0F1F3D', fontFamily: 'Manrope, sans-serif' }}>
                 Quick Actions
               </h2>
               <div className="grid grid-cols-2 gap-3">
                 {[
                   { label: 'Post Announcement', icon: <Megaphone className="h-5 w-5" />, iconBg: '#FFF5F5', iconColor: '#F97066' },
-                  { label: 'Approve Members', icon: <UserCheck className="h-5 w-5" />, iconBg: '#F0FDF4', iconColor: '#059669' },
+                  { label: 'Approve Members', icon: <UserCheck className="h-5 w-5" />, iconBg: '#E0F9FF', iconColor: '#00D4FF' },
                   { label: 'Manage Documents', icon: <FileText className="h-5 w-5" />, iconBg: '#FFFBEB', iconColor: '#D97706' },
                   { label: 'Manage Surveys', icon: <BarChart2 className="h-5 w-5" />, iconBg: '#EFF6FF', iconColor: '#3B82F6' },
                 ].map((a) => (
@@ -320,7 +320,7 @@ const CMCommunityDashboard = () => {
                     </div>
                     <span style={{
                       fontSize: 13, fontWeight: 600, lineHeight: 1.3,
-                      color: '#064E3B', fontFamily: 'Manrope, sans-serif',
+                      color: '#0F1F3D', fontFamily: 'Manrope, sans-serif',
                     }}>
                       {a.label}
                     </span>
@@ -349,11 +349,11 @@ const CMCommunityDashboard = () => {
               <StatCard icon={<BarChart2 className="h-5 w-5" />} value={`${c.utilization}%`} label="Utilization Rate" />
             </div>
             <div className="flex items-center justify-between">
-              <h2 className="font-bold text-base" style={{ color: '#064E3B', fontFamily: 'Manrope, sans-serif' }}>Amenities</h2>
+              <h2 className="font-bold text-base" style={{ color: '#0F1F3D', fontFamily: 'Manrope, sans-serif' }}>Amenities</h2>
               <button
                 onClick={() => setShowAddAmenityModal(true)}
                 className="flex items-center gap-1 text-white rounded-lg px-3 py-1.5 text-xs font-bold min-h-[36px]"
-                style={{ backgroundColor: '#064E3B' }}
+                style={{ backgroundColor: '#0F1F3D' }}
               >
                 <Plus className="h-3.5 w-3.5" />
                 Add Amenity
@@ -363,13 +363,13 @@ const CMCommunityDashboard = () => {
               <div key={a.id} className="bg-white rounded-2xl flex justify-between items-center border border-gray-100 px-4 py-3.5"
                 style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
                 <div>
-                  <div className="text-sm font-bold" style={{ color: '#064E3B' }}>{a.name}</div>
+                  <div className="text-sm font-bold" style={{ color: '#0F1F3D' }}>{a.name}</div>
                   <div className="text-xs capitalize mt-0.5" style={{ color: '#9CA3AF' }}>{a.type}</div>
                 </div>
                 <div className="flex items-center gap-2">
                   <button onClick={() => navigate(`/cm/community/${c.id}/amenity/${a.id}/rules`)}
                     className="w-10 h-10 flex items-center justify-center rounded-xl" style={{ backgroundColor: '#F3F4F6' }}>
-                    <Settings className="h-5 w-5 text-[#059669]" />
+                    <Settings className="h-5 w-5 text-[#00D4FF]" />
                   </button>
                   <button onClick={() => setMaintenanceAmenity({ id: a.id, name: a.name, type: a.type, hoaId: c.id })}
                     className="w-10 h-10 flex items-center justify-center rounded-xl" style={{ backgroundColor: '#F3F4F6' }}>
@@ -412,7 +412,7 @@ const CMCommunityDashboard = () => {
 
             {pendingMembers.length > 0 && (
               <div>
-                <h2 className="font-bold text-base mb-3" style={{ color: '#064E3B', fontFamily: 'Manrope, sans-serif' }}>
+                <h2 className="font-bold text-base mb-3" style={{ color: '#0F1F3D', fontFamily: 'Manrope, sans-serif' }}>
                   Pending Approvals
                 </h2>
                 {pendingMembers.map((m) => (
@@ -420,13 +420,13 @@ const CMCommunityDashboard = () => {
                     style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
                     <div className="flex justify-between items-center">
                       <div>
-                        <div className="text-sm font-bold" style={{ color: '#064E3B' }}>{m.name}</div>
+                        <div className="text-sm font-bold" style={{ color: '#0F1F3D' }}>{m.name}</div>
                         <div className="text-xs mt-0.5" style={{ color: '#9CA3AF' }}>Applied {new Date(m.created_at).toLocaleDateString()}</div>
                       </div>
                       <div className="flex gap-2">
                         <button onClick={() => handleApproveMember(m.id)}
                           className="text-white rounded-lg px-3 py-1.5 text-xs font-bold min-h-[44px]"
-                          style={{ backgroundColor: '#059669' }}>
+                          style={{ backgroundColor: '#00D4FF' }}>
                           Approve
                         </button>
                         <button onClick={() => handleRejectMember(m.id)}
@@ -460,13 +460,13 @@ const CMCommunityDashboard = () => {
       {showAnnouncementModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-md p-5">
-            <div className="text-lg font-extrabold mb-4" style={{ color: '#064E3B', fontFamily: 'Manrope, sans-serif' }}>Post Announcement</div>
+            <div className="text-lg font-extrabold mb-4" style={{ color: '#0F1F3D', fontFamily: 'Manrope, sans-serif' }}>Post Announcement</div>
             <input value={announcementTitle} onChange={(e) => setAnnouncementTitle(e.target.value)}
               placeholder="Announcement Title"
-              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm mb-3 outline-none focus:border-[#059669]" />
+              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm mb-3 outline-none focus:border-[#00D4FF]" />
             <textarea value={announcementBody} onChange={(e) => setAnnouncementBody(e.target.value)}
               placeholder="Write your announcement..." rows={4}
-              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm mb-3 resize-none outline-none focus:border-[#059669]" />
+              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm mb-3 resize-none outline-none focus:border-[#00D4FF]" />
             <select value={announcementAudience} onChange={(e) => setAnnouncementAudience(e.target.value)}
               className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm mb-4 outline-none">
               <option value="all_residents">All Residents</option>
@@ -474,7 +474,7 @@ const CMCommunityDashboard = () => {
             </select>
             <button onClick={handlePostAnnouncement}
               className="text-white rounded-xl py-3 text-sm font-bold w-full min-h-[44px]"
-              style={{ backgroundColor: '#064E3B' }}>Post</button>
+              style={{ backgroundColor: '#0F1F3D' }}>Post</button>
             <button onClick={() => setShowAnnouncementModal(false)} className="text-center mt-3 text-sm w-full" style={{ color: '#9CA3AF' }}>Cancel</button>
           </div>
         </div>
@@ -485,21 +485,21 @@ const CMCommunityDashboard = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-md p-5">
             <div className="flex items-center justify-between mb-4">
-              <div className="text-lg font-extrabold" style={{ color: '#064E3B', fontFamily: 'Manrope, sans-serif' }}>Add Amenity</div>
+              <div className="text-lg font-extrabold" style={{ color: '#0F1F3D', fontFamily: 'Manrope, sans-serif' }}>Add Amenity</div>
               <button onClick={() => setShowAddAmenityModal(false)} style={{ color: '#9CA3AF' }}><X className="h-5 w-5" /></button>
             </div>
             <input value={newAmenityName} onChange={(e) => setNewAmenityName(e.target.value)}
               placeholder="Amenity Name (e.g., Tennis Court 1, Pool Area)"
-              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm mb-3 outline-none focus:border-[#059669]" />
+              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm mb-3 outline-none focus:border-[#00D4FF]" />
             <div className="text-xs font-bold mb-2" style={{ color: '#4B5563' }}>Amenity Type</div>
             <div className="grid grid-cols-2 gap-2 mb-4">
               {AMENITY_TYPES.map((t) => (
                 <button key={t.value} onClick={() => setNewAmenityType(t.value)}
                   className={`rounded-xl border px-3 py-2.5 text-xs font-semibold text-center transition-colors`}
                   style={{
-                    borderColor: newAmenityType === t.value ? '#059669' : '#E5E7EB',
-                    backgroundColor: newAmenityType === t.value ? 'rgba(5,150,105,0.08)' : 'transparent',
-                    color: newAmenityType === t.value ? '#059669' : '#6B7280',
+                    borderColor: newAmenityType === t.value ? '#00D4FF' : '#E5E7EB',
+                    backgroundColor: newAmenityType === t.value ? 'rgba(0,212,255,0.08)' : 'transparent',
+                    color: newAmenityType === t.value ? '#00D4FF' : '#6B7280',
                   }}>
                   {t.label}
                 </button>
@@ -513,7 +513,7 @@ const CMCommunityDashboard = () => {
                 else { toast.success(`${newAmenityName.trim()} added`); setNewAmenityName(''); setNewAmenityType('tennis'); setShowAddAmenityModal(false); refetch(); }
               }}
               className="text-white rounded-xl py-3 text-sm font-bold w-full min-h-[44px]"
-              style={{ backgroundColor: '#064E3B' }}>Add Amenity</button>
+              style={{ backgroundColor: '#0F1F3D' }}>Add Amenity</button>
             <button onClick={() => setShowAddAmenityModal(false)} className="text-center mt-3 text-sm w-full" style={{ color: '#9CA3AF' }}>Cancel</button>
           </div>
         </div>

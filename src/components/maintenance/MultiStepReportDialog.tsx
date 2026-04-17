@@ -270,7 +270,7 @@ export const MultiStepReportDialog: React.FC<MultiStepReportDialogProps> = ({
                   <Label className="text-sm font-semibold">Severity Level</Label>
                   <span className={cn(
                     "text-xs font-medium px-2 py-1 rounded-full",
-                    severity[0] <= 25 && "bg-green-100 text-green-700",
+                    severity[0] <= 25 && "bg-[#E0F9FF] text-[#0369A1]",
                     severity[0] > 25 && severity[0] <= 50 && "bg-yellow-100 text-yellow-700",
                     severity[0] > 50 && severity[0] <= 75 && "bg-orange-100 text-orange-700",
                     severity[0] > 75 && "bg-red-100 text-red-700"

@@ -108,7 +108,7 @@ const PendingRequests = () => {
                             onClick={async () => {
                               await approveUser(user.id);
                             }}
-                            className="text-green-600 hover:text-green-700"
+                            className="text-[#00D4FF] hover:text-[#0369A1]"
                           >
                             ✅ Approve
                           </Button>

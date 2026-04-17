@@ -246,7 +246,7 @@ const MaintenanceReports = () => {
         ) : reports.length === 0 ? (
           <Card>
             <CardContent className="text-center py-8">
-              <CheckCircle className="h-12 w-12 mx-auto text-green-500 mb-4" />
+              <CheckCircle className="h-12 w-12 mx-auto text-[#00D4FF] mb-4" />
               <h3 className="text-lg font-semibold mb-2">No Reports Found</h3>
               <p className="text-muted-foreground">
                 {filters.status === 'all' 
