@@ -78,56 +78,93 @@ When asked to work on a screen, only touch Stage 1
 components unless explicitly told otherwise.
 
 ## UI Design System
-**Creative Direction:** "The Pristine Architect" — clean,
-premium, minimal. Inspired by Apple, Linear, and Notion.
+**Creative Direction:** "The Digital Architect" — Lumina Slate.
+Premium AI-native light dashboard inspired by Vercel, Linear,
+and Notion. Precision, whitespace as function, living data.
 
 ### Fonts
-- Headlines: Manrope (Bold/ExtraBold)
-- Body & UI labels: Inter
+- Headlines: Manrope (ExtraBold) — geometric, architectural
+- Body & UI labels: Inter — high legibility, scannable data
+- Data highlights: Manrope Bold with tighter tracking
 - High contrast between large bold headers and small
   all-caps metadata labels
 
 ### Colors
+
+#### Core Backgrounds
 - Page background: #F9FAFB (Zinc 50)
-- Card/nav background: #FFFFFF (white)
-- Header & primary headings: #064E3B (Emerald 900)
-- Primary brand/action: #059669 (Emerald 600)
-- Active nav, health score, primary buttons: #059669
-- Warning/attention: #FB923C (Orange 400)
-- Success/optimal: #34D399 (Emerald 400)
-- Muted text & borders: #71717A (Zinc 500)
+- Card/nav background: #FFFFFF (White)
+- Header (alt / high-contrast): #0F1F3D (Deep Navy)
+
+#### Primary Accents
+- Primary accent / AI identifier: #00D4FF (Electric Cyan)
+  — active states, key data viz, glow indicators, primary CTAs
+- Secondary brand: #0F1F3D (Deep Navy)
+  — primary headings, high-level navigation
+
+#### Functional Colors
+- Warning/attention: #F97066 (Coral)
+  — health scores below 70, "Needs Attention" pills
+- Success/optimal: #00D4FF (Cyan)
+  — optimal state indicator (same as primary accent)
+
+#### Typography & Muted Elements
+- Primary text: #0F1F3D (Deep Navy)
+- Muted text & labels: #8892A4 (Cool Gray)
+- Border/divider: rgba(15, 31, 61, 0.08)
 
 ### Cards
 - Background: white
-- Border radius: 16px
-- Elevation via tonal shift (light gray vs white) —
-  no heavy borders
-- Subtle shadows only
-- Attention state: Orange 400 status pill + colored
-  progress bar
-- Optimal state: Emerald 400 status pill + colored
-  progress bar
+- Border radius: 16px (cards), 8px (buttons/pills)
+- Shadow: `0px 12px 32px rgba(15,31,61,0.04)` multi-layered
+- Elevation via tonal shift — no heavy borders
+- Attention state: Coral (#F97066) status pill + progress bar
+- Optimal state: Cyan (#00D4FF) status pill + progress bar
+- Key AI metrics: subtle cyan glow (box-shadow or text-shadow)
 
 ### Typography Scale
 - Large greeting header: Manrope ExtraBold, very large
 - Section titles: Manrope Bold
 - Body/labels: Inter regular
-- Metadata: Inter, small, all-caps, Zinc 500
+- Metadata: Inter, small, all-caps, Cool Gray (#8892A4)
 
 ### Components
-- Status pill: "Needs Attention" in Orange 400,
-  "Optimal" in Emerald 400 — small rounded pill
+- Status pill: "Needs Attention" in Coral #F97066,
+  "Optimal" in Cyan #00D4FF — small rounded pill (8px radius)
 - Progress bar: 4px height, color-coded by health status
 - Stats grid: 4-column, subtle icons, clear number
   hierarchy, no internal borders
 - Bottom nav: fixed, glassmorphic blur background,
-  active state in Emerald 600
+  active state in Cyan #00D4FF
 - Add Community: dashed border card, minimal, centered
+
+### Interaction Patterns
+- Tonal shifts: white → #F3F4F6 or brand tint on hover/focus
+- Micro-interactions: scale 95–98% on tap for tactile feedback
+- Glassmorphism: backdrop-blur on nav bars and overlays
+
+### Special Effects
+- Cyan glow on AI/key metrics:
+  `box-shadow: 0 0 20px rgba(0,212,255,0.3)`
+- Glassmorphic nav: `backdrop-blur` + `bg-white/80`
+- Micro-interactions: `scale(0.97)` on tap
+
+### Health Score Color Logic
+- >= 70: #00D4FF (cyan)
+- >= 40: #F97066 (coral)
+- <  40: #EF4444 (red)
 
 ### Layout Rules
 - Mobile-first, 390px reference width
 - Community cards: full width, stacked vertically
 - Generous whitespace throughout
 - Elevation through tonal layering not borders
-- Featured/AI card: tinted emerald background with
-  architectural imagery (skip for now — not in MVP)
+
+## Autonomous Mode Rules
+When running unattended (e.g. overnight-ui.sh):
+- Never ask clarifying questions
+- Always run `npm run dev` before committing to verify compilation
+- Commit after each screen with a descriptive message
+- Never modify Stage 2 hidden components
+- Always read CMPortfolio.tsx first for style consistency
+- No emoji icons — SVG stroke icons only
