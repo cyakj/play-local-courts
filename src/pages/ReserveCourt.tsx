@@ -166,7 +166,7 @@ const ReserveCourt = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'open':
-        return <Badge className="text-white border-0" style={{ background: '#2DD4BF' }}>Open Now</Badge>;
+        return <Badge className="text-white border-0" style={{ background: '#00D4FF' }}>Open Now</Badge>;
       case 'low':
         return <Badge className="text-white border-0" style={{ background: '#F59E0B' }}>Low Availability</Badge>;
       case 'closed':
@@ -381,14 +381,14 @@ const ReserveCourt = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Navy Header */}
-      <div className="navy-gradient text-white px-5 pt-[50px] pb-5">
+      <div className="text-white px-5 pt-[50px] pb-5" style={{ backgroundColor: '#0F1F3D' }}>
         <div className="text-xl font-extrabold">Book Amenity</div>
         <div className="text-xs opacity-65 mt-0.5">Reserve your spot instantly</div>
       </div>
 
       {/* Check Availability CTA */}
       <div className="px-4 pt-4">
-        <div className="rounded-2xl p-4 text-center" style={{ background: 'linear-gradient(135deg, #00B4D8 0%, #0091B5 100%)' }}>
+        <div className="rounded-2xl p-4 text-center" style={{ background: 'linear-gradient(135deg, #00D4FF 0%, #0091B5 100%)' }}>
           <div className="text-base font-extrabold text-white mb-1">Check Availability</div>
           <div className="text-xs text-white/85 mb-3">Pick a date and time to see what's open</div>
           <button

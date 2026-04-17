@@ -5,7 +5,7 @@ interface SurveyStatusBadgeProps {
 }
 
 const statusMap: Record<string, { bg: string; color: string; label: string }> = {
-  active: { bg: '#E6FFFA', color: '#2DD4BF', label: 'Active' },
+  active: { bg: '#E6FFFA', color: '#00D4FF', label: 'Active' },
   draft: { bg: '#FFFBEB', color: '#F59E0B', label: 'Draft' },
   closed: { bg: '#F3F4F6', color: '#9CA3AF', label: 'Closed' },
 };

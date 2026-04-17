@@ -1,10 +1,10 @@
 import React from 'react';
 
 const LEGEND_ITEMS = [
-  { color: '#00B4D8', label: 'Community Event' },
-  { color: '#0A1628', label: 'Board Meeting' },
+  { color: '#00D4FF', label: 'Community Event' },
+  { color: '#0F1F3D', label: 'Board Meeting' },
   { color: '#F59E0B', label: 'Maintenance' },
-  { color: '#2DD4BF', label: 'Amenity Booking' },
+  { color: '#00D4FF', label: 'Amenity Booking' },
 ];
 
 const CalendarLegend = () => (

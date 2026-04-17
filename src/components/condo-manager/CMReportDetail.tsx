@@ -51,7 +51,7 @@ interface ReportMessage {
 const STATUS_OPTIONS = [
   { value: 'open', label: 'Open', bg: '#FEF2F2', color: '#EF4444' },
   { value: 'in_progress', label: 'In Progress', bg: '#FFFBEB', color: '#F59E0B' },
-  { value: 'resolved', label: 'Resolved', bg: '#E6FFFA', color: '#2DD4BF' },
+  { value: 'resolved', label: 'Resolved', bg: '#E6FFFA', color: '#00D4FF' },
   { value: 'closed', label: 'Closed', bg: '#F3F4F6', color: '#9CA3AF' },
 ];
 

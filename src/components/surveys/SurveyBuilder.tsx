@@ -179,9 +179,9 @@ export const SurveyBuilder: React.FC<SurveyBuilderProps> = ({ communityId, onBac
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col" style={{ background: '#F0F4F8' }}>
+    <div className="fixed inset-0 z-[100] flex flex-col" style={{ background: '#F9FAFB' }}>
       {/* Header */}
-      <div style={{ background: 'linear-gradient(135deg, #0A1628 0%, #0D2137 60%, #1A3350 100%)', padding: '44px 20px 16px', color: '#fff', flexShrink: 0 }}>
+      <div style={{ background: 'linear-gradient(135deg, #0F1F3D 0%, #0D2137 60%, #1A3350 100%)', padding: '44px 20px 16px', color: '#fff', flexShrink: 0 }}>
         <div className="flex items-center gap-3 mb-3">
           <div onClick={onBack} className="rounded-[10px] w-9 h-9 flex items-center justify-center cursor-pointer min-h-[44px]" style={{ background: 'rgba(255,255,255,0.12)' }}>
             <ArrowLeft className="h-4 w-4" />
@@ -240,15 +240,15 @@ export const SurveyBuilder: React.FC<SurveyBuilderProps> = ({ communityId, onBac
                   className="flex items-center gap-3 p-3 rounded-xl mb-1.5 cursor-pointer border-[1.5px]"
                   style={{
                     background: audience === a.key ? '#E0F7FA' : 'transparent',
-                    borderColor: audience === a.key ? '#00B4D8' : '#E5E7EB',
+                    borderColor: audience === a.key ? '#00D4FF' : '#E5E7EB',
                   }}
                 >
                   <span className="text-xl">{a.icon}</span>
                   <div className="flex-1">
-                    <div className="text-[13px] font-bold" style={{ color: '#1A1A2E' }}>{a.label}</div>
+                    <div className="text-[13px] font-bold" style={{ color: '#0F1F3D' }}>{a.label}</div>
                     <div className="text-[11px]" style={{ color: '#9CA3AF' }}>{a.desc}</div>
                   </div>
-                  <div className="w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center" style={{ borderColor: audience === a.key ? '#00B4D8' : '#E5E7EB', background: audience === a.key ? '#00B4D8' : 'transparent' }}>
+                  <div className="w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center" style={{ borderColor: audience === a.key ? '#00D4FF' : '#E5E7EB', background: audience === a.key ? '#00D4FF' : 'transparent' }}>
                     {audience === a.key && <div className="w-2 h-2 rounded-full bg-white" />}
                   </div>
                 </div>
@@ -280,7 +280,7 @@ export const SurveyBuilder: React.FC<SurveyBuilderProps> = ({ communityId, onBac
               <div
                 onClick={() => setShowTypePicker(v => !v)}
                 className="text-xs font-bold cursor-pointer rounded-full px-3 py-1.5"
-                style={{ color: '#00B4D8', background: '#E0F7FA' }}
+                style={{ color: '#00D4FF', background: '#E0F7FA' }}
               >
                 + Add Question
               </div>
@@ -288,7 +288,7 @@ export const SurveyBuilder: React.FC<SurveyBuilderProps> = ({ communityId, onBac
 
             {/* Type picker */}
             {showTypePicker && (
-              <div className="rounded-2xl p-4 mb-3 border-[1.5px] border-dashed" style={{ borderColor: '#00B4D8', background: '#fff' }}>
+              <div className="rounded-2xl p-4 mb-3 border-[1.5px] border-dashed" style={{ borderColor: '#00D4FF', background: '#fff' }}>
                 <div className="text-xs font-bold text-center mb-3" style={{ color: '#4B5563' }}>Choose Question Type</div>
                 <div className="grid grid-cols-2 gap-2">
                   {[
@@ -301,7 +301,7 @@ export const SurveyBuilder: React.FC<SurveyBuilderProps> = ({ communityId, onBac
                       key={t.type}
                       onClick={() => addQuestion(t.type)}
                       className="border rounded-xl p-3.5 text-center cursor-pointer"
-                      style={{ borderColor: '#E5E7EB', background: '#F0F4F8' }}
+                      style={{ borderColor: '#E5E7EB', background: '#F9FAFB' }}
                     >
                       <div className="text-2xl mb-1.5">{t.icon}</div>
                       <div className="text-[11px] font-bold" style={{ color: '#4B5563' }}>{t.label}</div>
@@ -319,7 +319,7 @@ export const SurveyBuilder: React.FC<SurveyBuilderProps> = ({ communityId, onBac
                   </div>
                   <div className="flex-1">
                     <div className="flex justify-between items-center mb-1">
-                      <div className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#00B4D8' }}>
+                      <div className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#00D4FF' }}>
                         {TYPE_LABELS[q.question_type]}{!q.required && ' · Optional'}
                       </div>
                       <Trash2 className="h-4 w-4 cursor-pointer" style={{ color: '#EF4444' }} onClick={() => removeQuestion(qi)} />
@@ -348,7 +348,7 @@ export const SurveyBuilder: React.FC<SurveyBuilderProps> = ({ communityId, onBac
                           </div>
                         ))}
                         {(q.options || []).length < 6 && (
-                          <div onClick={() => addOption(qi)} className="text-[11px] font-bold cursor-pointer mt-1" style={{ color: '#00B4D8' }}>+ Add Option</div>
+                          <div onClick={() => addOption(qi)} className="text-[11px] font-bold cursor-pointer mt-1" style={{ color: '#00D4FF' }}>+ Add Option</div>
                         )}
                       </>
                     )}
@@ -361,7 +361,7 @@ export const SurveyBuilder: React.FC<SurveyBuilderProps> = ({ communityId, onBac
                     <div
                       onClick={() => updateQuestion(qi, { required: !q.required })}
                       className="relative cursor-pointer rounded-full"
-                      style={{ width: 32, height: 18, background: q.required ? '#00B4D8' : '#E5E7EB' }}
+                      style={{ width: 32, height: 18, background: q.required ? '#00D4FF' : '#E5E7EB' }}
                     >
                       <div
                         className="absolute top-0.5 rounded-full bg-white transition-all"
@@ -400,15 +400,15 @@ export const SurveyBuilder: React.FC<SurveyBuilderProps> = ({ communityId, onBac
                   className="flex items-center gap-3 p-2.5 rounded-xl mb-1.5 cursor-pointer border-[1.5px]"
                   style={{
                     background: resultsVisibility === v.key ? '#E0F7FA' : 'transparent',
-                    borderColor: resultsVisibility === v.key ? '#00B4D8' : '#E5E7EB',
+                    borderColor: resultsVisibility === v.key ? '#00D4FF' : '#E5E7EB',
                   }}
                 >
                   <span className="text-xl">{v.icon}</span>
                   <div className="flex-1">
-                    <div className="text-[13px] font-bold" style={{ color: '#1A1A2E' }}>{v.label}</div>
+                    <div className="text-[13px] font-bold" style={{ color: '#0F1F3D' }}>{v.label}</div>
                     <div className="text-[11px]" style={{ color: '#9CA3AF' }}>{v.desc}</div>
                   </div>
-                  <div className="w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center" style={{ borderColor: resultsVisibility === v.key ? '#00B4D8' : '#E5E7EB', background: resultsVisibility === v.key ? '#00B4D8' : 'transparent' }}>
+                  <div className="w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center" style={{ borderColor: resultsVisibility === v.key ? '#00D4FF' : '#E5E7EB', background: resultsVisibility === v.key ? '#00D4FF' : 'transparent' }}>
                     {resultsVisibility === v.key && <div className="w-2 h-2 rounded-full bg-white" />}
                   </div>
                 </div>
@@ -416,15 +416,15 @@ export const SurveyBuilder: React.FC<SurveyBuilderProps> = ({ communityId, onBac
             </div>
 
             {resultsVisibility === 'community' && (
-              <div className="rounded-2xl p-4 mb-3 border" style={{ background: '#E0F7FA', borderColor: '#00B4D8' }}>
-                <div className="text-xs font-bold mb-2.5" style={{ color: '#0A1628' }}>When should residents see results?</div>
+              <div className="rounded-2xl p-4 mb-3 border" style={{ background: '#E0F7FA', borderColor: '#00D4FF' }}>
+                <div className="text-xs font-bold mb-2.5" style={{ color: '#0F1F3D' }}>When should residents see results?</div>
                 {[
                   { key: 'on_submit', label: 'Immediately after they submit' },
                   { key: 'on_close', label: 'Only after survey closes' },
                 ].map(o => (
                   <div key={o.key} onClick={() => setResultsReveal(o.key)} className="flex items-center gap-2.5 mb-2 cursor-pointer">
-                    <div className="w-4 h-4 rounded-full border-2 flex-shrink-0" style={{ borderColor: '#00B4D8', background: resultsReveal === o.key ? '#00B4D8' : 'transparent' }} />
-                    <div className="text-[13px]" style={{ color: '#0A1628', fontWeight: resultsReveal === o.key ? 700 : 400 }}>{o.label}</div>
+                    <div className="w-4 h-4 rounded-full border-2 flex-shrink-0" style={{ borderColor: '#00D4FF', background: resultsReveal === o.key ? '#00D4FF' : 'transparent' }} />
+                    <div className="text-[13px]" style={{ color: '#0F1F3D', fontWeight: resultsReveal === o.key ? 700 : 400 }}>{o.label}</div>
                   </div>
                 ))}
               </div>
@@ -433,13 +433,13 @@ export const SurveyBuilder: React.FC<SurveyBuilderProps> = ({ communityId, onBac
             <div className="rounded-2xl p-4 mb-3 border" style={{ background: '#fff', borderColor: '#E5E7EB' }}>
               <div className="flex justify-between items-center">
                 <div>
-                  <div className="text-[13px] font-bold" style={{ color: '#1A1A2E' }}>Anonymous Responses</div>
+                  <div className="text-[13px] font-bold" style={{ color: '#0F1F3D' }}>Anonymous Responses</div>
                   <div className="text-[11px] mt-0.5" style={{ color: '#9CA3AF' }}>Residents' names are hidden from results</div>
                 </div>
                 <div
                   onClick={() => setAnonymous(!anonymous)}
                   className="relative cursor-pointer rounded-full"
-                  style={{ width: 40, height: 22, background: anonymous ? '#00B4D8' : '#E5E7EB' }}
+                  style={{ width: 40, height: 22, background: anonymous ? '#00D4FF' : '#E5E7EB' }}
                 >
                   <div
                     className="absolute rounded-full bg-white transition-all"
@@ -476,7 +476,7 @@ export const SurveyBuilder: React.FC<SurveyBuilderProps> = ({ communityId, onBac
           <div
             onClick={() => setStep(s => s + 1)}
             className="flex-[2] rounded-xl py-3 text-[13px] font-extrabold text-center cursor-pointer"
-            style={{ background: '#0A1628', color: '#fff' }}
+            style={{ background: '#0F1F3D', color: '#fff' }}
           >
             Next: {STEPS[step + 1]} →
           </div>
@@ -485,7 +485,7 @@ export const SurveyBuilder: React.FC<SurveyBuilderProps> = ({ communityId, onBac
             onClick={() => !saving && handleSave(true)}
             className="flex-[2] rounded-xl py-3 text-[13px] font-extrabold text-center cursor-pointer"
             style={{
-              background: 'linear-gradient(135deg, #00B4D8, #0091B5)',
+              background: 'linear-gradient(135deg, #00D4FF, #0091B5)',
               color: '#fff',
               opacity: saving ? 0.6 : 1,
               boxShadow: '0 4px 12px rgba(0,180,216,0.3)',

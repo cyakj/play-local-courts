@@ -286,8 +286,8 @@ const SetMaintenanceSheet: React.FC<SetMaintenanceSheetProps> = ({ open, onClose
         {/* Header */}
         <div className="flex items-start justify-between px-4 pb-3">
           <div>
-            <div className="text-lg font-extrabold" style={{ color: '#1A1A2E' }}>Set Maintenance</div>
-            <div className="text-[13px] font-semibold" style={{ color: '#00B4D8' }}>{amenity.name}</div>
+            <div className="text-lg font-extrabold" style={{ color: '#0F1F3D' }}>Set Maintenance</div>
+            <div className="text-[13px] font-semibold" style={{ color: '#00D4FF' }}>{amenity.name}</div>
           </div>
           <div
             onClick={onClose}
@@ -314,7 +314,7 @@ const SetMaintenanceSheet: React.FC<SetMaintenanceSheetProps> = ({ open, onClose
                   onClick={() => setSelectedDate(d)}
                   className="flex flex-col items-center px-3 py-2 cursor-pointer flex-shrink-0"
                   style={{
-                    backgroundColor: active ? '#0A1628' : '#F0F4F8',
+                    backgroundColor: active ? '#0F1F3D' : '#F9FAFB',
                     color: active ? '#FFFFFF' : '#4B5563',
                     borderRadius: 10,
                     minWidth: 52,
@@ -332,7 +332,7 @@ const SetMaintenanceSheet: React.FC<SetMaintenanceSheetProps> = ({ open, onClose
           {/* Legend bar */}
           <div className="flex items-center gap-4 py-2.5 mb-2" style={{ borderBottom: '1px solid #E5E7EB' }}>
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: '#E6FFFA', border: '1.5px solid #2DD4BF' }} />
+              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: '#E6FFFA', border: '1.5px solid #00D4FF' }} />
               <span className="text-[11px] font-semibold" style={{ color: '#9CA3AF' }}>{availableCount} Available</span>
             </div>
             <div className="flex items-center gap-1.5">
@@ -357,7 +357,7 @@ const SetMaintenanceSheet: React.FC<SetMaintenanceSheetProps> = ({ open, onClose
               const { state } = slot;
 
               const stateStyles = {
-                available: { bg: '#F0F4F8', border: '1.5px solid #E5E7EB', badgeBg: '#E6FFFA', badgeColor: '#2DD4BF' },
+                available: { bg: '#F9FAFB', border: '1.5px solid #E5E7EB', badgeBg: '#E6FFFA', badgeColor: '#00D4FF' },
                 booked: { bg: '#EFF6FF', border: '1.5px solid #93C5FD', badgeBg: '#DBEAFE', badgeColor: '#2563EB' },
                 maintenance: { bg: '#FEF2F2', border: '1.5px solid #EF4444', badgeBg: '#FEF2F2', badgeColor: '#EF4444' },
               };
@@ -377,7 +377,7 @@ const SetMaintenanceSheet: React.FC<SetMaintenanceSheetProps> = ({ open, onClose
                   }}
                 >
                   {/* Start time */}
-                  <div className="text-xs font-extrabold leading-tight" style={{ color: past ? '#9CA3AF' : '#1A1A2E' }}>
+                  <div className="text-xs font-extrabold leading-tight" style={{ color: past ? '#9CA3AF' : '#0F1F3D' }}>
                     {slot.displayStart}
                   </div>
                   {/* End time */}
@@ -429,7 +429,7 @@ const SetMaintenanceSheet: React.FC<SetMaintenanceSheetProps> = ({ open, onClose
             onClick={loading ? undefined : handleSave}
             className="text-center cursor-pointer text-sm font-bold flex items-center justify-center"
             style={{
-              backgroundColor: '#0A1628',
+              backgroundColor: '#0F1F3D',
               color: '#FFFFFF',
               borderRadius: 10,
               padding: 14,

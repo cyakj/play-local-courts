@@ -122,9 +122,9 @@ const JoinCommunity = () => {
   };
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: '#F0F4F8' }}>
+    <div className="min-h-screen pb-24" style={{ background: '#F9FAFB' }}>
       {/* Navy Header */}
-      <div className="text-white px-5 pt-[50px] pb-5" style={{ background: 'linear-gradient(135deg, #0A1628 0%, #0D2137 60%, #1A3350 100%)' }}>
+      <div className="text-white px-5 pt-[50px] pb-5" style={{ background: 'linear-gradient(135deg, #0F1F3D 0%, #0D2137 60%, #1A3350 100%)' }}>
         <div className="flex items-center gap-3">
           <button onClick={() => navigate(-1)} className="w-9 h-9 rounded-[10px] flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.12)' }}>
             <ArrowLeft className="h-4 w-4 text-white" />
@@ -141,7 +141,7 @@ const JoinCommunity = () => {
       <div className="px-4 pt-5 space-y-4">
         {/* Invite Code Card */}
         <div className="rounded-2xl p-5 space-y-3" style={{ background: '#FFFFFF', border: '1px solid #E5E7EB' }}>
-          <h3 className="text-sm font-extrabold" style={{ color: '#1A1A2E' }}>Have an invite code?</h3>
+          <h3 className="text-sm font-extrabold" style={{ color: '#0F1F3D' }}>Have an invite code?</h3>
           <div>
             <label className="block text-xs font-bold mb-2" style={{ color: '#4B5563' }}>Invite Code</label>
             <input
@@ -156,7 +156,7 @@ const JoinCommunity = () => {
                 padding: '12px 14px',
                 outline: 'none',
                 fontSize: 14,
-                color: '#1A1A2E',
+                color: '#0F1F3D',
               }}
             />
           </div>
@@ -164,7 +164,7 @@ const JoinCommunity = () => {
             onClick={handleJoinByCode}
             disabled={joiningByCode || !inviteCode.trim()}
             className="w-full py-3 rounded-xl text-white text-sm font-extrabold disabled:opacity-50"
-            style={{ background: '#00B4D8' }}
+            style={{ background: '#00D4FF' }}
           >
             {joiningByCode ? 'Joining...' : 'Join Community'}
           </button>
@@ -179,7 +179,7 @@ const JoinCommunity = () => {
 
         {/* Search Card */}
         <div className="rounded-2xl p-5 space-y-3" style={{ background: '#FFFFFF', border: '1px solid #E5E7EB' }}>
-          <h3 className="text-sm font-extrabold" style={{ color: '#1A1A2E' }}>Search by community name</h3>
+          <h3 className="text-sm font-extrabold" style={{ color: '#0F1F3D' }}>Search by community name</h3>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: '#9CA3AF' }} />
             <input
@@ -195,7 +195,7 @@ const JoinCommunity = () => {
                 paddingLeft: 40,
                 outline: 'none',
                 fontSize: 14,
-                color: '#1A1A2E',
+                color: '#0F1F3D',
               }}
             />
           </div>
@@ -203,7 +203,7 @@ const JoinCommunity = () => {
           {/* Results */}
           {loadingSearch && (
             <div className="text-center py-4">
-              <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin mx-auto" style={{ borderColor: '#00B4D8', borderTopColor: 'transparent' }} />
+              <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin mx-auto" style={{ borderColor: '#00D4FF', borderTopColor: 'transparent' }} />
             </div>
           )}
           {!loadingSearch && communities.length > 0 && (
@@ -217,7 +217,7 @@ const JoinCommunity = () => {
                     style={{ border: '1px solid #E5E7EB' }}
                   >
                     <div className="flex-1 min-w-0 mr-3">
-                      <p className="text-sm font-bold truncate" style={{ color: '#1A1A2E' }}>{c.name}</p>
+                      <p className="text-sm font-bold truncate" style={{ color: '#0F1F3D' }}>{c.name}</p>
                       <p className="text-[11px]" style={{ color: '#9CA3AF' }}>
                         {c.memberCount} member{c.memberCount !== 1 ? 's' : ''}
                         {c.address ? ` · ${c.address}` : ''}
@@ -234,7 +234,7 @@ const JoinCommunity = () => {
                       <button
                         onClick={() => requestJoin(c.id)}
                         className="px-3 py-1.5 rounded-lg text-xs font-bold text-white whitespace-nowrap"
-                        style={{ background: '#00B4D8' }}
+                        style={{ background: '#00D4FF' }}
                       >
                         Request to Join
                       </button>

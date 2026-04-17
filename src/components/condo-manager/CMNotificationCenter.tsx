@@ -15,11 +15,11 @@ const NOTIF_ICON: Record<string, string> = {
 };
 const NOTIF_COLOR: Record<string, string> = {
   report_submitted: '#EF4444', report_status_changed: '#F59E0B', report_unresolved: '#EF4444',
-  member_application: '#00B4D8', member_approved: '#2DD4BF', member_rejected: '#EF4444',
-  booking_confirmed: '#2DD4BF', booking_cancelled: '#EF4444', booking_reminder: '#00B4D8',
-  health_score_alert: '#F59E0B', announcement: '#00B4D8',
-  survey_published: '#00B4D8', survey_reminder: '#F59E0B',
-  event_created: '#2DD4BF', event_reminder: '#00B4D8',
+  member_application: '#00D4FF', member_approved: '#00D4FF', member_rejected: '#EF4444',
+  booking_confirmed: '#00D4FF', booking_cancelled: '#EF4444', booking_reminder: '#00D4FF',
+  health_score_alert: '#F59E0B', announcement: '#00D4FF',
+  survey_published: '#00D4FF', survey_reminder: '#F59E0B',
+  event_created: '#00D4FF', event_reminder: '#00D4FF',
 };
 
 interface CMNotificationCenterProps {

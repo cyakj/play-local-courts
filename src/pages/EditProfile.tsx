@@ -81,16 +81,16 @@ const EditProfile = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#F0F4F8' }}>
-        <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#00B4D8', borderTopColor: 'transparent' }} />
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#F9FAFB' }}>
+        <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#00D4FF', borderTopColor: 'transparent' }} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: '#F0F4F8' }}>
+    <div className="min-h-screen pb-24" style={{ background: '#F9FAFB' }}>
       {/* Navy Header */}
-      <div className="text-white px-5 pt-[50px] pb-5" style={{ background: 'linear-gradient(135deg, #0A1628 0%, #0D2137 60%, #1A3350 100%)' }}>
+      <div className="text-white px-5 pt-[50px] pb-5" style={{ background: 'linear-gradient(135deg, #0F1F3D 0%, #0D2137 60%, #1A3350 100%)' }}>
         <div className="flex items-center gap-3">
           <button onClick={() => navigate(-1)} className="w-9 h-9 rounded-[10px] flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.12)' }}>
             <ArrowLeft className="h-4 w-4 text-white" />
@@ -105,7 +105,7 @@ const EditProfile = () => {
           <label className="relative cursor-pointer">
             <div
               className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-extrabold text-white overflow-hidden"
-              style={{ background: '#0A1628', border: '2px solid #00B4D8' }}
+              style={{ background: '#0F1F3D', border: '2px solid #00D4FF' }}
             >
               {avatarUrl ? (
                 <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
@@ -115,7 +115,7 @@ const EditProfile = () => {
             </div>
             <div
               className="absolute -bottom-0.5 -right-0.5 w-6 h-6 rounded-full flex items-center justify-center"
-              style={{ background: '#00B4D8', border: '2px solid #F0F4F8' }}
+              style={{ background: '#00D4FF', border: '2px solid #F9FAFB' }}
             >
               <Camera className="h-3 w-3 text-white" />
             </div>
@@ -183,7 +183,7 @@ const EditProfile = () => {
           onClick={handleSave}
           disabled={saving}
           className="w-full py-3.5 rounded-xl text-white text-[15px] font-extrabold disabled:opacity-50"
-          style={{ background: '#0A1628' }}
+          style={{ background: '#0F1F3D' }}
         >
           {saving ? 'Saving...' : 'Save Changes'}
         </button>
@@ -198,7 +198,7 @@ const inputStyle: React.CSSProperties = {
   padding: '12px 14px',
   outline: 'none',
   fontSize: 14,
-  color: '#1A1A2E',
+  color: '#0F1F3D',
 };
 
 const FieldLabel: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (

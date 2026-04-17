@@ -2,10 +2,10 @@ import React from 'react';
 import { X, MapPin, Clock, Calendar, Tag } from 'lucide-react';
 
 const EVENT_TYPE_CONFIG: Record<string, { color: string; label: string }> = {
-  community_event: { color: '#00B4D8', label: 'Community Event' },
-  board_meeting: { color: '#0A1628', label: 'Board Meeting' },
+  community_event: { color: '#00D4FF', label: 'Community Event' },
+  board_meeting: { color: '#0F1F3D', label: 'Board Meeting' },
   maintenance_scheduled: { color: '#F59E0B', label: 'Maintenance' },
-  amenity_booking: { color: '#2DD4BF', label: 'Amenity Booking' },
+  amenity_booking: { color: '#00D4FF', label: 'Amenity Booking' },
 };
 
 interface CalendarEvent {

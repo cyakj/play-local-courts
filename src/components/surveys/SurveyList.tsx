@@ -178,11 +178,11 @@ export const SurveyList: React.FC<SurveyListProps> = ({
     <div>
       {/* Header row */}
       <div className="flex items-center justify-between mb-3">
-        <div className="text-[13px] font-extrabold" style={{ color: '#1A1A2E' }}>Surveys</div>
+        <div className="text-[13px] font-extrabold" style={{ color: '#0F1F3D' }}>Surveys</div>
         <div
           onClick={onNewSurvey}
           className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-[11px] font-bold cursor-pointer min-h-[36px]"
-          style={{ background: '#00B4D8', color: '#fff' }}
+          style={{ background: '#00D4FF', color: '#fff' }}
         >
           + New Survey
         </div>
@@ -197,9 +197,9 @@ export const SurveyList: React.FC<SurveyListProps> = ({
             className="rounded-full text-xs font-bold cursor-pointer"
             style={{
               padding: '6px 14px',
-              background: filter === f ? '#0A1628' : '#FFFFFF',
+              background: filter === f ? '#0F1F3D' : '#FFFFFF',
               color: filter === f ? '#fff' : '#9CA3AF',
-              border: `1px solid ${filter === f ? '#0A1628' : '#E5E7EB'}`,
+              border: `1px solid ${filter === f ? '#0F1F3D' : '#E5E7EB'}`,
             }}
           >
             {f}
@@ -209,7 +209,7 @@ export const SurveyList: React.FC<SurveyListProps> = ({
 
       {loading ? (
         <div className="flex justify-center py-10">
-          <div className="w-8 h-8 border-3 border-[#00B4D8]/20 border-t-[#00B4D8] rounded-full animate-spin" />
+          <div className="w-8 h-8 border-3 border-[#00D4FF]/20 border-t-[#00D4FF] rounded-full animate-spin" />
         </div>
       ) : (
         <>
@@ -223,7 +223,7 @@ export const SurveyList: React.FC<SurveyListProps> = ({
               >
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex-1 pr-3">
-                    <div className="text-[15px] font-extrabold" style={{ color: '#1A1A2E' }}>{s.title}</div>
+                    <div className="text-[15px] font-extrabold" style={{ color: '#0F1F3D' }}>{s.title}</div>
                     <div className="text-[11px] mt-1" style={{ color: '#9CA3AF' }}>
                       {s.status === 'closed' ? 'Closed' : 'Closes'} {new Date(s.closes_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     </div>
@@ -235,15 +235,15 @@ export const SurveyList: React.FC<SurveyListProps> = ({
                 <div className="mb-3">
                   <div className="flex justify-between mb-1.5">
                     <span className="text-[11px] font-semibold" style={{ color: '#9CA3AF' }}>Responses</span>
-                    <span className="text-[11px] font-extrabold" style={{ color: '#1A1A2E' }}>
+                    <span className="text-[11px] font-extrabold" style={{ color: '#0F1F3D' }}>
                       {s.response_count}/{s.total_members}{' '}
                       <span style={{ color: '#9CA3AF', fontWeight: 600 }}>({pct}%)</span>
                     </span>
                   </div>
-                  <div className="h-1.5 rounded-full overflow-hidden" style={{ background: '#F0F4F8' }}>
+                  <div className="h-1.5 rounded-full overflow-hidden" style={{ background: '#F9FAFB' }}>
                     <div
                       className="h-full rounded-full"
-                      style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #00B4D8, #2DD4BF)' }}
+                      style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #00D4FF, #00D4FF)' }}
                     />
                   </div>
                 </div>
@@ -254,7 +254,7 @@ export const SurveyList: React.FC<SurveyListProps> = ({
                     <div
                       onClick={() => !publishing && handlePublish(s)}
                       className="flex-1 rounded-[10px] py-2.5 text-xs font-bold text-center cursor-pointer min-h-[40px] flex items-center justify-center"
-                      style={{ background: '#00B4D8', color: '#fff', opacity: publishing === s.id ? 0.6 : 1 }}
+                      style={{ background: '#00D4FF', color: '#fff', opacity: publishing === s.id ? 0.6 : 1 }}
                     >
                       {publishing === s.id ? 'Publishing...' : '🚀 Publish'}
                     </div>
@@ -263,7 +263,7 @@ export const SurveyList: React.FC<SurveyListProps> = ({
                     <div
                       onClick={() => onViewResults(s.id)}
                       className="flex-1 rounded-[10px] py-2.5 text-xs font-bold text-center cursor-pointer min-h-[40px] flex items-center justify-center"
-                      style={{ background: '#0A1628', color: '#fff' }}
+                      style={{ background: '#0F1F3D', color: '#fff' }}
                     >
                       View Results
                     </div>

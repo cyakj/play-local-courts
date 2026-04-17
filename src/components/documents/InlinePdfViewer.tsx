@@ -138,7 +138,7 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document: doc, userId
       {/* Header */}
       <div
         className="flex items-center gap-3 px-4 py-3 min-h-[56px]"
-        style={{ background: 'linear-gradient(135deg, #0A1628 0%, #1a2a4a 100%)' }}
+        style={{ background: 'linear-gradient(135deg, #0F1F3D 0%, #1a2a4a 100%)' }}
       >
         <button
           onClick={onClose}

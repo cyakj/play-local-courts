@@ -186,7 +186,7 @@ const TimeSelector: React.FC<TimeSelectorProps> = ({
         )}
         style={{
           backgroundColor: isSelected ? '#E6FFFA' : isBooked ? '#EFF6FF' : isMaintenance ? '#FEF2F2' : undefined,
-          borderColor: isSelected ? '#2DD4BF' : isBooked ? '#93C5FD' : isMaintenance ? '#EF4444' : undefined,
+          borderColor: isSelected ? '#00D4FF' : isBooked ? '#93C5FD' : isMaintenance ? '#EF4444' : undefined,
           borderWidth: isSelected ? 2 : (isBooked || isMaintenance) ? 1.5 : 1,
           borderStyle: 'solid',
         }}

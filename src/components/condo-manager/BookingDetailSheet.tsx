@@ -61,15 +61,15 @@ const BookingDetailSheet: React.FC<BookingDetailSheetProps> = ({
         {/* Header */}
         <div className="flex justify-between items-start mb-5">
           <div>
-            <div className="text-[11px] font-bold uppercase tracking-wider mb-1" style={{ color: '#00B4D8' }}>
+            <div className="text-[11px] font-bold uppercase tracking-wider mb-1" style={{ color: '#00D4FF' }}>
               Booking Detail
             </div>
-            <div className="text-lg font-extrabold" style={{ color: '#1A1A2E' }}>{amenityName}</div>
+            <div className="text-lg font-extrabold" style={{ color: '#0F1F3D' }}>{amenityName}</div>
           </div>
           <div
             onClick={onClose}
             className="flex items-center justify-center cursor-pointer"
-            style={{ width: 32, height: 32, borderRadius: 99, backgroundColor: '#F0F4F8' }}
+            style={{ width: 32, height: 32, borderRadius: 99, backgroundColor: '#F9FAFB' }}
           >
             <span className="text-base" style={{ color: '#9CA3AF' }}>✕</span>
           </div>
@@ -87,7 +87,7 @@ const BookingDetailSheet: React.FC<BookingDetailSheetProps> = ({
             }}
           >
             <span className="text-[13px]" style={{ color: '#9CA3AF' }}>{d.label}</span>
-            <span className="text-[13px] font-bold" style={{ color: d.isStatus ? '#2DD4BF' : '#1A1A2E' }}>
+            <span className="text-[13px] font-bold" style={{ color: d.isStatus ? '#00D4FF' : '#0F1F3D' }}>
               {d.value}
             </span>
           </div>
@@ -126,7 +126,7 @@ const BookingDetailSheet: React.FC<BookingDetailSheetProps> = ({
                     border: '1px solid #E5E7EB',
                     borderRadius: 10,
                     padding: '10px 12px',
-                    color: '#1A1A2E',
+                    color: '#0F1F3D',
                   }}
                 />
               </div>

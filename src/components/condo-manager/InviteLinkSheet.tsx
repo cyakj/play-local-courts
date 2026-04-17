@@ -126,7 +126,7 @@ const InviteLinkSheet: React.FC<InviteLinkSheetProps> = ({ open, onClose, commun
     <Drawer open={open} onOpenChange={(o) => !o && onClose()}>
       <DrawerContent className="bg-white rounded-t-2xl max-h-[85vh]">
         <DrawerHeader className="pb-0">
-          <DrawerTitle className="text-lg font-extrabold" style={{ color: '#1A1A2E' }}>
+          <DrawerTitle className="text-lg font-extrabold" style={{ color: '#0F1F3D' }}>
             Invite Residents to {community.name}
           </DrawerTitle>
         </DrawerHeader>
@@ -137,7 +137,7 @@ const InviteLinkSheet: React.FC<InviteLinkSheetProps> = ({ open, onClose, commun
 
           {loading ? (
             <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2" style={{ borderColor: '#00B4D8' }} />
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2" style={{ borderColor: '#00D4FF' }} />
             </div>
           ) : (
             <>
@@ -153,7 +153,7 @@ const InviteLinkSheet: React.FC<InviteLinkSheetProps> = ({ open, onClose, commun
               >
                 <div
                   className="flex-1 truncate text-[13px] font-semibold"
-                  style={{ color: inviteEnabled ? '#1A1A2E' : '#9CA3AF', fontFamily: 'ui-monospace, monospace' }}
+                  style={{ color: inviteEnabled ? '#0F1F3D' : '#9CA3AF', fontFamily: 'ui-monospace, monospace' }}
                 >
                   {inviteEnabled ? inviteUrl : 'Link disabled'}
                 </div>
@@ -161,7 +161,7 @@ const InviteLinkSheet: React.FC<InviteLinkSheetProps> = ({ open, onClose, commun
                   <div
                     onClick={handleCopy}
                     className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-[12px] font-bold cursor-pointer shrink-0 min-h-[36px]"
-                    style={{ background: '#00B4D8', color: '#fff', borderRadius: 10 }}
+                    style={{ background: '#00D4FF', color: '#fff', borderRadius: 10 }}
                   >
                     {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                     {copied ? 'Copied' : 'Copy Link'}
@@ -174,7 +174,7 @@ const InviteLinkSheet: React.FC<InviteLinkSheetProps> = ({ open, onClose, commun
                 <div
                   onClick={handleShare}
                   className="flex items-center justify-center gap-2 w-full rounded-xl py-3.5 text-sm font-bold cursor-pointer mb-5 min-h-[48px]"
-                  style={{ background: '#1A1A2E', color: '#fff' }}
+                  style={{ background: '#0F1F3D', color: '#fff' }}
                 >
                   <Share2 className="h-4 w-4" />
                   Share →
@@ -194,7 +194,7 @@ const InviteLinkSheet: React.FC<InviteLinkSheetProps> = ({ open, onClose, commun
                 <div
                   onClick={handleToggleEnabled}
                   className="flex items-center gap-1.5 text-[12px] font-semibold cursor-pointer min-h-[44px]"
-                  style={{ color: inviteEnabled ? '#9CA3AF' : '#00B4D8' }}
+                  style={{ color: inviteEnabled ? '#9CA3AF' : '#00D4FF' }}
                 >
                   {inviteEnabled ? <Link2Off className="h-3.5 w-3.5" /> : <Link2 className="h-3.5 w-3.5" />}
                   {inviteEnabled ? 'Disable Link' : 'Enable Link'}

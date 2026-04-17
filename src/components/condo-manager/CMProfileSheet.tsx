@@ -78,11 +78,11 @@ const CMProfileSheet: React.FC<CMProfileSheetProps> = ({ open, onOpenChange, com
     <div className="flex items-center gap-3 mb-6">
       <div
         onClick={() => setSubScreen(null)}
-        className="w-9 h-9 rounded-full bg-[#F0F4F8] flex items-center justify-center cursor-pointer"
+        className="w-9 h-9 rounded-full bg-[#F9FAFB] flex items-center justify-center cursor-pointer"
       >
-        <ArrowLeft className="h-4 w-4 text-[#1A1A2E]" />
+        <ArrowLeft className="h-4 w-4 text-[#0F1F3D]" />
       </div>
-      <div className="text-[17px] font-extrabold text-[#1A1A2E]">{title}</div>
+      <div className="text-[17px] font-extrabold text-[#0F1F3D]">{title}</div>
     </div>
   );
 
@@ -95,7 +95,7 @@ const CMProfileSheet: React.FC<CMProfileSheetProps> = ({ open, onOpenChange, com
           {renderSubHeader('My Account')}
           <div className="space-y-4">
             <div>
-              <label className="text-[13px] font-bold text-[#1A1A2E] mb-1.5 block">Full Name</label>
+              <label className="text-[13px] font-bold text-[#0F1F3D] mb-1.5 block">Full Name</label>
               <input
                 value={editName}
                 onChange={e => setEditName(e.target.value)}
@@ -103,19 +103,19 @@ const CMProfileSheet: React.FC<CMProfileSheetProps> = ({ open, onOpenChange, com
               />
             </div>
             <div>
-              <label className="text-[13px] font-bold text-[#1A1A2E] mb-1.5 block">Email</label>
+              <label className="text-[13px] font-bold text-[#0F1F3D] mb-1.5 block">Email</label>
               <input
                 value={editEmail}
                 disabled
-                className="w-full px-3 py-2.5 rounded-[10px] border border-[#E5E7EB] text-sm bg-[#F0F4F8] text-[#9CA3AF]"
+                className="w-full px-3 py-2.5 rounded-[10px] border border-[#E5E7EB] text-sm bg-[#F9FAFB] text-[#9CA3AF]"
               />
             </div>
-            <button className="w-full text-left px-3 py-2.5 rounded-[10px] border border-[#E5E7EB] text-sm font-semibold text-[#1A1A2E]">
+            <button className="w-full text-left px-3 py-2.5 rounded-[10px] border border-[#E5E7EB] text-sm font-semibold text-[#0F1F3D]">
               Change Password
             </button>
             <button
               onClick={!savingAccount ? handleSaveAccount : undefined}
-              className={`w-full bg-[#0A1628] text-white rounded-[10px] py-3 text-sm font-bold min-h-[44px] ${savingAccount ? 'opacity-50' : ''}`}
+              className={`w-full bg-[#0F1F3D] text-white rounded-[10px] py-3 text-sm font-bold min-h-[44px] ${savingAccount ? 'opacity-50' : ''}`}
             >
               {savingAccount ? 'Saving...' : 'Save'}
             </button>
@@ -144,11 +144,11 @@ const CMProfileSheet: React.FC<CMProfileSheetProps> = ({ open, onOpenChange, com
           <div className="space-y-1">
             {items.map(({ key, label }) => (
               <div key={key} className="flex items-center justify-between py-3">
-                <span className="text-[14px] font-semibold text-[#1A1A2E]">{label}</span>
+                <span className="text-[14px] font-semibold text-[#0F1F3D]">{label}</span>
                 <Switch
                   checked={notifPrefs[key]}
                   onCheckedChange={v => setNotifPrefs(p => ({ ...p, [key]: v }))}
-                  className="data-[state=checked]:bg-[#00B4D8]"
+                  className="data-[state=checked]:bg-[#00D4FF]"
                 />
               </div>
             ))}
@@ -168,12 +168,12 @@ const CMProfileSheet: React.FC<CMProfileSheetProps> = ({ open, onOpenChange, com
           <div className="space-y-4">
             <a
               href="mailto:support@playlocalcourts.com"
-              className="block w-full text-center bg-[#F0F4F8] rounded-[10px] py-3 text-sm font-bold text-[#1A1A2E]"
+              className="block w-full text-center bg-[#F9FAFB] rounded-[10px] py-3 text-sm font-bold text-[#0F1F3D]"
             >
               📧 Email Support
             </a>
-            <div className="rounded-[10px] bg-[#F0F4F8] p-4">
-              <div className="text-[14px] font-bold text-[#1A1A2E] mb-2">FAQ</div>
+            <div className="rounded-[10px] bg-[#F9FAFB] p-4">
+              <div className="text-[14px] font-bold text-[#0F1F3D] mb-2">FAQ</div>
               <div className="text-[13px] text-[#9CA3AF]">Coming soon — frequently asked questions will appear here.</div>
             </div>
           </div>
@@ -196,12 +196,12 @@ const CMProfileSheet: React.FC<CMProfileSheetProps> = ({ open, onOpenChange, com
 
         {/* Profile header */}
         <div className="flex flex-col items-center mb-6">
-          <div className="w-14 h-14 rounded-full bg-[#0D2137] border-2 border-[#00B4D8] flex items-center justify-center mb-3">
+          <div className="w-14 h-14 rounded-full bg-[#0D2137] border-2 border-[#00D4FF] flex items-center justify-center mb-3">
             <span className="text-white text-[18px] font-extrabold">{initials}</span>
           </div>
-          <div className="text-[18px] font-extrabold text-[#1A1A2E]">{currentUser?.fullName || 'User'}</div>
+          <div className="text-[18px] font-extrabold text-[#0F1F3D]">{currentUser?.fullName || 'User'}</div>
           <div className="text-[13px] text-[#9CA3AF] mt-0.5">{editEmail || 'Loading...'}</div>
-          <div className="text-[12px] text-[#00B4D8] font-bold mt-0.5">Property Manager</div>
+          <div className="text-[12px] text-[#00D4FF] font-bold mt-0.5">Property Manager</div>
         </div>
 
         {/* Menu items */}
@@ -210,11 +210,11 @@ const CMProfileSheet: React.FC<CMProfileSheetProps> = ({ open, onOpenChange, com
             <div
               key={item.label}
               onClick={() => openSub(item.sub)}
-              className="flex items-center justify-between py-3.5 px-1 cursor-pointer rounded-lg hover:bg-[#F0F4F8] transition-colors"
+              className="flex items-center justify-between py-3.5 px-1 cursor-pointer rounded-lg hover:bg-[#F9FAFB] transition-colors"
             >
               <div className="flex items-center gap-3">
                 <span className="text-base">{item.icon}</span>
-                <span className="text-[15px] font-semibold text-[#1A1A2E]">{item.label}</span>
+                <span className="text-[15px] font-semibold text-[#0F1F3D]">{item.label}</span>
               </div>
               <ChevronRight className="h-4 w-4 text-[#9CA3AF]" />
             </div>
@@ -234,11 +234,11 @@ const CMProfileSheet: React.FC<CMProfileSheetProps> = ({ open, onOpenChange, com
           </div>
         ) : (
           <div className="text-center space-y-3 py-2">
-            <div className="text-[14px] font-semibold text-[#1A1A2E]">Are you sure you want to sign out?</div>
+            <div className="text-[14px] font-semibold text-[#0F1F3D]">Are you sure you want to sign out?</div>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowSignOutConfirm(false)}
-                className="flex-1 py-2.5 rounded-[10px] bg-[#F0F4F8] text-[14px] font-semibold text-[#9CA3AF]"
+                className="flex-1 py-2.5 rounded-[10px] bg-[#F9FAFB] text-[14px] font-semibold text-[#9CA3AF]"
               >
                 Cancel
               </button>

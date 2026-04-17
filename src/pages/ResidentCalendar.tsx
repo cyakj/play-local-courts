@@ -8,10 +8,10 @@ import CalendarLegend from '@/components/resident/CalendarLegend';
 import CalendarEventDetail from '@/components/resident/CalendarEventDetail';
 
 const EVENT_TYPE_CONFIG: Record<string, { color: string; label: string }> = {
-  community_event: { color: '#00B4D8', label: 'Community Event' },
-  board_meeting: { color: '#0A1628', label: 'Board Meeting' },
+  community_event: { color: '#00D4FF', label: 'Community Event' },
+  board_meeting: { color: '#0F1F3D', label: 'Board Meeting' },
   maintenance_scheduled: { color: '#F59E0B', label: 'Maintenance' },
-  amenity_booking: { color: '#2DD4BF', label: 'Amenity Booking' },
+  amenity_booking: { color: '#00D4FF', label: 'Amenity Booking' },
 };
 
 const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -227,7 +227,7 @@ const ResidentCalendar = () => {
   return (
     <div className="min-h-screen bg-background pb-24">
       {/* Header */}
-      <div className="navy-gradient text-white px-5 pt-[50px] pb-4">
+      <div className="text-white px-5 pt-[50px] pb-4" style={{ backgroundColor: '#0F1F3D' }}>
         <div className="text-xl font-extrabold">Calendar</div>
         <div className="text-xs opacity-65 mt-0.5">
           {displayMonth.toLocaleString('en-US', { month: 'long', year: 'numeric' })}

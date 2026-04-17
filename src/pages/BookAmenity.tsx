@@ -34,13 +34,13 @@ const BookAmenity: React.FC = () => {
 
   if (!hoaLoading && !isHOAUser) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#F0F4F8' }}>
+      <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#F9FAFB' }}>
         <Card className="max-w-md w-full">
           <CardContent className="pt-6 text-center space-y-4">
             <AlertCircle className="h-12 w-12 mx-auto" style={{ color: '#9CA3AF' }} />
             <h2 className="text-xl font-semibold">Community Membership Required</h2>
             <p style={{ color: '#4B5563' }}>You need to be a member of a community to book amenities.</p>
-            <Button asChild className="w-full" style={{ background: '#0A1628' }}><Link to="/my-home?tab=community">Join a Community</Link></Button>
+            <Button asChild className="w-full" style={{ background: '#0F1F3D' }}><Link to="/my-home?tab=community">Join a Community</Link></Button>
             <Button asChild variant="outline" className="w-full"><Link to="/">Back to Home</Link></Button>
           </CardContent>
         </Card>
@@ -60,7 +60,7 @@ const BookAmenity: React.FC = () => {
   const filters = ['all', 'courts', 'pools', 'other'];
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#F0F4F8' }}>
+    <div className="min-h-screen flex flex-col" style={{ background: '#F9FAFB' }}>
       <ResidentHeader compact>
         <div style={{ fontSize: 20, fontWeight: 800 }}>Book Amenity</div>
         <div style={{ fontSize: 12, opacity: 0.65, marginTop: 2 }}>Reserve your spot instantly</div>
@@ -83,7 +83,7 @@ const BookAmenity: React.FC = () => {
                   fontWeight: 700,
                   whiteSpace: 'nowrap',
                   border: active ? 'none' : '1.5px solid #E5E7EB',
-                  background: active ? '#0A1628' : '#FFFFFF',
+                  background: active ? '#0F1F3D' : '#FFFFFF',
                   color: active ? '#FFFFFF' : '#9CA3AF',
                   cursor: 'pointer',
                 }}
@@ -128,7 +128,7 @@ const BookAmenity: React.FC = () => {
                 </div>
                 {/* Name + type */}
                 <div className="flex-1 min-w-0">
-                  <div style={{ fontSize: 16, fontWeight: 700, color: '#1A1A2E' }}>{amenity.name}</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#0F1F3D' }}>{amenity.name}</div>
                   <div style={{ fontSize: 12, color: '#9CA3AF' }}>{label}</div>
                 </div>
                 {/* Status badge */}
@@ -138,7 +138,7 @@ const BookAmenity: React.FC = () => {
                   fontSize: 11,
                   fontWeight: 700,
                   background: isClosed ? '#FEF2F2' : '#E6FFFA',
-                  color: isClosed ? '#EF4444' : '#2DD4BF',
+                  color: isClosed ? '#EF4444' : '#00D4FF',
                 }}>
                   {isClosed ? 'Closed' : 'Open Now'}
                 </div>
@@ -156,7 +156,7 @@ const BookAmenity: React.FC = () => {
                     fontSize: 13,
                     fontWeight: 700,
                     cursor: isClosed ? 'default' : 'pointer',
-                    background: isClosed ? '#E5E7EB' : '#00B4D8',
+                    background: isClosed ? '#E5E7EB' : '#00D4FF',
                     color: isClosed ? '#9CA3AF' : '#FFFFFF',
                     padding: '11px 0',
                   }}

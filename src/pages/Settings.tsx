@@ -122,7 +122,7 @@ const Settings = () => {
   return (
     <div className="min-h-screen bg-background pb-24">
       {/* Navy Header */}
-      <div className="navy-gradient text-white px-5 pt-[50px] pb-5">
+      <div className="text-white px-5 pt-[50px] pb-5" style={{ backgroundColor: '#0F1F3D' }}>
         <div className="flex items-center gap-3">
           <button onClick={() => navigate(-1)} className="w-9 h-9 rounded-[10px] flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.12)' }}>
             <ArrowLeft className="h-4 w-4 text-white" />
@@ -137,19 +137,19 @@ const Settings = () => {
       <Card>
         <CardContent className="p-5">
           <div className="flex items-center gap-3.5">
-            <div className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-extrabold text-white flex-shrink-0" style={{ background: '#0A1628', border: '2px solid #00B4D8' }}>
+            <div className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-extrabold text-white flex-shrink-0" style={{ background: '#0F1F3D', border: '2px solid #00D4FF' }}>
               {profile.fullName?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
             </div>
             <div className="flex-1 min-w-0">
               <h2 className="font-extrabold text-[17px] truncate">{profile.fullName || 'Your Name'}</h2>
-              {activeHOA && <p className="text-xs font-semibold mt-0.5" style={{ color: '#00B4D8' }}>{activeHOA.hoaName}</p>}
+              {activeHOA && <p className="text-xs font-semibold mt-0.5" style={{ color: '#00D4FF' }}>{activeHOA.hoaName}</p>}
               <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{currentUser?.email}</p>
             </div>
           </div>
           <button
             onClick={() => navigate('/edit-profile')}
             className="w-full mt-3.5 py-2 rounded-[10px] text-xs font-bold text-white"
-            style={{ background: '#00B4D8' }}
+            style={{ background: '#00D4FF' }}
           >
             Edit Profile
           </button>

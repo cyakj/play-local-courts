@@ -37,10 +37,10 @@ const BookingConfirmed: React.FC = () => {
 
   if (!state) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#F0F4F8' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#F9FAFB' }}>
         <div className="text-center">
           <p style={{ color: '#9CA3AF', marginBottom: 16 }}>No booking data found.</p>
-          <button onClick={() => navigate('/book')} style={{ color: '#00B4D8', fontWeight: 700 }}>
+          <button onClick={() => navigate('/book')} style={{ color: '#00D4FF', fontWeight: 700 }}>
             Back to Amenities
           </button>
         </div>
@@ -56,7 +56,7 @@ const BookingConfirmed: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#F0F4F8' }}>
+    <div className="min-h-screen flex flex-col" style={{ background: '#F9FAFB' }}>
       <ResidentHeader compact>
         <div className="flex items-center gap-3">
           <button
@@ -74,13 +74,13 @@ const BookingConfirmed: React.FC = () => {
         {/* Success circle */}
         <div style={{
           width: 80, height: 80, borderRadius: 99, background: '#E6FFFA',
-          border: '2px solid #2DD4BF', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          border: '2px solid #00D4FF', display: 'flex', alignItems: 'center', justifyContent: 'center',
           marginBottom: 16,
         }}>
-          <Check className="h-8 w-8" style={{ color: '#2DD4BF' }} />
+          <Check className="h-8 w-8" style={{ color: '#00D4FF' }} />
         </div>
 
-        <div style={{ fontSize: 20, fontWeight: 800, color: '#1A1A2E', marginBottom: 24 }}>
+        <div style={{ fontSize: 20, fontWeight: 800, color: '#0F1F3D', marginBottom: 24 }}>
           You're booked!
         </div>
 
@@ -90,7 +90,7 @@ const BookingConfirmed: React.FC = () => {
           width: '100%', maxWidth: 400, overflow: 'hidden',
         }}>
           <div style={{ padding: 16, borderBottom: '1px solid #E5E7EB' }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#1A1A2E' }}>{state.amenityName}</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#0F1F3D' }}>{state.amenityName}</div>
             <div style={{ fontSize: 12, color: '#9CA3AF' }}>{state.amenityType}</div>
           </div>
           {rows.map((row, i) => (
@@ -103,7 +103,7 @@ const BookingConfirmed: React.FC = () => {
               }}
             >
               <span style={{ fontSize: 13, color: '#9CA3AF' }}>{row.label}</span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#1A1A2E' }}>{row.value}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#0F1F3D' }}>{row.value}</span>
             </div>
           ))}
         </div>
@@ -115,7 +115,7 @@ const BookingConfirmed: React.FC = () => {
           style={{
             marginTop: 24, maxWidth: 400, borderRadius: 12, padding: 14,
             fontSize: 15, fontWeight: 800, border: 'none',
-            background: '#0A1628', color: '#FFFFFF', cursor: 'pointer',
+            background: '#0F1F3D', color: '#FFFFFF', cursor: 'pointer',
           }}
         >
           Back to Amenities

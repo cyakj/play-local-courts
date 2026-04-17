@@ -321,7 +321,7 @@ const BookingFlow: React.FC = () => {
 
   if (!amenity) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#F0F4F8' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#F9FAFB' }}>
         <p style={{ color: '#9CA3AF' }}>Amenity not found.</p>
       </div>
     );
@@ -330,7 +330,7 @@ const BookingFlow: React.FC = () => {
   const typeLabel = amenityLabels[amenity.amenityType] || amenity.amenityType;
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#F0F4F8' }}>
+    <div className="min-h-screen flex flex-col" style={{ background: '#F9FAFB' }}>
       {/* Header */}
       <ResidentHeader compact>
         <div className="flex items-center gap-3">
@@ -367,18 +367,18 @@ const BookingFlow: React.FC = () => {
                 className="flex flex-col items-center"
                 style={{
                   flexShrink: 0, minWidth: 56, padding: '10px 12px', borderRadius: 14,
-                  background: sel ? '#0A1628' : '#F0F4F8',
-                  border: sel ? '2px solid #00B4D8' : '2px solid #E5E7EB',
+                  background: sel ? '#0F1F3D' : '#F9FAFB',
+                  border: sel ? '2px solid #00D4FF' : '2px solid #E5E7EB',
                   cursor: 'pointer',
                 }}
               >
                 <span style={{ fontSize: 10, fontWeight: 700, color: sel ? 'rgba(255,255,255,0.6)' : '#9CA3AF' }}>
                   {dayLabel}
                 </span>
-                <span style={{ fontSize: 16, fontWeight: 800, color: sel ? '#FFFFFF' : '#1A1A2E' }}>
+                <span style={{ fontSize: 16, fontWeight: 800, color: sel ? '#FFFFFF' : '#0F1F3D' }}>
                   {d.getDate()}
                 </span>
-                <span style={{ fontSize: 9, fontWeight: 600, color: sel ? '#00B4D8' : '#9CA3AF' }}>
+                <span style={{ fontSize: 9, fontWeight: 600, color: sel ? '#00D4FF' : '#9CA3AF' }}>
                   {MONTH_ABBR[d.getMonth()]}
                 </span>
               </button>
@@ -398,7 +398,7 @@ const BookingFlow: React.FC = () => {
           marginTop: 12,
         }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#92400E', marginBottom: 2 }}>
-            ⚠️ Booking limit reached
+            Booking limit reached
           </div>
           <div style={{ fontSize: 12, color: '#92400E', lineHeight: 1.4 }}>
             {atDailyLimit && (
@@ -432,8 +432,8 @@ const BookingFlow: React.FC = () => {
                   className="flex-1 min-h-[44px]"
                   style={{
                     borderRadius: 10, padding: 11, fontSize: 13, fontWeight: 700,
-                    background: sel ? '#0A1628' : '#F0F4F8',
-                    border: sel ? '2px solid #00B4D8' : '2px solid #E5E7EB',
+                    background: sel ? '#0F1F3D' : '#F9FAFB',
+                    border: sel ? '2px solid #00D4FF' : '2px solid #E5E7EB',
                     color: sel ? '#FFFFFF' : '#4B5563',
                     cursor: 'pointer',
                   }}
@@ -456,8 +456,8 @@ const BookingFlow: React.FC = () => {
                   className="flex-1 min-h-[44px]"
                   style={{
                     borderRadius: 10, padding: 11, fontSize: 13, fontWeight: 700,
-                    background: sel ? '#0A1628' : '#F0F4F8',
-                    border: sel ? '2px solid #00B4D8' : '2px solid #E5E7EB',
+                    background: sel ? '#0F1F3D' : '#F9FAFB',
+                    border: sel ? '2px solid #00D4FF' : '2px solid #E5E7EB',
                     color: sel ? '#FFFFFF' : '#4B5563',
                     cursor: 'pointer',
                   }}
@@ -482,8 +482,8 @@ const BookingFlow: React.FC = () => {
               </div>
               <div className="flex items-center gap-3 flex-wrap justify-end">
                 {[
-                  { label: 'Available', bg: '#F0F4F8', border: '#E5E7EB' },
-                  { label: 'Selected', bg: '#0A1628', border: '#00B4D8' },
+                  { label: 'Available', bg: '#F9FAFB', border: '#E5E7EB' },
+                  { label: 'Selected', bg: '#0F1F3D', border: '#00D4FF' },
                   { label: 'Booked', bg: '#F3F4F6', border: '#EBEBEB' },
                   { label: 'Maintenance', bg: '#FEF2F2', border: '#EF4444' },
                 ].map(l => (
@@ -508,13 +508,13 @@ const BookingFlow: React.FC = () => {
                 };
 
                 if (isSelected) {
-                  Object.assign(styles, { background: '#0A1628', border: '2px solid #00B4D8' });
+                  Object.assign(styles, { background: '#0F1F3D', border: '2px solid #00D4FF' });
                 } else if (status === 'maintenance') {
                   Object.assign(styles, { background: '#FEF2F2', border: '1.5px solid #EF4444' });
                 } else if (status === 'booked') {
                   Object.assign(styles, { background: '#F3F4F6', border: '1.5px solid #EBEBEB' });
                 } else {
-                  Object.assign(styles, { background: '#F0F4F8', border: '1.5px solid #E5E7EB' });
+                  Object.assign(styles, { background: '#F9FAFB', border: '1.5px solid #E5E7EB' });
                 }
 
                 return (
@@ -527,7 +527,7 @@ const BookingFlow: React.FC = () => {
                     {isSelected && (
                       <div style={{
                         position: 'absolute', top: -4, right: -4, width: 14, height: 14,
-                        borderRadius: 99, background: '#00B4D8',
+                        borderRadius: 99, background: '#00D4FF',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                       }}>
                         <Check className="h-2 w-2 text-white" />
@@ -535,7 +535,7 @@ const BookingFlow: React.FC = () => {
                     )}
                     <div style={{
                       fontSize: 12, fontWeight: 700,
-                      color: isSelected ? '#FFFFFF' : status === 'maintenance' ? '#EF4444' : status === 'booked' ? '#9CA3AF' : '#1A1A2E',
+                      color: isSelected ? '#FFFFFF' : status === 'maintenance' ? '#EF4444' : status === 'booked' ? '#9CA3AF' : '#0F1F3D',
                     }}>
                       {formatTime(slot)}
                     </div>
@@ -571,7 +571,7 @@ const BookingFlow: React.FC = () => {
         >
           <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#1A1A2E' }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#0F1F3D' }}>
                 {formatTime(selectedSlot)} – {formatTime(getEndTime(selectedSlot))}
               </div>
               <div style={{ fontSize: 11, color: '#9CA3AF' }}>
@@ -580,7 +580,7 @@ const BookingFlow: React.FC = () => {
             </div>
             <div style={{
               padding: '4px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700,
-              background: '#E6FFFA', color: '#2DD4BF',
+              background: '#E6FFFA', color: '#00D4FF',
             }}>
               Selected ✓
             </div>
@@ -591,7 +591,7 @@ const BookingFlow: React.FC = () => {
             className="w-full min-h-[44px]"
             style={{
               borderRadius: 12, padding: 14, fontSize: 15, fontWeight: 800, border: 'none',
-              background: 'linear-gradient(135deg, #00B4D8 0%, #0091B5 100%)',
+              background: 'linear-gradient(135deg, #00D4FF 0%, #0091B5 100%)',
               color: '#FFFFFF', cursor: confirming ? 'wait' : 'pointer',
               boxShadow: '0 4px 16px rgba(0,180,216,0.35)',
               opacity: confirming ? 0.7 : 1,
