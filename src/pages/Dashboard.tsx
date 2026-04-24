@@ -5,7 +5,6 @@ import { useActiveHOA } from '../contexts/ActiveHOAContext';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
-import ResidentHeader from '@/components/resident/ResidentHeader';
 import { UserType } from '../types';
 import { TENNIS_FEATURES_ENABLED } from '@/config/featureFlags';
 import PendingApprovalMessage from '../components/PendingApprovalMessage';
@@ -342,53 +341,66 @@ const Dashboard = () => {
 
   return (
     <div style={{ background: '#F9FAFB', minHeight: '100vh' }}>
-      {/* Navy Header */}
-      <ResidentHeader>
-        <div className="flex justify-between items-start">
-          <div>
-            <div className="text-[13px] opacity-75">{greeting}</div>
-            <div className="text-2xl font-extrabold mt-0.5">{firstName}</div>
-            {activeHOA && (
-              <div className="text-xs opacity-60 mt-1 flex items-center gap-1.5">
-                <Building2 className="h-3 w-3" />
-                {activeHOA.hoaName}
-              </div>
-            )}
-          </div>
-          <div className="flex gap-2.5 items-center mt-1">
-            <Link
-              to="/settings"
-              className="w-10 h-10 rounded-[10px] flex items-center justify-center"
-              style={{ background: 'rgba(255,255,255,0.12)' }}
-            >
-              <Settings className="h-[18px] w-[18px] text-white" />
-            </Link>
+      {/* Header */}
+      <div style={{ backgroundColor: '#0F1F3D' }} className="px-5 pt-12 pb-8 relative overflow-visible">
+        {/* Top bar */}
+        <div className="flex items-center justify-between mb-6">
+          <img
+            src="/images/TenisX_logo-removebg-preview.png"
+            style={{ height: '88px', width: 'auto', maxWidth: '220px', display: 'block' }}
+            alt="TenisX"
+          />
+          <div className="flex items-center gap-3">
             <Link
               to="/messages"
-              className="relative w-10 h-10 rounded-[10px] flex items-center justify-center"
-              style={{ background: 'rgba(255,255,255,0.12)' }}
+              className="relative w-10 h-10 flex items-center justify-center cursor-pointer"
             >
-              <MessageCircle className="h-[18px] w-[18px] text-white" />
+              <MessageCircle className="h-5 w-5 text-white" />
               {unreadMessages > 0 && (
-                <div
-                  className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2"
-                  style={{ background: '#00D4FF', borderColor: '#0F1F3D' }}
-                />
+                <div className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] font-bold">
+                  {unreadMessages}
+                </div>
               )}
+            </Link>
+            <Link
+              to="/settings"
+              className="w-10 h-10 flex items-center justify-center cursor-pointer"
+            >
+              <Settings className="h-5 w-5 text-white" />
             </Link>
           </div>
         </div>
-      </ResidentHeader>
+
+        {/* Greeting */}
+        <div className="text-[13px] uppercase font-semibold mb-1" style={{ color: '#00D4FF', letterSpacing: '0.15em' }}>
+          Welcome back
+        </div>
+        <h1 className="text-[32px] font-black text-white leading-[1.1] tracking-tight" style={{ fontFamily: 'Manrope, sans-serif' }}>
+          {greeting}<br />{firstName}
+        </h1>
+        {activeHOA && (
+          <p className="text-cyan-200 mt-3 leading-relaxed" style={{ fontSize: '15px', opacity: 0.9 }}>
+            <Building2 className="inline h-3.5 w-3.5 mr-1.5 mb-0.5" />
+            {activeHOA.hoaName}
+          </p>
+        )}
+
+        {/* Bottom fade */}
+        <div
+          className="absolute -bottom-6 left-0 right-0 h-8 pointer-events-none z-0"
+          style={{ background: 'linear-gradient(to bottom, #0F1F3D, transparent)' }}
+        />
+      </div>
 
       {/* Community Switcher */}
       {hasMultipleHOAs && (
-        <div className="px-4 pt-4">
+        <div className="px-4 pt-8">
           <ActiveCommunitySelector onAddCommunity={() => {}} />
         </div>
       )}
 
       {/* Body */}
-      <div className="px-4 pt-4 pb-28">
+      <div className={`px-4 ${hasMultipleHOAs ? 'pt-4' : 'pt-8'} pb-28`}>
 
         {/* Admin cancellation banners */}
         {cancelledBookings
@@ -401,12 +413,12 @@ const Dashboard = () => {
             >
               <button
                 onClick={() => handleDismissCancellation(cb.id)}
-                className="absolute top-2.5 right-2.5 w-6 h-6 flex items-center justify-center rounded-full min-h-0"
-                style={{ color: '#8892A4' }}
+                className="absolute top-1.5 right-1.5 w-11 h-11 flex items-center justify-center rounded-xl"
+                style={{ color: '#9CA3AF', background: 'rgba(239,68,68,0.08)' }}
               >
-                <X className="h-3.5 w-3.5" />
+                <X className="h-4 w-4" />
               </button>
-              <div className="flex items-start gap-2.5 pr-5">
+              <div className="flex items-start gap-2.5 pr-10">
                 <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" style={{ color: '#EF4444' }} />
                 <div className="flex-1 min-w-0">
                   <div className="text-[13px] font-bold" style={{ color: '#EF4444' }}>
@@ -628,7 +640,7 @@ const Dashboard = () => {
                       {r.title || r.issue_type || 'Report'}
                     </span>
                     <span
-                      className="text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0"
+                      className="text-[12px] font-bold px-2 py-0.5 rounded-full flex-shrink-0"
                       style={{
                         background: r.status === 'open' ? '#FFF5F5' : '#E0F9FF',
                         color: r.status === 'open' ? '#F97066' : '#00D4FF',

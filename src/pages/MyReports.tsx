@@ -143,25 +143,34 @@ const MyReports = () => {
 
   return (
     <div className="min-h-screen pb-24" style={{ background: '#F9FAFB' }}>
-      {/* Navy Header */}
-      <div className="text-white px-5 pt-[50px] pb-5" style={{ backgroundColor: '#0F1F3D' }}>
-        <div className="flex justify-between items-center">
-          <div>
-            <div className="text-xl font-extrabold">My Reports</div>
-            <div className="text-xs opacity-65 mt-0.5">Track and submit maintenance issues</div>
+      {/* Header */}
+      <div style={{ backgroundColor: '#0F1F3D' }} className="px-5 pt-12 pb-8 relative overflow-visible">
+        <div className="flex items-center justify-between mb-4">
+          <div className="text-[13px] uppercase font-semibold" style={{ color: '#00D4FF', letterSpacing: '0.15em' }}>
+            Reports
           </div>
           <button
             onClick={() => setShowReportDialog(true)}
-            className="w-10 h-10 rounded-[10px] flex items-center justify-center"
-            style={{ background: '#00D4FF' }}
+            className="w-10 h-10 flex items-center justify-center rounded-xl"
+            style={{ backgroundColor: '#00D4FF' }}
           >
             <Plus className="h-5 w-5 text-white" />
           </button>
         </div>
+        <h1 className="text-[32px] font-black text-white leading-[1.1] tracking-tight" style={{ fontFamily: 'Manrope, sans-serif' }}>
+          My Reports
+        </h1>
+        <p className="text-cyan-200 mt-3 leading-relaxed" style={{ fontSize: '15px', opacity: 0.9 }}>
+          Track and submit maintenance issues in your community.
+        </p>
+        <div
+          className="absolute -bottom-6 left-0 right-0 h-8 pointer-events-none z-0"
+          style={{ background: 'linear-gradient(to bottom, #0F1F3D, transparent)' }}
+        />
       </div>
 
       {/* Filter Chips */}
-      <div className="bg-white border-b px-4 py-2.5" style={{ borderColor: 'rgba(15,31,61,0.08)' }}>
+      <div className="bg-white border-b px-4 py-2.5 relative z-10 mt-6" style={{ borderColor: 'rgba(15,31,61,0.08)' }}>
         <div className="flex gap-2">
           {residentFilters.map((option) => {
             const count = option.value === 'all'
@@ -174,7 +183,7 @@ const MyReports = () => {
               <button
                 key={option.value}
                 onClick={() => setStatusFilter(option.value)}
-                className="px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all min-h-[36px]"
+                className="px-4 py-2.5 rounded-full text-[13px] font-bold whitespace-nowrap transition-all min-h-[40px]"
                 style={{
                   background: active ? '#0F1F3D' : '#F9FAFB',
                   color: active ? 'white' : '#8892A4',

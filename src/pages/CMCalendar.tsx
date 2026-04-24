@@ -252,7 +252,7 @@ const CMCalendar = () => {
               <button
                 key={mode}
                 onClick={() => setCalendarMode(mode)}
-                className="rounded-lg px-2.5 py-1 text-[10px] font-bold capitalize transition-colors"
+                className="rounded-lg px-3 py-2 text-[13px] font-bold capitalize transition-colors min-h-[40px]"
                 style={{
                   background: calendarMode === mode ? 'rgba(0,180,216,0.35)' : 'rgba(255,255,255,0.1)',
                   color: calendarMode === mode ? '#fff' : 'rgba(255,255,255,0.6)',
@@ -339,11 +339,11 @@ const CMCalendar = () => {
       </div>
 
       {/* Color legend */}
-      <div className="bg-white px-4 py-1.5 border-b border-cm-border flex gap-3 flex-shrink-0">
+      <div className="bg-white px-4 py-2 border-b border-cm-border flex gap-3 flex-shrink-0 flex-wrap">
         {Object.entries(EVENT_TYPE_CONFIG).map(([k, v]) => (
           <div key={k} className="flex items-center gap-1">
             <div className="w-2.5 h-2.5 rounded-sm" style={{ background: v.color }} />
-            <span className="text-[9px] text-cm-text-light">{v.label}</span>
+            <span className="text-[11px] text-cm-text-light">{v.label}</span>
           </div>
         ))}
       </div>
@@ -425,7 +425,32 @@ const CMCalendar = () => {
       {showAddEvent && (
         <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 overflow-y-auto py-4 px-4">
           <div className="bg-white rounded-2xl w-full max-w-md p-5">
-            <div className="text-lg font-extrabold text-cm-navy mb-4">Add Event</div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="text-lg font-extrabold text-cm-navy">Add Event</div>
+              <button
+                onClick={() => setShowAddEvent(false)}
+                aria-label="Close"
+                style={{
+                  width: 44,
+                  height: 44,
+                  minWidth: 44,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: '#F3F4F6',
+                  border: 'none',
+                  borderRadius: 10,
+                  cursor: 'pointer',
+                  color: '#8892A4',
+                  flexShrink: 0,
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
             <input
               value={evTitle}
               onChange={e => setEvTitle(e.target.value)}

@@ -9,33 +9,36 @@ const AuthLayout = () => {
 
   if (loading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      <div className="flex h-screen w-full items-center justify-center" style={{ background: '#F9FAFB' }}>
+        <div
+          className="w-12 h-12 border-2 rounded-full animate-spin"
+          style={{ borderColor: 'rgba(0,212,255,0.2)', borderTopColor: '#00D4FF' }}
+        />
       </div>
     );
   }
 
-  // If already logged in, redirect to dashboard
   if (currentUser) {
     const redirect = searchParams.get('redirect');
     return <Navigate to={redirect || '/dashboard'} replace />;
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
-      <header className="py-6 bg-white shadow-sm border-b">
-        <div className="container mx-auto px-4">
-          <h1 className="text-2xl font-bold text-primary">HOA Court Reservation</h1>
+    <div
+      className="min-h-screen flex flex-col items-center"
+      style={{ background: '#F9FAFB', paddingTop: 56, paddingBottom: 48, paddingLeft: 20, paddingRight: 20 }}
+    >
+      <div className="w-full max-w-sm">
+        {/* TenisX Logo */}
+        <div className="flex justify-center mb-8">
+          <img
+            src="/images/TenisX_logo-removebg-preview.png"
+            style={{ height: 72, width: 'auto', maxWidth: 200 }}
+            alt="TenisX"
+          />
         </div>
-      </header>
-      <main className="flex-grow flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
-          <Outlet />
-        </div>
-      </main>
-      <footer className="py-4 text-center bg-white border-t">
-        <p className="text-sm text-gray-500">© 2025 HOA Court Reservation System</p>
-      </footer>
+        <Outlet />
+      </div>
     </div>
   );
 };

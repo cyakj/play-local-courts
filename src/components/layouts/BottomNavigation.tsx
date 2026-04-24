@@ -42,14 +42,14 @@ const BottomNavigation = () => {
             <Link
               key={item.path}
               to={item.path}
-              className="flex flex-col items-center gap-0.5 min-h-[44px] min-w-[44px] justify-center"
+              className="flex flex-col items-center gap-0.5 min-h-[56px] min-w-[48px] justify-center"
             >
               <Icon
                 className="h-[22px] w-[22px]"
                 style={{ color: active ? '#00D4FF' : '#8892A4' }}
               />
               <span
-                className="text-[10px] font-bold uppercase tracking-wide"
+                className="text-[12px] font-bold uppercase tracking-wide"
                 style={{ color: active ? '#00D4FF' : '#8892A4' }}
               >
                 {item.label}
