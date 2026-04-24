@@ -36,6 +36,18 @@ const getSeverityLabel = (value: number): string => {
   return 'Critical';
 };
 
+const getSeverityColor = (value: number): string => {
+  if (value <= 33) return '#00D4FF';
+  if (value <= 66) return '#F97066';
+  return '#EF4444';
+};
+
+const getSeverityPill = (value: number) => {
+  if (value <= 33) return { bg: '#E0F9FF', text: '#0369A1', border: '#00D4FF' };
+  if (value <= 66) return { bg: '#FFF5F5', text: '#C0392B', border: '#F97066' };
+  return { bg: '#FEF2F2', text: '#991B1B', border: '#EF4444' };
+};
+
 export const MultiStepReportDialog: React.FC<MultiStepReportDialogProps> = ({
   open,
   onOpenChange,
@@ -268,17 +280,28 @@ export const MultiStepReportDialog: React.FC<MultiStepReportDialogProps> = ({
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label className="text-sm font-semibold">Severity Level</Label>
-                  <span className={cn(
-                    "text-xs font-medium px-2 py-1 rounded-full",
-                    severity[0] <= 25 && "bg-[#E0F9FF] text-[#0369A1]",
-                    severity[0] > 25 && severity[0] <= 50 && "bg-yellow-100 text-yellow-700",
-                    severity[0] > 50 && severity[0] <= 75 && "bg-orange-100 text-orange-700",
-                    severity[0] > 75 && "bg-red-100 text-red-700"
-                  )}>
-                    {getSeverityLabel(severity[0])}
-                  </span>
+                  {(() => {
+                    const pill = getSeverityPill(severity[0]);
+                    return (
+                      <span style={{
+                        background: pill.bg,
+                        color: pill.text,
+                        border: `1px solid ${pill.border}`,
+                        borderRadius: 99,
+                        padding: '4px 12px',
+                        fontSize: 12,
+                        fontWeight: 700,
+                        display: 'inline-block',
+                        fontFamily: 'Inter, sans-serif',
+                      }}>
+                        {getSeverityLabel(severity[0])}
+                      </span>
+                    );
+                  })()}
                 </div>
-                <Slider value={severity} onValueChange={setSeverity} max={100} step={25} className="w-full" />
+                <div style={{ '--slider-color': getSeverityColor(severity[0]) } as React.CSSProperties}>
+                  <Slider value={severity} onValueChange={setSeverity} max={100} step={25} className="w-full" />
+                </div>
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <span>Low</span>
                   <span>High</span>

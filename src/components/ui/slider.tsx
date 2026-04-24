@@ -8,7 +8,7 @@ const Slider = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root>
 >(({ className, value, defaultValue, ...props }, ref) => {
   const thumbCount = value?.length || defaultValue?.length || 1;
-  
+
   return (
     <SliderPrimitive.Root
       ref={ref}
@@ -21,12 +21,12 @@ const Slider = React.forwardRef<
       {...props}
     >
       <SliderPrimitive.Track className="relative h-1.5 w-full grow overflow-hidden rounded-full bg-secondary">
-        <SliderPrimitive.Range className="absolute h-full bg-green-500" />
+        <SliderPrimitive.Range className="absolute h-full bg-[var(--slider-color,#00D4FF)]" />
       </SliderPrimitive.Track>
       {Array.from({ length: thumbCount }).map((_, i) => (
         <SliderPrimitive.Thumb
           key={i}
-          className="block h-5 w-1 rounded-sm bg-green-500 shadow-md ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-green-600"
+          className="block h-5 w-1 rounded-sm bg-[var(--slider-color,#00D4FF)] shadow-md ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
         />
       ))}
     </SliderPrimitive.Root>

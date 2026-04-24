@@ -137,21 +137,25 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document: doc, userId
     <div className="fixed inset-0 z-[60] flex flex-col bg-background">
       {/* Header */}
       <div
-        className="flex items-center gap-3 px-4 py-3 min-h-[56px]"
-        style={{ background: 'linear-gradient(135deg, #0F1F3D 0%, #1a2a4a 100%)' }}
+        className="flex items-center gap-3 px-4 min-h-[56px]"
+        style={{ background: '#0F1F3D', paddingTop: 'max(12px, env(safe-area-inset-top))', paddingBottom: 12 }}
       >
         <button
           onClick={onClose}
-          className="w-10 h-10 rounded-[10px] flex items-center justify-center bg-white/[0.12] flex-shrink-0"
+          className="w-11 h-11 rounded-[10px] flex items-center justify-center flex-shrink-0"
+          style={{ background: 'rgba(255,255,255,0.12)', minWidth: 44 }}
+          aria-label="Back"
         >
           <ArrowLeft className="h-5 w-5 text-white" />
         </button>
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-bold text-white truncate">{doc.title}</div>
+          <div className="font-bold text-white truncate" style={{ fontSize: 15, fontFamily: 'Manrope, sans-serif' }}>{doc.title}</div>
         </div>
         <button
           onClick={handleDownload}
-          className="w-10 h-10 rounded-[10px] flex items-center justify-center bg-white/[0.12] flex-shrink-0"
+          className="w-11 h-11 rounded-[10px] flex items-center justify-center flex-shrink-0"
+          style={{ background: 'rgba(255,255,255,0.12)', minWidth: 44 }}
+          aria-label="Download"
         >
           <Download className="h-5 w-5 text-white" />
         </button>
@@ -160,25 +164,55 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document: doc, userId
       {/* Content */}
       <div className="flex-1 relative bg-muted overflow-auto">
         {loading && !error && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-muted">
-            <Loader2 className="h-8 w-8 text-primary animate-spin" />
-            <span className="text-sm text-muted-foreground">Loading document…</span>
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3" style={{ background: '#F9FAFB' }}>
+            <div className="w-10 h-10 border-2 rounded-full animate-spin" style={{ borderColor: 'rgba(0,212,255,0.2)', borderTopColor: '#00D4FF' }} />
+            <span className="text-sm" style={{ color: '#8892A4', fontFamily: 'Inter, sans-serif' }}>Loading document…</span>
           </div>
         )}
 
         {error ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-6 bg-muted">
-            <div className="text-5xl">📄</div>
-            <p className="text-base font-semibold text-foreground text-center">Unable to preview</p>
-            <p className="text-sm text-muted-foreground text-center">
-              {errorMsg || 'Try downloading the file instead.'}
-            </p>
-            <button
-              onClick={handleDownload}
-              className="min-h-[44px] rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground"
-            >
-              Download
-            </button>
+          <div className="absolute inset-0 flex flex-col items-center justify-center px-6" style={{ background: '#F9FAFB' }}>
+            <div style={{
+              background: 'white',
+              borderRadius: 16,
+              padding: 32,
+              width: '100%',
+              maxWidth: 320,
+              boxShadow: '0px 12px 32px rgba(15,31,61,0.04)',
+              border: '1px solid rgba(15,31,61,0.08)',
+              textAlign: 'center',
+            }}>
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#8892A4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: '0 auto 16px', display: 'block' }}>
+                <path d="M14.5 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7.5L14.5 2z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="12" y1="18" x2="12" y2="12"/>
+                <line x1="9" y1="15" x2="15" y2="15"/>
+              </svg>
+              <p style={{ fontSize: 16, fontWeight: 700, color: '#0F1F3D', marginBottom: 8, fontFamily: 'Manrope, sans-serif' }}>
+                Preview unavailable
+              </p>
+              <p style={{ fontSize: 13, color: '#8892A4', marginBottom: 24, fontFamily: 'Inter, sans-serif', lineHeight: 1.5 }}>
+                {errorMsg || 'Try downloading the file instead.'}
+              </p>
+              <button
+                onClick={handleDownload}
+                style={{
+                  width: '100%',
+                  minHeight: 48,
+                  background: '#0F1F3D',
+                  color: 'white',
+                  borderRadius: 8,
+                  border: 'none',
+                  fontSize: 15,
+                  fontWeight: 600,
+                  fontFamily: 'Manrope, sans-serif',
+                  cursor: 'pointer',
+                  padding: '14px 24px',
+                }}
+              >
+                Download PDF
+              </button>
+            </div>
           </div>
         ) : isImage && previewUrl ? (
           <div className="p-4 flex items-center justify-center min-h-full">
