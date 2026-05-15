@@ -198,7 +198,7 @@ const RuleEditor = ({ amenity, onBack }: RuleEditorProps) => {
       </div>
 
       <div className="flex justify-end gap-4 pt-6 border-t">
-        <Button variant="outline" onClick={onBack}>
+        <Button variant="outline" onClick={onBack} style={{ color: '#0F1F3D', fontSize: '15px', fontWeight: 500, textDecoration: 'underline' }}>
           Cancel
         </Button>
         <Button onClick={handleSave}>

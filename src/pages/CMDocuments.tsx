@@ -363,7 +363,7 @@ const CMDocuments = () => {
             >
               {uploading ? 'Uploading...' : 'Upload Document'}
             </div>
-            <div onClick={() => setShowUpload(false)} className="text-center mt-3 text-sm text-cm-text-light cursor-pointer">
+            <div onClick={() => setShowUpload(false)} className="text-center mt-3 cursor-pointer underline" style={{ color: '#0F1F3D', fontSize: '15px', fontWeight: 500 }}>
               Cancel
             </div>
           </div>

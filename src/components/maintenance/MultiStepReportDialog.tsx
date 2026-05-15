@@ -368,7 +368,7 @@ export const MultiStepReportDialog: React.FC<MultiStepReportDialogProps> = ({
                 <ChevronLeft className="h-4 w-4 mr-1" />Back
               </Button>
             ) : (
-              <Button variant="outline" onClick={handleClose} className="w-full rounded-xl h-12">
+              <Button variant="outline" onClick={handleClose} className="w-full rounded-xl h-12" style={{ color: '#0F1F3D', fontSize: '15px', fontWeight: 500, textDecoration: 'underline' }}>
                 Cancel
               </Button>
             )}

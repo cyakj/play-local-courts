@@ -178,7 +178,7 @@ export const ReportIssueDialog: React.FC<ReportIssueDialogProps> = ({
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} style={{ color: '#0F1F3D', fontSize: '15px', fontWeight: 500, textDecoration: 'underline' }}>
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>

@@ -390,8 +390,8 @@ const ReportDetailForm: React.FC<{
       <div className="flex gap-2 pt-2">
         <button
           onClick={onClose}
-          className="flex-1 py-3 rounded-xl text-[13px] font-bold min-h-[44px]"
-          style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}
+          className="flex-1 py-3 rounded-xl min-h-[44px] underline"
+          style={{ backgroundColor: '#F3F4F6', color: '#0F1F3D', fontSize: '15px', fontWeight: 500 }}
         >
           Cancel
         </button>

@@ -149,7 +149,7 @@ const CourtPoliciesDialog: React.FC<CourtPoliciesDialogProps> = ({
         </div>
         
         <DialogFooter className="flex justify-end space-x-2">
-          <Button variant="outline" onClick={handleClose}>
+          <Button variant="outline" onClick={handleClose} style={{ color: '#0F1F3D', fontSize: '15px', fontWeight: 500, textDecoration: 'underline' }}>
             Cancel
           </Button>
           <Button 

@@ -145,7 +145,8 @@ const CMSettings = () => {
             <div className="flex gap-3">
               <button
                 onClick={() => setShowSignOutConfirm(false)}
-                className="flex-1 py-2.5 rounded-[10px] bg-[#F9FAFB] text-[14px] font-semibold text-[#9CA3AF]"
+                className="flex-1 py-2.5 rounded-[10px] bg-[#F9FAFB] underline"
+                style={{ color: '#0F1F3D', fontSize: '15px', fontWeight: 500 }}
               >
                 Cancel
               </button>

@@ -137,8 +137,8 @@ const ManageCourts = () => {
             <div className="flex gap-2">
               <button
                 onClick={() => setShowAddForm(false)}
-                className="flex-1 py-3 rounded-xl text-sm font-bold border border-gray-200 min-h-[44px]"
-                style={{ color: '#6B7280', backgroundColor: '#F3F4F6' }}
+                className="flex-1 py-3 rounded-xl border border-gray-200 min-h-[44px] underline"
+                style={{ color: '#0F1F3D', backgroundColor: '#F3F4F6', fontSize: '15px', fontWeight: 500 }}
               >
                 Cancel
               </button>

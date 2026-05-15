@@ -195,8 +195,8 @@ const JoinByInvite = () => {
       </div>
       <div
         onClick={() => navigate('/')}
-        className="text-sm font-semibold cursor-pointer mt-4 min-h-[44px] flex items-center"
-        style={{ color: 'rgba(255,255,255,0.5)' }}
+        className="cursor-pointer mt-4 min-h-[44px] flex items-center underline"
+        style={{ color: '#FFFFFF', fontSize: '15px', fontWeight: 500 }}
       >
         Cancel
       </div>

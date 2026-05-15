@@ -71,7 +71,7 @@ const CMAccountDetails = () => {
               />
               <div className="flex gap-2">
                 <button onClick={onSave} className="px-4 py-1.5 rounded-lg bg-[#00D4FF] text-white text-xs font-bold">Save</button>
-                <button onClick={onCancel} className="px-4 py-1.5 rounded-lg bg-[#F9FAFB] text-[#9CA3AF] text-xs font-semibold">Cancel</button>
+                <button onClick={onCancel} className="px-4 py-1.5 rounded-lg underline" style={{ color: '#0F1F3D', fontSize: '15px', fontWeight: 500 }}>Cancel</button>
               </div>
             </div>
           ) : (

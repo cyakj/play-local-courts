@@ -478,7 +478,7 @@ export const CMReportDetail: React.FC<CMReportDetailProps> = ({ reportId, onBack
                 rows={3}
               />
               <div className="flex gap-2 justify-end">
-                <button onClick={() => { setShowNoteInput(false); setNewNote(''); }} className="px-3 py-1.5 text-xs text-cm-text-light">Cancel</button>
+                <button onClick={() => { setShowNoteInput(false); setNewNote(''); }} className="px-3 py-1.5 underline" style={{ color: '#0F1F3D', fontSize: '15px', fontWeight: 500 }}>Cancel</button>
                 <button
                   onClick={handleAddNote}
                   disabled={!newNote.trim() || saving}
@@ -555,7 +555,7 @@ export const CMReportDetail: React.FC<CMReportDetailProps> = ({ reportId, onBack
                 {report.status === s.value && <span className="ml-auto text-[10px] text-cm-text-light">Current</span>}
               </button>
             ))}
-            <button onClick={() => setShowStatusSheet(false)} className="w-full mt-3 py-2.5 text-sm text-cm-text-light font-bold">
+            <button onClick={() => setShowStatusSheet(false)} className="w-full mt-3 py-2.5 underline" style={{ color: '#0F1F3D', fontSize: '15px', fontWeight: 500 }}>
               Cancel
             </button>
           </div>
@@ -583,7 +583,7 @@ export const CMReportDetail: React.FC<CMReportDetailProps> = ({ reportId, onBack
             >
               {saving ? 'Saving...' : 'Mark as Resolved'}
             </button>
-            <button onClick={() => setShowResolveSheet(false)} className="w-full py-2 text-sm text-cm-text-light font-bold">
+            <button onClick={() => setShowResolveSheet(false)} className="w-full py-2 underline" style={{ color: '#0F1F3D', fontSize: '15px', fontWeight: 500 }}>
               Cancel
             </button>
           </div>

@@ -110,7 +110,8 @@ const AddCommunityModal = ({ communities, currentUserId, onClose, onCreated }: A
         </button>
         <div
           onClick={onClose}
-          className="text-center mt-3 text-sm text-muted-foreground cursor-pointer"
+          className="text-center mt-3 cursor-pointer underline"
+          style={{ color: '#0F1F3D', fontSize: '15px', fontWeight: 500 }}
         >
           Cancel
         </div>

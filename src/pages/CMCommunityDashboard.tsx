@@ -475,7 +475,7 @@ const CMCommunityDashboard = () => {
             <button onClick={handlePostAnnouncement}
               className="text-white rounded-xl py-3 text-sm font-bold w-full min-h-[44px]"
               style={{ backgroundColor: '#0F1F3D' }}>Post</button>
-            <button onClick={() => setShowAnnouncementModal(false)} className="text-center mt-3 text-sm w-full" style={{ color: '#9CA3AF' }}>Cancel</button>
+            <button onClick={() => setShowAnnouncementModal(false)} className="text-center mt-3 w-full underline" style={{ color: '#0F1F3D', fontSize: '15px', fontWeight: 500 }}>Cancel</button>
           </div>
         </div>
       )}
@@ -514,7 +514,7 @@ const CMCommunityDashboard = () => {
               }}
               className="text-white rounded-xl py-3 text-sm font-bold w-full min-h-[44px]"
               style={{ backgroundColor: '#0F1F3D' }}>Add Amenity</button>
-            <button onClick={() => setShowAddAmenityModal(false)} className="text-center mt-3 text-sm w-full" style={{ color: '#9CA3AF' }}>Cancel</button>
+            <button onClick={() => setShowAddAmenityModal(false)} className="text-center mt-3 w-full underline" style={{ color: '#0F1F3D', fontSize: '15px', fontWeight: 500 }}>Cancel</button>
           </div>
         </div>
       )}

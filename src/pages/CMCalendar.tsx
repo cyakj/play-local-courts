@@ -529,7 +529,8 @@ const CMCalendar = () => {
             </div>
             <div
               onClick={() => setShowAddEvent(false)}
-              className="text-center mt-3 mb-20 text-sm text-cm-text-light cursor-pointer"
+              className="text-center mt-3 mb-20 cursor-pointer underline"
+              style={{ color: '#0F1F3D', fontSize: '15px', fontWeight: 500 }}
             >
               Cancel
             </div>
