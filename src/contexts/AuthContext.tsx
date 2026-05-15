@@ -54,6 +54,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setLoading(false);
           return;
         }
+
+        // PASSWORD_RECOVERY means the user clicked a reset-password link.
+        // Do NOT treat this as a full login — ResetPassword.tsx handles the
+        // session directly. Setting currentUser here would cause AuthLayout to
+        // redirect the user away from /reset-password to /dashboard.
+        if (event === 'PASSWORD_RECOVERY') {
+          setLoading(false);
+          return;
+        }
         
         if (session?.user) {
           console.log('User authenticated, fetching profile...');

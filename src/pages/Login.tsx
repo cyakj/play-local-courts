@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -26,6 +26,8 @@ const Login = () => {
   const [focused, setFocused] = useState<string | null>(null);
 
   const { login, resetPassword } = useAuth();
+  const location = useLocation();
+  const successMessage = (location.state as { message?: string } | null)?.message;
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,6 +93,23 @@ const Login = () => {
       <p style={{ fontSize: 14, color: '#8892A4', marginBottom: 24, fontFamily: 'Inter, sans-serif' }}>
         Sign in to your TenisX account
       </p>
+
+      {successMessage && (
+        <div
+          style={{
+            background: '#F0FFFE',
+            border: '1px solid #00D4FF',
+            color: '#0F1F3D',
+            borderRadius: 8,
+            padding: '10px 14px',
+            marginBottom: 16,
+            fontSize: 14,
+            fontFamily: 'Inter, sans-serif',
+          }}
+        >
+          {successMessage}
+        </div>
+      )}
 
       {error && (
         <div
