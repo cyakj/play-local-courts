@@ -1,17 +1,36 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import {
+  ArrowLeft,
+  Wrench,
+  Users,
+  CheckCircle,
+  XCircle,
+  Calendar,
+  BarChart2,
+  Megaphone,
+  ClipboardList,
+} from 'lucide-react';
 import { CMHeader } from '@/components/condo-manager/CMHeader';
 import { CMChips } from '@/components/condo-manager/CMChips';
 import { useCondoManagerNotifications } from '@/hooks/useCondoManagerData';
 
-const NOTIF_ICON: Record<string, string> = { 
-  report_submitted: '🔧', report_status_changed: '🔧', report_unresolved: '🔧',
-  member_application: '👤', member_approved: '✅', member_rejected: '❌',
-  booking_confirmed: '📅', booking_cancelled: '📅', booking_reminder: '📅',
-  health_score_alert: '📊', announcement: '📢',
-  survey_published: '📊', survey_reminder: '📊',
-  event_created: '📅', event_reminder: '📅',
+const NOTIF_ICON: Record<string, React.ElementType> = {
+  report_submitted: Wrench,
+  report_status_changed: Wrench,
+  report_unresolved: Wrench,
+  member_application: Users,
+  member_approved: CheckCircle,
+  member_rejected: XCircle,
+  booking_confirmed: Calendar,
+  booking_cancelled: Calendar,
+  booking_reminder: Calendar,
+  health_score_alert: BarChart2,
+  announcement: Megaphone,
+  survey_published: BarChart2,
+  survey_reminder: BarChart2,
+  event_created: Calendar,
+  event_reminder: Calendar,
 };
 const NOTIF_COLOR: Record<string, string> = {
   report_submitted: '#EF4444', report_status_changed: '#F59E0B', report_unresolved: '#EF4444',
@@ -95,7 +114,7 @@ const CMNotificationCenter = ({ onClose }: CMNotificationCenterProps) => {
         )}
         {filtered.map((n) => {
           const color = NOTIF_COLOR[n.type] || '#9CA3AF';
-          const icon = NOTIF_ICON[n.type] || '📋';
+          const IconComponent = NOTIF_ICON[n.type] || ClipboardList;
           return (
             <div
               key={n.id}
@@ -105,10 +124,10 @@ const CMNotificationCenter = ({ onClose }: CMNotificationCenterProps) => {
             >
               <div className="flex gap-2.5">
                 <div
-                  className="w-9 h-9 rounded-[10px] flex items-center justify-center text-base flex-shrink-0"
+                  className="w-9 h-9 rounded-[10px] flex items-center justify-center flex-shrink-0"
                   style={{ background: `${color}18` }}
                 >
-                  {icon}
+                  <IconComponent className="w-5 h-5" style={{ color: '#00D4FF' }} strokeWidth={1.5} />
                 </div>
                 <div className="flex-1">
                   <div className="flex justify-between">

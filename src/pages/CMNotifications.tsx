@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Wrench, Users, CalendarCheck, Megaphone } from 'lucide-react';
+import { ArrowLeft, Wrench, Users, CalendarCheck, Megaphone, Smartphone, Mail, Check } from 'lucide-react';
 import { CMHeader } from '@/components/condo-manager/CMHeader';
 import { useToast } from '@/hooks/use-toast';
 
@@ -128,9 +128,11 @@ const CMNotifications = () => {
                               }
                         }
                       >
-                        <span>📱</span>
+                        <Smartphone className="w-5 h-5" style={{ color: '#00D4FF' }} strokeWidth={1.5} />
                         <span>Push</span>
-                        <span>{prefs[item.key]?.push ? '✓' : '—'}</span>
+                        {prefs[item.key]?.push
+                          ? <Check className="w-5 h-5" style={{ color: '#00D4FF' }} strokeWidth={1.5} />
+                          : <span>—</span>}
                       </button>
 
                       {/* Email chip */}
@@ -157,9 +159,11 @@ const CMNotifications = () => {
                               }
                         }
                       >
-                        <span>📧</span>
+                        <Mail className="w-5 h-5" style={{ color: '#00D4FF' }} strokeWidth={1.5} />
                         <span>Email</span>
-                        <span>{prefs[item.key]?.email ? '✓' : '—'}</span>
+                        {prefs[item.key]?.email
+                          ? <Check className="w-5 h-5" style={{ color: '#00D4FF' }} strokeWidth={1.5} />
+                          : <span>—</span>}
                       </button>
                     </div>
                   </div>
