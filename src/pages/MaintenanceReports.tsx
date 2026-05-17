@@ -156,10 +156,10 @@ const MaintenanceReports = () => {
         <div className="flex gap-3 mt-4">
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full" style={{ backgroundColor: 'rgba(239,68,68,0.2)' }}>
             <AlertCircle className="h-3.5 w-3.5 text-white" />
-            <span className="text-[12px] font-bold text-white">{openReportCount} Open</span>
+            <span className="text-[13px] font-bold text-white">{openReportCount} Open</span>
           </div>
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full" style={{ backgroundColor: 'rgba(249,112,102,0.2)' }}>
-            <span className="text-[12px] font-bold text-white">{inProgressCount} In Progress</span>
+            <span className="text-[13px] font-bold text-white">{inProgressCount} In Progress</span>
           </div>
         </div>
 
@@ -184,7 +184,7 @@ const MaintenanceReports = () => {
         {showFilters && (
           <div className="bg-white rounded-2xl p-5 border border-gray-100 space-y-4" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
             <div>
-              <div className="text-[11px] uppercase font-semibold mb-2" style={{ color: '#8892A4', letterSpacing: '0.08em' }}>Status</div>
+              <div className="text-[12px] uppercase font-semibold mb-2" style={{ color: '#374151', letterSpacing: '0.08em' }}>Status</div>
               <Select value={filters.status} onValueChange={(v) => setFilters({ ...filters, status: v })}>
                 <SelectTrigger className="rounded-xl border-gray-200 focus:border-[#00D4FF]">
                   <SelectValue />
@@ -197,7 +197,7 @@ const MaintenanceReports = () => {
               </Select>
             </div>
             <div>
-              <div className="text-[11px] uppercase font-semibold mb-2" style={{ color: '#8892A4', letterSpacing: '0.08em' }}>Category</div>
+              <div className="text-[12px] uppercase font-semibold mb-2" style={{ color: '#374151', letterSpacing: '0.08em' }}>Category</div>
               <Select value={filters.category} onValueChange={(v) => setFilters({ ...filters, category: v })}>
                 <SelectTrigger className="rounded-xl border-gray-200 focus:border-[#00D4FF]">
                   <SelectValue />
@@ -237,47 +237,47 @@ const MaintenanceReports = () => {
               >
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1 min-w-0 pr-3">
-                    <div className="text-[15px] font-extrabold leading-tight" style={{ color: '#0F1F3D', fontFamily: 'Manrope, sans-serif' }}>
+                    <div className="text-[16px] font-extrabold leading-tight" style={{ color: '#0F1F3D', fontFamily: 'Manrope, sans-serif' }}>
                       {report.report_type === 'location'
                         ? (report.location_text || 'Unknown location').slice(0, 40)
                         : report.amenity_name}
                     </div>
                   </div>
                   <span
-                    className="text-[11px] font-bold px-2.5 py-0.5 rounded-full flex-shrink-0"
+                    className="text-[12px] font-bold px-2.5 py-0.5 rounded-full flex-shrink-0"
                     style={{ backgroundColor: pill.bg, color: pill.text, border: `1px solid ${pill.border}` }}
                   >
                     {statusConfig[report.status]?.label || report.status}
                   </span>
                 </div>
 
-                <div className="text-[13px] mb-3 line-clamp-2" style={{ color: '#8892A4' }}>
+                <div className="text-[14px] mb-3 line-clamp-2" style={{ color: '#374151' }}>
                   {cleanDescription(report.description)}
                 </div>
 
                 <div className="flex items-center gap-4 mb-3">
                   <div className="flex items-center gap-1.5">
-                    <User className="h-3.5 w-3.5" style={{ color: '#8892A4' }} />
-                    <span className="text-[12px]" style={{ color: '#8892A4' }}>{report.reporter_name}</span>
+                    <User className="h-3.5 w-3.5" style={{ color: '#4B5563' }} />
+                    <span className="text-[13px]" style={{ color: '#4B5563' }}>{report.reporter_name}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <Calendar className="h-3.5 w-3.5" style={{ color: '#8892A4' }} />
-                    <span className="text-[12px]" style={{ color: '#8892A4' }}>
+                    <Calendar className="h-3.5 w-3.5" style={{ color: '#4B5563' }} />
+                    <span className="text-[13px]" style={{ color: '#4B5563' }}>
                       {new Date(report.created_at).toLocaleDateString()}
                     </span>
                   </div>
                   {report.assignee && (
                     <div className="flex items-center gap-1.5">
-                      <MapPin className="h-3.5 w-3.5" style={{ color: '#8892A4' }} />
-                      <span className="text-[12px]" style={{ color: '#8892A4' }}>{report.assignee}</span>
+                      <MapPin className="h-3.5 w-3.5" style={{ color: '#4B5563' }} />
+                      <span className="text-[13px]" style={{ color: '#4B5563' }}>{report.assignee}</span>
                     </div>
                   )}
                 </div>
 
                 <button
                   onClick={() => { setSelectedReport(report); setShowDetailDialog(true); }}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold min-h-[44px]"
-                  style={{ backgroundColor: '#F3F4F6', color: '#0F1F3D' }}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl min-h-[44px]"
+                  style={{ backgroundColor: 'rgba(0,212,255,0.08)', color: '#00D4FF', fontSize: '13px', fontWeight: 600 }}
                 >
                   <Eye className="h-4 w-4" />
                   View Details
@@ -330,24 +330,24 @@ const ReportDetailForm: React.FC<{
         <div className="text-[16px] font-extrabold" style={{ color: '#0F1F3D', fontFamily: 'Manrope, sans-serif' }}>
           {report.report_type === 'location' ? report.location_text || 'Unknown location' : report.amenity_name}
         </div>
-        <div className="text-[12px] mt-1" style={{ color: '#8892A4' }}>
+        <div className="text-[13px] mt-1" style={{ color: '#4B5563' }}>
           Reported by {report.reporter_name} · {new Date(report.created_at).toLocaleDateString()}
         </div>
-        <div className="text-[12px] mt-0.5 uppercase font-semibold" style={{ color: '#8892A4', letterSpacing: '0.08em' }}>
+        <div className="text-[12px] mt-0.5 uppercase font-semibold" style={{ color: '#4B5563', letterSpacing: '0.08em' }}>
           {getCategoryLabel(report.category)}{pConfig ? ` · ${pConfig.label}` : ''}
         </div>
       </div>
 
       <div>
-        <div className="text-[11px] uppercase font-semibold mb-1.5" style={{ color: '#8892A4', letterSpacing: '0.08em' }}>Description</div>
-        <div className="p-3 rounded-xl text-[13px]" style={{ backgroundColor: '#F9FAFB', color: '#0F1F3D' }}>
+        <div className="text-[12px] uppercase font-semibold mb-1.5" style={{ color: '#374151', letterSpacing: '0.08em' }}>Description</div>
+        <div className="p-3 rounded-xl text-[14px]" style={{ backgroundColor: '#F9FAFB', color: '#0F1F3D' }}>
           {cleanDescription(report.description)}
         </div>
       </div>
 
       {report.photo_url && (
         <div>
-          <div className="text-[11px] uppercase font-semibold mb-1.5" style={{ color: '#8892A4', letterSpacing: '0.08em' }}>Photo</div>
+          <div className="text-[12px] uppercase font-semibold mb-1.5" style={{ color: '#374151', letterSpacing: '0.08em' }}>Photo</div>
           <img src={report.photo_url} alt="Maintenance issue" className="rounded-xl w-full h-auto border border-gray-100" />
         </div>
       )}
@@ -356,7 +356,7 @@ const ReportDetailForm: React.FC<{
         <div className="text-[13px] font-bold" style={{ color: '#0F1F3D', fontFamily: 'Manrope, sans-serif' }}>Admin Actions</div>
 
         <div>
-          <div className="text-[11px] uppercase font-semibold mb-1.5" style={{ color: '#8892A4', letterSpacing: '0.08em' }}>Status</div>
+          <div className="text-[12px] uppercase font-semibold mb-1.5" style={{ color: '#374151', letterSpacing: '0.08em' }}>Status</div>
           <Select value={status} onValueChange={setStatus}>
             <SelectTrigger className="rounded-xl border-gray-200">
               <SelectValue />
@@ -370,12 +370,12 @@ const ReportDetailForm: React.FC<{
         </div>
 
         <div>
-          <div className="text-[11px] uppercase font-semibold mb-1.5" style={{ color: '#8892A4', letterSpacing: '0.08em' }}>Assign To</div>
+          <div className="text-[12px] uppercase font-semibold mb-1.5" style={{ color: '#374151', letterSpacing: '0.08em' }}>Assign To</div>
           <AssigneeSearch value={assignee} onChange={setAssignee} placeholder="Type a name to search..." />
         </div>
 
         <div>
-          <div className="text-[11px] uppercase font-semibold mb-1.5" style={{ color: '#8892A4', letterSpacing: '0.08em' }}>Admin Notes</div>
+          <div className="text-[12px] uppercase font-semibold mb-1.5" style={{ color: '#374151', letterSpacing: '0.08em' }}>Admin Notes</div>
           <Textarea
             value={adminNotes}
             onChange={(e) => setAdminNotes(e.target.value)}

@@ -91,7 +91,7 @@ const BookingConfirmed: React.FC = () => {
         }}>
           <div style={{ padding: 16, borderBottom: '1px solid #E5E7EB' }}>
             <div style={{ fontSize: 16, fontWeight: 700, color: '#0F1F3D' }}>{state.amenityName}</div>
-            <div style={{ fontSize: 12, color: '#9CA3AF' }}>{state.amenityType}</div>
+            <div style={{ fontSize: 13, color: '#4B5563' }}>{state.amenityType}</div>
           </div>
           {rows.map((row, i) => (
             <div
@@ -102,7 +102,7 @@ const BookingConfirmed: React.FC = () => {
                 borderBottom: i < rows.length - 1 ? '1px solid #E5E7EB' : 'none',
               }}
             >
-              <span style={{ fontSize: 13, color: '#9CA3AF' }}>{row.label}</span>
+              <span style={{ fontSize: 13, color: '#4B5563' }}>{row.label}</span>
               <span style={{ fontSize: 13, fontWeight: 700, color: '#0F1F3D' }}>{row.value}</span>
             </div>
           ))}

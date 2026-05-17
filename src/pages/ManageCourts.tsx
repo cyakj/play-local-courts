@@ -107,7 +107,7 @@ const ManageCourts = () => {
           <div className="bg-white rounded-2xl p-5 border border-gray-100" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
             <div className="text-[16px] font-extrabold mb-4" style={{ color: '#0F1F3D', fontFamily: 'Manrope, sans-serif' }}>New Amenity</div>
 
-            <div className="text-[11px] uppercase font-semibold mb-1.5" style={{ color: '#8892A4', letterSpacing: '0.08em' }}>Name</div>
+            <div className="text-[12px] uppercase font-semibold mb-1.5" style={{ color: '#374151', letterSpacing: '0.08em' }}>Name</div>
             <input
               value={newAmenityName}
               onChange={(e) => setNewAmenityName(e.target.value)}
@@ -116,7 +116,7 @@ const ManageCourts = () => {
               style={{ color: '#0F1F3D' }}
             />
 
-            <div className="text-[11px] uppercase font-semibold mb-2" style={{ color: '#8892A4', letterSpacing: '0.08em' }}>Type</div>
+            <div className="text-[12px] uppercase font-semibold mb-2" style={{ color: '#374151', letterSpacing: '0.08em' }}>Type</div>
             <div className="grid grid-cols-2 gap-2 mb-4">
               {AMENITY_TYPES.map((t) => (
                 <button
@@ -163,7 +163,7 @@ const ManageCourts = () => {
 
             {/* Date Selector */}
             <div className="mb-3">
-              <div className="text-[11px] uppercase font-semibold mb-1.5" style={{ color: '#8892A4', letterSpacing: '0.08em' }}>Select Date for Maintenance</div>
+              <div className="text-[12px] uppercase font-semibold mb-1.5" style={{ color: '#374151', letterSpacing: '0.08em' }}>Select Date for Maintenance</div>
               <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
                 {dateOptions.map((opt) => (
                   <button
@@ -194,7 +194,7 @@ const ManageCourts = () => {
                     <div className="text-[15px] font-extrabold" style={{ color: '#0F1F3D', fontFamily: 'Manrope, sans-serif' }}>
                       {amenity.name}
                     </div>
-                    <div className="text-[12px] capitalize mt-0.5" style={{ color: '#8892A4' }}>{amenity.amenityType}</div>
+                    <div className="text-[13px] capitalize mt-0.5" style={{ color: '#4B5563' }}>{amenity.amenityType}</div>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -219,11 +219,11 @@ const ManageCourts = () => {
 
                 {selectedAmenity === amenity.id && (
                   <div className="px-4 pb-4">
-                    <div className="text-[11px] uppercase font-semibold mb-2" style={{ color: '#8892A4', letterSpacing: '0.08em' }}>
+                    <div className="text-[12px] uppercase font-semibold mb-2" style={{ color: '#374151', letterSpacing: '0.08em' }}>
                       Time Slots — {format(selectedDate, 'EEE, MMM d')}
                     </div>
                     {timeSlots.length === 0 ? (
-                      <div className="text-sm text-center py-4" style={{ color: '#8892A4' }}>No slots available</div>
+                      <div className="text-[14px] text-center py-4" style={{ color: '#4B5563' }}>No slots available</div>
                     ) : (
                       <div className="grid grid-cols-2 gap-2">
                         {timeSlots.map((slot) => {
@@ -237,11 +237,11 @@ const ManageCourts = () => {
                               className="p-2.5 rounded-xl flex flex-col gap-1"
                               style={{ backgroundColor: colors.bg, border: `1px solid ${colors.border}` }}
                             >
-                              <div className="text-[11px] font-bold" style={{ color: colors.text }}>
+                              <div className="text-[12px] font-bold" style={{ color: colors.text }}>
                                 {startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} –{' '}
                                 {endTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                               </div>
-                              <div className="text-[10px] uppercase font-semibold" style={{ color: '#8892A4', letterSpacing: '0.08em' }}>
+                              <div className="text-[11px] uppercase font-semibold" style={{ color: '#4B5563', letterSpacing: '0.08em' }}>
                                 {slot.status === AmenityStatus.AVAILABLE && 'Available'}
                                 {slot.status === AmenityStatus.BOOKED && 'Booked'}
                                 {slot.status === AmenityStatus.MAINTENANCE && 'Maintenance'}
@@ -273,7 +273,7 @@ const ManageCourts = () => {
         {amenities.length === 0 && !showAddForm && (
           <div className="text-center py-10">
             <div className="text-[15px] font-semibold mb-1" style={{ color: '#0F1F3D' }}>No amenities yet</div>
-            <div className="text-[13px]" style={{ color: '#8892A4' }}>Tap above to add your first amenity.</div>
+            <div className="text-[14px]" style={{ color: '#4B5563' }}>Tap above to add your first amenity.</div>
           </div>
         )}
       </div>

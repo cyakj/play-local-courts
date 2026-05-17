@@ -229,7 +229,7 @@ const ResidentCalendar = () => {
       {/* Header */}
       <div className="text-white px-5 pt-[50px] pb-4" style={{ backgroundColor: '#0F1F3D' }}>
         <div className="text-xl font-extrabold">Calendar</div>
-        <div className="text-xs opacity-65 mt-0.5">
+        <div className="mt-0.5" style={{ fontSize: 13, opacity: 0.85 }}>
           {displayMonth.toLocaleString('en-US', { month: 'long', year: 'numeric' })}
         </div>
       </div>
@@ -400,7 +400,7 @@ const ResidentCalendar = () => {
             <div className="w-8 h-8 border-3 border-primary/20 border-t-primary rounded-full animate-spin" />
           </div>
         ) : dayEvents.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground text-sm">No events on this day</div>
+          <div className="text-center py-8 text-[14px]" style={{ color: '#4B5563' }}>No events on this day</div>
         ) : (
           dayEvents.map(e => {
             const cfg = EVENT_TYPE_CONFIG[e.event_type] || { color: '#ccc', label: '' };
@@ -413,8 +413,8 @@ const ResidentCalendar = () => {
               >
                 <div className="w-1 rounded-full flex-shrink-0 min-h-[50px]" style={{ background: cfg.color }} />
                 <div className="flex-1">
-                  <div className="text-sm font-bold text-foreground">{e.title}</div>
-                  <div className="text-xs text-muted-foreground mt-1">
+                  <div className="font-bold" style={{ fontSize: 15, color: '#0F1F3D' }}>{e.title}</div>
+                  <div className="mt-1" style={{ fontSize: 13, color: '#4B5563' }}>
                     {dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
                     {e.location && ` · ${e.location}`}
                   </div>

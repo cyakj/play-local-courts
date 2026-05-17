@@ -353,7 +353,7 @@ const BookingFlow: React.FC = () => {
 
       {/* Date strip */}
       <div style={{ background: '#FFFFFF', borderBottom: '1px solid #E5E7EB', padding: '14px 16px' }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: '#374151', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>
           Select Date
         </div>
         <div className="flex gap-2 overflow-x-auto" style={{ paddingBottom: 4 }}>
@@ -416,12 +416,12 @@ const BookingFlow: React.FC = () => {
       <div className="flex-1 overflow-y-auto" style={{ padding: '12px 16px', paddingBottom: selectedSlot ? 240 : 100, opacity: (atDailyLimit || atWeeklyLimit) ? 0.5 : 1, pointerEvents: (atDailyLimit || atWeeklyLimit) ? 'none' : 'auto' }}>
         {/* Options card */}
         <div style={{ background: '#FFFFFF', borderRadius: 16, border: '1px solid #E5E7EB', padding: 16, marginBottom: 12 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 14 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#374151', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 14 }}>
             Options
           </div>
 
           {/* Usage type */}
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#4B5563', marginBottom: 8 }}>{isCourtSport ? 'Type of Play' : 'Type of Use'}</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#374151', marginBottom: 8 }}>{isCourtSport ? 'Type of Play' : 'Type of Use'}</div>
           <div className="flex gap-2" style={{ marginBottom: 16 }}>
             {playTypeOptions.map(t => {
               const sel = playType === t.value;
@@ -445,7 +445,7 @@ const BookingFlow: React.FC = () => {
           </div>
 
           {/* Duration */}
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#4B5563', marginBottom: 8 }}>Duration</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#374151', marginBottom: 8 }}>Duration</div>
           <div className="flex gap-2" style={{ marginBottom: 6 }}>
             {durationOptions.map(d => {
               const sel = selectedDuration === d;
@@ -467,7 +467,7 @@ const BookingFlow: React.FC = () => {
               );
             })}
           </div>
-          <div style={{ fontSize: 11, color: '#9CA3AF', fontStyle: 'italic' }}>
+          <div style={{ fontSize: 12, color: '#6B7280', fontStyle: 'italic' }}>
             Max duration: {fmtDuration(maxDuration)}
           </div>
         </div>
@@ -477,7 +477,7 @@ const BookingFlow: React.FC = () => {
           <div style={{ background: '#FFFFFF', borderRadius: 16, border: '1px solid #E5E7EB', padding: 16 }}>
             {/* Header + legend */}
             <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', letterSpacing: 1, textTransform: 'uppercase' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#374151', letterSpacing: 1, textTransform: 'uppercase' }}>
                 Times
               </div>
               <div className="flex items-center gap-3 flex-wrap justify-end">
@@ -489,7 +489,7 @@ const BookingFlow: React.FC = () => {
                 ].map(l => (
                   <div key={l.label} className="flex items-center gap-1">
                     <div style={{ width: 12, height: 12, borderRadius: 3, background: l.bg, border: `1.5px solid ${l.border}` }} />
-                    <span style={{ fontSize: 10, color: '#9CA3AF' }}>{l.label}</span>
+                    <span style={{ fontSize: 12, color: '#4B5563' }}>{l.label}</span>
                   </div>
                 ))}
               </div>
@@ -551,7 +551,7 @@ const BookingFlow: React.FC = () => {
             </div>
 
             {timeSlots.length === 0 && (
-              <div className="text-center" style={{ padding: 24, color: '#9CA3AF', fontSize: 13 }}>
+              <div className="text-center" style={{ padding: 24, color: '#4B5563', fontSize: 14 }}>
                 No available slots for this date and duration.
               </div>
             )}
@@ -574,7 +574,7 @@ const BookingFlow: React.FC = () => {
               <div style={{ fontSize: 14, fontWeight: 700, color: '#0F1F3D' }}>
                 {formatTime(selectedSlot)} – {formatTime(getEndTime(selectedSlot))}
               </div>
-              <div style={{ fontSize: 11, color: '#9CA3AF' }}>
+              <div style={{ fontSize: 12, color: '#4B5563' }}>
                 {format(selectedDate, 'MMM d')} · {fmtDuration(selectedDuration)} · {playType}
               </div>
             </div>

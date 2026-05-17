@@ -234,7 +234,7 @@ const CMCalendar = () => {
         <div className="flex justify-between items-start mb-3.5">
           <div>
             <div className="text-xl font-extrabold">Calendar</div>
-            <div className="text-xs opacity-65">{now.toLocaleString('en-US', { month: 'long', year: 'numeric' })}</div>
+            <div style={{ fontSize: 13, opacity: 0.85 }}>{now.toLocaleString('en-US', { month: 'long', year: 'numeric' })}</div>
           </div>
           <div
             onClick={() => setShowAddEvent(true)}
@@ -367,7 +367,7 @@ const CMCalendar = () => {
             </div>
 
             {dayEvents.length === 0 && (
-              <div className="text-center py-8 text-cm-text-light">No events on this day</div>
+              <div className="text-center py-8 text-[14px]" style={{ color: '#4B5563' }}>No events on this day</div>
             )}
 
             {dayEvents.map((e) => {
@@ -377,15 +377,15 @@ const CMCalendar = () => {
                   <div className="w-1 rounded-full flex-shrink-0 min-h-[50px]" style={{ background: cfg.color }} />
                   <div className="flex-1">
                     <div className="flex justify-between">
-                      <div className="text-sm font-extrabold text-cm-text">{e.title}</div>
+                      <div className="font-extrabold" style={{ fontSize: 15, color: '#0F1F3D' }}>{e.title}</div>
                       {e.rsvp !== null && (
                         <div className="bg-cm-cyan-light text-cm-cyan text-[10px] font-bold px-2 py-0.5 rounded-full">
                           {e.rsvp} Going
                         </div>
                       )}
                     </div>
-                    <div className="text-[11px] text-cm-cyan font-semibold mt-1">{e.community}</div>
-                    <div className="text-xs text-cm-text-mid mt-1">{e.time} · {e.location}</div>
+                    <div className="text-[13px] font-semibold mt-1" style={{ color: '#00D4FF' }}>{e.community}</div>
+                    <div className="mt-1" style={{ fontSize: 13, color: '#4B5563' }}>{e.time} · {e.location}</div>
                     <div className="mt-2 flex gap-2">
                       <div className="rounded-lg px-3 py-1 text-[11px] font-bold cursor-pointer min-h-[44px] flex items-center"
                         style={{ background: `${cfg.color}18`, color: cfg.color }}>
@@ -413,8 +413,8 @@ const CMCalendar = () => {
                     <div key={e.id} className="bg-white rounded-xl py-2.5 px-3 mb-2 border border-cm-border flex gap-2.5">
                       <div className="w-1 rounded-full flex-shrink-0" style={{ background: cfg.color }} />
                       <div>
-                        <div className="text-[13px] font-bold text-cm-text">{e.title}</div>
-                        <div className="text-[11px] mt-0.5" style={{ color: '#9CA3AF' }}>
+                        <div className="text-[14px] font-bold" style={{ color: '#0F1F3D' }}>{e.title}</div>
+                        <div className="text-[13px] mt-0.5" style={{ color: '#4B5563' }}>
                           {e.date} · {e.time} · {e.community}
                         </div>
                       </div>
@@ -465,7 +465,7 @@ const CMCalendar = () => {
             />
 
             {/* Event type with color swatches */}
-            <div className="text-[13px] font-bold text-cm-text mb-2">Event Type</div>
+            <div className="text-[14px] font-bold mb-2" style={{ color: '#0F1F3D' }}>Event Type</div>
             <div className="grid grid-cols-2 gap-2 mb-3">
               {Object.entries(EVENT_TYPE_CONFIG).map(([key, cfg]) => (
                 <div
@@ -520,11 +520,11 @@ const CMCalendar = () => {
 
             <div className="flex items-center gap-2 mb-2">
               <input type="checkbox" checked={evRsvp} onChange={e => setEvRsvp(e.target.checked)} className="rounded" />
-              <span className="text-sm text-cm-text">Enable RSVP</span>
+              <span className="text-[14px]" style={{ color: '#0F1F3D' }}>Enable RSVP</span>
             </div>
             <div className="flex items-center gap-2 mb-4">
               <input type="checkbox" checked={evNotify} onChange={e => setEvNotify(e.target.checked)} className="rounded" />
-              <span className="text-sm text-cm-text">Notify Residents</span>
+              <span className="text-[14px]" style={{ color: '#0F1F3D' }}>Notify Residents</span>
             </div>
 
             <div

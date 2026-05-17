@@ -186,8 +186,8 @@ const MyReports = () => {
                 className="px-4 py-2.5 rounded-full text-[13px] font-bold whitespace-nowrap transition-all min-h-[40px]"
                 style={{
                   background: active ? '#0F1F3D' : '#F9FAFB',
-                  color: active ? 'white' : '#8892A4',
-                  border: `1px solid ${active ? '#0F1F3D' : 'rgba(15,31,61,0.08)'}`,
+                  color: active ? 'white' : '#374151',
+                  border: `1px solid ${active ? '#0F1F3D' : '#E5E7EB'}`,
                 }}
               >
                 {option.label}
@@ -213,7 +213,7 @@ const MyReports = () => {
             <h3 className="text-[15px] font-extrabold mb-1" style={{ color: '#0F1F3D' }}>
               {statusFilter === 'all' ? 'No Reports Yet' : `No ${statusFilter} reports`}
             </h3>
-            <p className="text-[13px]" style={{ color: '#8892A4' }}>
+            <p className="text-[14px]" style={{ color: '#4B5563' }}>
               {statusFilter === 'all'
                 ? 'Submit a maintenance report to track issues in your community.'
                 : 'No reports match the selected filter.'}
@@ -237,7 +237,7 @@ const MyReports = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 mb-1.5">
                       {isLocation && <MapPin className="h-3.5 w-3.5 flex-shrink-0" style={{ color: '#8892A4' }} />}
-                      <h3 className="font-extrabold text-[14px] truncate" style={{ color: '#0F1F3D' }}>
+                      <h3 className="font-extrabold text-[16px] truncate" style={{ color: '#0F1F3D' }}>
                         {getReportTitle(report)}
                       </h3>
                     </div>
@@ -249,16 +249,16 @@ const MyReports = () => {
                         {pill.label}
                       </span>
                       <span
-                        className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
-                        style={{ background: '#F9FAFB', color: '#8892A4', border: '1px solid rgba(15,31,61,0.08)' }}
+                        className="text-[12px] font-semibold px-2 py-0.5 rounded-full"
+                        style={{ background: '#F3F4F6', color: '#4B5563', border: '1px solid #E5E7EB' }}
                       >
                         {getCategoryLabel(report.category)}
                       </span>
                     </div>
-                    <p className="text-[12px] line-clamp-2 mb-2" style={{ color: '#8892A4' }}>
+                    <p className="text-[14px] line-clamp-2 mb-2" style={{ color: '#374151' }}>
                       {cleanDescription(report.description)}
                     </p>
-                    <div className="flex items-center gap-1.5 text-[11px]" style={{ color: '#8892A4' }}>
+                    <div className="flex items-center gap-1.5 text-[13px]" style={{ color: '#4B5563' }}>
                       <Calendar className="h-3 w-3" />
                       {format(new Date(report.created_at), 'MMM d, yyyy')}
                     </div>
@@ -306,36 +306,36 @@ const MyReports = () => {
                       </span>
                     );
                   })()}
-                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ background: '#F9FAFB', color: '#8892A4', border: '1px solid rgba(15,31,61,0.08)' }}>
+                  <span className="text-[12px] font-semibold px-2 py-0.5 rounded-full" style={{ background: '#F3F4F6', color: '#4B5563', border: '1px solid #E5E7EB' }}>
                     {getCategoryLabel(selectedReport.category)}
                   </span>
                 </div>
               </div>
               <div>
-                <p className="text-[12px] font-bold uppercase tracking-wider mb-1.5" style={{ color: '#8892A4' }}>Description</p>
-                <p className="rounded-xl p-3 text-[13px]" style={{ background: '#F9FAFB', color: '#0F1F3D' }}>
+                <p className="text-[12px] font-bold uppercase tracking-wider mb-1.5" style={{ color: '#374151' }}>Description</p>
+                <p className="rounded-xl p-3 text-[14px]" style={{ background: '#F9FAFB', color: '#0F1F3D' }}>
                   {cleanDescription(selectedReport.description)}
                 </p>
               </div>
               {selectedReport.photo_url && (
                 <div>
-                  <p className="text-[12px] font-bold uppercase tracking-wider mb-1.5" style={{ color: '#8892A4' }}>Photo</p>
+                  <p className="text-[12px] font-bold uppercase tracking-wider mb-1.5" style={{ color: '#374151' }}>Photo</p>
                   <img src={selectedReport.photo_url} alt="Report" className="rounded-xl border max-w-full" />
                 </div>
               )}
               <div className="grid grid-cols-2 gap-4 text-[13px]">
                 <div>
-                  <p className="text-[11px] font-bold uppercase tracking-wider mb-0.5" style={{ color: '#8892A4' }}>Submitted</p>
+                  <p className="text-[12px] font-bold uppercase tracking-wider mb-0.5" style={{ color: '#374151' }}>Submitted</p>
                   <p className="font-semibold" style={{ color: '#0F1F3D' }}>{format(new Date(selectedReport.created_at), 'MMM d, yyyy h:mm a')}</p>
                 </div>
                 <div>
-                  <p className="text-[11px] font-bold uppercase tracking-wider mb-0.5" style={{ color: '#8892A4' }}>Last Updated</p>
+                  <p className="text-[12px] font-bold uppercase tracking-wider mb-0.5" style={{ color: '#374151' }}>Last Updated</p>
                   <p className="font-semibold" style={{ color: '#0F1F3D' }}>{format(new Date(selectedReport.updated_at), 'MMM d, yyyy h:mm a')}</p>
                 </div>
               </div>
               {selectedReport.admin_notes && (
                 <div>
-                  <p className="text-[12px] font-bold uppercase tracking-wider mb-1.5" style={{ color: '#8892A4' }}>Admin Notes</p>
+                  <p className="text-[12px] font-bold uppercase tracking-wider mb-1.5" style={{ color: '#374151' }}>Admin Notes</p>
                   <p className="rounded-xl p-3 text-[13px]" style={{ background: '#E0F9FF', color: '#0369A1' }}>
                     {selectedReport.admin_notes}
                   </p>

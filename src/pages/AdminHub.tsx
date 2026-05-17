@@ -88,7 +88,7 @@ const AdminHub = () => {
                   >
                     {section.title}
                   </div>
-                  <div className="text-[13px] mt-0.5 leading-snug" style={{ color: '#8892A4' }}>
+                  <div className="text-[14px] mt-0.5 leading-snug" style={{ color: '#4B5563' }}>
                     {section.description}
                   </div>
                 </div>
