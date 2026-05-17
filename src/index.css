@@ -232,6 +232,15 @@
   animation: fadeInScale 0.3s ease-out;
 }
 
+/* Hide scrollbar utility */
+.scrollbar-hide {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none; /* Chrome/Safari/WebKit */
+}
+
 /* Enhanced scrollbar */
 ::-webkit-scrollbar {
   width: 8px;

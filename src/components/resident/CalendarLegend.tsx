@@ -10,9 +10,9 @@ const LEGEND_ITEMS = [
 const CalendarLegend = () => (
   <div className="flex gap-3 flex-wrap">
     {LEGEND_ITEMS.map(item => (
-      <div key={item.label} className="flex items-center gap-1">
-        <div className="w-2.5 h-2.5 rounded-sm" style={{ background: item.color }} />
-        <span className="text-[9px] text-muted-foreground">{item.label}</span>
+      <div key={item.label} className="flex items-center gap-1.5">
+        <div className="rounded-full flex-shrink-0" style={{ background: item.color, width: 10, height: 10 }} />
+        <span style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>{item.label}</span>
       </div>
     ))}
   </div>

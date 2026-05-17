@@ -278,7 +278,7 @@ const ResidentCalendar = () => {
             </div>
             <div className="grid grid-cols-7 mb-1">
               {WEEK_DAYS.map(d => (
-                <div key={d} className="text-center text-[11px] font-bold text-muted-foreground">{d}</div>
+                <div key={d} className="text-center" style={{ fontSize: 12, fontWeight: 500, color: '#4B5563' }}>{d}</div>
               ))}
             </div>
             <div className="grid grid-cols-7 gap-y-1">
@@ -295,21 +295,24 @@ const ResidentCalendar = () => {
                     className="flex flex-col items-center cursor-pointer py-0.5"
                   >
                     <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center relative"
+                      className="rounded-full flex items-center justify-center relative"
                       style={{
-                        background: isSel ? 'hsl(var(--navy))' : 'transparent',
-                        border: isSel ? '2px solid hsl(var(--primary))' : '2px solid transparent',
+                        width: 36,
+                        height: 36,
+                        background: isSel ? '#0F1F3D' : 'transparent',
+                        border: isSel ? '2px solid #00D4FF' : '2px solid transparent',
                       }}
                     >
                       <span
-                        className="text-[13px] font-extrabold"
                         style={{
-                          color: !cell.inMonth ? 'hsl(var(--border))' : isSel ? '#fff' : 'hsl(var(--foreground))',
+                          fontSize: 16,
+                          fontWeight: 600,
+                          color: !cell.inMonth ? '#D1D5DB' : isSel ? '#FFFFFF' : '#0F1F3D',
                         }}
                       >
                         {cell.day}
                       </span>
-                      {isToday && !isSel && dots.length === 0 && <div className="absolute -bottom-0.5 w-3 h-[2px] rounded-full bg-primary" />}
+                      {isToday && !isSel && dots.length === 0 && <div className="absolute -bottom-0.5 w-3 h-[2px] rounded-full" style={{ background: '#00D4FF' }} />}
                     </div>
                     <div className="flex gap-0.5 mt-0.5 h-1.5">
                       {dots.map((c, j) => <div key={j} className="w-1.5 h-1.5 rounded-full" style={{ background: c }} />)}
@@ -344,21 +347,26 @@ const ResidentCalendar = () => {
                     onClick={() => handleSelectDay(date.getFullYear(), date.getMonth(), date.getDate())}
                     className="flex flex-col items-center cursor-pointer py-1"
                   >
-                    <div className="text-[10px] font-bold text-muted-foreground mb-1">{WEEK_DAYS[i]}</div>
+                    <div className="mb-1" style={{ fontSize: 12, fontWeight: 500, color: '#4B5563' }}>{WEEK_DAYS[i]}</div>
                     <div
-                      className="w-9 h-9 rounded-full flex items-center justify-center relative"
+                      className="rounded-full flex items-center justify-center relative"
                       style={{
-                        background: isSel ? 'hsl(var(--navy))' : 'transparent',
-                        border: isSel ? '2px solid hsl(var(--primary))' : '2px solid transparent',
+                        width: 36,
+                        height: 36,
+                        background: isSel ? '#0F1F3D' : 'transparent',
+                        border: isSel ? '2px solid #00D4FF' : '2px solid transparent',
                       }}
                     >
                       <span
-                        className="text-[13px] font-extrabold"
-                        style={{ color: isSel ? '#fff' : 'hsl(var(--foreground))' }}
+                        style={{
+                          fontSize: 16,
+                          fontWeight: 600,
+                          color: isSel ? '#FFFFFF' : '#0F1F3D',
+                        }}
                       >
                         {date.getDate()}
                       </span>
-                      {isToday && !isSel && dots.length === 0 && <div className="absolute -bottom-0.5 w-3 h-[2px] rounded-full bg-primary" />}
+                      {isToday && !isSel && dots.length === 0 && <div className="absolute -bottom-0.5 w-3 h-[2px] rounded-full" style={{ background: '#00D4FF' }} />}
                     </div>
                     <div className="flex gap-0.5 mt-0.5 h-1.5">
                       {dots.map((c, j) => <div key={j} className="w-1.5 h-1.5 rounded-full" style={{ background: c }} />)}
@@ -383,7 +391,7 @@ const ResidentCalendar = () => {
 
       {/* Day events */}
       <div className="px-4 mt-4">
-        <div className="text-xs font-bold text-muted-foreground mb-2.5 tracking-wider uppercase">
+        <div className="mb-2.5 uppercase" style={{ fontSize: 13, fontWeight: 700, color: '#0F1F3D', letterSpacing: '0.1em' }}>
           {new Date(selectedYear, selectedMonth, selectedDay).toLocaleString('en-US', { month: 'short' })} {selectedDay} Events
         </div>
 
@@ -411,7 +419,7 @@ const ResidentCalendar = () => {
                     {e.location && ` · ${e.location}`}
                   </div>
                   {e.community_name && (
-                    <div className="text-[10px] text-muted-foreground mt-1 opacity-70">{e.community_name}</div>
+                    <div className="mt-1" style={{ fontSize: 13, color: '#4B5563' }}>{e.community_name}</div>
                   )}
                 </div>
               </div>

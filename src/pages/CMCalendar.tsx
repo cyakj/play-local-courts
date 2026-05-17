@@ -276,12 +276,14 @@ const CMCalendar = () => {
               const dots = getDotsForDay(dt);
               return (
                 <div key={d} onClick={() => setSelectedDay(dt)} className="flex-1 flex flex-col items-center gap-1 cursor-pointer">
-                  <div className="text-[10px] font-bold" style={{ color: isSel ? '#00D4FF' : '#9CA3AF' }}>{d}</div>
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{
+                  <div style={{ fontSize: 12, fontWeight: 500, color: isSel ? '#00D4FF' : '#4B5563' }}>{d}</div>
+                  <div className="rounded-full flex items-center justify-center" style={{
+                    width: 36,
+                    height: 36,
                     background: isSel ? '#0F1F3D' : 'transparent',
                     border: isSel ? '2px solid #00D4FF' : '2px solid transparent',
                   }}>
-                    <span className="text-[13px] font-extrabold" style={{ color: isSel ? '#fff' : '#0F1F3D' }}>{dt}</span>
+                    <span style={{ fontSize: 16, fontWeight: 600, color: isSel ? '#FFFFFF' : '#0F1F3D' }}>{dt}</span>
                   </div>
                   <div className="flex gap-0.5">
                     {dots.length > 0 ? dots.map((c, j) => (
@@ -296,7 +298,7 @@ const CMCalendar = () => {
           <div>
             <div className="grid grid-cols-7 mb-1">
               {WEEK_DAYS.map(d => (
-                <div key={d} className="text-center text-[11px] font-bold" style={{ color: '#9CA3AF' }}>{d}</div>
+                <div key={d} className="text-center" style={{ fontSize: 12, fontWeight: 500, color: '#4B5563' }}>{d}</div>
               ))}
             </div>
             <div className="grid grid-cols-7 gap-y-1">
@@ -306,12 +308,16 @@ const CMCalendar = () => {
                 const dots = cell.inMonth ? getDotsForDay(cell.day) : [];
                 return (
                   <div key={idx} onClick={() => cell.inMonth && setSelectedDay(cell.day)} className="flex flex-col items-center cursor-pointer py-0.5">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center relative" style={{
+                    <div className="rounded-full flex items-center justify-center relative" style={{
+                      width: 36,
+                      height: 36,
                       background: isSel ? '#0F1F3D' : 'transparent',
                       border: isSel ? '2px solid #00D4FF' : '2px solid transparent',
                     }}>
-                      <span className="text-[13px] font-extrabold" style={{
-                        color: !cell.inMonth ? '#E5E7EB' : isSel ? '#fff' : '#0F1F3D',
+                      <span style={{
+                        fontSize: 16,
+                        fontWeight: 600,
+                        color: !cell.inMonth ? '#D1D5DB' : isSel ? '#FFFFFF' : '#0F1F3D',
                       }}>{cell.day}</span>
                       {isToday && !isSel && (
                         <div className="absolute -bottom-0.5 w-3 h-[2px] rounded-full" style={{ background: '#00D4FF' }} />
@@ -341,9 +347,9 @@ const CMCalendar = () => {
       {/* Color legend */}
       <div className="bg-white px-4 py-2 border-b border-cm-border flex gap-3 flex-shrink-0 flex-wrap">
         {Object.entries(EVENT_TYPE_CONFIG).map(([k, v]) => (
-          <div key={k} className="flex items-center gap-1">
-            <div className="w-2.5 h-2.5 rounded-sm" style={{ background: v.color }} />
-            <span className="text-[11px] text-cm-text-light">{v.label}</span>
+          <div key={k} className="flex items-center gap-1.5">
+            <div className="rounded-full flex-shrink-0" style={{ width: 10, height: 10, background: v.color }} />
+            <span style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>{v.label}</span>
           </div>
         ))}
       </div>
@@ -356,7 +362,7 @@ const CMCalendar = () => {
           </div>
         ) : (
           <>
-            <div className="text-xs font-bold text-cm-text-light mb-2.5 tracking-wider uppercase">
+            <div className="mb-2.5 uppercase" style={{ fontSize: 13, fontWeight: 700, color: '#0F1F3D', letterSpacing: '0.1em' }}>
               {now.toLocaleString('en-US', { month: 'short' })} {selectedDay} Events
             </div>
 
@@ -398,7 +404,7 @@ const CMCalendar = () => {
 
             {upcomingEvents.length > 0 && (
               <>
-                <div className="text-xs font-bold mt-4 mb-2.5 tracking-[0.8px] uppercase" style={{ color: '#9CA3AF' }}>
+                <div className="mt-4 mb-2.5 uppercase" style={{ fontSize: 13, fontWeight: 700, color: '#0F1F3D', letterSpacing: '0.1em' }}>
                   Upcoming This Month
                 </div>
                 {upcomingEvents.map((e) => {
