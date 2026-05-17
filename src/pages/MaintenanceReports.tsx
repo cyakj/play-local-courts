@@ -184,7 +184,7 @@ const MaintenanceReports = () => {
         {showFilters && (
           <div className="bg-white rounded-2xl p-5 border border-gray-100 space-y-4" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
             <div>
-              <div className="text-[12px] uppercase font-semibold mb-2" style={{ color: '#374151', letterSpacing: '0.08em' }}>Status</div>
+              <div className="text-[13px] uppercase font-semibold mb-2" style={{ color: '#374151', letterSpacing: '0.08em' }}>Status</div>
               <Select value={filters.status} onValueChange={(v) => setFilters({ ...filters, status: v })}>
                 <SelectTrigger className="rounded-xl border-gray-200 focus:border-[#00D4FF]">
                   <SelectValue />
@@ -197,7 +197,7 @@ const MaintenanceReports = () => {
               </Select>
             </div>
             <div>
-              <div className="text-[12px] uppercase font-semibold mb-2" style={{ color: '#374151', letterSpacing: '0.08em' }}>Category</div>
+              <div className="text-[13px] uppercase font-semibold mb-2" style={{ color: '#374151', letterSpacing: '0.08em' }}>Category</div>
               <Select value={filters.category} onValueChange={(v) => setFilters({ ...filters, category: v })}>
                 <SelectTrigger className="rounded-xl border-gray-200 focus:border-[#00D4FF]">
                   <SelectValue />
@@ -222,7 +222,7 @@ const MaintenanceReports = () => {
           <div className="bg-white rounded-2xl p-8 text-center border border-gray-100" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
             <CheckCircle className="h-12 w-12 mx-auto mb-3" style={{ color: '#00D4FF' }} />
             <div className="text-[15px] font-bold mb-1" style={{ color: '#0F1F3D', fontFamily: 'Manrope, sans-serif' }}>No Reports Found</div>
-            <div className="text-[13px]" style={{ color: '#8892A4' }}>
+            <div className="text-[14px]" style={{ color: '#4B5563' }}>
               {filters.status === 'all' ? 'No reports submitted yet.' : `No ${filters.status.replace('_', ' ')} reports found.`}
             </div>
           </div>
@@ -251,7 +251,7 @@ const MaintenanceReports = () => {
                   </span>
                 </div>
 
-                <div className="text-[14px] mb-3 line-clamp-2" style={{ color: '#374151' }}>
+                <div className="text-[15px] leading-relaxed mb-3 line-clamp-2" style={{ color: '#374151' }}>
                   {cleanDescription(report.description)}
                 </div>
 
@@ -330,33 +330,33 @@ const ReportDetailForm: React.FC<{
         <div className="text-[16px] font-extrabold" style={{ color: '#0F1F3D', fontFamily: 'Manrope, sans-serif' }}>
           {report.report_type === 'location' ? report.location_text || 'Unknown location' : report.amenity_name}
         </div>
-        <div className="text-[13px] mt-1" style={{ color: '#4B5563' }}>
+        <div className="text-[13px] font-medium mt-1" style={{ color: '#4B5563' }}>
           Reported by {report.reporter_name} · {new Date(report.created_at).toLocaleDateString()}
         </div>
-        <div className="text-[12px] mt-0.5 uppercase font-semibold" style={{ color: '#4B5563', letterSpacing: '0.08em' }}>
+        <div className="text-[13px] mt-0.5 uppercase font-semibold" style={{ color: '#4B5563', letterSpacing: '0.08em' }}>
           {getCategoryLabel(report.category)}{pConfig ? ` · ${pConfig.label}` : ''}
         </div>
       </div>
 
       <div>
-        <div className="text-[12px] uppercase font-semibold mb-1.5" style={{ color: '#374151', letterSpacing: '0.08em' }}>Description</div>
-        <div className="p-3 rounded-xl text-[14px]" style={{ backgroundColor: '#F9FAFB', color: '#0F1F3D' }}>
+        <div className="text-[13px] uppercase font-semibold mb-1.5" style={{ color: '#374151', letterSpacing: '0.08em' }}>Description</div>
+        <div className="p-4 rounded-xl text-[15px] leading-relaxed" style={{ backgroundColor: '#F9FAFB', color: '#0F1F3D' }}>
           {cleanDescription(report.description)}
         </div>
       </div>
 
       {report.photo_url && (
         <div>
-          <div className="text-[12px] uppercase font-semibold mb-1.5" style={{ color: '#374151', letterSpacing: '0.08em' }}>Photo</div>
+          <div className="text-[13px] uppercase font-semibold mb-1.5" style={{ color: '#374151', letterSpacing: '0.08em' }}>Photo</div>
           <img src={report.photo_url} alt="Maintenance issue" className="rounded-xl w-full h-auto border border-gray-100" />
         </div>
       )}
 
       <div className="pt-4 border-t border-gray-100 space-y-4">
-        <div className="text-[13px] font-bold" style={{ color: '#0F1F3D', fontFamily: 'Manrope, sans-serif' }}>Admin Actions</div>
+        <div className="text-[15px] font-bold" style={{ color: '#0F1F3D', fontFamily: 'Manrope, sans-serif' }}>Admin Actions</div>
 
         <div>
-          <div className="text-[12px] uppercase font-semibold mb-1.5" style={{ color: '#374151', letterSpacing: '0.08em' }}>Status</div>
+          <div className="text-[13px] uppercase font-semibold mb-1.5" style={{ color: '#374151', letterSpacing: '0.08em' }}>Status</div>
           <Select value={status} onValueChange={setStatus}>
             <SelectTrigger className="rounded-xl border-gray-200">
               <SelectValue />
@@ -370,18 +370,18 @@ const ReportDetailForm: React.FC<{
         </div>
 
         <div>
-          <div className="text-[12px] uppercase font-semibold mb-1.5" style={{ color: '#374151', letterSpacing: '0.08em' }}>Assign To</div>
+          <div className="text-[13px] uppercase font-semibold mb-1.5" style={{ color: '#374151', letterSpacing: '0.08em' }}>Assign To</div>
           <AssigneeSearch value={assignee} onChange={setAssignee} placeholder="Type a name to search..." />
         </div>
 
         <div>
-          <div className="text-[12px] uppercase font-semibold mb-1.5" style={{ color: '#374151', letterSpacing: '0.08em' }}>Admin Notes</div>
+          <div className="text-[13px] uppercase font-semibold mb-1.5" style={{ color: '#374151', letterSpacing: '0.08em' }}>Admin Notes</div>
           <Textarea
             value={adminNotes}
             onChange={(e) => setAdminNotes(e.target.value)}
             placeholder="Add notes about progress, resolution, etc."
             rows={3}
-            className="rounded-xl border-gray-200 focus:border-[#00D4FF] text-[13px]"
+            className="rounded-xl border-gray-200 focus:border-[#00D4FF] text-[14px]"
             style={{ color: '#0F1F3D' }}
           />
         </div>
@@ -397,7 +397,7 @@ const ReportDetailForm: React.FC<{
         </button>
         <button
           onClick={handleSave}
-          className="flex-1 py-3 rounded-xl text-[13px] font-bold text-white min-h-[44px]"
+          className="flex-1 py-3 rounded-xl text-[15px] font-bold text-white min-h-[44px]"
           style={{ backgroundColor: '#0F1F3D' }}
         >
           Save Changes
