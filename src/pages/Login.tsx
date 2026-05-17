@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,6 +17,75 @@ const inputBase: React.CSSProperties = {
   transition: 'border-color 0.15s, outline 0.15s',
 };
 
+// Six-digit OTP boxes for MFA verification
+const OTPInput: React.FC<{
+  value: string;
+  onChange: (val: string) => void;
+  disabled?: boolean;
+}> = ({ value, onChange, disabled }) => {
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const digits = Array.from({ length: 6 }, (_, i) => value[i] || '');
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, idx: number) => {
+    if (e.key === 'Backspace') {
+      if (digits[idx]) {
+        onChange(value.slice(0, idx) + value.slice(idx + 1));
+      } else if (idx > 0) {
+        inputRefs.current[idx - 1]?.focus();
+      }
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>, idx: number) => {
+    const char = e.target.value.replace(/\D/g, '').slice(-1);
+    if (!char) return;
+    const arr = digits.map((d, i) => (i === idx ? char : d));
+    onChange(arr.join(''));
+    if (idx < 5) inputRefs.current[idx + 1]?.focus();
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    onChange(pasted);
+    inputRefs.current[Math.min(pasted.length, 5)]?.focus();
+  };
+
+  return (
+    <div style={{ display: 'flex', gap: 8, justifyContent: 'center', margin: '24px 0' }}>
+      {digits.map((digit, i) => (
+        <input
+          key={i}
+          ref={el => { inputRefs.current[i] = el; }}
+          type="text"
+          inputMode="numeric"
+          maxLength={1}
+          value={digit}
+          disabled={disabled}
+          onChange={e => handleChange(e, i)}
+          onKeyDown={e => handleKeyDown(e, i)}
+          onPaste={handlePaste}
+          onFocus={e => e.target.select()}
+          style={{
+            width: 48,
+            height: 56,
+            textAlign: 'center',
+            fontSize: 24,
+            fontWeight: 700,
+            fontFamily: 'Manrope, sans-serif',
+            color: '#0F1F3D',
+            border: `1.5px solid ${digit ? '#00D4FF' : '#E5E7EB'}`,
+            borderRadius: 8,
+            background: 'white',
+            outline: 'none',
+            boxSizing: 'border-box',
+          }}
+        />
+      ))}
+    </div>
+  );
+};
+
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,6 +93,11 @@ const Login = () => {
   const [isResetting, setIsResetting] = useState(false);
   const [error, setError] = useState('');
   const [focused, setFocused] = useState<string | null>(null);
+
+  // MFA state
+  const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
+  const [mfaCode, setMfaCode] = useState('');
+  const [mfaVerifying, setMfaVerifying] = useState(false);
 
   const { login, resetPassword } = useAuth();
   const location = useLocation();
@@ -35,13 +109,43 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      // Clear stale local session before login to prevent token collisions
       await supabase.auth.signOut({ scope: 'local' });
       await login(email, password);
     } catch (err: any) {
-      setError(err.message || 'Failed to login');
+      if (err?.code === 'mfa_required' && err?.factorId) {
+        // MFA required — show the verification screen
+        setMfaFactorId(err.factorId);
+        setError('');
+      } else {
+        setError(err.message || 'Failed to login');
+      }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleMFAVerify = async () => {
+    if (!mfaFactorId || mfaCode.length !== 6) return;
+    setMfaVerifying(true);
+    setError('');
+    try {
+      const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({ factorId: mfaFactorId });
+      if (challengeError) throw challengeError;
+
+      const { error: verifyError } = await supabase.auth.mfa.verify({
+        factorId: mfaFactorId,
+        challengeId: challengeData.id,
+        code: mfaCode,
+      });
+      if (verifyError) throw verifyError;
+
+      toast.success('Login successful');
+      // Auth state change listener in AuthContext will handle the navigation
+    } catch (err: any) {
+      setError(err.message || 'Invalid code. Please try again.');
+      setMfaCode('');
+    } finally {
+      setMfaVerifying(false);
     }
   };
 
@@ -67,6 +171,116 @@ const Login = () => {
     outline: focused === field ? '2px solid rgba(0,212,255,0.2)' : 'none',
     outlineOffset: 0,
   });
+
+  // MFA Verification screen
+  if (mfaFactorId) {
+    return (
+      <div
+        style={{
+          background: 'white',
+          borderRadius: 16,
+          padding: 32,
+          boxShadow: '0px 12px 32px rgba(15,31,61,0.04)',
+          border: '1px solid rgba(15,31,61,0.06)',
+        }}
+      >
+        <div style={{ textAlign: 'center', marginBottom: 8 }}>
+          <div
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: '50%',
+              background: '#E0F9FF',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 16px',
+            }}
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0369A1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="5" y="11" width="14" height="10" rx="2" ry="2"/>
+              <path d="M11 16a1 1 0 102 0 1 1 0 00-2 0"/>
+              <path d="M8 11V7a4 4 0 018 0v4"/>
+            </svg>
+          </div>
+          <h1
+            style={{
+              fontSize: 22,
+              fontWeight: 700,
+              color: '#0F1F3D',
+              fontFamily: 'Manrope, sans-serif',
+              marginBottom: 6,
+              lineHeight: 1.2,
+            }}
+          >
+            Two-Factor Auth
+          </h1>
+          <p style={{ fontSize: 14, color: '#4B5563', fontFamily: 'Inter, sans-serif' }}>
+            Enter the 6-digit code from your authenticator app
+          </p>
+        </div>
+
+        {error && (
+          <div
+            style={{
+              background: '#FFF5F5',
+              border: '1px solid #F97066',
+              color: '#C0392B',
+              borderRadius: 8,
+              padding: '10px 14px',
+              marginTop: 16,
+              fontSize: 14,
+              fontFamily: 'Inter, sans-serif',
+              textAlign: 'center',
+            }}
+          >
+            {error}
+          </div>
+        )}
+
+        <OTPInput value={mfaCode} onChange={setMfaCode} disabled={mfaVerifying} />
+
+        <button
+          type="button"
+          onClick={handleMFAVerify}
+          disabled={mfaCode.length !== 6 || mfaVerifying}
+          style={{
+            width: '100%',
+            minHeight: 52,
+            background: mfaCode.length !== 6 || mfaVerifying ? '#8892A4' : '#0F1F3D',
+            color: 'white',
+            borderRadius: 12,
+            border: 'none',
+            fontSize: 16,
+            fontWeight: 600,
+            fontFamily: 'Manrope, sans-serif',
+            cursor: mfaCode.length !== 6 || mfaVerifying ? 'not-allowed' : 'pointer',
+            transition: 'background 0.15s',
+          }}
+        >
+          {mfaVerifying ? 'Verifying…' : 'Verify'}
+        </button>
+
+        <div style={{ marginTop: 16, textAlign: 'center' }}>
+          <button
+            type="button"
+            onClick={() => { setMfaFactorId(null); setMfaCode(''); setError(''); }}
+            style={{
+              fontSize: 14,
+              color: '#00D4FF',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              fontWeight: 500,
+              fontFamily: 'Inter, sans-serif',
+            }}
+          >
+            Back to login
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

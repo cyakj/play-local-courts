@@ -212,6 +212,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw error;
       }
 
+      // Check if MFA verification is needed
+      const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (aalData && aalData.nextLevel === 'aal2' && aalData.currentLevel !== 'aal2') {
+        // Get available TOTP factors
+        const { data: factorsData } = await supabase.auth.mfa.listFactors();
+        const totpFactor = factorsData?.totp?.[0];
+        if (totpFactor) {
+          // Signal to caller that MFA is required — do NOT show success toast yet
+          throw { code: 'mfa_required', factorId: totpFactor.id };
+        }
+      }
+
       console.log('Login successful:', data.user?.id);
       toast.success("Login successful");
     } catch (error: any) {
