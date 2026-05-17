@@ -3,6 +3,13 @@
 HOA community management mobile app for tennis/sports court bookings.
 Target: App Store launch end of April 2026.
 
+## Brand
+- **App name:** TenisX
+- **Domain:** tenisx.ai
+- **Logo:** `/public/images/TenisX_logo-removebg-preview.png`
+- **Dark mode:** DISABLED — light-only app, never use `dark:` Tailwind variants
+- **Design spec:** All visual decisions live in DESIGN.md
+
 ## Commands
 
 - **Dev server**: `npm run dev` (runs on port 8080)
@@ -42,6 +49,11 @@ New HOA members start as `pending` until admin approves them.
 
 ### Path Alias
 Use `@/` to import from `src/`
+
+### Tailwind Usage
+- Always use inline hex for brand colors: `bg-[#0F1F3D]`, `text-[#00D4FF]`, `border-[rgba(15,31,61,0.08)]`
+- **NEVER** use `cm-*` Tailwind tokens in new code — they are legacy-only
+- **NEVER** use `dark:` variant classes — dark mode is disabled
 
 ### Database Types
 Auto-generated in `src/integrations/supabase/types.ts`.
@@ -83,7 +95,7 @@ Premium AI-native light dashboard inspired by Vercel, Linear,
 and Notion. Precision, whitespace as function, living data.
 
 ### Fonts
-- Headlines: Manrope (ExtraBold) — geometric, architectural
+- Headlines: Manrope — Black (900) for page greetings, ExtraBold (800) for card/section titles; geometric, architectural
 - Body & UI labels: Inter — high legibility, scannable data
 - Data highlights: Manrope Bold with tighter tracking
 - High contrast between large bold headers and small
@@ -103,10 +115,9 @@ and Notion. Precision, whitespace as function, living data.
   — primary headings, high-level navigation
 
 #### Functional Colors
-- Warning/attention: #F97066 (Coral)
-  — health scores below 70, "Needs Attention" pills
-- Success/optimal: #00D4FF (Cyan)
-  — optimal state indicator (same as primary accent)
+- Warning/attention: #F97066 (Coral) — health 40–69, "Needs Attention" pills
+- Critical: #EF4444 (Red) — health < 40, "Critical" pills
+- Success/optimal: #00D4FF (Cyan) — health >= 70, "Optimal" pills (same as primary accent)
 
 #### Typography & Muted Elements
 - Primary text: #0F1F3D (Deep Navy)
@@ -115,22 +126,22 @@ and Notion. Precision, whitespace as function, living data.
 
 ### Cards
 - Background: white
-- Border radius: 16px (cards), 8px (buttons/pills)
-- Shadow: `0px 12px 32px rgba(15,31,61,0.04)` multi-layered
+- Border radius: 16px (cards), 12px (buttons), 99px (pills)
+- Shadow: two-layer — see DESIGN.md Cards section
 - Elevation via tonal shift — no heavy borders
 - Attention state: Coral (#F97066) status pill + progress bar
 - Optimal state: Cyan (#00D4FF) status pill + progress bar
 - Key AI metrics: subtle cyan glow (box-shadow or text-shadow)
 
 ### Typography Scale
-- Large greeting header: Manrope ExtraBold, very large
+- Large greeting header: Manrope Black (900), 32px, line-height 1.1
 - Section titles: Manrope Bold
 - Body/labels: Inter regular
 - Metadata: Inter, small, all-caps, Cool Gray (#8892A4)
 
 ### Components
 - Status pill: "Needs Attention" in Coral #F97066,
-  "Optimal" in Cyan #00D4FF — small rounded pill (8px radius)
+  "Optimal" in Cyan #00D4FF — small rounded pill (99px border-radius)
 - Progress bar: 4px height, color-coded by health status
 - Stats grid: 4-column, subtle icons, clear number
   hierarchy, no internal borders
@@ -159,6 +170,7 @@ and Notion. Precision, whitespace as function, living data.
 - Community cards: full width, stacked vertically
 - Generous whitespace throughout
 - Elevation through tonal layering not borders
+- Max content width: `max-w-[480px] mx-auto` on all page containers (prevents wall-to-wall stretch on iPad/tablet)
 
 ## Autonomous Mode Rules
 When running unattended (e.g. overnight-ui.sh):
