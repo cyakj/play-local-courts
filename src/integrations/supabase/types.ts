@@ -393,6 +393,13 @@ export type Database = {
             foreignKeyName: "clubs_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clubs_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
             referencedRelation: "referral_leaderboard"
             referencedColumns: ["id"]
           },
@@ -555,6 +562,13 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -756,6 +770,13 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_views_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -1947,6 +1968,13 @@ export type Database = {
             foreignKeyName: "likes_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "referral_leaderboard"
             referencedColumns: ["id"]
           },
@@ -2112,6 +2140,13 @@ export type Database = {
             foreignKeyName: "match_requests_challenger_id_fkey"
             columns: ["challenger_id"]
             isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_requests_challenger_id_fkey"
+            columns: ["challenger_id"]
+            isOneToOne: false
             referencedRelation: "referral_leaderboard"
             referencedColumns: ["id"]
           },
@@ -2120,6 +2155,13 @@ export type Database = {
             columns: ["opponent_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_requests_opponent_id_fkey"
+            columns: ["opponent_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -2205,6 +2247,13 @@ export type Database = {
             foreignKeyName: "matches_player1_id_fkey"
             columns: ["player1_id"]
             isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_player1_id_fkey"
+            columns: ["player1_id"]
+            isOneToOne: false
             referencedRelation: "referral_leaderboard"
             referencedColumns: ["id"]
           },
@@ -2213,6 +2262,13 @@ export type Database = {
             columns: ["player2_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_player2_id_fkey"
+            columns: ["player2_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -2227,6 +2283,13 @@ export type Database = {
             columns: ["player3_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_player3_id_fkey"
+            columns: ["player3_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -2241,6 +2304,13 @@ export type Database = {
             columns: ["player4_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_player4_id_fkey"
+            columns: ["player4_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -2255,6 +2325,13 @@ export type Database = {
             columns: ["winner_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_winner_id_fkey"
+            columns: ["winner_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -2374,6 +2451,13 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -2511,6 +2595,13 @@ export type Database = {
             foreignKeyName: "profiles_referred_by_fkey"
             columns: ["referred_by"]
             isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_referred_by_fkey"
+            columns: ["referred_by"]
+            isOneToOne: false
             referencedRelation: "referral_leaderboard"
             referencedColumns: ["id"]
           },
@@ -2550,6 +2641,13 @@ export type Database = {
             foreignKeyName: "referrals_referee_id_fkey"
             columns: ["referee_id"]
             isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referrals_referee_id_fkey"
+            columns: ["referee_id"]
+            isOneToOne: false
             referencedRelation: "referral_leaderboard"
             referencedColumns: ["id"]
           },
@@ -2558,6 +2656,13 @@ export type Database = {
             columns: ["referrer_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referrals_referrer_id_fkey"
+            columns: ["referrer_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -2711,6 +2816,13 @@ export type Database = {
             foreignKeyName: "tournament_registrations_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_registrations_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
             referencedRelation: "referral_leaderboard"
             referencedColumns: ["id"]
           },
@@ -2835,6 +2947,105 @@ export type Database = {
       }
     }
     Views: {
+      public_profiles: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string | null
+          full_name: string | null
+          gender: string | null
+          hide_contact_until_confirmed: boolean | null
+          hoa_id: string | null
+          hoa_role: string | null
+          hoa_status: string | null
+          home_court_id: string | null
+          id: string | null
+          is_verified: boolean | null
+          location: string | null
+          location_visible: boolean | null
+          ntrp_rating: number | null
+          preferred_court_locations: string | null
+          show_activity_status: boolean | null
+          show_exact_distance: boolean | null
+          updated_at: string | null
+          user_type: string | null
+          username: string | null
+          usta_ranking: string | null
+          utr_rating: number | null
+          wtn_rating: number | null
+          zip_code: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string | null
+          full_name?: string | null
+          gender?: string | null
+          hide_contact_until_confirmed?: boolean | null
+          hoa_id?: string | null
+          hoa_role?: string | null
+          hoa_status?: string | null
+          home_court_id?: string | null
+          id?: string | null
+          is_verified?: boolean | null
+          location?: string | null
+          location_visible?: boolean | null
+          ntrp_rating?: number | null
+          preferred_court_locations?: string | null
+          show_activity_status?: boolean | null
+          show_exact_distance?: boolean | null
+          updated_at?: string | null
+          user_type?: string | null
+          username?: string | null
+          usta_ranking?: string | null
+          utr_rating?: number | null
+          wtn_rating?: number | null
+          zip_code?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string | null
+          full_name?: string | null
+          gender?: string | null
+          hide_contact_until_confirmed?: boolean | null
+          hoa_id?: string | null
+          hoa_role?: string | null
+          hoa_status?: string | null
+          home_court_id?: string | null
+          id?: string | null
+          is_verified?: boolean | null
+          location?: string | null
+          location_visible?: boolean | null
+          ntrp_rating?: number | null
+          preferred_court_locations?: string | null
+          show_activity_status?: boolean | null
+          show_exact_distance?: boolean | null
+          updated_at?: string | null
+          user_type?: string | null
+          username?: string | null
+          usta_ranking?: string | null
+          utr_rating?: number | null
+          wtn_rating?: number | null
+          zip_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_hoa_id_fkey"
+            columns: ["hoa_id"]
+            isOneToOne: false
+            referencedRelation: "hoas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_home_court_id_fkey"
+            columns: ["home_court_id"]
+            isOneToOne: false
+            referencedRelation: "courts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       referral_leaderboard: {
         Row: {
           id: string | null
