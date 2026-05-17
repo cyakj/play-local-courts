@@ -24,46 +24,72 @@ const ResetPassword = () => {
   useEffect(() => {
     let mounted = true;
 
-    // Listen for the PASSWORD_RECOVERY event which supabase-js fires after it
-    // automatically exchanges the recovery token in the URL hash / query params.
-    // This is the only reliable way to detect the recovery session because
-    // getSession() races against the async token exchange and often returns null.
+    // With Supabase PKCE flow (default in supabase-js v2), the recovery email
+    // link contains ?code=... instead of #access_token=...&type=recovery.
+    // The client exchanges the code automatically, but fires SIGNED_IN (not
+    // PASSWORD_RECOVERY) because the PKCE _getSessionFromURL sets redirectType=null.
+    //
+    // Strategy:
+    // 1. Register onAuthStateChange early to catch SIGNED_IN or PASSWORD_RECOVERY.
+    // 2. Call getSession() — it awaits initializePromise, so it resolves only
+    //    after the code exchange completes. If a session exists we have the token.
+    // 3. If still no session and URL has ?code=, manually call
+    //    exchangeCodeForSession() to handle the cross-device / cross-tab case
+    //    (when the PKCE code verifier is missing from this browser's localStorage).
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         if (!mounted) return;
-        if (event === 'PASSWORD_RECOVERY') {
-          setHasSession(Boolean(session));
-          setLoading(false);
+        // Accept both PASSWORD_RECOVERY (implicit flow) and SIGNED_IN (PKCE flow).
+        if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
+          if (session) {
+            setHasSession(true);
+            setLoading(false);
+          }
         }
       }
     );
 
-    // Also call getSession() as a fallback in case the token was already
-    // exchanged before this component mounted (e.g. page refresh on the URL).
     const init = async () => {
       try {
+        // getSession() awaits initializePromise — safe to call immediately.
         const { data, error } = await supabase.auth.getSession();
         if (error) throw error;
 
         if (!mounted) return;
-        // Only set hasSession from getSession if we already have a session
-        // (i.e. the PASSWORD_RECOVERY exchange already happened).
+
         if (data.session) {
           setHasSession(true);
           setLoading(false);
-        } else {
-          // No session yet — wait for the PASSWORD_RECOVERY event above.
-          // Set a timeout so we don't hang forever if no token is present.
-          setTimeout(() => {
-            if (!mounted) return;
-            setLoading(false);
-          }, 3000);
+          return;
         }
-      } catch (e: any) {
+
+        // No session yet. Check if a PKCE code is in the URL and the verifier
+        // is missing from storage (cross-device / cross-tab scenario).
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get('code');
+        if (code) {
+          const { data: exchangeData, error: exchangeError } =
+            await supabase.auth.exchangeCodeForSession(code);
+          if (!mounted) return;
+          if (exchangeError) {
+            console.error("Reset password code exchange error:", exchangeError);
+            setHasSession(false);
+          } else if (exchangeData.session) {
+            setHasSession(true);
+          } else {
+            setHasSession(false);
+          }
+        } else {
+          // No code param and no session — the link is invalid or expired.
+          setHasSession(false);
+        }
+      } catch (e: unknown) {
         console.error("Reset password init error:", e);
         if (!mounted) return;
         setHasSession(false);
-        setLoading(false);
+      } finally {
+        if (mounted) setLoading(false);
       }
     };
 

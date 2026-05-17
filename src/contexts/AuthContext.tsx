@@ -6,11 +6,10 @@ import { getCurrentUserProfile } from '../services/supabaseService';
 import { createDefaultEmailPreferences } from '../services/emailService';
 import { toast } from 'sonner';
 
-const getPublicSiteUrl = () => {
-  const envUrl = (import.meta as any)?.env?.VITE_PUBLIC_SITE_URL as string | undefined;
-  const base = (envUrl || window.location.origin).replace(/\/+$/, '');
-  return base;
-};
+// Always use the current origin so the reset email links back to wherever
+// the app is actually running (localhost, production domain, etc.).
+// Do NOT use VITE_PUBLIC_SITE_URL — it may point to a stale Lovable preview URL.
+const getPublicSiteUrl = () => window.location.origin.replace(/\/+$/, '');
 
 interface AuthContextType {
   currentUser: User | null;
@@ -55,11 +54,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        // PASSWORD_RECOVERY means the user clicked a reset-password link.
-        // Do NOT treat this as a full login — ResetPassword.tsx handles the
-        // session directly. Setting currentUser here would cause AuthLayout to
-        // redirect the user away from /reset-password to /dashboard.
+        // PASSWORD_RECOVERY means the user clicked a reset-password link
+        // (implicit/hash flow). Do NOT treat this as a full login — ResetPassword.tsx
+        // handles the session directly.
         if (event === 'PASSWORD_RECOVERY') {
+          setLoading(false);
+          return;
+        }
+
+        // With Supabase PKCE flow (default in supabase-js v2), a password recovery
+        // link exchange fires SIGNED_IN instead of PASSWORD_RECOVERY. Detect this by
+        // checking the current pathname. When the user is on /reset-password, skip
+        // the normal profile load so AuthContext does not treat the recovery session
+        // as a regular login (which would set currentUser and could confuse the app).
+        if (event === 'SIGNED_IN' && window.location.pathname === '/reset-password') {
           setLoading(false);
           return;
         }
