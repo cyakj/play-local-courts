@@ -1,14 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Navigate, useSearchParams, useNavigate } from 'react-router-dom';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import {
-  Calendar, User, MapPin, Eye, CheckCircle, AlertCircle, ArrowLeft, Filter, X,
-} from 'lucide-react';
+import { ArrowLeft, CheckCircle, ChevronDown } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { AssigneeSearch } from '@/components/maintenance/AssigneeSearch';
 import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
@@ -40,16 +37,98 @@ interface MaintenanceReport {
   location_text?: string;
 }
 
-const statusPill = (status: string) => {
-  const map: Record<string, { bg: string; text: string; border: string }> = {
-    open:       { bg: '#FEF2F2', text: '#991B1B', border: '#EF4444' },
-    assigned:   { bg: '#FFF5F5', text: '#C0392B', border: '#F97066' },
-    in_progress:{ bg: '#FFF5F5', text: '#C0392B', border: '#F97066' },
-    accepted:   { bg: '#FFF5F5', text: '#C0392B', border: '#F97066' },
-    resolved:   { bg: '#E0F9FF', text: '#0369A1', border: '#00D4FF' },
-    closed:     { bg: '#E0F9FF', text: '#0369A1', border: '#00D4FF' },
+// Status pill config (Lumina Slate)
+const getStatusPill = (status: string) => {
+  const map: Record<string, { bg: string; text: string; border: string; label: string }> = {
+    open:        { bg: '#FFF5F5', text: '#C0392B', border: '#F97066', label: 'Open' },
+    assigned:    { bg: '#FFF5F5', text: '#C0392B', border: '#F97066', label: 'Assigned' },
+    in_progress: { bg: '#EFF6FF', text: '#1D4ED8', border: '#3B82F6', label: 'In Progress' },
+    accepted:    { bg: '#EFF6FF', text: '#1D4ED8', border: '#3B82F6', label: 'Accepted' },
+    resolved:    { bg: '#E0F9FF', text: '#0369A1', border: '#00D4FF', label: 'Resolved' },
+    closed:      { bg: '#E0F9FF', text: '#0369A1', border: '#00D4FF', label: 'Closed' },
   };
-  return map[status] || { bg: '#F3F4F6', text: '#6B7280', border: '#E5E7EB' };
+  return map[status] || { bg: '#F3F4F6', text: '#6B7280', border: '#E5E7EB', label: status };
+};
+
+// Severity pill config (Lumina Slate)
+const getSeverityPill = (priority: string) => {
+  const map: Record<string, { bg: string; text: string; label: string }> = {
+    urgent: { bg: '#FEF2F2', text: '#991B1B', label: 'Urgent' },
+    high:   { bg: '#FEF2F2', text: '#991B1B', label: 'High' },
+    medium: { bg: '#FFF5F5', text: '#C0392B', label: 'Medium' },
+    low:    { bg: '#F0FDF4', text: '#065F46', label: 'Low' },
+  };
+  return map[priority] || { bg: '#F3F4F6', text: '#6B7280', label: priority };
+};
+
+// Styled custom select component
+const StyledSelect: React.FC<{
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}> = ({ value, onChange, options }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const selected = options.find(o => o.value === value);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex items-center justify-between w-full px-4 py-2.5 bg-white"
+        style={{
+          border: `1px solid ${open ? '#00D4FF' : 'rgba(15,31,61,0.15)'}`,
+          borderRadius: 8,
+          fontSize: 14,
+          color: '#0F1F3D',
+          fontFamily: 'Inter, sans-serif',
+          cursor: 'pointer',
+          boxShadow: open ? '0 0 0 3px rgba(0,212,255,0.12)' : 'none',
+          minHeight: 44,
+        }}
+      >
+        <span>{selected?.label || 'Select...'}</span>
+        <ChevronDown
+          className="h-4 w-4 transition-transform"
+          style={{ color: '#8892A4', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
+        />
+      </button>
+      {open && (
+        <div
+          className="absolute left-0 right-0 mt-1 bg-white rounded-xl overflow-hidden z-30"
+          style={{ boxShadow: '0px 8px 24px rgba(15,31,61,0.12)', border: '1px solid rgba(15,31,61,0.08)' }}
+        >
+          {options.map(opt => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => { onChange(opt.value); setOpen(false); }}
+              className="w-full text-left px-4 py-3 text-[14px] transition-colors hover:bg-[#F9FAFB]"
+              style={{
+                fontFamily: 'Inter, sans-serif',
+                color: opt.value === value ? '#00D4FF' : '#0F1F3D',
+                background: opt.value === value ? 'rgba(0,212,255,0.05)' : 'white',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 };
 
 const MaintenanceReports = () => {
@@ -61,11 +140,10 @@ const MaintenanceReports = () => {
   const [loading, setLoading] = useState(true);
   const [selectedReport, setSelectedReport] = useState<MaintenanceReport | null>(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
+  const [amenityFilter, setAmenityFilter] = useState('All');
   const [filters, setFilters] = useState({
     status: searchParams.get('status') || 'active',
     category: 'all',
-    amenity: searchParams.get('amenity_id') || 'all',
   });
 
   const loadReportsCallback = useCallback(() => { loadReports(); }, [currentUser, filters]);
@@ -97,7 +175,6 @@ const MaintenanceReports = () => {
         query = query.eq('status', filters.status);
       }
       if (filters.category !== 'all') query = query.eq('category', filters.category);
-      if (filters.amenity !== 'all') query = query.eq('amenity_id', filters.amenity);
 
       const { data, error } = await query;
       if (error) throw error;
@@ -107,7 +184,7 @@ const MaintenanceReports = () => {
         const amenity = report.amenity_id
           ? (await supabase.from('courts').select('name').eq('id', report.amenity_id).single()).data
           : null;
-        return { ...report, reporter_name: reporter?.full_name || 'Unknown', amenity_name: amenity?.name || 'Unknown' };
+        return { ...report, reporter_name: reporter?.full_name || 'Unknown', amenity_name: amenity?.name || 'General' };
       }));
 
       setReports(reportsWithNames);
@@ -136,156 +213,253 @@ const MaintenanceReports = () => {
   const openReportCount = reports.filter((r) => r.status === 'open' || r.status === 'assigned').length;
   const inProgressCount = reports.filter((r) => r.status === 'in_progress' || r.status === 'accepted').length;
 
+  // Unique amenity names for filter tabs
+  const amenityTabs = useMemo(() => {
+    const names = [...new Set(reports.map(r => r.amenity_name || 'General'))];
+    return ['All', ...names];
+  }, [reports]);
+
+  const visibleReports = useMemo(() => {
+    if (amenityFilter === 'All') return reports;
+    return reports.filter(r => (r.amenity_name || 'General') === amenityFilter);
+  }, [reports, amenityFilter]);
+
+  const statusOptions = [
+    { value: 'active', label: 'Active (all open)' },
+    { value: 'all', label: 'All Statuses' },
+    ...allStatusFilters.filter(s => !['all', 'active'].includes(s.value)).map(s => ({ value: s.value, label: s.label })),
+  ];
+
+  const categoryOptions = [
+    { value: 'all', label: 'All Categories' },
+    ...allCategories,
+  ];
+
   return (
-    <div className="min-h-screen bg-[#F9FAFB] pb-28">
+    <div className="min-h-screen pb-28" style={{ background: '#F9FAFB' }}>
+
       {/* Header */}
-      <div style={{ backgroundColor: '#0F1F3D' }} className="px-5 pt-12 pb-8 relative overflow-visible">
-        <div className="flex items-center gap-3 mb-4">
-          <button onClick={() => navigate('/admin')} className="text-white active:scale-95 transition-transform">
-            <ArrowLeft className="h-6 w-6" />
-          </button>
-        </div>
-        <div className="text-[13px] uppercase font-semibold mb-1" style={{ color: '#00D4FF', letterSpacing: '0.15em' }}>
-          Admin
-        </div>
-        <h1 className="text-[32px] font-black text-white leading-[1.1] tracking-tight">
-          Maintenance Reports
-        </h1>
-
-        {/* Stats row */}
-        <div className="flex gap-3 mt-4">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full" style={{ backgroundColor: 'rgba(239,68,68,0.2)' }}>
-            <AlertCircle className="h-3.5 w-3.5 text-white" />
-            <span className="text-[13px] font-bold text-white">{openReportCount} Open</span>
-          </div>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full" style={{ backgroundColor: 'rgba(249,112,102,0.2)' }}>
-            <span className="text-[13px] font-bold text-white">{inProgressCount} In Progress</span>
-          </div>
-        </div>
-
-        <div className="absolute -bottom-6 left-0 right-0 h-8 pointer-events-none z-0"
-          style={{ background: 'linear-gradient(to bottom, #0F1F3D, transparent)' }} />
-      </div>
-
-      <div className="px-5 pt-8 space-y-3">
-        {/* Filter toggle */}
+      <div style={{ backgroundColor: '#0F1F3D' }} className="px-5 pt-12 pb-6 relative overflow-visible">
         <button
-          onClick={() => setShowFilters(!showFilters)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-gray-100 min-h-[44px]"
-          style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}
+          onClick={() => navigate('/admin')}
+          className="flex items-center gap-2 mb-4 active:scale-95 transition-transform"
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
         >
-          <Filter className="h-4 w-4" style={{ color: '#00D4FF' }} />
-          <span className="text-[13px] font-bold" style={{ color: '#0F1F3D' }}>Filters</span>
-          {(filters.status !== 'active' || filters.category !== 'all') && (
-            <span className="w-2 h-2 rounded-full ml-1" style={{ backgroundColor: '#00D4FF' }} />
-          )}
+          <ArrowLeft className="h-5 w-5 text-white" />
         </button>
 
-        {showFilters && (
-          <div className="bg-white rounded-2xl p-5 border border-gray-100 space-y-4" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-            <div>
-              <div className="text-[13px] uppercase font-semibold mb-2" style={{ color: '#374151', letterSpacing: '0.08em' }}>Status</div>
-              <Select value={filters.status} onValueChange={(v) => setFilters({ ...filters, status: v })}>
-                <SelectTrigger className="rounded-xl border-gray-200 focus:border-[#00D4FF]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {allStatusFilters.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <div className="text-[13px] uppercase font-semibold mb-2" style={{ color: '#374151', letterSpacing: '0.08em' }}>Category</div>
-              <Select value={filters.category} onValueChange={(v) => setFilters({ ...filters, category: v })}>
-                <SelectTrigger className="rounded-xl border-gray-200 focus:border-[#00D4FF]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {allCategories.map((c) => (
-                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1
+              className="text-[28px] font-black text-white leading-[1.1] tracking-tight"
+              style={{ fontFamily: 'Manrope, sans-serif' }}
+            >
+              Maintenance Reports
+            </h1>
+            <p className="mt-1" style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)', fontFamily: 'Inter, sans-serif' }}>
+              All communities · real time
+            </p>
           </div>
-        )}
+          {/* Stat badges */}
+          <div className="flex flex-col gap-1.5 items-end ml-4 flex-shrink-0">
+            <span
+              className="text-[12px] font-semibold px-3 py-1 rounded-full text-white"
+              style={{ background: '#F97066', letterSpacing: '0.01em' }}
+            >
+              {openReportCount} Open
+            </span>
+            <span
+              className="text-[12px] font-semibold px-3 py-1 rounded-full text-white"
+              style={{ background: '#00D4FF' }}
+            >
+              {inProgressCount} In Progress
+            </span>
+          </div>
+        </div>
+
+        {/* Bottom gradient fade */}
+        <div
+          className="absolute -bottom-6 left-0 right-0 h-8 pointer-events-none z-0"
+          style={{ background: 'linear-gradient(to bottom, #0F1F3D, transparent)' }}
+        />
+      </div>
+
+      <div className="pt-8">
+        {/* Amenity filter tabs */}
+        <div
+          className="px-5 mb-4"
+          style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}
+        >
+          <div className="flex gap-2 pb-1" style={{ whiteSpace: 'nowrap' }}>
+            {amenityTabs.map(tab => {
+              const active = amenityFilter === tab;
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setAmenityFilter(tab)}
+                  className="flex-shrink-0 active:scale-95 transition-transform"
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: 99,
+                    fontSize: 14,
+                    fontWeight: 600,
+                    fontFamily: 'Inter, sans-serif',
+                    border: active ? 'none' : '1px solid #E5E7EB',
+                    background: active ? '#0F1F3D' : 'white',
+                    color: active ? 'white' : '#4B5563',
+                    cursor: 'pointer',
+                    minHeight: 36,
+                  }}
+                >
+                  {tab}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Status and Category filters */}
+        <div className="px-5 grid grid-cols-2 gap-3 mb-5">
+          <StyledSelect
+            value={filters.status}
+            onChange={v => setFilters(f => ({ ...f, status: v }))}
+            options={statusOptions}
+          />
+          <StyledSelect
+            value={filters.category}
+            onChange={v => setFilters(f => ({ ...f, category: v }))}
+            options={categoryOptions}
+          />
+        </div>
 
         {/* Reports list */}
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="w-8 h-8 border-2 rounded-full animate-spin" style={{ borderColor: 'rgba(0,212,255,0.2)', borderTopColor: '#00D4FF' }} />
-          </div>
-        ) : reports.length === 0 ? (
-          <div className="bg-white rounded-2xl p-8 text-center border border-gray-100" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-            <CheckCircle className="h-12 w-12 mx-auto mb-3" style={{ color: '#00D4FF' }} />
-            <div className="text-[15px] font-bold mb-1" style={{ color: '#0F1F3D', fontFamily: 'Manrope, sans-serif' }}>No Reports Found</div>
-            <div className="text-[14px]" style={{ color: '#4B5563' }}>
-              {filters.status === 'all' ? 'No reports submitted yet.' : `No ${filters.status.replace('_', ' ')} reports found.`}
+        <div className="px-5 space-y-[10px]">
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <div className="w-8 h-8 border-2 rounded-full animate-spin" style={{ borderColor: 'rgba(0,212,255,0.2)', borderTopColor: '#00D4FF' }} />
             </div>
-          </div>
-        ) : (
-          reports.map((report) => {
-            const pill = statusPill(report.status);
-            return (
-              <div
-                key={report.id}
-                className="bg-white rounded-2xl p-5 border border-gray-100"
-                style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex-1 min-w-0 pr-3">
-                    <div className="text-[16px] font-extrabold leading-tight" style={{ color: '#0F1F3D', fontFamily: 'Manrope, sans-serif' }}>
-                      {report.report_type === 'location'
-                        ? (report.location_text || 'Unknown location').slice(0, 40)
-                        : report.amenity_name}
-                    </div>
-                  </div>
-                  <span
-                    className="text-[12px] font-bold px-2.5 py-0.5 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: pill.bg, color: pill.text, border: `1px solid ${pill.border}` }}
-                  >
-                    {statusConfig[report.status]?.label || report.status}
-                  </span>
-                </div>
-
-                <div className="text-[17px] leading-relaxed mb-3 line-clamp-3" style={{ color: '#374151', fontWeight: 500 }}>
-                  {cleanDescription(report.description)}
-                </div>
-
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mb-3">
-                  <div className="flex items-center gap-1.5">
-                    <User className="h-4 w-4" style={{ color: '#4B5563' }} />
-                    <span className="text-[15px] font-semibold" style={{ color: '#0F1F3D' }}>{report.reporter_name}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Calendar className="h-4 w-4" style={{ color: '#4B5563' }} />
-                    <span className="text-[15px] font-medium" style={{ color: '#4B5563' }}>
-                      {new Date(report.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
-                  {report.assignee && (
-                    <div className="flex items-center gap-1.5">
-                      <MapPin className="h-4 w-4" style={{ color: '#4B5563' }} />
-                      <span className="text-[15px] font-medium" style={{ color: '#4B5563' }}>{report.assignee}</span>
-                    </div>
-                  )}
-                </div>
-
-                <button
-                  onClick={() => { setSelectedReport(report); setShowDetailDialog(true); }}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl min-h-[44px]"
-                  style={{ backgroundColor: 'rgba(0,212,255,0.08)', color: '#00D4FF', fontSize: '13px', fontWeight: 600 }}
-                >
-                  <Eye className="h-4 w-4" />
-                  View Details
-                </button>
+          ) : visibleReports.length === 0 ? (
+            <div
+              className="bg-white rounded-2xl p-8 text-center"
+              style={{ boxShadow: '0px 12px 32px rgba(15,31,61,0.04)', border: '1px solid rgba(15,31,61,0.06)' }}
+            >
+              <CheckCircle className="h-12 w-12 mx-auto mb-3" style={{ color: '#00D4FF' }} />
+              <div className="text-[15px] font-bold mb-1" style={{ color: '#0F1F3D', fontFamily: 'Manrope, sans-serif' }}>
+                No Reports Found
               </div>
-            );
-          })
-        )}
+              <div className="text-[14px]" style={{ color: '#4B5563' }}>
+                {filters.status === 'all' ? 'No reports submitted yet.' : 'No matching reports found.'}
+              </div>
+            </div>
+          ) : (
+            visibleReports.map((report) => {
+              const pill = getStatusPill(report.status);
+              const priority = parsePriorityFromDescription(report.description);
+              const sevPill = getSeverityPill(priority);
+              const isUrgent = priority === 'urgent';
+              const title = report.report_type === 'location'
+                ? (report.location_text || 'Unknown location')
+                : (report.amenity_name || 'General');
+
+              return (
+                <div
+                  key={report.id}
+                  className="bg-white rounded-2xl p-5"
+                  style={{
+                    boxShadow: '0px 12px 32px rgba(15,31,61,0.04)',
+                    border: '1px solid rgba(15,31,61,0.06)',
+                  }}
+                >
+                  {/* Top row: title + status badge */}
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        {isUrgent && (
+                          <span
+                            className="text-[11px] font-bold px-2 py-0.5 rounded-full flex-shrink-0"
+                            style={{
+                              background: '#FEF2F2',
+                              color: '#991B1B',
+                              border: '1px solid #EF4444',
+                            }}
+                          >
+                            URGENT
+                          </span>
+                        )}
+                        <span
+                          className="text-[17px] font-bold leading-tight truncate"
+                          style={{ color: '#0F1F3D', fontFamily: 'Manrope, sans-serif' }}
+                        >
+                          {title}
+                        </span>
+                      </div>
+                      <div className="text-[13px] font-medium" style={{ color: '#00D4FF', fontFamily: 'Inter, sans-serif' }}>
+                        {report.amenity_name || 'General'}
+                      </div>
+                    </div>
+
+                    {/* Badges column */}
+                    <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                      <span
+                        className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
+                        style={{
+                          background: pill.bg,
+                          color: pill.text,
+                          border: `1px solid ${pill.border}`,
+                        }}
+                      >
+                        {pill.label}
+                      </span>
+                      {priority !== 'medium' && (
+                        <span
+                          className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                          style={{ background: sevPill.bg, color: sevPill.text }}
+                        >
+                          {sevPill.label}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  <p
+                    className="mb-3 line-clamp-2"
+                    style={{
+                      fontSize: 14,
+                      color: '#374151',
+                      fontFamily: 'Inter, sans-serif',
+                      lineHeight: 1.5,
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {cleanDescription(report.description)}
+                  </p>
+
+                  {/* Reporter · date */}
+                  <div className="flex items-center gap-2 mb-3" style={{ fontSize: 13, color: '#4B5563', fontFamily: 'Inter, sans-serif' }}>
+                    <span className="font-medium" style={{ color: '#0F1F3D' }}>{report.reporter_name}</span>
+                    <span style={{ color: '#D1D5DB' }}>·</span>
+                    <span>{new Date(report.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                  </div>
+
+                  {/* View details */}
+                  <div className="flex justify-end pt-3" style={{ borderTop: '1px solid rgba(15,31,61,0.06)' }}>
+                    <button
+                      onClick={() => { setSelectedReport(report); setShowDetailDialog(true); }}
+                      className="text-[13px] font-semibold active:scale-95 transition-transform"
+                      style={{ color: '#00D4FF', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}
+                    >
+                      View Details →
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
       </div>
 
       {/* Detail Dialog */}
@@ -319,6 +493,10 @@ const ReportDetailForm: React.FC<{
   const priority = parsePriorityFromDescription(report.description);
   const pConfig = priorityConfig[priority];
 
+  const statusOptions = allStatusFilters
+    .filter(s => !['all', 'active'].includes(s.value))
+    .map(s => ({ value: s.value, label: s.label }));
+
   const handleSave = () => {
     onUpdate(report.id, status, assignee, adminNotes);
     onClose();
@@ -340,7 +518,7 @@ const ReportDetailForm: React.FC<{
 
       <div>
         <div className="text-[13px] uppercase font-semibold mb-1.5" style={{ color: '#374151', letterSpacing: '0.08em' }}>Description</div>
-        <div className="p-4 rounded-xl text-[17px] leading-relaxed" style={{ backgroundColor: '#F9FAFB', color: '#0F1F3D', fontWeight: 500 }}>
+        <div className="p-4 rounded-xl text-[14px] leading-relaxed" style={{ backgroundColor: '#F9FAFB', color: '#0F1F3D' }}>
           {cleanDescription(report.description)}
         </div>
       </div>
@@ -357,16 +535,7 @@ const ReportDetailForm: React.FC<{
 
         <div>
           <div className="text-[13px] uppercase font-semibold mb-1.5" style={{ color: '#374151', letterSpacing: '0.08em' }}>Status</div>
-          <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger className="rounded-xl border-gray-200">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {allStatusFilters.filter((s) => s.value !== 'all').map((s) => (
-                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <StyledSelect value={status} onChange={setStatus} options={statusOptions} />
         </div>
 
         <div>
@@ -390,15 +559,15 @@ const ReportDetailForm: React.FC<{
       <div className="flex gap-2 pt-2">
         <button
           onClick={onClose}
-          className="flex-1 py-3 rounded-xl min-h-[44px] underline"
-          style={{ backgroundColor: '#F3F4F6', color: '#0F1F3D', fontSize: '15px', fontWeight: 500 }}
+          className="flex-1 py-3 rounded-xl min-h-[44px]"
+          style={{ backgroundColor: '#F3F4F6', color: '#0F1F3D', fontSize: '15px', fontWeight: 500, border: 'none', cursor: 'pointer' }}
         >
           Cancel
         </button>
         <button
           onClick={handleSave}
           className="flex-1 py-3 rounded-xl text-[15px] font-bold text-white min-h-[44px]"
-          style={{ backgroundColor: '#0F1F3D' }}
+          style={{ backgroundColor: '#0F1F3D', border: 'none', cursor: 'pointer' }}
         >
           Save Changes
         </button>
