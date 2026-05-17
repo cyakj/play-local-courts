@@ -1,19 +1,33 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+
+// ResetPassword — handles both PKCE (?code=) and implicit (#access_token=&type=recovery) flows.
+//
+// PKCE flow (supabase-js v2 default with flowType:'pkce'):
+//   Supabase sends ?code=<PKCE_code> in the redirect URL.
+//   The client auto-exchanges the code on load (detectSessionInUrl:true) and fires
+//   onAuthStateChange with SIGNED_IN. getSession() then returns the session.
+//
+// Implicit flow (legacy):
+//   Supabase sends #access_token=...&type=recovery in the URL hash.
+//   The client fires onAuthStateChange with PASSWORD_RECOVERY.
+//
+// This page registers onAuthStateChange BEFORE calling getSession() so it never
+// misses an event that was fired synchronously during client initialization.
 
 const ResetPassword = () => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [hasSession, setHasSession] = useState(false);
+  // 'pending' = waiting for session check, 'valid' = can reset, 'expired' = link invalid/expired
+  const [status, setStatus] = useState<'pending' | 'valid' | 'expired'>('pending');
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [focused, setFocused] = useState<string | null>(null);
+  // Track if we already resolved status so the listener and init don't race
+  const resolvedRef = useRef(false);
 
   const isValid = useMemo(() => {
     if (!password || !confirmPassword) return false;
@@ -21,75 +35,85 @@ const ResetPassword = () => {
     return password === confirmPassword;
   }, [password, confirmPassword]);
 
+  const resolve = (valid: boolean) => {
+    if (resolvedRef.current) return;
+    resolvedRef.current = true;
+    setStatus(valid ? 'valid' : 'expired');
+  };
+
   useEffect(() => {
     let mounted = true;
 
-    // With Supabase PKCE flow (default in supabase-js v2), the recovery email
-    // link contains ?code=... instead of #access_token=...&type=recovery.
-    // The client exchanges the code automatically, but fires SIGNED_IN (not
-    // PASSWORD_RECOVERY) because the PKCE _getSessionFromURL sets redirectType=null.
-    //
-    // Strategy:
-    // 1. Register onAuthStateChange early to catch SIGNED_IN or PASSWORD_RECOVERY.
-    // 2. Call getSession() — it awaits initializePromise, so it resolves only
-    //    after the code exchange completes. If a session exists we have the token.
-    // 3. If still no session and URL has ?code=, manually call
-    //    exchangeCodeForSession() to handle the cross-device / cross-tab case
-    //    (when the PKCE code verifier is missing from this browser's localStorage).
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (!mounted) return;
-        // Accept both PASSWORD_RECOVERY (implicit flow) and SIGNED_IN (PKCE flow).
-        if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
-          if (session) {
-            setHasSession(true);
-            setLoading(false);
-          }
-        }
+    // 1. Register listener first — catches events fired synchronously by the client
+    //    when it auto-exchanges the ?code= param (detectSessionInUrl:true).
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return;
+      // PASSWORD_RECOVERY = implicit flow; SIGNED_IN = PKCE flow after code exchange.
+      // Both mean we have a valid recovery session.
+      if ((event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') && session) {
+        resolve(true);
       }
-    );
+    });
 
+    // 2. Attempt to get the current session. getSession() awaits the client's
+    //    internal initializePromise, so it resolves after any auto-exchange is done.
     const init = async () => {
       try {
-        // getSession() awaits initializePromise — safe to call immediately.
         const { data, error } = await supabase.auth.getSession();
+        if (!mounted) return;
         if (error) throw error;
 
-        if (!mounted) return;
-
         if (data.session) {
-          setHasSession(true);
-          setLoading(false);
+          resolve(true);
           return;
         }
 
-        // No session yet. Check if a PKCE code is in the URL and the verifier
-        // is missing from storage (cross-device / cross-tab scenario).
+        // 3. No session: check if a ?code= is present but wasn't auto-exchanged
+        //    (e.g. link opened in a different browser where the PKCE verifier is absent).
         const params = new URLSearchParams(window.location.search);
         const code = params.get('code');
         if (code) {
           const { data: exchangeData, error: exchangeError } =
             await supabase.auth.exchangeCodeForSession(code);
           if (!mounted) return;
-          if (exchangeError) {
-            console.error("Reset password code exchange error:", exchangeError);
-            setHasSession(false);
-          } else if (exchangeData.session) {
-            setHasSession(true);
+          if (!exchangeError && exchangeData.session) {
+            resolve(true);
           } else {
-            setHasSession(false);
+            console.error("Reset password — code exchange failed:", exchangeError);
+            resolve(false);
           }
-        } else {
-          // No code param and no session — the link is invalid or expired.
-          setHasSession(false);
+          return;
         }
+
+        // 4. Also check URL hash for implicit flow (#access_token=...&type=recovery)
+        //    in case the client didn't fire the event yet.
+        const hash = window.location.hash.substring(1);
+        if (hash) {
+          const hashParams = new URLSearchParams(hash);
+          const type = hashParams.get('type');
+          const accessToken = hashParams.get('access_token');
+          if (type === 'recovery' && accessToken) {
+            // Session should be set by the client; call getSession once more.
+            const { data: retryData } = await supabase.auth.getSession();
+            if (!mounted) return;
+            resolve(!!retryData.session);
+            return;
+          }
+        }
+
+        // 5. Check for explicit error params Supabase may forward when the link is
+        //    expired or the redirect URL is not whitelisted.
+        const errorCode = params.get('error_code');
+        if (errorCode) {
+          console.warn("Reset password — Supabase error in URL:", params.get('error'), errorCode);
+        }
+
+        // No code, no hash, no session — link is invalid or expired.
+        resolve(false);
       } catch (e: unknown) {
         console.error("Reset password init error:", e);
         if (!mounted) return;
-        setHasSession(false);
-      } finally {
-        if (mounted) setLoading(false);
+        resolve(false);
       }
     };
 
@@ -103,19 +127,15 @@ const ResetPassword = () => {
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!hasSession) {
-      toast.error("This reset link is invalid or expired. Please request a new one.");
-      return;
-    }
+    setErrorMsg("");
 
     if (password.length < 8) {
-      toast.error("Password must be at least 8 characters.");
+      setErrorMsg("Password must be at least 8 characters.");
       return;
     }
 
     if (password !== confirmPassword) {
-      toast.error("Passwords do not match.");
+      setErrorMsg("Passwords do not match.");
       return;
     }
 
@@ -124,44 +144,153 @@ const ResetPassword = () => {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
 
-      toast.success("Password updated. Please log in with your new password.");
+      toast.success("Password updated successfully.");
       await supabase.auth.signOut();
-      navigate("/login", { replace: true, state: { message: "Password updated. Please sign in." } });
-    } catch (e: any) {
+      navigate("/login", { replace: true, state: { message: "Password updated. Please sign in with your new password." } });
+    } catch (e: unknown) {
+      const msg = (e as { message?: string })?.message || "Failed to update password.";
       console.error("Update password error:", e);
-      toast.error(e?.message || "Failed to update password");
+      setErrorMsg(msg);
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (loading) {
+  const inputBase: React.CSSProperties = {
+    width: '100%',
+    borderRadius: 8,
+    padding: '12px 16px',
+    fontSize: 15,
+    color: '#0F1F3D',
+    fontFamily: 'Inter, sans-serif',
+    background: 'white',
+    boxSizing: 'border-box',
+    transition: 'border-color 0.15s, outline 0.15s',
+  };
+
+  const fieldStyle = (field: string): React.CSSProperties => ({
+    ...inputBase,
+    border: `1px solid ${focused === field ? '#00D4FF' : '#E5E7EB'}`,
+    outline: focused === field ? '2px solid rgba(0,212,255,0.2)' : 'none',
+    outlineOffset: 0,
+  });
+
+  if (status === 'pending') {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary" />
+      <div
+        style={{
+          minHeight: '100vh',
+          background: '#F9FAFB',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <div
+          style={{
+            width: 48,
+            height: 48,
+            border: '2px solid rgba(0,212,255,0.2)',
+            borderTopColor: '#00D4FF',
+            borderRadius: '50%',
+            animation: 'spin 0.8s linear infinite',
+          }}
+        />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <main className="flex-grow flex items-center justify-center p-4">
-        <Card className="w-full max-w-md shadow-lg">
-          <CardHeader>
-            <CardTitle className="text-2xl">Reset password</CardTitle>
-            <CardDescription>
-              {hasSession
-                ? "Choose a new password for your account."
-                : "This reset link is invalid or expired. Request a new reset email."}
-            </CardDescription>
-          </CardHeader>
+    <div
+      style={{
+        minHeight: '100vh',
+        background: '#F9FAFB',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '24px 20px',
+      }}
+    >
+      <div style={{ width: '100%', maxWidth: 400 }}>
+        {/* Logo */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32 }}>
+          <img
+            src="/images/TenisX_logo-removebg-preview.png"
+            alt="TenisX"
+            style={{ height: 64, width: 'auto', maxWidth: 180 }}
+          />
+        </div>
 
-          <CardContent>
-            {hasSession ? (
-              <form onSubmit={handleUpdatePassword} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="password">New password</Label>
-                  <Input
+        {/* Card */}
+        <div
+          style={{
+            background: 'white',
+            borderRadius: 16,
+            padding: 32,
+            boxShadow: '0px 4px 6px rgba(15,31,61,0.04), 0px 12px 32px rgba(15,31,61,0.06)',
+            border: '1px solid rgba(15,31,61,0.06)',
+          }}
+        >
+          {status === 'valid' ? (
+            <>
+              <h1
+                style={{
+                  fontSize: 24,
+                  fontWeight: 700,
+                  color: '#0F1F3D',
+                  fontFamily: 'Manrope, sans-serif',
+                  marginBottom: 6,
+                  lineHeight: 1.2,
+                }}
+              >
+                Reset Your Password
+              </h1>
+              <p
+                style={{
+                  fontSize: 14,
+                  color: '#4B5563',
+                  fontFamily: 'Inter, sans-serif',
+                  marginBottom: 24,
+                }}
+              >
+                Enter your new password below.
+              </p>
+
+              {errorMsg && (
+                <div
+                  style={{
+                    background: '#FFF5F5',
+                    border: '1px solid #F97066',
+                    color: '#C0392B',
+                    borderRadius: 8,
+                    padding: '10px 14px',
+                    marginBottom: 16,
+                    fontSize: 14,
+                    fontFamily: 'Inter, sans-serif',
+                  }}
+                >
+                  {errorMsg}
+                </div>
+              )}
+
+              <form onSubmit={handleUpdatePassword}>
+                <div style={{ marginBottom: 16 }}>
+                  <label
+                    htmlFor="password"
+                    style={{
+                      display: 'block',
+                      fontSize: 13,
+                      fontWeight: 500,
+                      color: '#0F1F3D',
+                      marginBottom: 6,
+                      fontFamily: 'Inter, sans-serif',
+                    }}
+                  >
+                    New Password
+                  </label>
+                  <input
                     id="password"
                     type="password"
                     value={password}
@@ -170,12 +299,27 @@ const ResetPassword = () => {
                     autoComplete="new-password"
                     required
                     disabled={submitting}
+                    onFocus={() => setFocused('password')}
+                    onBlur={() => setFocused(null)}
+                    style={fieldStyle('password')}
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">Confirm new password</Label>
-                  <Input
+                <div style={{ marginBottom: 24 }}>
+                  <label
+                    htmlFor="confirmPassword"
+                    style={{
+                      display: 'block',
+                      fontSize: 13,
+                      fontWeight: 500,
+                      color: '#0F1F3D',
+                      marginBottom: 6,
+                      fontFamily: 'Inter, sans-serif',
+                    }}
+                  >
+                    Confirm New Password
+                  </label>
+                  <input
                     id="confirmPassword"
                     type="password"
                     value={confirmPassword}
@@ -184,24 +328,127 @@ const ResetPassword = () => {
                     autoComplete="new-password"
                     required
                     disabled={submitting}
+                    onFocus={() => setFocused('confirmPassword')}
+                    onBlur={() => setFocused(null)}
+                    style={fieldStyle('confirmPassword')}
                   />
                 </div>
 
-                <Button type="submit" className="w-full" disabled={!isValid || submitting}>
-                  {submitting ? "Updating..." : "Update password"}
-                </Button>
+                <button
+                  type="submit"
+                  disabled={!isValid || submitting}
+                  style={{
+                    width: '100%',
+                    minHeight: 52,
+                    background: (!isValid || submitting) ? '#8892A4' : '#0F1F3D',
+                    color: 'white',
+                    borderRadius: 12,
+                    border: 'none',
+                    fontSize: 16,
+                    fontWeight: 600,
+                    fontFamily: 'Manrope, sans-serif',
+                    cursor: (!isValid || submitting) ? 'not-allowed' : 'pointer',
+                    padding: '0 16px',
+                    transition: 'background 0.15s',
+                  }}
+                >
+                  {submitting ? "Updating..." : "Set New Password"}
+                </button>
               </form>
-            ) : (
-              <Button className="w-full" onClick={() => navigate("/login")}
-                >Back to login</Button>
-            )}
-          </CardContent>
+            </>
+          ) : (
+            <>
+              {/* Expired / invalid state */}
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
+                <div
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: '50%',
+                    background: 'rgba(249,112,102,0.1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#F97066" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                </div>
+              </div>
 
-          <CardFooter className="text-xs text-muted-foreground">
-            If you keep seeing “Invalid token”, request a new reset email and use the most recent link.
-          </CardFooter>
-        </Card>
-      </main>
+              <h1
+                style={{
+                  fontSize: 24,
+                  fontWeight: 700,
+                  color: '#0F1F3D',
+                  fontFamily: 'Manrope, sans-serif',
+                  marginBottom: 8,
+                  lineHeight: 1.2,
+                  textAlign: 'center',
+                }}
+              >
+                Link Expired
+              </h1>
+              <p
+                style={{
+                  fontSize: 14,
+                  color: '#4B5563',
+                  fontFamily: 'Inter, sans-serif',
+                  marginBottom: 24,
+                  textAlign: 'center',
+                  lineHeight: 1.6,
+                }}
+              >
+                This reset link has expired or is invalid. Password reset links are valid for a limited time.
+                Please request a new one.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => navigate("/login")}
+                style={{
+                  width: '100%',
+                  minHeight: 52,
+                  background: '#0F1F3D',
+                  color: 'white',
+                  borderRadius: 12,
+                  border: 'none',
+                  fontSize: 16,
+                  fontWeight: 600,
+                  fontFamily: 'Manrope, sans-serif',
+                  cursor: 'pointer',
+                  padding: '0 16px',
+                  transition: 'background 0.15s',
+                }}
+              >
+                Back to Login
+              </button>
+            </>
+          )}
+
+          {/* Back to login link */}
+          <div style={{ marginTop: 20, textAlign: 'center' }}>
+            <button
+              type="button"
+              onClick={() => navigate("/login")}
+              style={{
+                fontSize: 14,
+                color: '#00D4FF',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                fontWeight: 500,
+                fontFamily: 'Inter, sans-serif',
+              }}
+            >
+              Back to login
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
