@@ -251,25 +251,25 @@ const MaintenanceReports = () => {
                   </span>
                 </div>
 
-                <div className="text-[15px] leading-relaxed mb-3 line-clamp-2" style={{ color: '#374151' }}>
+                <div className="text-[17px] leading-relaxed mb-3 line-clamp-3" style={{ color: '#374151', fontWeight: 500 }}>
                   {cleanDescription(report.description)}
                 </div>
 
-                <div className="flex items-center gap-4 mb-3">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mb-3">
                   <div className="flex items-center gap-1.5">
-                    <User className="h-3.5 w-3.5" style={{ color: '#4B5563' }} />
-                    <span className="text-[13px]" style={{ color: '#4B5563' }}>{report.reporter_name}</span>
+                    <User className="h-4 w-4" style={{ color: '#4B5563' }} />
+                    <span className="text-[15px] font-semibold" style={{ color: '#0F1F3D' }}>{report.reporter_name}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <Calendar className="h-3.5 w-3.5" style={{ color: '#4B5563' }} />
-                    <span className="text-[13px]" style={{ color: '#4B5563' }}>
+                    <Calendar className="h-4 w-4" style={{ color: '#4B5563' }} />
+                    <span className="text-[15px] font-medium" style={{ color: '#4B5563' }}>
                       {new Date(report.created_at).toLocaleDateString()}
                     </span>
                   </div>
                   {report.assignee && (
                     <div className="flex items-center gap-1.5">
-                      <MapPin className="h-3.5 w-3.5" style={{ color: '#4B5563' }} />
-                      <span className="text-[13px]" style={{ color: '#4B5563' }}>{report.assignee}</span>
+                      <MapPin className="h-4 w-4" style={{ color: '#4B5563' }} />
+                      <span className="text-[15px] font-medium" style={{ color: '#4B5563' }}>{report.assignee}</span>
                     </div>
                   )}
                 </div>
@@ -330,7 +330,7 @@ const ReportDetailForm: React.FC<{
         <div className="text-[16px] font-extrabold" style={{ color: '#0F1F3D', fontFamily: 'Manrope, sans-serif' }}>
           {report.report_type === 'location' ? report.location_text || 'Unknown location' : report.amenity_name}
         </div>
-        <div className="text-[13px] font-medium mt-1" style={{ color: '#4B5563' }}>
+        <div className="text-[15px] font-semibold mt-1" style={{ color: '#0F1F3D' }}>
           Reported by {report.reporter_name} · {new Date(report.created_at).toLocaleDateString()}
         </div>
         <div className="text-[13px] mt-0.5 uppercase font-semibold" style={{ color: '#4B5563', letterSpacing: '0.08em' }}>
@@ -340,7 +340,7 @@ const ReportDetailForm: React.FC<{
 
       <div>
         <div className="text-[13px] uppercase font-semibold mb-1.5" style={{ color: '#374151', letterSpacing: '0.08em' }}>Description</div>
-        <div className="p-4 rounded-xl text-[15px] leading-relaxed" style={{ backgroundColor: '#F9FAFB', color: '#0F1F3D' }}>
+        <div className="p-4 rounded-xl text-[17px] leading-relaxed" style={{ backgroundColor: '#F9FAFB', color: '#0F1F3D', fontWeight: 500 }}>
           {cleanDescription(report.description)}
         </div>
       </div>
