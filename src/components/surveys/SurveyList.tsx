@@ -106,9 +106,10 @@ export const SurveyList: React.FC<SurveyListProps> = ({
         .eq('hoa_id', communityId)
         .eq('status', 'approved');
 
-      if (members && members.length > 0) {
-        await supabase.from('hoa_notifications').insert(
-          members.map(m => ({
+      if (members && members.length > 0 && currentUser?.id) {
+        const closedNotifs = members
+          .filter((m: any) => m.user_id !== currentUser.id)
+          .map((m: any) => ({
             user_id: m.user_id,
             hoa_id: communityId,
             type: 'survey_closed',
@@ -117,8 +118,8 @@ export const SurveyList: React.FC<SurveyListProps> = ({
               ? 'Results are now available — tap to view'
               : 'Thank you for participating!',
             metadata: { survey_id: surveyId, show_results: showResults },
-          }))
-        );
+          }));
+        if (closedNotifs.length > 0) await supabase.from('hoa_notifications').insert(closedNotifs);
       }
     }
 
@@ -151,15 +152,17 @@ export const SurveyList: React.FC<SurveyListProps> = ({
       .eq('hoa_id', communityId)
       .eq('status', 'approved');
     if (members && members.length > 0 && currentUser?.id) {
-      await supabase.from('hoa_notifications').insert(
-        members.map(m => ({
+      const publishedNotifs = members
+        .filter((m: any) => m.user_id !== currentUser.id)
+        .map((m: any) => ({
           user_id: m.user_id,
           hoa_id: communityId,
           type: 'survey_published',
           title: `New survey: ${survey.title}`,
           body: `A new community survey is available — closes ${new Date(survey.closes_at).toLocaleDateString()}`,
-        }))
-      );
+          metadata: { survey_id: survey.id },
+        }));
+      if (publishedNotifs.length > 0) await supabase.from('hoa_notifications').insert(publishedNotifs);
     }
 
     toast.success('Survey published!');

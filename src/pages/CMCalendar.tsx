@@ -226,15 +226,16 @@ const CMCalendar = () => {
         .eq('hoa_id', evCommunityId)
         .eq('status', 'approved');
       if (members) {
-        await supabase.from('hoa_notifications').insert(
-          members.map(m => ({
+        const eventNotifs = members
+          .filter((m: any) => m.user_id !== currentUser.id)
+          .map((m: any) => ({
             user_id: m.user_id,
             hoa_id: evCommunityId,
             type: 'event_created' as const,
             title: `New event: ${evTitle.trim()}`,
             body: `${evDate} at ${evStartTime}${evLocation ? ` · ${evLocation}` : ''}`,
-          }))
-        );
+          }));
+        if (eventNotifs.length > 0) await supabase.from('hoa_notifications').insert(eventNotifs);
       }
     }
 

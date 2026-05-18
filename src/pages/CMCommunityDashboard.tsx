@@ -125,7 +125,7 @@ const CMCommunityDashboard = () => {
       .from('hoa_memberships').select('user_id').eq('hoa_id', c.id).eq('status', 'approved');
     if (members) {
       const notifs = members
-        .filter(m => announcementAudience === 'all_residents' || m.user_id === currentUser.id)
+        .filter(m => m.user_id !== currentUser.id)
         .map(m => ({ user_id: m.user_id, hoa_id: c.id, type: 'announcement' as const, title: announcementTitle.trim(), body: announcementBody.trim() }));
       if (notifs.length > 0) await supabase.from('hoa_notifications').insert(notifs);
     }

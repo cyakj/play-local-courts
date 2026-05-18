@@ -162,14 +162,17 @@ export const SurveyBuilder: React.FC<SurveyBuilderProps> = ({ communityId, onBac
         .eq('hoa_id', communityId)
         .eq('status', 'approved');
       if (members) {
-        const notifs = members.map(m => ({
-          user_id: m.user_id,
-          hoa_id: communityId,
-          type: 'survey_published',
-          title: `New survey: ${title.trim()}`,
-          body: `A new community survey is available — closes ${new Date(closesAt).toLocaleDateString()}`,
-        }));
-        await supabase.from('hoa_notifications').insert(notifs);
+        const notifs = members
+          .filter((m: any) => m.user_id !== currentUser.id)
+          .map((m: any) => ({
+            user_id: m.user_id,
+            hoa_id: communityId,
+            type: 'survey_published',
+            title: `New survey: ${title.trim()}`,
+            body: `A new community survey is available — closes ${new Date(closesAt).toLocaleDateString()}`,
+            metadata: { survey_id: surveyId },
+          }));
+        if (notifs.length > 0) await supabase.from('hoa_notifications').insert(notifs);
       }
     }
 
