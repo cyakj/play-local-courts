@@ -5,6 +5,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { Users, CheckCircle2, XCircle, ArrowRight } from 'lucide-react';
 
+type PublicInviteCommunity = {
+  id: string;
+  name: string;
+  invite_enabled: boolean;
+  invite_expires_at: string | null;
+};
+
 const JoinByInvite = () => {
   const { inviteCode } = useParams<{ inviteCode: string }>();
   const navigate = useNavigate();
@@ -22,32 +29,33 @@ const JoinByInvite = () => {
       setLoading(true);
       const { data, error: fetchErr } = await supabase
         .rpc('get_public_hoa_invite_by_code', { _invite_code: inviteCode! });
+      const inviteCommunity = data?.[0] as PublicInviteCommunity | undefined;
 
-      if (fetchErr || !data) {
+      if (fetchErr || !inviteCommunity) {
         setError('This invite link is no longer valid. Please contact your community manager for a new link.');
         setLoading(false);
         return;
       }
 
-      if (!data.invite_enabled) {
+      if (!inviteCommunity.invite_enabled) {
         setError('This invite link has been disabled. Please contact your community manager for a new link.');
         setLoading(false);
         return;
       }
 
-      if (data.invite_expires_at && new Date(data.invite_expires_at) < new Date()) {
+      if (inviteCommunity.invite_expires_at && new Date(inviteCommunity.invite_expires_at) < new Date()) {
         setError('This invite link has expired. Please contact your community manager for a new link.');
         setLoading(false);
         return;
       }
 
-      setCommunity(data);
+      setCommunity(inviteCommunity);
 
       // Get member count
       const { count } = await supabase
         .from('hoa_memberships')
         .select('id', { count: 'exact', head: true })
-        .eq('hoa_id', data.id)
+        .eq('hoa_id', inviteCommunity.id)
         .eq('status', 'approved');
       setMemberCount(count ?? 0);
       setLoading(false);
