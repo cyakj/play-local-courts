@@ -66,9 +66,14 @@ const BookingFlow: React.FC = () => {
     const r = rules as any;
     if (isCourtSport) {
       const opts = [{ value: 'singles' as const, label: 'Singles' }, { value: 'doubles' as const, label: 'Doubles' }];
-      if (r?.singles_only) return opts.filter(o => o.value === 'singles');
-      if (r?.doubles_only) return opts.filter(o => o.value === 'doubles');
-      return opts;
+      const singlesAllowed = !!r?.singles_only;
+      const doublesAllowed = !!r?.doubles_only;
+      // Fallback: if neither flag is set (legacy data), allow both
+      if (!singlesAllowed && !doublesAllowed) return opts;
+      return opts.filter(o =>
+        (o.value === 'singles' && singlesAllowed) ||
+        (o.value === 'doubles' && doublesAllowed)
+      );
     }
     return [{ value: 'family' as const, label: 'Family' }, { value: 'group' as const, label: 'Group' }];
   }, [rules, isCourtSport]);
