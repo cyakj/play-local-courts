@@ -139,7 +139,7 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document: doc, userId
         canvas.height = Math.ceil(viewport.height);
         const ctx = canvas.getContext('2d')!;
 
-        await page.render({ canvasContext: ctx, viewport }).promise;
+        await page.render({ canvas, canvasContext: ctx, viewport } as any).promise;
         if (!cancelled) {
           setPageDataUrl(canvas.toDataURL('image/jpeg', 0.92));
           setPageLoading(false);

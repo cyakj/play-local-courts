@@ -121,7 +121,7 @@ const CMSecurity = () => {
     try {
       const { data, error } = await supabase.auth.mfa.listFactors();
       if (error) throw error;
-      setEnrolledFactors(data?.all || []);
+      setEnrolledFactors((data?.all || []) as any);
     } catch (e) {
       console.error('Failed to load MFA factors:', e);
     } finally {
