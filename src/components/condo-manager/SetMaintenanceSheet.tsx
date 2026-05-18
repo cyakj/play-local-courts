@@ -58,7 +58,6 @@ const SetMaintenanceSheet: React.FC<SetMaintenanceSheetProps> = ({ open, onClose
   const { currentUser } = useAuth();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [slots, setSlots] = useState<SlotState[]>(generateTimeSlots());
-  const [loading, setLoading] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<SlotState | null>(null);
   const dateStripRef = useRef<HTMLDivElement>(null);
 
@@ -134,19 +133,45 @@ const SetMaintenanceSheet: React.FC<SetMaintenanceSheetProps> = ({ open, onClose
     fetchData();
   }, [open, selectedDate, amenity.id]);
 
-  const handleSlotTap = (idx: number) => {
+  const handleSlotTap = async (idx: number) => {
     const slot = slots[idx];
     if (isSlotInPast(slot.time, selectedDate)) return;
-    
+
     if (slot.state === 'booked') {
       setSelectedBooking(slot);
       return;
     }
-    
-    // Toggle available <-> maintenance
-    setSlots((prev) => prev.map((s, i) => 
-      i === idx ? { ...s, state: s.state === 'maintenance' ? 'available' : 'maintenance' } : s
-    ));
+
+    const dateStr = format(selectedDate, 'yyyy-MM-dd');
+    const nextState: SlotType = slot.state === 'maintenance' ? 'available' : 'maintenance';
+
+    // Optimistic UI
+    setSlots((prev) => prev.map((s, i) => (i === idx ? { ...s, state: nextState } : s)));
+
+    if (nextState === 'maintenance') {
+      const { error } = await supabase.from('court_maintenance').insert({
+        court_id: amenity.id,
+        date: dateStr,
+        start_time: slot.time,
+        end_time: slot.endTime,
+        description: 'Scheduled maintenance',
+      });
+      if (error) {
+        setSlots((prev) => prev.map((s, i) => (i === idx ? { ...s, state: 'available' } : s)));
+        toast.error('Failed to block slot');
+      }
+    } else {
+      const { error } = await supabase
+        .from('court_maintenance')
+        .delete()
+        .eq('court_id', amenity.id)
+        .eq('date', dateStr)
+        .eq('start_time', slot.time);
+      if (error) {
+        setSlots((prev) => prev.map((s, i) => (i === idx ? { ...s, state: 'maintenance' } : s)));
+        toast.error('Failed to free slot');
+      }
+    }
   };
 
   const handleCancelBooking = async (slot: SlotState, reason?: string) => {
@@ -235,35 +260,6 @@ const SetMaintenanceSheet: React.FC<SetMaintenanceSheetProps> = ({ open, onClose
     toast.success('Booking cancelled');
   };
 
-  const handleSave = async () => {
-    setLoading(true);
-    const dateStr = format(selectedDate, 'yyyy-MM-dd');
-
-    // Delete existing maintenance for this amenity+date
-    await supabase.from('court_maintenance').delete().eq('court_id', amenity.id).eq('date', dateStr);
-
-    // Insert new maintenance slots
-    const maintenanceSlots = slots.filter((s) => s.state === 'maintenance');
-    if (maintenanceSlots.length > 0) {
-      const rows = maintenanceSlots.map((s) => ({
-        court_id: amenity.id,
-        date: dateStr,
-        start_time: s.time,
-        end_time: s.endTime,
-        description: 'Scheduled maintenance',
-      }));
-      const { error } = await supabase.from('court_maintenance').insert(rows);
-      if (error) {
-        toast.error('Failed to save maintenance schedule');
-        setLoading(false);
-        return;
-      }
-    }
-
-    toast.success('Maintenance schedule saved');
-    setLoading(false);
-    onClose();
-  };
 
   if (!open) return null;
 
@@ -347,7 +343,7 @@ const SetMaintenanceSheet: React.FC<SetMaintenanceSheetProps> = ({ open, onClose
 
           {/* Hint text */}
           <div className="text-[11px] italic mb-2.5" style={{ color: '#9CA3AF' }}>
-            Tap available/maintenance to toggle · Tap booked to manage
+            Tap available/maintenance to toggle (saves automatically) · Tap booked to manage
           </div>
 
           {/* Time slot grid */}
@@ -423,10 +419,10 @@ const SetMaintenanceSheet: React.FC<SetMaintenanceSheetProps> = ({ open, onClose
           </div>
         </div>
 
-        {/* Save button */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t" style={{ borderColor: '#E5E7EB' }}>
+        {/* Done button */}
+        <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t" style={{ borderColor: '#E5E7EB', paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}>
           <div
-            onClick={loading ? undefined : handleSave}
+            onClick={onClose}
             className="text-center cursor-pointer text-sm font-bold flex items-center justify-center"
             style={{
               backgroundColor: '#0F1F3D',
@@ -434,10 +430,9 @@ const SetMaintenanceSheet: React.FC<SetMaintenanceSheetProps> = ({ open, onClose
               borderRadius: 10,
               padding: 14,
               width: '100%',
-              opacity: loading ? 0.6 : 1,
             }}
           >
-            {loading ? 'Saving...' : 'Save Maintenance Schedule'}
+            Done
           </div>
         </div>
       </div>
