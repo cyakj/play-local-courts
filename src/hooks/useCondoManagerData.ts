@@ -15,7 +15,7 @@ export interface CMCommunityData {
   activeMembers: number;
   avgResolutionDays: number;
   utilization: number;
-  amenities: { id: string; name: string; type: string }[];
+  amenities: { id: string; name: string; type: string; utilization: number }[];
 }
 
 export interface CMNotification {
@@ -123,18 +123,56 @@ export function useCondoManagerCommunities() {
         .in('hoa_id', hoaIds)
         .eq('status', 'pending');
 
-      // Today's bookings
-      const today = new Date().toISOString().split('T')[0];
+      // Today's bookings (for the "Today's Bookings" stat) + last-7-day bookings (for utilization)
+      const today = new Date();
+      const todayStr = today.toISOString().split('T')[0];
+      const sevenDaysAgo = new Date(today);
+      sevenDaysAgo.setDate(today.getDate() - 6); // inclusive 7-day window ending today
+      const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
+
       const courtIds = (courts || []).map(c => c.id);
       let todayBookings: any[] = [];
+      let weekBookings: any[] = [];
       if (courtIds.length > 0) {
-        const { data } = await supabase
-          .from('bookings')
-          .select('id, court_id, date')
-          .in('court_id', courtIds)
-          .eq('date', today);
-        todayBookings = data || [];
+        const [{ data: tData }, { data: wData }] = await Promise.all([
+          supabase
+            .from('bookings')
+            .select('id, court_id, date')
+            .in('court_id', courtIds)
+            .eq('date', todayStr)
+            .neq('status', 'cancelled'),
+          supabase
+            .from('bookings')
+            .select('id, court_id, date, start_time, end_time, status')
+            .in('court_id', courtIds)
+            .gte('date', sevenDaysAgoStr)
+            .lte('date', todayStr)
+            .neq('status', 'cancelled'),
+        ]);
+        todayBookings = tData || [];
+        weekBookings = wData || [];
       }
+
+      // Per-amenity booking-hours window from amenity_rules (fallback 7am-9pm = 14h)
+      const { data: rulesRows } = courtIds.length > 0
+        ? await supabase
+            .from('amenity_rules')
+            .select('amenity_id, booking_start_time, booking_end_time')
+            .in('amenity_id', courtIds)
+        : { data: [] as any[] };
+      const rulesByCourt = new Map<string, { start: string; end: string }>();
+      (rulesRows || []).forEach((r: any) => {
+        rulesByCourt.set(r.amenity_id, {
+          start: r.booking_start_time || '07:00:00',
+          end: r.booking_end_time || '21:00:00',
+        });
+      });
+
+      const hoursBetween = (start: string, end: string) => {
+        const [sh, sm] = start.split(':').map(Number);
+        const [eh, em] = end.split(':').map(Number);
+        return Math.max(0, (eh * 60 + em - sh * 60 - sm) / 60);
+      };
 
       // All members per HOA
       const { data: allMembers } = await supabase
@@ -152,8 +190,8 @@ export function useCondoManagerCommunities() {
         const hoaCourtIds = hoaCourts.map(c => c.id);
         const bookingsToday = todayBookings.filter(b => hoaCourtIds.includes(b.court_id)).length;
         const members = (allMembers || []).filter(m => m.hoa_id === hoa.id);
-        const activeCount = members.length; // Simplified - count approved members
-        const totalUnits = Math.max(activeCount, 20); // Estimate
+        const activeCount = members.length;
+        const totalUnits = Math.max(activeCount, 20);
 
         // Avg resolution
         const resolved = hoaReports.filter(r => r.status === 'resolved' && r.completed_at);
@@ -167,9 +205,31 @@ export function useCondoManagerCommunities() {
           avgRes = Math.round((totalDays / resolved.length) * 10) / 10;
         }
 
-        // Utilization: simplified - bookings today / (courts * 14 slots) * 100 * 7 for weekly
-        const weeklySlots = hoaCourts.length * 14 * 7; // 14 slots per day * 7 days
-        const utilization = weeklySlots > 0 ? Math.round((bookingsToday * 7 / weeklySlots) * 100) : 0;
+        // Per-amenity utilization over last 7 days
+        const amenitiesWithUtil = hoaCourts.map(court => {
+          const rule = rulesByCourt.get(court.id) || { start: '07:00:00', end: '21:00:00' };
+          const dailyCapacityHrs = hoursBetween(rule.start, rule.end);
+          const capacityHrs = dailyCapacityHrs * 7;
+          const bookedHrs = weekBookings
+            .filter(b => b.court_id === court.id)
+            .reduce((sum, b) => sum + hoursBetween(b.start_time, b.end_time), 0);
+          const util = capacityHrs > 0 ? Math.round((bookedHrs / capacityHrs) * 100) : 0;
+          return { id: court.id, name: court.name, type: court.court_type, utilization: util };
+        });
+
+        // Community-wide utilization = sum booked / sum capacity (all amenities)
+        let totalBookedHrs = 0;
+        let totalCapacityHrs = 0;
+        hoaCourts.forEach(court => {
+          const rule = rulesByCourt.get(court.id) || { start: '07:00:00', end: '21:00:00' };
+          totalCapacityHrs += hoursBetween(rule.start, rule.end) * 7;
+          totalBookedHrs += weekBookings
+            .filter(b => b.court_id === court.id)
+            .reduce((sum, b) => sum + hoursBetween(b.start_time, b.end_time), 0);
+        });
+        const utilization = totalCapacityHrs > 0
+          ? Math.round((totalBookedHrs / totalCapacityHrs) * 100)
+          : 0;
 
         const { score, status } = calcHealthScore(avgRes, openCount, totalUnits, utilization, activeCount);
 
@@ -186,7 +246,7 @@ export function useCondoManagerCommunities() {
           activeMembers: activeCount,
           avgResolutionDays: avgRes,
           utilization,
-          amenities: hoaCourts.map(c => ({ id: c.id, name: c.name, type: c.court_type })),
+          amenities: amenitiesWithUtil,
         };
       });
 
