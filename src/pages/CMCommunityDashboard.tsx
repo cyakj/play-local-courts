@@ -35,7 +35,7 @@ type StatCardProps = {
   badge?: React.ReactNode;
 };
 const StatCard = ({ icon, value, label, badge }: StatCardProps) => (
-  <div className="bg-white rounded-2xl p-5 border border-gray-100 flex flex-col justify-between h-28"
+  <div className="bg-white rounded-2xl p-5 pb-6 border border-gray-100 flex flex-col justify-between h-32"
     style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
     <div className="flex justify-between items-start">
       <div style={{ color: '#00D4FF' }}>{icon}</div>
