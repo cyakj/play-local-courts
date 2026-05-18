@@ -349,7 +349,16 @@ const CMCommunityDashboard = () => {
         {tab === 'amenities' && (
           <>
             <div className="grid grid-cols-2 gap-3">
-              <StatCard icon={<BarChart2 className="h-5 w-5" />} value={`${c.utilization}%`} label="Utilization Rate" />
+              <StatCard icon={<BarChart2 className="h-5 w-5" />} value={`${c.utilization}%`} label="Overall Utilization" />
+              <StatCard
+                icon={<BarChart2 className="h-5 w-5" />}
+                value={
+                  c.amenities.length > 0
+                    ? `${Math.round(c.amenities.reduce((s, a) => s + a.utilization, 0) / c.amenities.length)}%`
+                    : '0%'
+                }
+                label="Avg Per Amenity"
+              />
             </div>
             <div className="flex items-center justify-between">
               <h2 className="font-bold text-base" style={{ color: '#0F1F3D', fontFamily: 'Manrope, sans-serif' }}>Amenities</h2>
