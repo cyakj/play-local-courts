@@ -260,35 +260,6 @@ const SetMaintenanceSheet: React.FC<SetMaintenanceSheetProps> = ({ open, onClose
     toast.success('Booking cancelled');
   };
 
-  const handleSave = async () => {
-    setLoading(true);
-    const dateStr = format(selectedDate, 'yyyy-MM-dd');
-
-    // Delete existing maintenance for this amenity+date
-    await supabase.from('court_maintenance').delete().eq('court_id', amenity.id).eq('date', dateStr);
-
-    // Insert new maintenance slots
-    const maintenanceSlots = slots.filter((s) => s.state === 'maintenance');
-    if (maintenanceSlots.length > 0) {
-      const rows = maintenanceSlots.map((s) => ({
-        court_id: amenity.id,
-        date: dateStr,
-        start_time: s.time,
-        end_time: s.endTime,
-        description: 'Scheduled maintenance',
-      }));
-      const { error } = await supabase.from('court_maintenance').insert(rows);
-      if (error) {
-        toast.error('Failed to save maintenance schedule');
-        setLoading(false);
-        return;
-      }
-    }
-
-    toast.success('Maintenance schedule saved');
-    setLoading(false);
-    onClose();
-  };
 
   if (!open) return null;
 
