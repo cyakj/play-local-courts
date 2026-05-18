@@ -314,8 +314,8 @@ const ResidentCalendar = () => {
                       </span>
                       {isToday && !isSel && dots.length === 0 && <div className="absolute -bottom-0.5 w-3 h-[2px] rounded-full" style={{ background: '#00D4FF' }} />}
                     </div>
-                    <div className="flex gap-0.5 mt-0.5 h-1.5">
-                      {dots.map((c, j) => <div key={j} className="w-1.5 h-1.5 rounded-full" style={{ background: c }} />)}
+                    <div className="flex gap-[3px] mt-0.5 h-1.5">
+                      {dots.map((c, j) => <div key={j} className="w-[6px] h-[6px] rounded-full" style={{ background: c }} />)}
                     </div>
                   </div>
                 );
@@ -368,8 +368,8 @@ const ResidentCalendar = () => {
                       </span>
                       {isToday && !isSel && dots.length === 0 && <div className="absolute -bottom-0.5 w-3 h-[2px] rounded-full" style={{ background: '#00D4FF' }} />}
                     </div>
-                    <div className="flex gap-0.5 mt-0.5 h-1.5">
-                      {dots.map((c, j) => <div key={j} className="w-1.5 h-1.5 rounded-full" style={{ background: c }} />)}
+                    <div className="flex gap-[3px] mt-0.5 h-1.5">
+                      {dots.map((c, j) => <div key={j} className="w-[6px] h-[6px] rounded-full" style={{ background: c }} />)}
                     </div>
                   </div>
                 );
