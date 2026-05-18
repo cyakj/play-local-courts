@@ -54,6 +54,7 @@ const barColor = (v: number, avg: number) => {
 export const CMIssuesTrendChart = ({ hoaIds, period }: Props) => {
   const [data, setData] = useState<DataPoint[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showAvgTip, setShowAvgTip] = useState(false);
 
   useEffect(() => {
     if (hoaIds.length === 0) {
@@ -207,12 +208,44 @@ export const CMIssuesTrendChart = ({ hoaIds, period }: Props) => {
             className="absolute left-0 right-0 border-t border-dashed z-[2]"
             style={{ borderColor: '#D1D5DB', top: `${8 + (1 - avg / (max + 2)) * 88}px` }}
           >
-            <span
-              className="absolute right-0 bg-white pl-1"
-              style={{ fontSize: 10, fontWeight: 600, color: '#8892A4', top: -10 }}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowAvgTip((v) => !v);
+              }}
+              className="absolute right-0 bg-white pl-1 cursor-pointer"
+              style={{ fontSize: 10, fontWeight: 600, color: '#8892A4', top: -10, border: 'none' }}
             >
               avg
-            </span>
+            </button>
+            {showAvgTip && (
+              <div
+                className="absolute right-0 rounded-lg px-2.5 py-1.5 shadow-lg z-[10] whitespace-nowrap"
+                style={{
+                  top: -42,
+                  background: '#0F1F3D',
+                  color: '#fff',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  fontFamily: 'Inter, sans-serif',
+                }}
+              >
+                Avg: {avgDisplay} {period === 'Week' ? 'per day' : 'per month'}
+                <div
+                  className="absolute"
+                  style={{
+                    right: 8,
+                    bottom: -4,
+                    width: 0,
+                    height: 0,
+                    borderLeft: '4px solid transparent',
+                    borderRight: '4px solid transparent',
+                    borderTop: '4px solid #0F1F3D',
+                  }}
+                />
+              </div>
+            )}
           </div>
         )}
 
