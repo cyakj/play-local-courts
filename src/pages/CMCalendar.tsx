@@ -70,9 +70,9 @@ const PillTabs: React.FC<{
               fontSize: 13,
               fontWeight: 600,
               fontFamily: 'Inter, sans-serif',
-              border: active ? 'none' : '1px solid #0F1F3D',
-              background: active ? '#0F1F3D' : '#FFFFFF',
-              color: active ? '#FFFFFF' : '#0F1F3D',
+              border: active ? 'none' : '1px solid rgba(255,255,255,0.4)',
+              background: active ? '#FFFFFF' : 'transparent',
+              color: active ? '#0F1F3D' : '#FFFFFF',
               cursor: 'pointer',
               minHeight: 36,
             }}
