@@ -199,10 +199,9 @@ export default function Messages() {
         .from('hoa_memberships')
         .select('hoa_id')
         .eq('user_id', currentUser.id)
-        .eq('role', 'admin')
         .eq('status', 'approved');
 
-      const hoaIds = (memberships || []).map((m: any) => m.hoa_id);
+      const hoaIds = [...new Set((memberships || []).map((m: any) => m.hoa_id))];
       if (hoaIds.length === 0) { setLoadingResidents(false); return; }
 
       const { data: members } = await supabase
@@ -220,7 +219,10 @@ export default function Messages() {
         .select('id, full_name, avatar_url')
         .in('id', residentIds);
 
-      setResidents((profiles || []) as ResidentProfile[]);
+      const sortedProfiles = ((profiles || []) as ResidentProfile[])
+        .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+
+      setResidents(sortedProfiles);
     } catch (err) {
       console.error('Error loading residents:', err);
     } finally {
