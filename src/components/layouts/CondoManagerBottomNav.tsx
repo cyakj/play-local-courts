@@ -1,20 +1,46 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { LayoutGrid, AlertTriangle, CalendarDays, MessageSquare } from 'lucide-react';
-import { useCondoManagerCommunities, useCondoManagerAlerts } from '@/hooks/useCondoManagerData';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 const CondoManagerBottomNav = () => {
   const location = useLocation();
-  const { communities } = useCondoManagerCommunities();
-  const { alerts } = useCondoManagerAlerts(communities);
+  const { currentUser } = useAuth();
+  const [unreadMessages, setUnreadMessages] = useState(0);
 
-  const alertCount = alerts.length;
+  useEffect(() => {
+    if (!currentUser?.id) return;
+
+    const loadUnread = async () => {
+      const { count } = await supabase
+        .from('messages')
+        .select('id', { count: 'exact', head: true })
+        .eq('receiver_id', currentUser.id)
+        .is('read_at', null);
+      setUnreadMessages(count ?? 0);
+    };
+
+    loadUnread();
+
+    const channel = supabase
+      .channel('cm-nav-unread')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'messages',
+        filter: `receiver_id=eq.${currentUser.id}`,
+      }, () => loadUnread())
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [currentUser?.id]);
 
   const navItems = [
     { path: '/cm', icon: LayoutGrid, label: 'Portfolio' },
     { path: '/cm/reports', icon: AlertTriangle, label: 'Issues' },
     { path: '/cm/calendar', icon: CalendarDays, label: 'Calendar' },
-    { path: '/cm/messages', icon: MessageSquare, label: 'Messages', badge: alertCount },
+    { path: '/cm/messages', icon: MessageSquare, label: 'Messages', badge: unreadMessages },
   ];
 
   return (
