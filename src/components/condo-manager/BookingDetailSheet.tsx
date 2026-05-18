@@ -19,6 +19,7 @@ interface BookingDetailSheetProps {
   selectedDate: Date;
   onClose: () => void;
   onCancel: (slot: BookingSlot, reason?: string) => void;
+  onBlockForMaintenance?: (slot: BookingSlot) => Promise<void> | void;
 }
 
 const BookingDetailSheet: React.FC<BookingDetailSheetProps> = ({
@@ -27,15 +28,25 @@ const BookingDetailSheet: React.FC<BookingDetailSheetProps> = ({
   selectedDate,
   onClose,
   onCancel,
+  onBlockForMaintenance,
 }) => {
   const [confirming, setConfirming] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [blocking, setBlocking] = useState(false);
   const [reason, setReason] = useState('');
 
   const handleCancel = async () => {
     setCancelling(true);
     await onCancel(slot, reason.trim() || undefined);
     setCancelling(false);
+  };
+
+  const handleBlock = async () => {
+    if (!onBlockForMaintenance) return;
+    setBlocking(true);
+    await onBlockForMaintenance(slot);
+    setBlocking(false);
+    onClose();
   };
 
   const details = [
@@ -96,18 +107,35 @@ const BookingDetailSheet: React.FC<BookingDetailSheetProps> = ({
         {/* Cancel section */}
         <div className="mt-5">
           {!confirming ? (
-            <div
-              onClick={() => setConfirming(true)}
-              className="text-center cursor-pointer text-sm font-extrabold"
-              style={{
-                backgroundColor: '#FEF2F2',
-                border: '1.5px solid #EF4444',
-                color: '#EF4444',
-                borderRadius: 12,
-                padding: 13,
-              }}
-            >
-              Cancel This Booking
+            <div className="space-y-2.5">
+              {onBlockForMaintenance && (
+                <div
+                  onClick={blocking ? undefined : handleBlock}
+                  className="text-center cursor-pointer text-sm font-extrabold flex items-center justify-center gap-1.5"
+                  style={{
+                    backgroundColor: '#0F1F3D',
+                    color: '#FFFFFF',
+                    borderRadius: 12,
+                    padding: 13,
+                    opacity: blocking ? 0.6 : 1,
+                  }}
+                >
+                  🔧 {blocking ? 'Blocking...' : 'Block for Maintenance'}
+                </div>
+              )}
+              <div
+                onClick={() => setConfirming(true)}
+                className="text-center cursor-pointer text-sm font-extrabold"
+                style={{
+                  backgroundColor: '#FEF2F2',
+                  border: '1.5px solid #EF4444',
+                  color: '#EF4444',
+                  borderRadius: 12,
+                  padding: 13,
+                }}
+              >
+                Cancel This Booking
+              </div>
             </div>
           ) : (
             <div>
