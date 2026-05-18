@@ -1,9 +1,16 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
@@ -42,6 +49,8 @@ export const UpcomingActivitySnapshot = ({ forecast = {} }: UpcomingActivitySnap
   const { currentUser } = useAuth();
   const { bookings } = useData();
   const [upcomingItems, setUpcomingItems] = useState<UpcomingItem[]>([]);
+  const [allItems, setAllItems] = useState<UpcomingItem[]>([]);
+  const [showAllDialog, setShowAllDialog] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -144,14 +153,15 @@ export const UpcomingActivitySnapshot = ({ forecast = {} }: UpcomingActivitySnap
         }
       }
 
-      // Sort all items by date/time and take top 3
+      // Sort all items by date/time
       const sortedItems = items.sort((a, b) => {
         const dateA = new Date(`${a.date}T${a.time}`);
         const dateB = new Date(`${b.date}T${b.time}`);
         return dateA.getTime() - dateB.getTime();
-      }).slice(0, 3);
+      });
 
-      setUpcomingItems(sortedItems);
+      setAllItems(sortedItems);
+      setUpcomingItems(sortedItems.slice(0, 3));
     } catch (error) {
       console.error('Error loading upcoming activity:', error);
     } finally {
@@ -207,9 +217,12 @@ export const UpcomingActivitySnapshot = ({ forecast = {} }: UpcomingActivitySnap
             <Calendar className="h-5 w-5 text-primary" />
             Coming Up
           </div>
-          <Link to="/upcoming" className="text-sm font-medium text-primary hover:underline">
+          <button
+            onClick={() => setShowAllDialog(true)}
+            className="text-sm font-medium text-primary hover:underline"
+          >
             View All
-          </Link>
+          </button>
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-0 space-y-3">
@@ -293,5 +306,91 @@ export const UpcomingActivitySnapshot = ({ forecast = {} }: UpcomingActivitySnap
         )}
       </CardContent>
     </Card>
+
+    {/* View All Dialog */}
+    <Dialog open={showAllDialog} onOpenChange={setShowAllDialog}>
+      <DialogContent className="max-w-md max-h-[85vh] overflow-hidden p-0">
+        <DialogHeader className="px-5 pt-5 pb-3">
+          <DialogTitle className="flex items-center gap-2 text-lg">
+            <Calendar className="h-5 w-5 text-primary" />
+            All Upcoming
+          </DialogTitle>
+        </DialogHeader>
+        <ScrollArea className="px-5 pb-5 max-h-[calc(85vh-80px)]">
+          <div className="space-y-3">
+            {allItems.length > 0 ? (
+              allItems.map((item, index) => {
+                const weatherData = getWeatherForDate(forecast, item.date);
+                const isFirst = index === 0;
+                return (
+                  <div
+                    key={`all-${item.type}-${item.id}`}
+                    className={`rounded-xl border transition-all ${
+                      isFirst
+                        ? 'bg-primary text-primary-foreground p-4 border-primary'
+                        : 'bg-card p-3 border-border'
+                    }`}
+                  >
+                    {isFirst && item.badge && (
+                      <Badge variant="secondary" className="mb-2 bg-primary-foreground/20 text-primary-foreground text-xs">
+                        {item.badge}
+                      </Badge>
+                    )}
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className={`font-semibold ${isFirst ? 'text-lg' : 'text-sm'} capitalize`}>
+                          {item.title}
+                        </div>
+                        {item.subtitle && (
+                          <div className={`text-sm ${isFirst ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+                            {item.subtitle}
+                          </div>
+                        )}
+                        <div className={`flex items-center gap-3 mt-2 text-xs ${isFirst ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {formatDate(item.date)}, {formatTime12Hour(item.time)}
+                          </span>
+                          {item.location && (
+                            <span className="flex items-center gap-1">
+                              <MapPin className="h-3 w-3" />
+                              {item.location}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {item.avatars && item.avatars.length > 0 && (
+                        <div className="flex -space-x-2">
+                          {item.avatars.slice(0, 2).map((avatar, idx) => (
+                            <Avatar key={idx} className="w-8 h-8 border-2 border-background">
+                              <AvatarImage src={avatar} />
+                              <AvatarFallback className="bg-muted text-xs">
+                                {idx === 0 ? 'P1' : 'P2'}
+                              </AvatarFallback>
+                            </Avatar>
+                          ))}
+                        </div>
+                      )}
+                      {!isFirst && weatherData && (
+                        <WeatherBadge
+                          temperature={weatherData.temperature}
+                          condition={weatherData.condition}
+                          compact
+                        />
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="text-center py-8">
+                <Calendar className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
+                <p className="text-sm text-muted-foreground">No upcoming activities</p>
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
   );
 };
