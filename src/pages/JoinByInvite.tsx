@@ -21,10 +21,7 @@ const JoinByInvite = () => {
     const load = async () => {
       setLoading(true);
       const { data, error: fetchErr } = await supabase
-        .from('hoas')
-        .select('id, name, invite_code, invite_enabled, invite_expires_at')
-        .eq('invite_code', inviteCode!)
-        .maybeSingle();
+        .rpc('get_public_hoa_invite_by_code', { _invite_code: inviteCode! });
 
       if (fetchErr || !data) {
         setError('This invite link is no longer valid. Please contact your community manager for a new link.');
