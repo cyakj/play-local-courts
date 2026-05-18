@@ -321,6 +321,9 @@ const CMCommunityDashboard = () => {
                     <span style={{
                       fontSize: 13, fontWeight: 600, lineHeight: 1.3,
                       color: '#0F1F3D', fontFamily: 'Manrope, sans-serif',
+                      paddingRight: 8,
+                      minWidth: 0,
+                      wordBreak: 'break-word',
                     }}>
                       {a.label}
                     </span>
