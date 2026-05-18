@@ -6,7 +6,7 @@ import { CMStatusPill, CMPriorityBadge } from '@/components/condo-manager/CMStat
 import { CMReportDetail } from '@/components/condo-manager/CMReportDetail';
 import { useCondoManagerCommunities } from '@/hooks/useCondoManagerData';
 import { supabase } from '@/integrations/supabase/client';
-import { getCategoryLabel, cleanDescription } from '@/lib/maintenanceUtils';
+import { getCategoryLabel, cleanDescription, allCategories } from '@/lib/maintenanceUtils';
 import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
 
 interface Report {
