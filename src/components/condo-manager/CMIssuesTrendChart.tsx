@@ -254,9 +254,9 @@ export const CMIssuesTrendChart = ({ hoaIds, period }: Props) => {
 
       <div className="flex gap-4 mt-4 pt-3 border-t border-gray-100">
         {[
-          { label: 'Critical', color: '#EF4444' },
-          { label: 'Moderate', color: '#F97066' },
-          { label: 'Resolved', color: '#E5E7EB' },
+          { label: 'Spike', color: '#EF4444' },
+          { label: 'Normal', color: '#F97066' },
+          { label: 'None', color: '#E5E7EB' },
         ].map((l) => (
           <div key={l.label} className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full block" style={{ backgroundColor: l.color }} />
