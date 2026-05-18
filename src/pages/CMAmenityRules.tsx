@@ -175,9 +175,6 @@ const CMAmenityRules = () => {
           <div className="flex-1 min-w-0">
             <div className="text-lg font-extrabold">Configure Rules</div>
             <div className="text-xs opacity-65">{amenity.name} • {amenity.amenityType}</div>
-            <div className="text-xs mt-1 font-semibold" style={{ color: '#00D4FF' }}>
-              Booking hours: {formatHour(formData.booking_start_time)} – {formatHour(formData.booking_end_time)}
-            </div>
           </div>
         </div>
       </div>
