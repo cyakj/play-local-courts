@@ -425,7 +425,7 @@ const CMCommunityDashboard = () => {
         {tab === 'members' && (
           <>
             <div className="grid grid-cols-2 gap-3">
-              <StatCard icon={<Users className="h-5 w-5" />} value={c.activeMembers} label="Active Members" />
+              <StatCard icon={<Users className="h-5 w-5" />} value={c.activeMembers} label="Active Units" />
               <StatCard icon={<UserCheck className="h-5 w-5" />} value={c.totalUnits} label="Total Units" />
               <StatCard
                 icon={<AlertTriangle className="h-5 w-5" />}
