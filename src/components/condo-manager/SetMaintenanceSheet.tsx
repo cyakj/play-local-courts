@@ -134,19 +134,45 @@ const SetMaintenanceSheet: React.FC<SetMaintenanceSheetProps> = ({ open, onClose
     fetchData();
   }, [open, selectedDate, amenity.id]);
 
-  const handleSlotTap = (idx: number) => {
+  const handleSlotTap = async (idx: number) => {
     const slot = slots[idx];
     if (isSlotInPast(slot.time, selectedDate)) return;
-    
+
     if (slot.state === 'booked') {
       setSelectedBooking(slot);
       return;
     }
-    
-    // Toggle available <-> maintenance
-    setSlots((prev) => prev.map((s, i) => 
-      i === idx ? { ...s, state: s.state === 'maintenance' ? 'available' : 'maintenance' } : s
-    ));
+
+    const dateStr = format(selectedDate, 'yyyy-MM-dd');
+    const nextState: SlotType = slot.state === 'maintenance' ? 'available' : 'maintenance';
+
+    // Optimistic UI
+    setSlots((prev) => prev.map((s, i) => (i === idx ? { ...s, state: nextState } : s)));
+
+    if (nextState === 'maintenance') {
+      const { error } = await supabase.from('court_maintenance').insert({
+        court_id: amenity.id,
+        date: dateStr,
+        start_time: slot.time,
+        end_time: slot.endTime,
+        description: 'Scheduled maintenance',
+      });
+      if (error) {
+        setSlots((prev) => prev.map((s, i) => (i === idx ? { ...s, state: 'available' } : s)));
+        toast.error('Failed to block slot');
+      }
+    } else {
+      const { error } = await supabase
+        .from('court_maintenance')
+        .delete()
+        .eq('court_id', amenity.id)
+        .eq('date', dateStr)
+        .eq('start_time', slot.time);
+      if (error) {
+        setSlots((prev) => prev.map((s, i) => (i === idx ? { ...s, state: 'maintenance' } : s)));
+        toast.error('Failed to free slot');
+      }
+    }
   };
 
   const handleCancelBooking = async (slot: SlotState, reason?: string) => {
