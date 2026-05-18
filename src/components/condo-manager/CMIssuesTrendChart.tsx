@@ -163,15 +163,18 @@ export const CMIssuesTrendChart = ({ hoaIds, period }: Props) => {
   }
 
   const max = Math.max(...data.map((d) => d.value), 1);
-  const avg = data.length > 0 ? Math.round(data.reduce((s, d) => s + d.value, 0) / data.length) : 0;
+  const total = data.reduce((s, d) => s + d.value, 0);
+  const avg = data.length > 0 ? total / data.length : 0;
+  const avgDisplay = data.length > 0
+    ? (Number.isInteger(avg) ? `${avg}` : avg.toFixed(1))
+    : '0';
   const latest = data[data.length - 1].value;
   const prev = data.length > 1 ? data[data.length - 2].value : null;
   const arrow = prev !== null ? (latest < prev ? '↓' : latest > prev ? '↑' : '→') : '→';
-  const total = data.reduce((s, d) => s + d.value, 0);
 
   const summaryStats = [
     { label: period === 'Week' ? 'Latest Day' : 'Latest Month', value: `${latest}`, suffix: arrow, color: barColor(latest, avg) },
-    { label: 'Period Avg', value: `${avg}`, color: '#0F1F3D' },
+    { label: 'Period Avg', value: avgDisplay, color: '#0F1F3D' },
     { label: 'Period Total', value: `${total}`, color: '#0F1F3D' },
   ];
 
@@ -251,9 +254,9 @@ export const CMIssuesTrendChart = ({ hoaIds, period }: Props) => {
 
       <div className="flex gap-4 mt-4 pt-3 border-t border-gray-100">
         {[
-          { label: 'Critical', color: '#EF4444' },
-          { label: 'Moderate', color: '#F97066' },
-          { label: 'Resolved', color: '#E5E7EB' },
+          { label: 'Spike', color: '#EF4444' },
+          { label: 'Normal', color: '#F97066' },
+          { label: 'None', color: '#E5E7EB' },
         ].map((l) => (
           <div key={l.label} className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full block" style={{ backgroundColor: l.color }} />
