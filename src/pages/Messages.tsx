@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Check, CheckCheck } from 'lucide-react';
@@ -55,9 +55,17 @@ const SendIcon = () => (
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
+interface ResidentProfile {
+  id: string;
+  full_name: string;
+  avatar_url: string | null;
+}
+
 export default function Messages() {
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const { currentUser } = useAuth();
+  const isCMContext = location.pathname === '/cm/messages';
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(searchParams.get('user'));
   const [selectedUser, setSelectedUser] = useState<{ id: string; full_name: string; avatar_url: string | null } | null>(null);
@@ -66,6 +74,10 @@ export default function Messages() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [showCompose, setShowCompose] = useState(false);
+  const [residents, setResidents] = useState<ResidentProfile[]>([]);
+  const [residentSearch, setResidentSearch] = useState('');
+  const [loadingResidents, setLoadingResidents] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const shouldScrollToBottomRef = useRef(true);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -175,6 +187,44 @@ export default function Messages() {
       setSelectedUser(data);
     } catch (error) {
       console.error('Error loading user:', error);
+      setSelectedUser({ id: userId, full_name: 'Unknown User', avatar_url: null });
+    }
+  };
+
+  const loadResidents = async () => {
+    if (!currentUser?.id) return;
+    setLoadingResidents(true);
+    try {
+      const { data: memberships } = await supabase
+        .from('hoa_memberships')
+        .select('hoa_id')
+        .eq('user_id', currentUser.id)
+        .eq('role', 'admin')
+        .eq('status', 'approved');
+
+      const hoaIds = (memberships || []).map((m: any) => m.hoa_id);
+      if (hoaIds.length === 0) { setLoadingResidents(false); return; }
+
+      const { data: members } = await supabase
+        .from('hoa_memberships')
+        .select('user_id')
+        .in('hoa_id', hoaIds)
+        .eq('status', 'approved')
+        .neq('user_id', currentUser.id);
+
+      const residentIds = [...new Set((members || []).map((m: any) => m.user_id))];
+      if (residentIds.length === 0) { setResidents([]); setLoadingResidents(false); return; }
+
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url')
+        .in('id', residentIds);
+
+      setResidents((profiles || []) as ResidentProfile[]);
+    } catch (err) {
+      console.error('Error loading residents:', err);
+    } finally {
+      setLoadingResidents(false);
     }
   };
 
@@ -444,6 +494,100 @@ export default function Messages() {
     );
   }
 
+  const filteredResidents = residents.filter(r =>
+    r.full_name?.toLowerCase().includes(residentSearch.toLowerCase())
+  );
+
+  // ── COMPOSE MODAL (CM only) ────────────────────────────────────────────────
+  if (showCompose) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col" style={{ background: '#F9FAFB' }}>
+        <div
+          className="flex items-center gap-3 px-4 flex-shrink-0"
+          style={{
+            background: '#0F1F3D',
+            paddingTop: 'max(48px, calc(env(safe-area-inset-top) + 12px))',
+            paddingBottom: 16,
+          }}
+        >
+          <button
+            onClick={() => { setShowCompose(false); setResidentSearch(''); }}
+            className="flex items-center justify-center rounded-xl flex-shrink-0"
+            style={{ width: 44, height: 44, background: 'rgba(255,255,255,0.12)', border: 'none', cursor: 'pointer' }}
+          >
+            <ChevronLeftIcon />
+          </button>
+          <div className="flex-1 min-w-0">
+            <div className="font-bold text-white" style={{ fontSize: 16, fontFamily: 'Manrope, sans-serif' }}>New Message</div>
+            <div className="text-[12px]" style={{ color: 'rgba(255,255,255,0.55)' }}>Select a resident</div>
+          </div>
+        </div>
+        <div className="px-4 pt-3 pb-2 bg-white border-b" style={{ borderColor: 'rgba(15,31,61,0.08)' }}>
+          <input
+            autoFocus
+            placeholder="Search residents…"
+            value={residentSearch}
+            onChange={e => setResidentSearch(e.target.value)}
+            style={{
+              width: '100%',
+              background: '#F9FAFB',
+              border: '1px solid rgba(15,31,61,0.12)',
+              borderRadius: 10,
+              padding: '10px 14px',
+              fontSize: 14,
+              fontFamily: 'Inter, sans-serif',
+              color: '#0F1F3D',
+              outline: 'none',
+            }}
+          />
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          {loadingResidents ? (
+            <div className="flex justify-center py-10">
+              <div className="w-8 h-8 border-2 rounded-full animate-spin" style={{ borderColor: 'rgba(0,212,255,0.2)', borderTopColor: '#00D4FF' }} />
+            </div>
+          ) : filteredResidents.length === 0 ? (
+            <div className="text-center py-16 px-8">
+              <p className="font-bold text-[15px]" style={{ color: '#0F1F3D', fontFamily: 'Manrope, sans-serif' }}>
+                {residentSearch ? 'No residents found' : 'No residents in your communities'}
+              </p>
+            </div>
+          ) : (
+            filteredResidents.map(resident => (
+              <div
+                key={resident.id}
+                onClick={() => {
+                  setShowCompose(false);
+                  setResidentSearch('');
+                  setSelectedUserId(resident.id);
+                }}
+                className="flex items-center gap-3 px-4 py-3.5 cursor-pointer border-b active:bg-gray-50"
+                style={{ borderColor: 'rgba(15,31,61,0.06)', background: 'white' }}
+              >
+                <div
+                  className="rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{ width: 44, height: 44, background: '#0F1F3D', overflow: 'hidden' }}
+                >
+                  {resident.avatar_url ? (
+                    <img src={resident.avatar_url} className="w-full h-full object-cover" alt={resident.full_name} />
+                  ) : (
+                    <span className="text-[13px] font-bold text-white">{getInitials(resident.full_name || '')}</span>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="font-bold text-[14px] truncate block" style={{ color: '#0F1F3D', fontFamily: 'Manrope, sans-serif' }}>
+                    {resident.full_name}
+                  </span>
+                  <span className="text-[12px]" style={{ color: '#8892A4' }}>Resident</span>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    );
+  }
+
   // ── CONVERSATION LIST VIEW ────────────────────────────────────────────────
   return (
     <div className="min-h-screen flex flex-col" style={{ background: '#F9FAFB' }}>
@@ -453,11 +597,25 @@ export default function Messages() {
           <div className="text-[13px] uppercase font-semibold" style={{ color: '#00D4FF', letterSpacing: '0.15em' }}>
             Inbox
           </div>
-          {totalUnread > 0 && (
-            <div style={{ background: '#F97066', color: 'white', borderRadius: 99, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>
-              {totalUnread} new
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            {totalUnread > 0 && (
+              <div style={{ background: '#F97066', color: 'white', borderRadius: 99, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>
+                {totalUnread} new
+              </div>
+            )}
+            {isCMContext && (
+              <button
+                onClick={() => { setShowCompose(true); loadResidents(); }}
+                className="flex items-center justify-center rounded-xl"
+                style={{ width: 36, height: 36, background: 'rgba(0,212,255,0.18)', border: '1.5px solid rgba(0,212,255,0.4)', cursor: 'pointer' }}
+                aria-label="New message"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00D4FF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
         <h1 className="text-[28px] font-black text-white leading-tight" style={{ fontFamily: 'Manrope, sans-serif' }}>
           Messages
@@ -508,7 +666,9 @@ export default function Messages() {
             <p className="text-[13px] mt-1" style={{ color: '#8892A4', fontFamily: 'Inter, sans-serif' }}>
               {searchQuery
                 ? 'Try a different name.'
-                : "Start a conversation from a community member's profile."}
+                : isCMContext
+                  ? 'Tap + to message a resident.'
+                  : "Start a conversation from a community member's profile."}
             </p>
           </div>
         ) : (
