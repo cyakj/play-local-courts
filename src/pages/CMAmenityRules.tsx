@@ -123,6 +123,11 @@ const CMAmenityRules = () => {
   }, [rules]);
 
   const handleSave = async () => {
+    if ((amenity?.amenityType === 'tennis' || amenity?.amenityType === 'pickleball') &&
+        !formData.singles_only && !formData.doubles_only) {
+      toast.error('At least one play type (Singles or Doubles) must be enabled');
+      return;
+    }
     try {
       await saveRules(formData);
       toast.success(`Rules for ${amenity?.name} saved`);
