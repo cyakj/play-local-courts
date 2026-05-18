@@ -54,6 +54,7 @@ const barColor = (v: number, avg: number) => {
 export const CMIssuesTrendChart = ({ hoaIds, period }: Props) => {
   const [data, setData] = useState<DataPoint[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showAvgTip, setShowAvgTip] = useState(false);
 
   useEffect(() => {
     if (hoaIds.length === 0) {
