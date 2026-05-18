@@ -31,14 +31,20 @@ const AmenitySpecificSection = ({ amenity, formData, onUpdate }: AmenitySpecific
             <Label>Singles</Label>
             <Switch
               checked={formData.singles_only}
-              onCheckedChange={(checked) => onUpdate('singles_only', checked)}
+              onCheckedChange={(checked) => {
+                if (!checked && !formData.doubles_only) return;
+                onUpdate('singles_only', checked);
+              }}
             />
           </div>
           <div className="flex items-center justify-between">
             <Label>Doubles</Label>
             <Switch
               checked={formData.doubles_only}
-              onCheckedChange={(checked) => onUpdate('doubles_only', checked)}
+              onCheckedChange={(checked) => {
+                if (!checked && !formData.singles_only) return;
+                onUpdate('doubles_only', checked);
+              }}
             />
           </div>
           <p className="text-xs text-muted-foreground">
