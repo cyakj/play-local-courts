@@ -15,7 +15,7 @@ export interface CMCommunityData {
   activeMembers: number;
   avgResolutionDays: number;
   utilization: number;
-  amenities: { id: string; name: string; type: string }[];
+  amenities: { id: string; name: string; type: string; utilization: number }[];
 }
 
 export interface CMNotification {
