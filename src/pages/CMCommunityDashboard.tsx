@@ -374,9 +374,11 @@ const CMCommunityDashboard = () => {
             {c.amenities.map((a) => (
               <div key={a.id} className="bg-white rounded-2xl flex justify-between items-center border border-gray-100 px-4 py-3.5"
                 style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-                <div>
+                <div className="min-w-0">
                   <div className="text-sm font-bold" style={{ color: '#0F1F3D' }}>{a.name}</div>
-                  <div className="text-xs capitalize mt-0.5" style={{ color: '#9CA3AF' }}>{a.type}</div>
+                  <div className="text-xs capitalize mt-0.5" style={{ color: '#9CA3AF' }}>
+                    {a.type} · {a.utilization}% utilization
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <button onClick={() => navigate(`/cm/community/${c.id}/amenity/${a.id}/rules`)}
