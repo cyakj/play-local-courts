@@ -141,7 +141,7 @@ const CMCommunityDashboard = () => {
       case 'Manage Documents': navigate(`/cm/community/${c.id}/documents`); break;
       case 'Manage Surveys': navigate(`/cm/community/${c.id}/surveys`); break;
       case 'Approve Members': setTab('members'); break;
-      case 'Post Announcement': setShowAnnouncementModal(true); break;
+      case 'Announce': setShowAnnouncementModal(true); break;
     }
   };
 
@@ -290,7 +290,7 @@ const CMCommunityDashboard = () => {
               </h2>
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { label: 'Post Announcement', icon: <Megaphone className="h-5 w-5" />, iconBg: '#FFF5F5', iconColor: '#F97066' },
+                  { label: 'Announce', icon: <Megaphone className="h-5 w-5" />, iconBg: '#FFF5F5', iconColor: '#F97066' },
                   { label: 'Approve Members', icon: <UserCheck className="h-5 w-5" />, iconBg: '#E0F9FF', iconColor: '#00D4FF' },
                   { label: 'Manage Documents', icon: <FileText className="h-5 w-5" />, iconBg: '#FFFBEB', iconColor: '#D97706' },
                   { label: 'Manage Surveys', icon: <BarChart2 className="h-5 w-5" />, iconBg: '#EFF6FF', iconColor: '#3B82F6' },
@@ -463,7 +463,7 @@ const CMCommunityDashboard = () => {
       {showAnnouncementModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-md p-5">
-            <div className="text-lg font-extrabold mb-4" style={{ color: '#0F1F3D', fontFamily: 'Manrope, sans-serif' }}>Post Announcement</div>
+            <div className="text-lg font-extrabold mb-4" style={{ color: '#0F1F3D', fontFamily: 'Manrope, sans-serif' }}>Announce</div>
             <input value={announcementTitle} onChange={(e) => setAnnouncementTitle(e.target.value)}
               placeholder="Announcement Title"
               className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm mb-3 outline-none focus:border-[#00D4FF]" />
