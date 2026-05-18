@@ -83,8 +83,8 @@ const CMAmenityRules = () => {
     if (rules) {
       const r = rules as any;
       setFormData({
-        booking_start_time: r.booking_start_time || '07:00',
-        booking_end_time: r.booking_end_time || '21:00',
+        booking_start_time: (r.booking_start_time || '07:00').slice(0, 5),
+        booking_end_time: (r.booking_end_time || '21:00').slice(0, 5),
         max_duration_minutes: r.max_duration_minutes ?? 60,
         singles_duration_minutes: r.singles_duration_minutes ?? 60,
         doubles_duration_minutes: r.doubles_duration_minutes ?? 90,
@@ -151,16 +151,6 @@ const CMAmenityRules = () => {
     );
   }
 
-  const formatHour = (t: string) => {
-    if (!t) return '';
-    const [hStr, mStr] = t.split(':');
-    const h = parseInt(hStr, 10);
-    const m = parseInt(mStr, 10);
-    const period = h >= 12 ? 'PM' : 'AM';
-    const h12 = h % 12 === 0 ? 12 : h % 12;
-    return m === 0 ? `${h12} ${period}` : `${h12}:${String(m).padStart(2, '0')} ${period}`;
-  };
-
   return (
     <div className="min-h-screen bg-cm-app-bg">
       {/* Header */}
@@ -175,9 +165,6 @@ const CMAmenityRules = () => {
           <div className="flex-1 min-w-0">
             <div className="text-lg font-extrabold">Configure Rules</div>
             <div className="text-xs opacity-65">{amenity.name} • {amenity.amenityType}</div>
-            <div className="text-xs mt-1 font-semibold" style={{ color: '#00D4FF' }}>
-              Booking hours: {formatHour(formData.booking_start_time)} – {formatHour(formData.booking_end_time)}
-            </div>
           </div>
         </div>
       </div>
