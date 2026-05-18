@@ -60,16 +60,26 @@ const BookingFlow: React.FC = () => {
     return pills;
   }, [advanceDays]);
 
-  // Amenity-type-aware play types
+  // Amenity-type-aware play types — filtered by admin rules
   const isCourtSport = amenity?.amenityType === 'tennis' || amenity?.amenityType === 'pickleball';
-  const playTypeOptions: { value: 'singles' | 'doubles' | 'family' | 'group'; label: string }[] = isCourtSport
-    ? [{ value: 'singles', label: 'Singles' }, { value: 'doubles', label: 'Doubles' }]
-    : [{ value: 'family', label: 'Family' }, { value: 'group', label: 'Group' }];
+  const playTypeOptions: { value: 'singles' | 'doubles' | 'family' | 'group'; label: string }[] = useMemo(() => {
+    const r = rules as any;
+    if (isCourtSport) {
+      const opts = [{ value: 'singles' as const, label: 'Singles' }, { value: 'doubles' as const, label: 'Doubles' }];
+      if (r?.singles_only) return opts.filter(o => o.value === 'singles');
+      if (r?.doubles_only) return opts.filter(o => o.value === 'doubles');
+      return opts;
+    }
+    return [{ value: 'family' as const, label: 'Family' }, { value: 'group' as const, label: 'Group' }];
+  }, [rules, isCourtSport]);
 
-  // Set default play type based on amenity type
+  // Set default play type based on amenity type & available options
   useEffect(() => {
-    setPlayType(isCourtSport ? 'singles' : 'family');
-  }, [amenity?.amenityType]);
+    if (playTypeOptions.length === 0) return;
+    if (!playTypeOptions.find(o => o.value === playType)) {
+      setPlayType(playTypeOptions[0].value);
+    }
+  }, [playTypeOptions]);
 
   // Duration options — per play type from admin rules
   const maxDuration = useMemo(() => {
