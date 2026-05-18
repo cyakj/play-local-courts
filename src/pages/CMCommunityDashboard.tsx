@@ -374,10 +374,23 @@ const CMCommunityDashboard = () => {
             {c.amenities.map((a) => (
               <div key={a.id} className="bg-white rounded-2xl flex justify-between items-center border border-gray-100 px-4 py-3.5"
                 style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="text-sm font-bold" style={{ color: '#0F1F3D' }}>{a.name}</div>
-                  <div className="text-xs capitalize mt-0.5" style={{ color: '#9CA3AF' }}>
-                    {a.type} · {a.utilization}% utilization
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs capitalize" style={{ color: '#9CA3AF' }}>{a.type}</span>
+                    {(() => {
+                      const u = a.utilization;
+                      const bg = u >= 70 ? 'rgba(0,212,255,0.12)' : u >= 30 ? 'rgba(249,112,102,0.14)' : 'rgba(239,68,68,0.12)';
+                      const fg = u >= 70 ? '#0091B3' : u >= 30 ? '#C2410C' : '#B91C1C';
+                      return (
+                        <span
+                          className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold"
+                          style={{ backgroundColor: bg, color: fg, fontFamily: 'Manrope, sans-serif' }}
+                        >
+                          {u}% used
+                        </span>
+                      );
+                    })()}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
