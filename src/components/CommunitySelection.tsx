@@ -31,8 +31,8 @@ const CommunitySelection = ({ onJoinExisting, onCreateNew }: CommunitySelectionP
     try {
       setIsLoading(true);
       const { data, error } = await supabase
-        .from('hoas')
-        .select('id, name, community_type, address, created_at')
+        .from('public_hoa_directory')
+        .select('id, name, community_type')
         .order('name');
 
       if (error) throw error;
@@ -41,8 +41,8 @@ const CommunitySelection = ({ onJoinExisting, onCreateNew }: CommunitySelectionP
       const mappedCommunities: HOA[] = (data || []).map(community => ({
         id: community.id,
         name: community.name,
-        address: community.address || undefined,
-        createdAt: community.created_at || new Date().toISOString()
+        address: undefined,
+        createdAt: new Date().toISOString()
       }));
 
       setCommunities(mappedCommunities);

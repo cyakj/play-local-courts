@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Bell, Menu, TrendingUp, Plus, Building2, AlertTriangle, Calendar, Clock } from 'lucide-react';
 import CMNotificationCenter from '@/components/condo-manager/CMNotificationCenter';
 import CMProfileSheet from '@/components/condo-manager/CMProfileSheet';
-import { useCondoManagerCommunities, useCondoManagerNotifications, useCondoManagerAlerts } from '@/hooks/useCondoManagerData';
+import { useCondoManagerCommunities, useCondoManagerNotifications } from '@/hooks/useCondoManagerData';
 import AddCommunityModal from '@/components/condo-manager/AddCommunityModal';
 
 const CMPortfolio = () => {
@@ -15,8 +15,6 @@ const CMPortfolio = () => {
   const [showAddCommunity, setShowAddCommunity] = useState(false);
   const { communities, loading, refetch } = useCondoManagerCommunities();
   const { unreadCount } = useCondoManagerNotifications();
-  const { alerts } = useCondoManagerAlerts(communities);
-  const alertCount = alerts.length;
 
   const totalUnits = communities.reduce((s, c) => s + c.totalUnits, 0);
   const totalIssues = communities.reduce((s, c) => s + c.openIssues, 0);
@@ -80,9 +78,9 @@ const CMPortfolio = () => {
               className="relative w-10 h-10 flex items-center justify-center cursor-pointer"
             >
               <Bell className="h-5 w-5 text-white" />
-              {alertCount > 0 && (
+              {unreadCount > 0 && (
                 <div className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] font-bold">
-                  {alertCount}
+                  {unreadCount}
                 </div>
               )}
             </div>

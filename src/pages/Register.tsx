@@ -77,8 +77,8 @@ const Register = () => {
   const loadHOAs = async () => {
     try {
       const { data, error } = await supabase
-        .from('hoas')
-        .select('id, name, community_type, address')
+        .from('public_hoa_directory')
+        .select('id, name, community_type')
         .order('name');
       if (error) throw error;
       setHOAs(data || []);
