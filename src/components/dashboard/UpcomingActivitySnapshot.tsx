@@ -210,6 +210,7 @@ export const UpcomingActivitySnapshot = ({ forecast = {} }: UpcomingActivitySnap
   }
 
   return (
+    <>
     <Card className="overflow-hidden">
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center justify-between">
@@ -392,5 +393,6 @@ export const UpcomingActivitySnapshot = ({ forecast = {} }: UpcomingActivitySnap
         </ScrollArea>
       </DialogContent>
     </Dialog>
+    </>
   );
 };
