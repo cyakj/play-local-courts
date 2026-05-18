@@ -315,7 +315,7 @@ export default function Messages() {
   if (selectedUserId) {
     return (
       <div
-        className="fixed inset-0 z-50 flex flex-col"
+        className="fixed inset-0 z-[70] flex flex-col"
         style={{ background: '#F9FAFB' }}
       >
         {/* Header */}
