@@ -259,7 +259,7 @@ const CMCommunityDashboard = () => {
               <StatCard
                 icon={<Users className="h-5 w-5" />}
                 value={<>{c.activeMembers}<span className="text-base font-normal" style={{ color: '#9CA3AF' }}>/{c.totalUnits}</span></>}
-                label="Active Members"
+                label="Active Units"
               />
               <StatCard
                 icon={<AlertTriangle className="h-5 w-5" />}
