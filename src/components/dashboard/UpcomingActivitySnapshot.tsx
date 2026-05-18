@@ -393,5 +393,6 @@ export const UpcomingActivitySnapshot = ({ forecast = {} }: UpcomingActivitySnap
         </ScrollArea>
       </DialogContent>
     </Dialog>
+    </>
   );
 };
