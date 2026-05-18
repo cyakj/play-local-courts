@@ -58,7 +58,6 @@ const SetMaintenanceSheet: React.FC<SetMaintenanceSheetProps> = ({ open, onClose
   const { currentUser } = useAuth();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [slots, setSlots] = useState<SlotState[]>(generateTimeSlots());
-  const [loading, setLoading] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<SlotState | null>(null);
   const dateStripRef = useRef<HTMLDivElement>(null);
 
