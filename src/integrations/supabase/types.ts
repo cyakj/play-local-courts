@@ -191,6 +191,13 @@ export type Database = {
             referencedRelation: "hoas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "amenity_rules_hoa_id_fkey"
+            columns: ["hoa_id"]
+            isOneToOne: false
+            referencedRelation: "public_hoa_directory"
+            referencedColumns: ["id"]
+          },
         ]
       }
       application_notifications: {
@@ -616,6 +623,13 @@ export type Database = {
             referencedRelation: "hoas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "community_join_requests_hoa_id_fkey"
+            columns: ["hoa_id"]
+            isOneToOne: false
+            referencedRelation: "public_hoa_directory"
+            referencedColumns: ["id"]
+          },
         ]
       }
       competition_notifications: {
@@ -734,6 +748,13 @@ export type Database = {
             columns: ["hoa_id"]
             isOneToOne: false
             referencedRelation: "hoas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courts_hoa_id_fkey"
+            columns: ["hoa_id"]
+            isOneToOne: false
+            referencedRelation: "public_hoa_directory"
             referencedColumns: ["id"]
           },
         ]
@@ -893,6 +914,13 @@ export type Database = {
             referencedRelation: "hoas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "hoa_announcements_hoa_id_fkey"
+            columns: ["hoa_id"]
+            isOneToOne: false
+            referencedRelation: "public_hoa_directory"
+            referencedColumns: ["id"]
+          },
         ]
       }
       hoa_application_notes: {
@@ -990,6 +1018,13 @@ export type Database = {
             referencedRelation: "hoas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "hoa_applications_created_hoa_id_fkey"
+            columns: ["created_hoa_id"]
+            isOneToOne: false
+            referencedRelation: "public_hoa_directory"
+            referencedColumns: ["id"]
+          },
         ]
       }
       hoa_documents: {
@@ -1035,6 +1070,13 @@ export type Database = {
             columns: ["hoa_id"]
             isOneToOne: false
             referencedRelation: "hoas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hoa_documents_hoa_id_fkey"
+            columns: ["hoa_id"]
+            isOneToOne: false
+            referencedRelation: "public_hoa_directory"
             referencedColumns: ["id"]
           },
         ]
@@ -1122,6 +1164,13 @@ export type Database = {
             referencedRelation: "hoas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "hoa_events_hoa_id_fkey"
+            columns: ["hoa_id"]
+            isOneToOne: false
+            referencedRelation: "public_hoa_directory"
+            referencedColumns: ["id"]
+          },
         ]
       }
       hoa_memberships: {
@@ -1172,6 +1221,13 @@ export type Database = {
             referencedRelation: "hoas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "hoa_memberships_hoa_id_fkey"
+            columns: ["hoa_id"]
+            isOneToOne: false
+            referencedRelation: "public_hoa_directory"
+            referencedColumns: ["id"]
+          },
         ]
       }
       hoa_notifications: {
@@ -1214,6 +1270,13 @@ export type Database = {
             columns: ["hoa_id"]
             isOneToOne: false
             referencedRelation: "hoas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hoa_notifications_hoa_id_fkey"
+            columns: ["hoa_id"]
+            isOneToOne: false
+            referencedRelation: "public_hoa_directory"
             referencedColumns: ["id"]
           },
         ]
@@ -1340,6 +1403,13 @@ export type Database = {
             columns: ["hoa_id"]
             isOneToOne: false
             referencedRelation: "hoas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hoa_surveys_hoa_id_fkey"
+            columns: ["hoa_id"]
+            isOneToOne: false
+            referencedRelation: "public_hoa_directory"
             referencedColumns: ["id"]
           },
         ]
@@ -1837,6 +1907,13 @@ export type Database = {
             columns: ["hoa_id"]
             isOneToOne: false
             referencedRelation: "hoas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ladders_hoa_id_fkey"
+            columns: ["hoa_id"]
+            isOneToOne: false
+            referencedRelation: "public_hoa_directory"
             referencedColumns: ["id"]
           },
         ]
@@ -2578,6 +2655,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "profiles_hoa_id_fkey"
+            columns: ["hoa_id"]
+            isOneToOne: false
+            referencedRelation: "public_hoa_directory"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "profiles_home_court_id_fkey"
             columns: ["home_court_id"]
             isOneToOne: false
@@ -2947,6 +3031,24 @@ export type Database = {
       }
     }
     Views: {
+      public_hoa_directory: {
+        Row: {
+          community_type: string | null
+          id: string | null
+          name: string | null
+        }
+        Insert: {
+          community_type?: string | null
+          id?: string | null
+          name?: string | null
+        }
+        Update: {
+          community_type?: string | null
+          id?: string | null
+          name?: string | null
+        }
+        Relationships: []
+      }
       public_profiles: {
         Row: {
           avatar_url: string | null
@@ -3035,6 +3137,13 @@ export type Database = {
             columns: ["hoa_id"]
             isOneToOne: false
             referencedRelation: "hoas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_hoa_id_fkey"
+            columns: ["hoa_id"]
+            isOneToOne: false
+            referencedRelation: "public_hoa_directory"
             referencedColumns: ["id"]
           },
           {
@@ -3189,6 +3298,15 @@ export type Database = {
           match_reminders: boolean
           updated_at: string
           user_id: string
+        }[]
+      }
+      get_public_hoa_invite_by_code: {
+        Args: { _invite_code: string }
+        Returns: {
+          id: string
+          invite_enabled: boolean
+          invite_expires_at: string
+          name: string
         }[]
       }
       get_public_survey_results: {
