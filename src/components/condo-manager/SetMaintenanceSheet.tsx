@@ -373,7 +373,7 @@ const SetMaintenanceSheet: React.FC<SetMaintenanceSheetProps> = ({ open, onClose
 
           {/* Hint text */}
           <div className="text-[11px] italic mb-2.5" style={{ color: '#9CA3AF' }}>
-            Tap available/maintenance to toggle · Tap booked to manage
+            Tap available/maintenance to toggle (saves automatically) · Tap booked to manage
           </div>
 
           {/* Time slot grid */}
