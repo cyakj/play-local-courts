@@ -151,6 +151,16 @@ const CMAmenityRules = () => {
     );
   }
 
+  const formatHour = (t: string) => {
+    if (!t) return '';
+    const [hStr, mStr] = t.split(':');
+    const h = parseInt(hStr, 10);
+    const m = parseInt(mStr, 10);
+    const period = h >= 12 ? 'PM' : 'AM';
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    return m === 0 ? `${h12} ${period}` : `${h12}:${String(m).padStart(2, '0')} ${period}`;
+  };
+
   return (
     <div className="min-h-screen bg-cm-app-bg">
       {/* Header */}
@@ -162,9 +172,12 @@ const CMAmenityRules = () => {
           >
             <ArrowLeft className="h-4 w-4" />
           </div>
-          <div>
+          <div className="flex-1 min-w-0">
             <div className="text-lg font-extrabold">Configure Rules</div>
             <div className="text-xs opacity-65">{amenity.name} • {amenity.amenityType}</div>
+            <div className="text-xs mt-1 font-semibold" style={{ color: '#00D4FF' }}>
+              Booking hours: {formatHour(formData.booking_start_time)} – {formatHour(formData.booking_end_time)}
+            </div>
           </div>
         </div>
       </div>

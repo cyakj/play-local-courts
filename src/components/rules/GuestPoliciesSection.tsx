@@ -19,7 +19,7 @@ const GuestPoliciesSection = ({ allowGuests, maxGuestCount, checkinRequiredMinut
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Users className="h-5 w-5" />
-          Guest & Check-in Policies
+          Guest Policies
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -30,7 +30,7 @@ const GuestPoliciesSection = ({ allowGuests, maxGuestCount, checkinRequiredMinut
             onCheckedChange={(checked) => onUpdate('allow_guests', checked)}
           />
         </div>
-        
+
         {allowGuests && (
           <div>
             <Label>Maximum Guest Count</Label>
@@ -43,17 +43,6 @@ const GuestPoliciesSection = ({ allowGuests, maxGuestCount, checkinRequiredMinut
             />
           </div>
         )}
-        
-        <div>
-          <Label>Check-in Required (minutes after start time)</Label>
-          <Input
-            type="number"
-            min="5"
-            max="60"
-            value={checkinRequiredMinutes}
-            onChange={(e) => onUpdate('checkin_required_minutes', parseInt(e.target.value))}
-          />
-        </div>
       </CardContent>
     </Card>
   );
