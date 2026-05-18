@@ -19,6 +19,7 @@ interface BookingDetailSheetProps {
   selectedDate: Date;
   onClose: () => void;
   onCancel: (slot: BookingSlot, reason?: string) => void;
+  onBlockForMaintenance?: (slot: BookingSlot) => Promise<void> | void;
 }
 
 const BookingDetailSheet: React.FC<BookingDetailSheetProps> = ({
@@ -27,15 +28,25 @@ const BookingDetailSheet: React.FC<BookingDetailSheetProps> = ({
   selectedDate,
   onClose,
   onCancel,
+  onBlockForMaintenance,
 }) => {
   const [confirming, setConfirming] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [blocking, setBlocking] = useState(false);
   const [reason, setReason] = useState('');
 
   const handleCancel = async () => {
     setCancelling(true);
     await onCancel(slot, reason.trim() || undefined);
     setCancelling(false);
+  };
+
+  const handleBlock = async () => {
+    if (!onBlockForMaintenance) return;
+    setBlocking(true);
+    await onBlockForMaintenance(slot);
+    setBlocking(false);
+    onClose();
   };
 
   const details = [
