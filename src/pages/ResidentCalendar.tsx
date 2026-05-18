@@ -8,10 +8,10 @@ import CalendarLegend from '@/components/resident/CalendarLegend';
 import CalendarEventDetail from '@/components/resident/CalendarEventDetail';
 
 const EVENT_TYPE_CONFIG: Record<string, { color: string; label: string }> = {
-  community_event: { color: '#00D4FF', label: 'Community Event' },
-  board_meeting: { color: '#0F1F3D', label: 'Board Meeting' },
-  maintenance_scheduled: { color: '#F59E0B', label: 'Maintenance' },
   amenity_booking: { color: '#00D4FF', label: 'Amenity Booking' },
+  community_event: { color: '#0F1F3D', label: 'Community Event' },
+  board_meeting: { color: '#8892A4', label: 'Board Meeting' },
+  maintenance_scheduled: { color: '#F97066', label: 'Maintenance' },
 };
 
 const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
