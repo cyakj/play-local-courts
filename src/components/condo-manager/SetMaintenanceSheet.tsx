@@ -133,6 +133,27 @@ const SetMaintenanceSheet: React.FC<SetMaintenanceSheetProps> = ({ open, onClose
     fetchData();
   }, [open, selectedDate, amenity.id]);
 
+  const broadcastMaintenance = async (slot: SlotState, dateStr: string, excludeUserId?: string) => {
+    const { data: members } = await supabase
+      .from('hoa_memberships')
+      .select('user_id')
+      .eq('hoa_id', amenity.hoaId)
+      .eq('status', 'approved');
+    if (!members?.length) return;
+    const dateLabel = format(selectedDate, 'EEE, MMM d');
+    const rows = members
+      .filter(m => m.user_id !== excludeUserId)
+      .map(m => ({
+        user_id: m.user_id,
+        hoa_id: amenity.hoaId,
+        type: 'maintenance_scheduled',
+        title: 'Amenity Maintenance Scheduled',
+        body: `${amenity.name} will be under maintenance on ${dateLabel} from ${slot.displayStart} to ${slot.displayEnd}.`,
+        metadata: { amenity_id: amenity.id, amenity_name: amenity.name, date: dateStr, start_time: slot.time, end_time: slot.endTime } as any,
+      }));
+    if (rows.length) await supabase.from('hoa_notifications').insert(rows);
+  };
+
   const handleSlotTap = async (idx: number) => {
     const slot = slots[idx];
     if (isSlotInPast(slot.time, selectedDate)) return;
@@ -159,6 +180,9 @@ const SetMaintenanceSheet: React.FC<SetMaintenanceSheetProps> = ({ open, onClose
       if (error) {
         setSlots((prev) => prev.map((s, i) => (i === idx ? { ...s, state: 'available' } : s)));
         toast.error('Failed to block slot');
+      } else {
+        broadcastMaintenance(slot, dateStr).catch(console.error);
+        toast.success('Slot blocked & residents notified');
       }
     } else {
       const { error } = await supabase
@@ -173,6 +197,32 @@ const SetMaintenanceSheet: React.FC<SetMaintenanceSheetProps> = ({ open, onClose
       }
     }
   };
+
+  const handleBlockBookedForMaintenance = async (slot: SlotState) => {
+    if (!slot.bookingId) return;
+    const dateStr = format(selectedDate, 'yyyy-MM-dd');
+    // Cancel the booking with the customized maintenance message
+    await handleCancelBooking(slot, 'Scheduled maintenance');
+    // Insert maintenance block
+    const { error } = await supabase.from('court_maintenance').insert({
+      court_id: amenity.id,
+      date: dateStr,
+      start_time: slot.time,
+      end_time: slot.endTime,
+      description: 'Scheduled maintenance',
+    });
+    if (error) {
+      toast.error('Failed to set maintenance');
+      return;
+    }
+    setSlots((prev) => prev.map(s =>
+      s.time === slot.time ? { ...s, state: 'maintenance', bookingId: undefined, unitNumber: undefined, playType: undefined, userId: undefined } : s
+    ));
+    // Broadcast to all other residents (the affected resident already got the personalized cancellation)
+    broadcastMaintenance(slot, dateStr, slot.userId).catch(console.error);
+    toast.success('Slot blocked & residents notified');
+  };
+
 
   const handleCancelBooking = async (slot: SlotState, reason?: string) => {
     if (!slot.bookingId) return;
