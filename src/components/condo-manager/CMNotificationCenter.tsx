@@ -61,11 +61,26 @@ const CMNotificationCenter = ({ onClose }: CMNotificationCenterProps) => {
 
   const handleNotifClick = async (notif: any) => {
     await markRead(notif.id);
-    // Navigate based on type
-    if (notif.type.startsWith('report')) navigate('/cm/reports');
-    else if (notif.type.startsWith('member')) navigate('/cm');
-    else if (notif.type.startsWith('booking')) navigate('/cm/calendar');
-    else if (notif.type === 'announcement') navigate('/cm');
+    const meta = notif.metadata || {};
+    const hoaId = notif.hoa_id;
+
+    if (notif.type === 'report_submitted' || notif.type === 'report_status_changed' || notif.type === 'report_message' || notif.type === 'report_unresolved') {
+      navigate(meta.report_id ? `/cm/reports?reportId=${meta.report_id}` : '/cm/reports');
+    } else if (notif.type === 'member_application' || notif.type === 'member_approved' || notif.type === 'member_rejected') {
+      navigate('/cm');
+    } else if (notif.type === 'booking_confirmed' || notif.type === 'booking_cancelled' || notif.type === 'booking_reminder') {
+      navigate('/cm/calendar');
+    } else if (notif.type === 'survey_published' || notif.type === 'survey_closed' || notif.type === 'survey_reminder') {
+      navigate(hoaId ? `/cm/community/${hoaId}/surveys` : '/cm');
+    } else if (notif.type === 'announcement') {
+      navigate(hoaId ? `/cm/community/${hoaId}` : '/cm');
+    } else if (notif.type === 'event_created' || notif.type === 'event_reminder') {
+      navigate('/cm/calendar');
+    } else if (notif.type === 'health_score_alert') {
+      navigate(hoaId ? `/cm/community/${hoaId}` : '/cm');
+    } else {
+      navigate('/cm');
+    }
     onClose();
   };
 
@@ -108,7 +123,7 @@ const CMNotificationCenter = ({ onClose }: CMNotificationCenterProps) => {
         />
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 pb-5">
+      <div className="flex-1 overflow-y-auto p-4 pb-28">
         {filtered.length === 0 && (
           <div className="text-center py-10 text-cm-text-light">No notifications</div>
         )}
