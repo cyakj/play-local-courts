@@ -82,6 +82,7 @@ function App() {
       <TooltipProvider>
         <NotificationContainer />
         <Toaster />
+        <SonnerToaster position="top-center" duration={2000} richColors />
         <BrowserRouter>
           <ScrollToTop />
           <AuthProvider>
