@@ -48,6 +48,8 @@ export const UpcomingActivitySnapshot = ({ forecast = {} }: UpcomingActivitySnap
   const { currentUser } = useAuth();
   const { bookings } = useData();
   const [upcomingItems, setUpcomingItems] = useState<UpcomingItem[]>([]);
+  const [allItems, setAllItems] = useState<UpcomingItem[]>([]);
+  const [showAllDialog, setShowAllDialog] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
