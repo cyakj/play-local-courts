@@ -192,11 +192,6 @@ const CMAmenityRules = () => {
           checkinRequiredMinutes={formData.checkin_required_minutes}
           onUpdate={updateField}
         />
-        <PeakHoursSection
-          amenity={amenity}
-          formData={formData}
-          onUpdate={updateField}
-        />
         <AmenitySpecificSection
           amenity={amenity}
           formData={formData}
