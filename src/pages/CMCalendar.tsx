@@ -531,7 +531,7 @@ const CMCalendar = () => {
         onClick={() => setShowAddEvent(true)}
         className="fixed right-5 flex items-center justify-center rounded-full active:scale-95 transition-transform z-40"
         style={{
-          bottom: 'calc(env(safe-area-inset-bottom, 0px) + 96px)',
+          bottom: 'calc(env(safe-area-inset-bottom, 0px) + 120px)',
           width: 56,
           height: 56,
           background: '#0F1F3D',
