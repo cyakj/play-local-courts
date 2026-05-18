@@ -45,8 +45,8 @@ const JoinCommunity = () => {
     const timeout = setTimeout(async () => {
       setLoadingSearch(true);
       const { data } = await supabase
-        .from('hoas')
-        .select('id, name, address')
+        .from('public_hoa_directory')
+        .select('id, name')
         .ilike('name', `%${searchQuery}%`)
         .limit(10);
 
@@ -65,7 +65,7 @@ const JoinCommunity = () => {
         setCommunities(data.map((h: any) => ({
           id: h.id,
           name: h.name,
-          address: h.address,
+          address: null,
           memberCount: counts[h.id] || 0,
         })));
       }
@@ -80,7 +80,7 @@ const JoinCommunity = () => {
     try {
       // Look up HOA by name or code (simple approach: match by name)
       const { data: hoa } = await supabase
-        .from('hoas')
+        .from('public_hoa_directory')
         .select('id')
         .ilike('name', inviteCode.trim())
         .single();

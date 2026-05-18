@@ -44,8 +44,8 @@ export const JoinExistingHOA = ({ onSuccess }: JoinExistingHOAProps) => {
       setIsSearching(true);
       try {
         const { data, error } = await supabase
-          .from('hoas')
-          .select('id, name, address')
+          .from('public_hoa_directory')
+          .select('id, name')
           .ilike('name', `%${searchTerm}%`)
           .limit(10);
 
