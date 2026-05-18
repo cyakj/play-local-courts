@@ -14,7 +14,7 @@ const CondoManagerBottomNav = () => {
     { path: '/cm', icon: LayoutGrid, label: 'Portfolio' },
     { path: '/cm/reports', icon: AlertTriangle, label: 'Issues' },
     { path: '/cm/calendar', icon: CalendarDays, label: 'Calendar' },
-    { path: '/messages', icon: MessageSquare, label: 'Messages', badge: alertCount },
+    { path: '/cm/messages', icon: MessageSquare, label: 'Messages', badge: alertCount },
   ];
 
   return (
