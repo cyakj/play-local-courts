@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { useActiveHOA } from '../contexts/ActiveHOAContext';
 import { AlertCircle, Waves, Flame, Sparkles } from 'lucide-react';
+import AmenityRulesDialog from '../components/AmenityRulesDialog';
 
 // ── Context-aware SVG icons ──────────────────────────────────────────────────
 
