@@ -284,6 +284,12 @@ const BookAmenity: React.FC = () => {
           </div>
         )}
       </div>
+
+      <AmenityRulesDialog
+        isOpen={!!rulesAmenity}
+        onClose={() => setRulesAmenity(null)}
+        amenities={rulesAmenity ? [rulesAmenity] : []}
+      />
     </div>
   );
 };
