@@ -495,6 +495,7 @@ const SetMaintenanceSheet: React.FC<SetMaintenanceSheetProps> = ({ open, onClose
           selectedDate={selectedDate}
           onClose={() => setSelectedBooking(null)}
           onCancel={handleCancelBooking}
+          onBlockForMaintenance={handleBlockBookedForMaintenance}
         />
       )}
     </>
