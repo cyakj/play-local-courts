@@ -254,7 +254,7 @@ const BookAmenity: React.FC = () => {
                   Book Now →
                 </button>
                 <button
-                  onClick={() => {}}
+                  onClick={() => setRulesAmenity({ id: amenity.id, name: amenity.name, amenityType: amenity.amenityType })}
                   className="min-h-[44px]"
                   style={{
                     borderRadius: 10,
