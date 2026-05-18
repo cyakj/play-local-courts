@@ -157,7 +157,7 @@ const CMCommunityDashboard = () => {
   const statusPill = c.status === 'critical'
     ? { label: 'Critical', bg: '#EF4444', text: '#fff' }
     : c.status === 'warning'
-    ? { label: 'Needs Attention', bg: '#823f3a', text: '#fff' }
+    ? { label: 'Needs Attention', bg: '#F97066', text: '#fff' }
     : { label: 'Optimal', bg: '#0F1F3D', text: '#fff' };
 
   const tabs = ['overview', 'reports', 'amenities', 'members'];
