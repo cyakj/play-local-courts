@@ -131,8 +131,9 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document: doc, userId
         const targetWidth = Math.max(320, Math.min(window.innerWidth - 32, 900));
         const dpr = window.devicePixelRatio || 1;
         const baseVp = page.getViewport({ scale: 1 });
-        const scale = (targetWidth / baseVp.width) * dpr * zoom;
-        const viewport = page.getViewport({ scale });
+        // Render at a high constant scale (accounting for max zoom) so zooming stays crisp
+        const renderScale = (targetWidth / baseVp.width) * dpr * Math.max(1.5, zoom);
+        const viewport = page.getViewport({ scale: renderScale });
 
         const canvas = window.document.createElement('canvas');
         canvas.width = Math.ceil(viewport.width);
@@ -152,7 +153,7 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document: doc, userId
 
     renderPage();
     return () => { cancelled = true; };
-  }, [pdfDoc, currentPage, zoom]);
+  }, [pdfDoc, currentPage]);
 
   const handleDownload = async () => {
     await downloadDocument(doc.id, doc.file_url, doc.file_name);
