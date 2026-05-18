@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Download, ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from 'lucide-react';
 import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
@@ -33,6 +33,7 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document: doc, userId
   const [zoom, setZoom] = useState(1.0);
   const [pageDataUrl, setPageDataUrl] = useState<string | null>(null);
   const [pageLoading, setPageLoading] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
   const isImage = /\.(png|jpg|jpeg|gif|webp)/i.test(doc.file_url);
   const isPdf = /\.pdf/i.test(doc.file_url) || (!isImage);
@@ -164,6 +165,27 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document: doc, userId
   const zoomIn = () => setZoom(z => Math.min(4.0, parseFloat((z + 0.25).toFixed(2))));
   const zoomOut = () => setZoom(z => Math.max(0.5, parseFloat((z - 0.25).toFixed(2))));
 
+  const handleViewerWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    const container = scrollContainerRef.current;
+    if (!container || !isPdf) return;
+
+    const hasHorizontalOverflow = container.scrollWidth - container.clientWidth > 1;
+    if (!hasHorizontalOverflow) return;
+
+    if (Math.abs(event.deltaX) > 0) {
+      container.scrollLeft += event.deltaX;
+      return;
+    }
+
+    const atTop = container.scrollTop <= 0;
+    const atBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 1;
+
+    if (event.shiftKey || (event.deltaY < 0 && atTop) || (event.deltaY > 0 && atBottom)) {
+      event.preventDefault();
+      container.scrollLeft += event.deltaY;
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[60] flex flex-col" style={{ background: '#F9FAFB' }}>
       {/* Header */}
@@ -210,7 +232,18 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document: doc, userId
       </div>
 
       {/* Scrollable content area */}
-      <div className="flex-1 overflow-auto relative" style={{ background: '#F9FAFB' }}>
+      <div
+        ref={scrollContainerRef}
+        onWheel={handleViewerWheel}
+        className="flex-1 overflow-auto relative"
+        style={{
+          background: '#F9FAFB',
+          overflowX: 'auto',
+          overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          overscrollBehavior: 'contain',
+        }}
+      >
         {/* Loading state */}
         {loading && !error && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
@@ -289,7 +322,7 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document: doc, userId
 
         {/* PDF page view */}
         {!loading && !error && isPdf && (
-          <div className="py-4 px-4 min-h-full flex justify-center">
+          <div className="py-4 px-4 min-h-full w-max min-w-full flex items-start justify-center">
             {pageLoading && (
               <div className="flex flex-col items-center gap-3 py-12">
                 <div
