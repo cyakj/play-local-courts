@@ -9,7 +9,7 @@ import BookingHoursSection from '@/components/rules/BookingHoursSection';
 import DurationLimitsSection from '@/components/rules/DurationLimitsSection';
 import BookingLimitsSection from '@/components/rules/BookingLimitsSection';
 import GuestPoliciesSection from '@/components/rules/GuestPoliciesSection';
-import PeakHoursSection from '@/components/rules/PeakHoursSection';
+
 import AmenitySpecificSection from '@/components/rules/AmenitySpecificSection';
 import AdminControlsSection from '@/components/rules/AdminControlsSection';
 import CustomRulesSection from '@/components/rules/CustomRulesSection';
