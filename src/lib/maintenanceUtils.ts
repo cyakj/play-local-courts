@@ -26,7 +26,7 @@ export const getCategoryLabel = (category: string): string => {
   return labels[category] || category.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 };
 
-/** All category options for filter dropdowns (unified set) */
+/** All category options for filter dropdowns — must match resident report options */
 export const allCategories = [
   { value: 'amenities_equipment', label: 'Amenities & Equipment' },
   { value: 'lighting_electrical', label: 'Lighting & Electrical' },
@@ -34,12 +34,6 @@ export const allCategories = [
   { value: 'grounds_landscaping', label: 'Grounds & Landscaping' },
   { value: 'buildings_structures', label: 'Buildings & Structures' },
   { value: 'safety_other', label: 'Safety / Other' },
-  { value: 'lighting', label: 'Lighting' },
-  { value: 'surface_net', label: 'Surface & Net' },
-  { value: 'gate_access', label: 'Gate & Access' },
-  { value: 'plumbing', label: 'Plumbing' },
-  { value: 'cleaning', label: 'Cleaning' },
-  { value: 'other', label: 'Other' },
 ];
 
 /**
