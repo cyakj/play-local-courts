@@ -72,8 +72,8 @@ const CondoManagerBottomNav = () => {
                   className="h-[22px] w-[22px]"
                   style={{ color: active ? '#00D4FF' : '#8892A4' }}
                 />
-                {item.badge && item.badge > 0 && (
-                  <div className="absolute -top-1 -right-1.5 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px] font-extrabold">
+                {!!item.badge && item.badge > 0 && (
+                  <div className="absolute -top-1.5 -right-2 bg-red-500 text-white rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center text-[9px] font-extrabold leading-none">
                     {item.badge}
                   </div>
                 )}
