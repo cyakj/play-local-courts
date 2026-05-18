@@ -118,6 +118,7 @@ function App() {
                     <Route path="/cm/settings/help" element={<CMHelpSupport />} />
                     <Route path="/cm/settings/feedback" element={<CMFeedback />} />
                     <Route path="/cm/settings/language" element={<CMLanguage />} />
+                    <Route path="/cm/messages" element={<Messages />} />
                   </Route>
                   {/* Public invite join route */}
                   <Route path="/join/:inviteCode" element={<JoinByInvite />} />
