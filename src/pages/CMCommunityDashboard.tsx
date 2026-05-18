@@ -509,8 +509,8 @@ const CMCommunityDashboard = () => {
 
       {/* Add Amenity Modal */}
       {showAddAmenityModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md p-5">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl w-full max-w-md p-5 my-auto max-h-[calc(100vh-120px)] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <div className="text-lg font-extrabold" style={{ color: '#0F1F3D', fontFamily: 'Manrope, sans-serif' }}>Add Amenity</div>
               <button onClick={() => setShowAddAmenityModal(false)} style={{ color: '#9CA3AF' }}><X className="h-5 w-5" /></button>
