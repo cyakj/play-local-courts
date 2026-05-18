@@ -320,10 +320,15 @@ const ReserveCourt = () => {
     let availablePlayTypes = config?.basePlayTypes || ['singles'];
 
     if (rules) {
-      if (rules.singles_only) {
-        availablePlayTypes = availablePlayTypes.filter(type => type === 'singles');
-      } else if (rules.doubles_only) {
-        availablePlayTypes = availablePlayTypes.filter(type => type === 'doubles');
+      const singlesAllowed = !!rules.singles_only;
+      const doublesAllowed = !!rules.doubles_only;
+      // Only filter if at least one flag is set (legacy data: allow both)
+      if (singlesAllowed || doublesAllowed) {
+        availablePlayTypes = availablePlayTypes.filter(type => {
+          if (type === 'singles') return singlesAllowed;
+          if (type === 'doubles') return doublesAllowed;
+          return true;
+        });
       }
     }
 
