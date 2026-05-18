@@ -161,7 +161,7 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document: doc, userId
 
   const goToPrev = () => setCurrentPage(p => Math.max(1, p - 1));
   const goToNext = () => setCurrentPage(p => Math.min(totalPages, p + 1));
-  const zoomIn = () => setZoom(z => Math.min(3.0, parseFloat((z + 0.25).toFixed(2))));
+  const zoomIn = () => setZoom(z => Math.min(4.0, parseFloat((z + 0.25).toFixed(2))));
   const zoomOut = () => setZoom(z => Math.max(0.5, parseFloat((z - 0.25).toFixed(2))));
 
   return (
