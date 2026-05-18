@@ -434,7 +434,7 @@ const CMCommunityDashboard = () => {
                 badge={c.pendingApprovals === 0 ? <GreenBadge label="Clear" /> : undefined}
               />
               <StatCard icon={<BarChart2 className="h-5 w-5" />}
-                value={`${Math.round((c.activeMembers / c.totalUnits) * 100)}%`} label="Occupancy" />
+                value={`${c.activeMembers}/${c.totalUnits}`} label="Onboarded" />
             </div>
 
             {pendingMembers.length > 0 && (
