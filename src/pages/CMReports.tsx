@@ -177,15 +177,9 @@ const CMReports = () => {
             onChange={(e) => setCategoryFilter(e.target.value)}
             className="flex-1 px-2.5 py-2 rounded-[10px] border border-cm-border text-xs bg-white text-cm-text"
           >
-            {[
-              'All Categories',
-              'Grounds & Landscaping',
-              'Water & Plumbing',
-              'Amenities & Equipment',
-              'Lighting & Electrical',
-              'Buildings & Structures',
-            ].map((o) => (
-              <option key={o}>{o}</option>
+            <option value="All Categories">All Categories</option>
+            {allCategories.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>
         </div>
