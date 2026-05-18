@@ -28,19 +28,22 @@ const AmenitySpecificSection = ({ amenity, formData, onUpdate }: AmenitySpecific
             />
           </div>
           <div className="flex items-center justify-between">
-            <Label>Singles Only</Label>
+            <Label>Singles</Label>
             <Switch
               checked={formData.singles_only}
               onCheckedChange={(checked) => onUpdate('singles_only', checked)}
             />
           </div>
           <div className="flex items-center justify-between">
-            <Label>Doubles Only</Label>
+            <Label>Doubles</Label>
             <Switch
               checked={formData.doubles_only}
               onCheckedChange={(checked) => onUpdate('doubles_only', checked)}
             />
           </div>
+          <p className="text-xs text-muted-foreground">
+            Toggle on to allow residents to book that play type. At least one must be enabled.
+          </p>
         </CardContent>
       </Card>
     );
