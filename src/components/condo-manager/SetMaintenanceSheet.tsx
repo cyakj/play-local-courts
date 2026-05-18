@@ -449,10 +449,10 @@ const SetMaintenanceSheet: React.FC<SetMaintenanceSheetProps> = ({ open, onClose
           </div>
         </div>
 
-        {/* Save button */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t" style={{ borderColor: '#E5E7EB' }}>
+        {/* Done button */}
+        <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t" style={{ borderColor: '#E5E7EB', paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}>
           <div
-            onClick={loading ? undefined : handleSave}
+            onClick={onClose}
             className="text-center cursor-pointer text-sm font-bold flex items-center justify-center"
             style={{
               backgroundColor: '#0F1F3D',
@@ -460,10 +460,9 @@ const SetMaintenanceSheet: React.FC<SetMaintenanceSheetProps> = ({ open, onClose
               borderRadius: 10,
               padding: 14,
               width: '100%',
-              opacity: loading ? 0.6 : 1,
             }}
           >
-            {loading ? 'Saving...' : 'Save Maintenance Schedule'}
+            Done
           </div>
         </div>
       </div>
