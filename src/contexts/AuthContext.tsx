@@ -414,7 +414,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isAdmin = userRoles.includes('admin');
   const isCoach = userRoles.includes('coach');
   const isPlatformReviewer = userRoles.includes('platform_reviewer');
-  const isCondoManager = isAdmin;
+  const isCondoManager = userRoles.includes('admin') ||
+    userRoles.includes('condo_manager') ||
+    userRoles.includes('manager');
   // Platform reviewers should never be considered "pending" - they're above HOA hierarchy
   const isPending = currentUser?.status === UserStatus.PENDING && !isPlatformReviewer && !isCondoManager;
 

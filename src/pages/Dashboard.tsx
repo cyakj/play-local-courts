@@ -43,7 +43,7 @@ const mergeAnnouncementFeed = (announcementRows: any[] = [], closedSurveyRows: a
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { currentUser, isAdmin, isPending, isCoach, isPlatformReviewer } = useAuth();
+  const { currentUser, isAdmin, isCondoManager, isPending, isCoach, isPlatformReviewer } = useAuth();
   const { activeHOA, hasMultipleHOAs } = useActiveHOA();
   const { bookings, loading } = useData();
 
@@ -285,7 +285,7 @@ const Dashboard = () => {
 
   // Redirects
   if (isPlatformReviewer) return <Navigate to="/reviewer/dashboard" replace />;
-  if (isAdmin) return <Navigate to="/cm" replace />;
+  if (isCondoManager) return <Navigate to="/cm" replace />;
   if (TENNIS_FEATURES_ENABLED && isCoach) return <Navigate to="/coach-dashboard" replace />;
 
   if (loading) {

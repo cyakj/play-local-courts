@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import CondoManagerBottomNav from './CondoManagerBottomNav';
 
 const CondoManagerLayout = () => {
-  const { currentUser, loading, isAdmin } = useAuth();
+  const { currentUser, loading, isCondoManager } = useAuth();
 
   if (loading) {
     return (
@@ -21,7 +21,7 @@ const CondoManagerLayout = () => {
     return <Navigate to="/login" replace />;
   }
 
-  if (!isAdmin) {
+  if (!isCondoManager) {
     return <Navigate to="/dashboard" replace />;
   }
 
