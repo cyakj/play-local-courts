@@ -289,7 +289,7 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document: doc, userId
 
         {/* PDF page view */}
         {!loading && !error && isPdf && (
-          <div className="flex flex-col items-center py-4 px-4 min-h-full">
+          <div className="py-4 px-4 min-h-full flex justify-center">
             {pageLoading && (
               <div className="flex flex-col items-center gap-3 py-12">
                 <div
@@ -305,11 +305,14 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document: doc, userId
               <img
                 src={pageDataUrl}
                 alt={`Page ${currentPage} of ${totalPages}`}
-                className="w-full rounded-xl"
+                className="rounded-xl block"
                 style={{
-                  maxWidth: 600,
+                  width: `${Math.min(600, window.innerWidth - 32) * zoom}px`,
+                  maxWidth: 'none',
+                  height: 'auto',
                   boxShadow: '0px 4px 24px rgba(15,31,61,0.10)',
                   border: '1px solid rgba(15,31,61,0.06)',
+                  transition: 'width 150ms ease-out',
                 }}
               />
             )}
