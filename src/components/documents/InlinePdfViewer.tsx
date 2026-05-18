@@ -349,9 +349,9 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document: doc, userId
             </span>
             <button
               onClick={zoomIn}
-              disabled={zoom >= 3.0}
+              disabled={zoom >= 4.0}
               className="w-10 h-10 rounded-xl flex items-center justify-center active:scale-95 transition-transform"
-              style={{ background: '#F3F4F6', opacity: zoom >= 3.0 ? 0.4 : 1 }}
+              style={{ background: '#F3F4F6', opacity: zoom >= 4.0 ? 0.4 : 1 }}
               aria-label="Zoom in"
             >
               <ZoomIn className="h-4 w-4" style={{ color: '#0F1F3D' }} />
