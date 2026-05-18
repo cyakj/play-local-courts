@@ -8,10 +8,10 @@ import CalendarLegend from '@/components/resident/CalendarLegend';
 import CalendarEventDetail from '@/components/resident/CalendarEventDetail';
 
 const EVENT_TYPE_CONFIG: Record<string, { color: string; label: string }> = {
-  community_event: { color: '#00D4FF', label: 'Community Event' },
-  board_meeting: { color: '#0F1F3D', label: 'Board Meeting' },
-  maintenance_scheduled: { color: '#F59E0B', label: 'Maintenance' },
   amenity_booking: { color: '#00D4FF', label: 'Amenity Booking' },
+  community_event: { color: '#0F1F3D', label: 'Community Event' },
+  board_meeting: { color: '#8892A4', label: 'Board Meeting' },
+  maintenance_scheduled: { color: '#F97066', label: 'Maintenance' },
 };
 
 const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -314,8 +314,8 @@ const ResidentCalendar = () => {
                       </span>
                       {isToday && !isSel && dots.length === 0 && <div className="absolute -bottom-0.5 w-3 h-[2px] rounded-full" style={{ background: '#00D4FF' }} />}
                     </div>
-                    <div className="flex gap-0.5 mt-0.5 h-1.5">
-                      {dots.map((c, j) => <div key={j} className="w-1.5 h-1.5 rounded-full" style={{ background: c }} />)}
+                    <div className="flex gap-[3px] mt-0.5 h-1.5">
+                      {dots.map((c, j) => <div key={j} className="w-[6px] h-[6px] rounded-full" style={{ background: c }} />)}
                     </div>
                   </div>
                 );
@@ -368,8 +368,8 @@ const ResidentCalendar = () => {
                       </span>
                       {isToday && !isSel && dots.length === 0 && <div className="absolute -bottom-0.5 w-3 h-[2px] rounded-full" style={{ background: '#00D4FF' }} />}
                     </div>
-                    <div className="flex gap-0.5 mt-0.5 h-1.5">
-                      {dots.map((c, j) => <div key={j} className="w-1.5 h-1.5 rounded-full" style={{ background: c }} />)}
+                    <div className="flex gap-[3px] mt-0.5 h-1.5">
+                      {dots.map((c, j) => <div key={j} className="w-[6px] h-[6px] rounded-full" style={{ background: c }} />)}
                     </div>
                   </div>
                 );
