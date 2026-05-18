@@ -9,15 +9,13 @@ const EVENT_TYPE_CONFIG: Record<string, { color: string; label: string }> = {
   community_event:       { color: '#00D4FF', label: 'Community Event' },
   board_meeting:         { color: '#0F1F3D', label: 'Board Meeting' },
   maintenance_scheduled: { color: '#F97066', label: 'Maintenance' },
-  amenity_booking:       { color: '#8892A4', label: 'Amenity Booking' },
 };
 
-const TYPE_LABELS = ['All', 'Community Events', 'Board Meetings', 'Amenity Bookings', 'Maintenance'];
+const TYPE_LABELS = ['All', 'Community Events', 'Board Meetings', 'Maintenance'];
 
 const TYPE_MAP: Record<string, string> = {
   'Community Events': 'community_event',
   'Board Meetings': 'board_meeting',
-  'Amenity Bookings': 'amenity_booking',
   Maintenance: 'maintenance_scheduled',
 };
 
