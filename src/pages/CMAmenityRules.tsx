@@ -151,16 +151,6 @@ const CMAmenityRules = () => {
     );
   }
 
-  const formatHour = (t: string) => {
-    if (!t) return '';
-    const [hStr, mStr] = t.split(':');
-    const h = parseInt(hStr, 10);
-    const m = parseInt(mStr, 10);
-    const period = h >= 12 ? 'PM' : 'AM';
-    const h12 = h % 12 === 0 ? 12 : h % 12;
-    return m === 0 ? `${h12} ${period}` : `${h12}:${String(m).padStart(2, '0')} ${period}`;
-  };
-
   return (
     <div className="min-h-screen bg-cm-app-bg">
       {/* Header */}
