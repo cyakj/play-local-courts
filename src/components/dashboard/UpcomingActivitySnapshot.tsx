@@ -217,9 +217,12 @@ export const UpcomingActivitySnapshot = ({ forecast = {} }: UpcomingActivitySnap
             <Calendar className="h-5 w-5 text-primary" />
             Coming Up
           </div>
-          <Link to="/upcoming" className="text-sm font-medium text-primary hover:underline">
+          <button
+            onClick={() => setShowAllDialog(true)}
+            className="text-sm font-medium text-primary hover:underline"
+          >
             View All
-          </Link>
+          </button>
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-0 space-y-3">
