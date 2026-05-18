@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { useActiveHOA } from '../contexts/ActiveHOAContext';
 import { AlertCircle, Waves, Flame, Sparkles } from 'lucide-react';
+import AmenityRulesDialog from '../components/AmenityRulesDialog';
 
 // ── Context-aware SVG icons ──────────────────────────────────────────────────
 
@@ -100,6 +101,7 @@ const BookAmenity: React.FC = () => {
   const { isHOAUser, loading: hoaLoading } = useActiveHOA();
   const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = useState('all');
+  const [rulesAmenity, setRulesAmenity] = useState<{ id: string; name: string; amenityType: string } | null>(null);
 
   if (!hoaLoading && !isHOAUser) {
     return (
@@ -252,7 +254,7 @@ const BookAmenity: React.FC = () => {
                   Book Now →
                 </button>
                 <button
-                  onClick={() => {}}
+                  onClick={() => setRulesAmenity({ id: amenity.id, name: amenity.name, amenityType: amenity.amenityType })}
                   className="min-h-[44px]"
                   style={{
                     borderRadius: 10,
@@ -282,6 +284,12 @@ const BookAmenity: React.FC = () => {
           </div>
         )}
       </div>
+
+      <AmenityRulesDialog
+        isOpen={!!rulesAmenity}
+        onClose={() => setRulesAmenity(null)}
+        amenities={rulesAmenity ? [rulesAmenity] : []}
+      />
     </div>
   );
 };
