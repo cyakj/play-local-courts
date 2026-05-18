@@ -153,14 +153,15 @@ export const UpcomingActivitySnapshot = ({ forecast = {} }: UpcomingActivitySnap
         }
       }
 
-      // Sort all items by date/time and take top 3
+      // Sort all items by date/time
       const sortedItems = items.sort((a, b) => {
         const dateA = new Date(`${a.date}T${a.time}`);
         const dateB = new Date(`${b.date}T${b.time}`);
         return dateA.getTime() - dateB.getTime();
-      }).slice(0, 3);
+      });
 
-      setUpcomingItems(sortedItems);
+      setAllItems(sortedItems);
+      setUpcomingItems(sortedItems.slice(0, 3));
     } catch (error) {
       console.error('Error loading upcoming activity:', error);
     } finally {
