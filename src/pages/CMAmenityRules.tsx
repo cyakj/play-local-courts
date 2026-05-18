@@ -83,8 +83,8 @@ const CMAmenityRules = () => {
     if (rules) {
       const r = rules as any;
       setFormData({
-        booking_start_time: r.booking_start_time || '07:00',
-        booking_end_time: r.booking_end_time || '21:00',
+        booking_start_time: (r.booking_start_time || '07:00').slice(0, 5),
+        booking_end_time: (r.booking_end_time || '21:00').slice(0, 5),
         max_duration_minutes: r.max_duration_minutes ?? 60,
         singles_duration_minutes: r.singles_duration_minutes ?? 60,
         doubles_duration_minutes: r.doubles_duration_minutes ?? 90,
