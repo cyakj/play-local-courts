@@ -131,8 +131,9 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document: doc, userId
         const targetWidth = Math.max(320, Math.min(window.innerWidth - 32, 900));
         const dpr = window.devicePixelRatio || 1;
         const baseVp = page.getViewport({ scale: 1 });
-        const scale = (targetWidth / baseVp.width) * dpr * zoom;
-        const viewport = page.getViewport({ scale });
+        // Render at a high constant scale (accounting for max zoom) so zooming stays crisp
+        const renderScale = (targetWidth / baseVp.width) * dpr * Math.max(1.5, zoom);
+        const viewport = page.getViewport({ scale: renderScale });
 
         const canvas = window.document.createElement('canvas');
         canvas.width = Math.ceil(viewport.width);
@@ -152,7 +153,7 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document: doc, userId
 
     renderPage();
     return () => { cancelled = true; };
-  }, [pdfDoc, currentPage, zoom]);
+  }, [pdfDoc, currentPage]);
 
   const handleDownload = async () => {
     await downloadDocument(doc.id, doc.file_url, doc.file_name);
@@ -160,7 +161,7 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document: doc, userId
 
   const goToPrev = () => setCurrentPage(p => Math.max(1, p - 1));
   const goToNext = () => setCurrentPage(p => Math.min(totalPages, p + 1));
-  const zoomIn = () => setZoom(z => Math.min(3.0, parseFloat((z + 0.25).toFixed(2))));
+  const zoomIn = () => setZoom(z => Math.min(4.0, parseFloat((z + 0.25).toFixed(2))));
   const zoomOut = () => setZoom(z => Math.max(0.5, parseFloat((z - 0.25).toFixed(2))));
 
   return (
@@ -288,7 +289,7 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document: doc, userId
 
         {/* PDF page view */}
         {!loading && !error && isPdf && (
-          <div className="flex flex-col items-center py-4 px-4 min-h-full">
+          <div className="py-4 px-4 min-h-full flex justify-center">
             {pageLoading && (
               <div className="flex flex-col items-center gap-3 py-12">
                 <div
@@ -304,11 +305,14 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document: doc, userId
               <img
                 src={pageDataUrl}
                 alt={`Page ${currentPage} of ${totalPages}`}
-                className="w-full rounded-xl"
+                className="rounded-xl block"
                 style={{
-                  maxWidth: 600,
+                  width: `${Math.min(600, window.innerWidth - 32) * zoom}px`,
+                  maxWidth: 'none',
+                  height: 'auto',
                   boxShadow: '0px 4px 24px rgba(15,31,61,0.10)',
                   border: '1px solid rgba(15,31,61,0.06)',
+                  transition: 'width 150ms ease-out',
                 }}
               />
             )}
@@ -345,9 +349,9 @@ const InlinePdfViewer: React.FC<InlinePdfViewerProps> = ({ document: doc, userId
             </span>
             <button
               onClick={zoomIn}
-              disabled={zoom >= 3.0}
+              disabled={zoom >= 4.0}
               className="w-10 h-10 rounded-xl flex items-center justify-center active:scale-95 transition-transform"
-              style={{ background: '#F3F4F6', opacity: zoom >= 3.0 ? 0.4 : 1 }}
+              style={{ background: '#F3F4F6', opacity: zoom >= 4.0 ? 0.4 : 1 }}
               aria-label="Zoom in"
             >
               <ZoomIn className="h-4 w-4" style={{ color: '#0F1F3D' }} />
