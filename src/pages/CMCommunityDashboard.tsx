@@ -167,7 +167,7 @@ const CMCommunityDashboard = () => {
 
       {/* Header — no floating card, clean height */}
       <header
-        className="sticky top-0 z-50 px-5 pt-10 pb-6 shadow-md"
+        className="sticky top-0 z-40 px-5 pt-3 pb-4 shadow-md"
         style={{ background: 'linear-gradient(135deg, #0F1F3D 0%, #0F1F3D 100%)' }}
       >
         <div className="flex items-center w-full mt-2">
