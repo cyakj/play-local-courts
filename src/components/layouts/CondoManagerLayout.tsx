@@ -2,6 +2,7 @@ import React from 'react';
 import { Outlet, Navigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import CondoManagerBottomNav from './CondoManagerBottomNav';
+import GlobalAppHeader from './GlobalAppHeader';
 
 const CondoManagerLayout = () => {
   const { currentUser, loading, isCondoManager } = useAuth();
