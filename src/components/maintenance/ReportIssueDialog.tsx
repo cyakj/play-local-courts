@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { Camera, Loader2 } from 'lucide-react';
+import { smartSentenceCase } from '@/lib/textUtils';
 
 interface ReportIssueDialogProps {
   open: boolean;
@@ -83,7 +84,7 @@ export const ReportIssueDialog: React.FC<ReportIssueDialogProps> = ({
           amenity_id: selectedAmenity,
           reporter_id: currentUser.id,
           category,
-          description,
+          description: smartSentenceCase(description),
           photo_url: photoUrl,
           status: 'open'
         });

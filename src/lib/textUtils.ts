@@ -82,3 +82,31 @@ export const formatTime12Hour = (time: string | null | undefined): string => {
   
   return `${hours}:${minutes} ${ampm}`;
 };
+
+/**
+ * Smart auto-correct for user-written prose (e.g. report descriptions):
+ * - Capitalizes the first letter of the text
+ * - Capitalizes the first letter after sentence-ending punctuation (. ! ?)
+ * - Capitalizes the standalone pronoun "i" (and contractions like i'm, i'll, i've, i'd)
+ * - Collapses excess whitespace and trims
+ */
+export const smartSentenceCase = (text: string | null | undefined): string => {
+  if (!text) return '';
+  let out = text.replace(/[ \t]+/g, ' ').replace(/\s+\n/g, '\n').trim();
+
+  // Capitalize first alphabetic char
+  out = out.replace(/^(\s*["'(\[]?\s*)([a-z])/, (_m, p1, p2) => p1 + p2.toUpperCase());
+
+  // Capitalize after sentence-ending punctuation followed by space(s)
+  out = out.replace(/([.!?]\s+["'(\[]?)([a-z])/g, (_m, p1, p2) => p1 + p2.toUpperCase());
+
+  // Capitalize after newlines
+  out = out.replace(/(\n+\s*["'(\[]?)([a-z])/g, (_m, p1, p2) => p1 + p2.toUpperCase());
+
+  // Standalone "i" and common contractions
+  out = out.replace(/\bi\b/g, 'I');
+  out = out.replace(/\bi('(?:m|ll|ve|d|re))\b/gi, (_m, suffix) => 'I' + suffix.toLowerCase());
+
+  return out;
+};
+

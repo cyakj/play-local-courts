@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Wrench, Zap, Droplets, TreePine, Building2, ShieldAlert, Camera, Loader2, ChevronLeft, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { smartSentenceCase } from '@/lib/textUtils';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 
 interface MultiStepReportDialogProps {
@@ -148,14 +149,17 @@ export const MultiStepReportDialog: React.FC<MultiStepReportDialogProps> = ({
         }
       }
 
+      const cleanedDescription = smartSentenceCase(description);
+      const cleanedLocation = smartSentenceCase(locationText);
+
       const { data, error } = await (supabase.rpc as any)('create_maintenance_report', {
         _hoa_id: currentUser.hoaId,
         _category: category,
-        _description: `[Severity: ${getSeverityLabel(severity[0])}] ${description}`,
+        _description: `[Severity: ${getSeverityLabel(severity[0])}] ${cleanedDescription}`,
         _photo_url: photoUrl,
         _report_type: isAmenityCategory ? 'amenity' : 'location',
         _amenity_id: isAmenityCategory ? selectedAmenity : null,
-        _location_text: isAmenityCategory ? null : locationText.trim(),
+        _location_text: isAmenityCategory ? null : cleanedLocation,
         _status: 'open',
       });
 
