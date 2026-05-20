@@ -242,7 +242,7 @@ const MaintenanceReports = () => {
       <div style={{ backgroundColor: '#0F1F3D' }} className="px-5 pt-3 pb-3 relative overflow-visible">
         <button
           onClick={() => navigate('/admin')}
-          className="flex items-center gap-2 mb-4 active:scale-95 transition-transform"
+          className="flex items-center gap-2 mb-2 active:scale-95 transition-transform"
           style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
         >
           <ArrowLeft className="h-5 w-5 text-white" />
@@ -277,11 +277,6 @@ const MaintenanceReports = () => {
           </div>
         </div>
 
-        {/* Bottom gradient fade */}
-        <div
-          className="absolute -bottom-6 left-0 right-0 h-8 pointer-events-none z-0"
-          style={{ background: 'linear-gradient(to bottom, #0F1F3D, transparent)' }}
-        />
       </div>
 
       <div className="pt-3">
