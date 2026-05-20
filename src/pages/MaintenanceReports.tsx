@@ -240,46 +240,41 @@ const MaintenanceReports = () => {
 
       {/* Header */}
       <div style={{ backgroundColor: '#0F1F3D' }} className="px-5 pt-1 pb-2 relative overflow-visible">
-        <button
-          onClick={() => navigate('/admin')}
-          className="flex items-center gap-2 mb-1 active:scale-95 transition-transform"
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-        >
-          <ArrowLeft className="h-5 w-5 text-white" />
-        </button>
-
-        <div className="flex items-start justify-between">
-          <div>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              onClick={() => navigate('/admin')}
+              className="active:scale-95 transition-transform flex-shrink-0"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+              aria-label="Back"
+            >
+              <ArrowLeft className="h-5 w-5 text-white" />
+            </button>
             <h1
-              className="text-[28px] font-black text-white leading-[1.1] tracking-tight"
+              className="text-[20px] font-black text-white leading-tight tracking-tight truncate"
               style={{ fontFamily: 'Manrope, sans-serif' }}
             >
               Maintenance Reports
             </h1>
-            <p className="mt-0.5" style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)', fontFamily: 'Inter, sans-serif' }}>
-              All communities · real time
-            </p>
           </div>
-          {/* Stat badges */}
-          <div className="flex flex-col gap-1.5 items-end ml-4 flex-shrink-0">
+          <div className="flex items-center gap-1.5 flex-shrink-0">
             <span
-              className="text-[12px] font-semibold px-3 py-1 rounded-full text-white"
-              style={{ background: '#F97066', letterSpacing: '0.01em' }}
+              className="text-[11px] font-semibold px-2 py-0.5 rounded-full text-white"
+              style={{ background: '#F97066' }}
             >
               {openReportCount} Open
             </span>
             <span
-              className="text-[12px] font-semibold px-3 py-1 rounded-full text-white"
+              className="text-[11px] font-semibold px-2 py-0.5 rounded-full text-white"
               style={{ background: '#00D4FF' }}
             >
-              {inProgressCount} In Progress
+              {inProgressCount} In Prog
             </span>
           </div>
         </div>
-
       </div>
 
-      <div className="pt-1">
+      <div className="pt-2">
         {/* Amenity filter tabs */}
         <div
           className="px-5 mb-3"
