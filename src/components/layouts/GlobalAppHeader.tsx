@@ -10,9 +10,7 @@ const GlobalAppHeader: React.FC = () => {
   const isCM = location.pathname.startsWith('/cm');
   const [showNotifs, setShowNotifs] = useState(false);
 
-  // Only fetch CM notifications when in CM context
-  const cmNotifs = isCM ? useCondoManagerNotifications() : { unreadCount: 0 };
-  const unreadCount = cmNotifs.unreadCount;
+  const { unreadCount } = useCondoManagerNotifications();
 
   const handleBell = () => {
     if (isCM) setShowNotifs(true);
