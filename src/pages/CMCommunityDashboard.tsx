@@ -170,7 +170,7 @@ const CMCommunityDashboard = () => {
         className="sticky top-0 z-40 px-5 pt-3 pb-4 shadow-md"
         style={{ background: 'linear-gradient(135deg, #0F1F3D 0%, #0F1F3D 100%)' }}
       >
-        <div className="flex items-center w-full mt-2">
+        <div className="flex items-center w-full">
           <button onClick={() => navigate('/cm')} className="mr-4 text-white active:scale-95 transition-transform">
             <ArrowLeft className="h-6 w-6" />
           </button>
