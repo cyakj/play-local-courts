@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import CoachNavbar from '../ui/CoachNavbar';
 import BottomNavigation from './BottomNavigation';
 import CoachBottomNavigation from './CoachBottomNavigation';
+import GlobalAppHeader from './GlobalAppHeader';
 import { TENNIS_FEATURES_ENABLED } from '@/config/featureFlags';
 
 const MainLayout = () => {
