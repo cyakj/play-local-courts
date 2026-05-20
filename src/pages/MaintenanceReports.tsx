@@ -284,7 +284,7 @@ const MaintenanceReports = () => {
         />
       </div>
 
-      <div className="pt-8">
+      <div className="pt-3">
         {/* Amenity filter tabs */}
         <div
           className="px-5 mb-4"
