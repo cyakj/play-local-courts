@@ -27,8 +27,8 @@ const GlobalAppHeader: React.FC = () => {
         className="sticky top-0 left-0 right-0 z-40 flex items-center justify-between"
         style={{
           backgroundColor: '#0F1F3D',
-          paddingTop: 'max(env(safe-area-inset-top), 6px)',
-          paddingBottom: 4,
+          paddingTop: 'max(env(safe-area-inset-top), 12px)',
+          paddingBottom: 12,
           paddingLeft: 20,
           paddingRight: 20,
         }}
@@ -37,7 +37,7 @@ const GlobalAppHeader: React.FC = () => {
           <img
             src="/images/TenisX_logo-removebg-preview.png"
             alt="TenisX"
-            style={{ height: 52, width: 'auto', maxWidth: 160, display: 'block' }}
+            style={{ height: 80, width: 'auto', maxWidth: 220, display: 'block' }}
           />
         </Link>
         <div className="flex items-center gap-3">
