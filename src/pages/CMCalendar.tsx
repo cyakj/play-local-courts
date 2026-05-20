@@ -270,7 +270,7 @@ const CMCalendar = () => {
     <div className="min-h-screen flex flex-col" style={{ background: '#F9FAFB' }}>
 
       {/* Header */}
-      <div style={{ backgroundColor: '#0F1F3D', flexShrink: 0 }} className="px-5 pt-12 pb-5">
+      <div style={{ backgroundColor: '#0F1F3D', flexShrink: 0 }} className="px-5 pt-3 pb-3">
         <div className="flex items-center justify-between mb-1">
           <h1
             className="text-[28px] font-black text-white leading-[1.1] tracking-tight"

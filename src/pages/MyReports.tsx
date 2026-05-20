@@ -144,7 +144,7 @@ const MyReports = () => {
   return (
     <div className="min-h-screen pb-24" style={{ background: '#F9FAFB' }}>
       {/* Header */}
-      <div style={{ backgroundColor: '#0F1F3D' }} className="px-5 pt-12 pb-8 relative overflow-visible">
+      <div style={{ backgroundColor: '#0F1F3D' }} className="px-5 pt-3 pb-4 relative overflow-visible">
         <div className="flex items-center justify-between mb-4">
           <div className="text-[13px] uppercase font-semibold" style={{ color: '#00D4FF', letterSpacing: '0.15em' }}>
             Reports

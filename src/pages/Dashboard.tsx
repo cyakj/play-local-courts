@@ -342,7 +342,7 @@ const Dashboard = () => {
   return (
     <div style={{ background: '#F9FAFB', minHeight: '100vh' }}>
       {/* Header */}
-      <div style={{ backgroundColor: '#0F1F3D' }} className="px-5 pt-12 pb-8 relative overflow-visible">
+      <div style={{ backgroundColor: '#0F1F3D' }} className="px-5 pt-3 pb-4 relative overflow-visible">
         {/* Top bar */}
         <div className="flex items-center justify-between mb-6">
           <img
