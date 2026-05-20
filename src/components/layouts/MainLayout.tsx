@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import CoachNavbar from '../ui/CoachNavbar';
 import BottomNavigation from './BottomNavigation';
 import CoachBottomNavigation from './CoachBottomNavigation';
+import GlobalAppHeader from './GlobalAppHeader';
 import { TENNIS_FEATURES_ENABLED } from '@/config/featureFlags';
 
 const MainLayout = () => {
@@ -29,6 +30,7 @@ const MainLayout = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <GlobalAppHeader />
       {showCoachLayout && <CoachNavbar />}
       <main className={showCoachLayout ? "pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto py-6" : "pb-20"}>
         <Outlet />
