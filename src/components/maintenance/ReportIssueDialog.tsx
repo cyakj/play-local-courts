@@ -84,7 +84,7 @@ export const ReportIssueDialog: React.FC<ReportIssueDialogProps> = ({
           amenity_id: selectedAmenity,
           reporter_id: currentUser.id,
           category,
-          description,
+          description: smartSentenceCase(description),
           photo_url: photoUrl,
           status: 'open'
         });
