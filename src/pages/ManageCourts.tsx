@@ -73,7 +73,7 @@ const ManageCourts = () => {
   return (
     <div className="min-h-screen bg-[#F9FAFB] pb-28">
       {/* Header */}
-      <div style={{ backgroundColor: '#0F1F3D' }} className="px-5 pt-12 pb-8 relative overflow-visible">
+      <div style={{ backgroundColor: '#0F1F3D' }} className="px-5 pt-3 pb-4 relative overflow-visible">
         <div className="flex items-center gap-3 mb-4">
           <button onClick={() => navigate('/admin')} className="text-white active:scale-95 transition-transform">
             <ArrowLeft className="h-6 w-6" />

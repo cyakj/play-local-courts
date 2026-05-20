@@ -594,7 +594,7 @@ export default function Messages() {
   return (
     <div className="min-h-screen flex flex-col" style={{ background: '#F9FAFB' }}>
       {/* Header */}
-      <div style={{ backgroundColor: '#0F1F3D' }} className="px-5 pt-12 pb-5 relative overflow-visible">
+      <div style={{ backgroundColor: '#0F1F3D' }} className="px-5 pt-3 pb-3 relative overflow-visible">
         <div className="flex items-center justify-between mb-1">
           <div className="text-[13px] uppercase font-semibold" style={{ color: '#00D4FF', letterSpacing: '0.15em' }}>
             Inbox

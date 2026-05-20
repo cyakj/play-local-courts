@@ -239,7 +239,7 @@ const MaintenanceReports = () => {
     <div className="min-h-screen pb-28" style={{ background: '#F9FAFB' }}>
 
       {/* Header */}
-      <div style={{ backgroundColor: '#0F1F3D' }} className="px-5 pt-12 pb-6 relative overflow-visible">
+      <div style={{ backgroundColor: '#0F1F3D' }} className="px-5 pt-3 pb-3 relative overflow-visible">
         <button
           onClick={() => navigate('/admin')}
           className="flex items-center gap-2 mb-4 active:scale-95 transition-transform"
