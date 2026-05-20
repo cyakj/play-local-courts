@@ -130,7 +130,7 @@ const DocumentLibrary = () => {
         </div>
       </ResidentHeader>
 
-      <div className="px-4 pt-4">
+      <div className="px-4 pt-3">
         {/* Search */}
         <div className="flex items-center gap-2.5 bg-card rounded-xl px-3.5 py-2.5 border border-border mb-4">
           <Search className="h-4 w-4 text-muted-foreground" />
