@@ -277,11 +277,6 @@ const MaintenanceReports = () => {
           </div>
         </div>
 
-        {/* Bottom gradient fade */}
-        <div
-          className="absolute -bottom-6 left-0 right-0 h-8 pointer-events-none z-0"
-          style={{ background: 'linear-gradient(to bottom, #0F1F3D, transparent)' }}
-        />
       </div>
 
       <div className="pt-3">
