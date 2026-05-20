@@ -239,7 +239,7 @@ const MaintenanceReports = () => {
     <div className="min-h-screen pb-28" style={{ background: '#F9FAFB' }}>
 
       {/* Header */}
-      <div style={{ backgroundColor: '#0F1F3D' }} className="px-5 -mt-1 pt-0 pb-1 relative overflow-visible">
+      <div style={{ backgroundColor: '#0F1F3D' }} className="px-5 pt-2 pb-2 relative overflow-visible">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
             <button
