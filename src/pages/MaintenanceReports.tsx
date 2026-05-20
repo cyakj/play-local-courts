@@ -239,10 +239,10 @@ const MaintenanceReports = () => {
     <div className="min-h-screen pb-28" style={{ background: '#F9FAFB' }}>
 
       {/* Header */}
-      <div style={{ backgroundColor: '#0F1F3D' }} className="px-5 pt-3 pb-3 relative overflow-visible">
+      <div style={{ backgroundColor: '#0F1F3D' }} className="px-5 pt-1 pb-2 relative overflow-visible">
         <button
           onClick={() => navigate('/admin')}
-          className="flex items-center gap-2 mb-2 active:scale-95 transition-transform"
+          className="flex items-center gap-2 mb-1 active:scale-95 transition-transform"
           style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
         >
           <ArrowLeft className="h-5 w-5 text-white" />
@@ -256,7 +256,7 @@ const MaintenanceReports = () => {
             >
               Maintenance Reports
             </h1>
-            <p className="mt-1" style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)', fontFamily: 'Inter, sans-serif' }}>
+            <p className="mt-0.5" style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)', fontFamily: 'Inter, sans-serif' }}>
               All communities · real time
             </p>
           </div>
@@ -279,10 +279,10 @@ const MaintenanceReports = () => {
 
       </div>
 
-      <div className="pt-3">
+      <div className="pt-1">
         {/* Amenity filter tabs */}
         <div
-          className="px-5 mb-4"
+          className="px-5 mb-3"
           style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}
         >
           <div className="flex gap-2 pb-1" style={{ whiteSpace: 'nowrap' }}>
@@ -314,7 +314,7 @@ const MaintenanceReports = () => {
         </div>
 
         {/* Status and Category filters */}
-        <div className="px-5 grid grid-cols-2 gap-3 mb-5">
+        <div className="px-5 grid grid-cols-2 gap-3 mb-4">
           <StyledSelect
             value={filters.status}
             onChange={v => setFilters(f => ({ ...f, status: v }))}
