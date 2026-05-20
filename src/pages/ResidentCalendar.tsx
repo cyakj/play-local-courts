@@ -227,7 +227,7 @@ const ResidentCalendar = () => {
   return (
     <div className="min-h-screen bg-background pb-24">
       {/* Header */}
-      <div className="text-white px-5 pt-[50px] pb-4" style={{ backgroundColor: '#0F1F3D' }}>
+      <div className="text-white px-5 pt-3 pb-3" style={{ backgroundColor: '#0F1F3D' }}>
         <div className="text-xl font-extrabold">Calendar</div>
         <div className="mt-0.5" style={{ fontSize: 13, opacity: 0.85 }}>
           {displayMonth.toLocaleString('en-US', { month: 'long', year: 'numeric' })}
