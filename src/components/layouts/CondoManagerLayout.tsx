@@ -28,6 +28,7 @@ const CondoManagerLayout = () => {
 
   return (
     <div className="min-h-screen bg-white">
+      <GlobalAppHeader />
       <main className="pb-20">
         <Outlet />
       </main>
