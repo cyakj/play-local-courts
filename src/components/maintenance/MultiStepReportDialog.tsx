@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Wrench, Zap, Droplets, TreePine, Building2, ShieldAlert, Camera, Loader2, ChevronLeft, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { smartSentenceCase } from '@/lib/textUtils';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 
 interface MultiStepReportDialogProps {
