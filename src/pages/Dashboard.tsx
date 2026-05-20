@@ -343,33 +343,6 @@ const Dashboard = () => {
     <div style={{ background: '#F9FAFB', minHeight: '100vh' }}>
       {/* Header */}
       <div style={{ backgroundColor: '#0F1F3D' }} className="px-5 pt-3 pb-4 relative overflow-visible">
-        {/* Top bar */}
-        <div className="flex items-center justify-between mb-6">
-          <img
-            src="/images/TenisX_logo-removebg-preview.png"
-            style={{ height: '88px', width: 'auto', maxWidth: '220px', display: 'block' }}
-            alt="TenisX"
-          />
-          <div className="flex items-center gap-3">
-            <Link
-              to="/messages"
-              className="relative w-10 h-10 flex items-center justify-center cursor-pointer"
-            >
-              <MessageCircle className="h-5 w-5 text-white" />
-              {unreadMessages > 0 && (
-                <div className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] font-bold">
-                  {unreadMessages}
-                </div>
-              )}
-            </Link>
-            <Link
-              to="/settings"
-              className="w-10 h-10 flex items-center justify-center cursor-pointer"
-            >
-              <Settings className="h-5 w-5 text-white" />
-            </Link>
-          </div>
-        </div>
 
         {/* Greeting */}
         <div className="text-[13px] uppercase font-semibold mb-1" style={{ color: '#00D4FF', letterSpacing: '0.15em' }}>
