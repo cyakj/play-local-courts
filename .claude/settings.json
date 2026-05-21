@@ -1,4 +1,5 @@
 {
+<<<<<<< HEAD
   "enabledPlugins": {
     "expo@claude-plugins-official": true,
     "superpowers@claude-plugins-official": true,
@@ -23,5 +24,9 @@
       "mcp__claude_ai_Google_Calendar__*",
       "mcp__claude_ai_Google_Drive__*"
     ]
+=======
+  "permissions": {
+    "defaultMode": "bypassPermissions"
+>>>>>>> 6236cde5f8a07f7d9ff539c42ee6bb3c5b78cc88
   }
 }

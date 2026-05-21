@@ -1,0 +1,271 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 33% 96%; /* #F0F4F8 */
+    --foreground: 240 33% 14%; /* #1A1A2E */
+
+    --card: 0 0% 100%; /* #FFFFFF */
+    --card-foreground: 240 33% 14%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 33% 14%;
+
+    --primary: 193 100% 42%; /* Cyan #00B4D8 */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 33% 96%;
+    --secondary-foreground: 240 33% 14%;
+
+    --muted: 210 33% 96%;
+    --muted-foreground: 218 11% 65%; /* #9CA3AF */
+
+    --accent: 210 33% 96%;
+    --accent-foreground: 240 33% 14%;
+
+    --destructive: 0 84% 60%; /* #EF4444 */
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 13% 91%; /* #E5E7EB */
+    --input: 220 13% 91%;
+    --ring: 193 100% 42%;
+
+    --radius: 0.75rem;
+
+    /* Navy brand tokens */
+    --navy: 216 74% 10%; /* #0A1628 */
+    --navy-mid: 213 64% 13%; /* #0D2137 */
+    --navy-light: 212 47% 21%; /* #1A3350 */
+
+    /* Semantic tokens */
+    --success: 168 65% 51%; /* #2DD4BF */
+    --success-bg: 168 100% 95%; /* #E6FFFA */
+    --warning: 38 92% 50%; /* #F59E0B */
+    --warning-bg: 48 100% 96%; /* #FFFBEB */
+    --danger: 0 84% 60%; /* #EF4444 */
+    --danger-bg: 0 86% 97%; /* #FEF2F2 */
+    --text-mid: 220 9% 35%; /* #4B5563 */
+    --cyan-light: 187 100% 94%; /* #E0F7FA */
+
+    /* Compete/Ladder purple colors */
+    --compete: 245 58% 51%;
+    --compete-foreground: 0 0% 100%;
+    --compete-light: 245 58% 95%;
+    --compete-muted: 245 30% 70%;
+
+    /* Condo Manager brand colors — Lumina Slate */
+    --cm-navy: 218 60% 15%;
+    --cm-navy-mid: 218 60% 15%;
+    --cm-navy-light: 218 42% 22%;
+    --cm-cyan: 192 100% 50%;
+    --cm-cyan-light: 192 100% 93%;
+    --cm-app-bg: 210 20% 98%;
+    --cm-text: 218 60% 15%;
+    --cm-text-mid: 218 15% 35%;
+    --cm-text-light: 218 13% 53%;
+    --cm-border: 218 13% 91%;
+    --cm-success: 192 100% 50%;
+    --cm-success-bg: 192 100% 93%;
+    --cm-warning: 38 92% 50%;
+    --cm-warning-bg: 48 100% 96%;
+    --cm-danger: 0 84% 60%;
+    --cm-danger-bg: 0 86% 97%;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 193 100% 42%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 193 100% 42%;
+
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  .safe-area-pb {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+@layer components {
+  .card-hover {
+    @apply transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:scale-[1.02];
+  }
+
+  .glass {
+    @apply bg-white/20 backdrop-blur-lg border border-white/30;
+  }
+
+  .float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+  }
+
+  .interactive {
+    @apply transition-all duration-200 ease-out hover:scale-105 active:scale-95;
+  }
+
+  /* Navy gradient header */
+  .navy-gradient {
+    background: linear-gradient(135deg, hsl(var(--navy)) 0%, hsl(var(--navy-mid)) 60%, hsl(var(--navy-light)) 100%);
+  }
+
+  .modern-card {
+    @apply bg-card backdrop-blur-sm border border-border rounded-2xl shadow-sm;
+  }
+}
+
+/* Custom styles for Court Reservation App */
+.calendar-day {
+  @apply h-20 border border-border p-1 relative rounded-lg transition-all duration-200 hover:shadow-md;
+}
+
+.time-slot {
+  @apply text-xs p-2 mb-1 rounded-lg cursor-pointer transition-all duration-200 font-medium;
+}
+
+.time-slot.available {
+  @apply bg-primary text-primary-foreground hover:opacity-90 hover:scale-105 shadow-sm;
+}
+
+.time-slot.booked {
+  @apply bg-destructive text-destructive-foreground cursor-not-allowed opacity-75;
+}
+
+.time-slot.maintenance {
+  @apply cursor-not-allowed opacity-75;
+  background: hsl(var(--warning));
+  color: white;
+}
+
+.time-slot.user-booked {
+  background: hsl(var(--navy));
+  color: white;
+  @apply shadow-md;
+}
+
+/* Enhanced animations */
+@keyframes slideInUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes fadeInScale {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.animate-slide-up {
+  animation: slideInUp 0.5s ease-out;
+}
+
+.animate-slide-right {
+  animation: slideInRight 0.5s ease-out;
+}
+
+.animate-fade-scale {
+  animation: fadeInScale 0.3s ease-out;
+}
+
+/* Hide scrollbar utility */
+.scrollbar-hide {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none; /* Chrome/Safari/WebKit */
+}
+
+/* Enhanced scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-background rounded-lg;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-border rounded-lg;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground/30;
+}
+
+/* Mobile responsive: ensure min touch target size */
+@media (max-width: 767px) {
+  button, a[role="button"], [role="button"] {
+    min-height: 44px;
+  }
+  
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}

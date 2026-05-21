@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { SymbolView } from 'expo-symbols';
 import { PropsWithChildren, useState } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
@@ -63,3 +64,14 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
   },
 });
+=======
+import * as CollapsiblePrimitive from "@radix-ui/react-collapsible"
+
+const Collapsible = CollapsiblePrimitive.Root
+
+const CollapsibleTrigger = CollapsiblePrimitive.CollapsibleTrigger
+
+const CollapsibleContent = CollapsiblePrimitive.CollapsibleContent
+
+export { Collapsible, CollapsibleTrigger, CollapsibleContent }
+>>>>>>> 6236cde5f8a07f7d9ff539c42ee6bb3c5b78cc88

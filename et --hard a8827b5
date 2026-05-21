@@ -1,0 +1,181 @@
+[33ma9833ff[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m UI redesign: Lumina Slate consistency pass
+[33mc803ff3[m UI redesign: Resident home Lumina Slate
+[33mfe10ab4[m UI redesign: Maintenance Reports Lumina Slate
+[33m0f118ff[m UI redesign: Community Detail Lumina Slate
+[33mf700f9c[m UI redesign: CMPortfolio Lumina Slate
+[33ma8827b5[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m checkpoint: before overnight UI rework
+[33m6bf9e63[m UI redesign: portfolio and community detail screens
+[33ma09ca9b[m Add Community modal wired up
+[33m0970ad6[m Add community creation modal
+[33m07a9532[m AddCommunityModal implemented
+[33m3a78fb5[m Add community modal UI
+[33mf84a615[m Redesigned CMPortfolio visuals
+[33m5c43b4b[m Rename bottom nav tab to Issues
+[33mc0f425e[m Rename bottom nav Reports to Issues
+[33mc092857[m Merge closed into resolved in CMReports filter
+[33mf33e300[m Changes
+[33m792c4d8[m Simplified report status tabs
+[33m5f0dcf3[m Refined resident report filters
+[33m013549d[m Simplified MyReports filters
+[33m3e32b51[m Simplified report status filters
+[33mb723540[m Changes
+[33me056f3e[m Fix bottom nav active state
+[33ma5bdc52[m Fix home nav underline on load
+[33ma0906e3[m Fix reports status filter UI
+[33m3b3b540[m Fix reports status filter
+[33m8ab96da[m Improve share button robustness
+[33m84e783b[m Shareable invite sheet wired
+[33m18b8f64[m Remove invite link view option
+[33md0173a9[m Remove view invite link option
+[33m5414d9b[m Implement invite share sheet
+[33mba01483[m Add invite share sheet
+[33m949a291[m Implement shareable invite flow
+[33mf10880d[m Implement shareable invite sheet
+[33mc028d53[m Add invite code support to hoas
+[33mff2e51f[m Add invite link feature
+[33mf74161a[m Work in progress
+[33m6ce4635[m Updated CM notifications chips
+[33mb9f2b7f[m Replaced CM notification toggles
+[33m013fc1c[m Switched CM notifications to chips
+[33m54a776b[m Replaced CM notification toggles
+[33m83cc030[m Removed My Communities menu item
+[33me258ac0[m Changes
+[33m86999e2[m Redesigned CM settings pages
+[33mfebf9eb[m Implemented CM settings screens
+[33m5b41181[m Created CM settings redesign
+[33m2807389[m Redesigned CM settings screens
+[33mda092e2[m Redesigned CM settings screens
+[33m55d38a2[m Started CM settings redesign
+[33m4c90cec[m Work in progress
+[33me0048bc[m Fixed PDF preview worker loading
+[33m932dcc0[m Copied pdf.js worker to public
+[33m042cf8a[m Copied pdf.js worker to public
+[33mf861a2e[m Disabled pdf.js worker fallback
+[33m891b376[m Changes
+[33mfcd8984[m Fixed inline PDF loading hang
+[33m1ce8558[m Fixed PDF preview loading loop
+[33m93ad7c7[m Fixed PDF preview stuck loading
+[33m88fa7dc[m Preceding changes
+[33m66c75c9[m Rendered PDFs inline with pdf.js
+[33m2ee9af6[m Replaced inline PDF with pdf.js
+[33m524ebef[m Rendered PDFs inline via pdf.js
+[33mf476a54[m Preceding changes
+[33mfcca588[m Switched PDF viewer rendering
+[33mfe65336[m Fixed Chrome-blocked PDF preview
+[33m0e63fcd[m Preceding changes
+[33m225fa68[m Preceding changes
+[33m8fd7cda[m Fixed missing ScrollToTop import
+[33m6949f75[m Fixed ScrollToTop undefined
+[33m403eece[m Fixed blocked PDF preview
+[33m8309dff[m Fixed inline PDF viewer blocked
+[33mae948d6[m Added scroll-to-top routing
+[33m8ca21d0[m Implemented scroll-to-top on nav
+[33m5d90c8b[m Preceding changes
+[33m8f004bc[m Synced CM alert badges count
+[33mae20cab[m Fixed notification badge count
+[33m3a4e6ea[m Fixed alert badge count mismatch
+[33m7d70285[m Fixed alert badge count mismatch
+[33m18419b7[m Preceding changes
+[33mdcc8624[m Preceding changes
+[33m19b0715[m Fixed document download filenames
+[33m58c1933[m Fixed download filename naming
+[33m0964ce0[m Preceding changes
+[33mfcaa2ae[m Fixed download filename prefixes
+[33m78acbb6[m Fixed download filename prefix
+[33m5aed210[m Fixed download filename prefix
+[33m1921470[m Changes
+[33m6db7810[m Fixed document downloads
+[33m8103994[m Fixed document download flow
+[33m4ce9cd3[m Preceding changes
+[33m62f7d21[m Fixed download signed URL auth
+[33m790a7e1[m Preceding changes
+[33m9ff79cb[m Preceding changes
+[33m15dad02[m Fixed document download breakage
+[33mdb17db5[m Fixed document download CTA
+[33m969c805[m Created signed URL edge func
+[33m6c73dd9[m Preceding changes
+[33m07f82a1[m Preceding changes
+[33m6d19f12[m Updated document storage SELECT policy
+[33m01d1f6b[m Fixed duplicate download action
+[33mf58e0f0[m Improved inline document viewer
+[33m817fe09[m Fixed inline document preview
+[33mf3bdbaf[m Fixed inline doc preview error
+[33m5522539[m Signed document URLs for viewer
+[33m992fbf8[m Generated signed URLs for docs
+[33m36dd507[m Fixed document inline viewer
+[33mb8ed4ea[m Fixed document preview styling
+[33m944d9d6[m Fixed document preview with signed URLs
+[33m8f47268[m Preceding changes
+[33m09bb68d[m Fixed inline document viewer
+[33m311125a[m Fixed inline PDF viewer loading
+[33m4880eeb[m Added inline doc viewer tracking
+[33m8f9b76c[m Added document read tracking
+[33maa5af0c[m Added inline PDF viewer tracking
+[33m594779a[m Preceding changes
+[33m678e861[m Added document_views table
+[33m0a7e17b[m Implemented document inline viewing
+[33mc8fe06a[m Fixed document category labels
+[33m03a1a2d[m Fixed Rules & Bylaws label
+[33m4eeadd1[m Made Choose File button bigger
+[33m9d41e8a[m Changes
+[33mb4cb08b[m Fixed HOA document uploads
+[33m69d05c9[m Fixed HOA document uploads
+[33m5338a87[m Diagnosed and fixed doc upload
+[33m1677e75[m Added upload validation toasts
+[33m2d1fb28[m Changes
+[33mafba8ac[m Increased View Results size
+[33m8402745[m Increased View Results size
+[33med89225[m Enabled public survey results access
+[33m8aba56b[m Added public survey funcs
+[33md3eb015[m Preceding changes
+[33m49b2394[m Fixed resident survey results visibility
+[33m1704e32[m Fixed survey close announcements
+[33meb12900[m Ensured closed surveys announced
+[33mc65f330[m Fixed dashboard announcements view all
+[33m49684d6[m Fixed dashboard announcements view toggle
+[33mbfe6b0b[m Fixed announcements “View All” toggle
+[33m44e243e[m Fixed community announcements link
+[33mc7ab290[m Added public survey results page
+[33m2e1e867[m Added public survey results page
+[33m8acf6f2[m Created public survey results page
+[33m905bcc8[m Added survey close announcement
+[33mef87bd2[m Fixed hidden survey submit bar
+[33m720d79e[m Fixed hidden survey submit CTA
+[33m661b95a[m Fixed blocked publish footer
+[33m2133409[m Fixed blocked survey publish bar
+[33m51bbc30[m Fixed survey publish button flow
+[33m1d8a552[m Fixed survey publish button flow
+[33mfa30c81[m Added publish on all steps
+[33ma0fec9c[m Added Publish button to builder
+[33md31238a[m Added publish button for drafts
+[33mfb046d2[m Added publish button to surveys
+[33m0ee853b[m Preceding changes
+[33m237d210[m Preceding changes
+[33m4dab2a9[m Preceding changes
+[33md22f9d7[m Made Alerts badge dynamic
+[33mdc86eac[m Limited alerts to 3 on tab
+[33mbc4992e[m Removed close & archive button
+[33mc98df4b[m Removed Close & Archive UI
+[33mbbf232b[m Fixed close/archive RLS policy
+[33m64cc5a1[m Fixed close & archive failure
+[33m331f38c[m Set CM reports to Active
+[33mb5b19a7[m Set CM reports to Active
+[33mdd98148[m Preceding changes
+[33md7c87f1[m Removed Assigned from CM filter
+[33mc0e9d3c[m Auto-filter Open/In Progress
+[33m4b206d4[m Preceding changes
+[33m0274bfa[m Preceding changes
+[33mf2504bb[m Enabled real-time UI updates
+[33m2792440[m Added realtime refresh to reports
+[33m0368aa8[m Added real-time refresh to UI
+[33m2e50581[m Added realtime message updates
+[33mcba76a5[m Add report context to messages
+[33m499fe51[m Added report context to replies
+[33m2d28d8d[m Preceding changes
+[33m6fab993[m Preceding changes
+[33m64324d3[m Synced CM messages to inbox
+[33m5825cc8[m Sent CM messages to inbox too
+[33m4b389a7[m Fixed resident message delivery
+[33m0ac26f3[m Added take action for alerts
+[33m7bf9fbe[m Added Take Action for alerts
+[

@@ -1,0 +1,478 @@
+
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
+import { User, HOA, Amenity, Booking, UserStatus, AmenityStatus, TimeSlot } from '../types';
+import { useAuth } from './AuthContext';
+import { useActiveHOA } from './ActiveHOAContext';
+import { toast } from 'sonner';
+import {
+  getCurrentUserProfile,
+  getHOAById,
+  getAmenitiesByHOAId,
+  getPendingUsersByHOAId,
+  approveUser as supabaseApproveUser,
+  rejectUser as supabaseRejectUser,
+  addAmenity as supabaseAddAmenity,
+  removeAmenity as supabaseRemoveAmenity,
+  createBooking,
+  cancelBooking as supabaseCancelBooking,
+  getUserBookings,
+  getBookingsForDateAndAmenity,
+  hasBookingForDate as supabaseHasBookingForDate,
+  getMaintenanceForDateAndAmenity,
+  setAmenityMaintenance as supabaseSetAmenityMaintenance
+} from '../services/supabaseService';
+import { supabase } from '@/integrations/supabase/client';
+import { useRealtimeSubscription } from '@/hooks/useRealtimeSubscription';
+
+interface DataContextType {
+  users: User[];
+  hoas: HOA[];
+  amenities: Amenity[];
+  bookings: Booking[];
+  loading: boolean;
+  currentHOA: HOA | null;
+  pendingUsers: User[];
+  getTimeSlots: (date: string, amenityId: string) => TimeSlot[];
+  approveUser: (userId: string) => Promise<void>;
+  rejectUser: (userId: string) => Promise<void>;
+  addAmenity: (name: string, hoaId: string, amenityType: Amenity['amenityType']) => Promise<void>;
+  removeAmenity: (amenityId: string) => Promise<void>;
+  bookAmenity: (userId: string, userName: string, amenityId: string, amenityName: string, date: string, timeSlot: TimeSlot, playType?: 'singles' | 'doubles' | 'family' | 'group') => Promise<void>;
+  cancelBooking: (bookingId: string) => Promise<void>;
+  setAmenityMaintenance: (amenityId: string, date: string, hour: number, isMaintenance: boolean) => Promise<void>;
+  hasBookingForDate: (userId: string, date: string) => boolean;
+  refreshData: () => Promise<void>;
+  // Legacy support
+  courts: Amenity[];
+  addCourt: (name: string, hoaId: string, courtType: "tennis" | "pickleball") => Promise<void>;
+  removeCourt: (courtId: string) => Promise<void>;
+  bookCourt: (userId: string, userName: string, courtId: string, courtName: string, date: string, timeSlot: TimeSlot, playType?: 'singles' | 'doubles') => Promise<void>;
+  setCourtMaintenance: (courtId: string, date: string, hour: number, isMaintenance: boolean) => Promise<void>;
+}
+
+const DataContext = createContext<DataContextType | undefined>(undefined);
+
+// Helper function to generate time slots
+const generateTimeSlots = async (date: string, amenityId: string): Promise<TimeSlot[]> => {
+  const slots: TimeSlot[] = [];
+  
+  // Generate slots from 6 AM to 10 PM
+  for (let hour = 6; hour < 22; hour++) {
+    const start = new Date(`${date}T${hour.toString().padStart(2, '0')}:00:00`);
+    const end = new Date(start.getTime() + 60 * 60 * 1000); // Add 1 hour
+    
+    slots.push({
+      id: `${amenityId}-${date}-${hour}`,
+      start: start.toISOString(),
+      end: end.toISOString(),
+      status: AmenityStatus.AVAILABLE
+    });
+  }
+  
+  // Check for existing bookings
+  const bookings = await getBookingsForDateAndAmenity(date, amenityId);
+  const maintenance = await getMaintenanceForDateAndAmenity(date, amenityId);
+  
+  // Mark booked slots
+  bookings.forEach(booking => {
+    const startHour = parseInt(booking.startTime.split(':')[0]);
+    const endHour = parseInt(booking.endTime.split(':')[0]);
+    
+    for (let hour = startHour; hour < endHour; hour++) {
+      const slotIndex = hour - 6; // Offset by 6 since we start at 6 AM
+      if (slotIndex >= 0 && slotIndex < slots.length) {
+        slots[slotIndex].status = AmenityStatus.BOOKED;
+      }
+    }
+  });
+  
+  // Mark maintenance slots
+  maintenance.forEach(maint => {
+    const startHour = parseInt(maint.start_time.split(':')[0]);
+    const endHour = parseInt(maint.end_time.split(':')[0]);
+    
+    for (let hour = startHour; hour < endHour; hour++) {
+      const slotIndex = hour - 6;
+      if (slotIndex >= 0 && slotIndex < slots.length) {
+        slots[slotIndex].status = AmenityStatus.MAINTENANCE;
+      }
+    }
+  });
+  
+  return slots;
+};
+
+export function DataProvider({ children }: { children: React.ReactNode }) {
+  const [users, setUsers] = useState<User[]>([]);
+  const [hoas, setHOAs] = useState<HOA[]>([]);
+  const [amenities, setAmenities] = useState<Amenity[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [currentHOA, setCurrentHOA] = useState<HOA | null>(null);
+  const [pendingUsers, setPendingUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [timeSlotsCache, setTimeSlotsCache] = useState<{[key: string]: TimeSlot[]}>({});
+  
+  const { currentUser } = useAuth();
+  const { activeHOA } = useActiveHOA();
+  
+  // Use active HOA's ID, falling back to legacy profile hoa_id
+  const effectiveHoaId = activeHOA?.hoaId || currentUser?.hoaId;
+  const isAdmin = activeHOA?.role === 'admin' || currentUser?.role === 'admin';
+
+  const refreshDataCallback = useCallback(async () => {
+    if (!currentUser) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      if (effectiveHoaId) {
+        const [hoaData, amenitiesData, userBookings, pendingUsersData] = await Promise.all([
+          getHOAById(effectiveHoaId),
+          getAmenitiesByHOAId(effectiveHoaId),
+          getUserBookings(currentUser.id),
+          isAdmin ? getPendingUsersByHOAId(effectiveHoaId) : Promise.resolve([])
+        ]);
+        
+        setCurrentHOA(hoaData);
+        if (hoaData) setHOAs([hoaData]);
+        setAmenities(amenitiesData);
+        setBookings(userBookings);
+        setPendingUsers(pendingUsersData);
+        
+        // Clear time slots cache when data refreshes
+        setTimeSlotsCache({});
+      } else {
+        // No active HOA - clear amenities
+        setCurrentHOA(null);
+        setHOAs([]);
+        setAmenities([]);
+        setPendingUsers([]);
+      }
+    } catch (error) {
+      console.error('Error loading data:', error);
+      toast.error('Failed to load data');
+    } finally {
+      setLoading(false);
+    }
+  }, [currentUser, effectiveHoaId, isAdmin]);
+
+  const refreshPendingUsersCallback = useCallback(async () => {
+    if (!currentUser?.id || !isAdmin || !effectiveHoaId) return;
+
+    try {
+      const pendingUsersData = await getPendingUsersByHOAId(effectiveHoaId);
+      setPendingUsers(pendingUsersData);
+    } catch (error) {
+      console.error('Error loading pending users:', error);
+    }
+  }, [currentUser?.id, isAdmin, effectiveHoaId]);
+
+  // Real-time subscription for booking updates
+  useRealtimeSubscription({
+    table: 'bookings',
+    event: '*',
+    onChange: refreshDataCallback,
+    enabled: !!currentUser?.id
+  });
+
+  // Real-time subscription for court maintenance updates
+  useRealtimeSubscription({
+    table: 'court_maintenance',
+    event: '*',
+    onChange: () => {
+      // Clear cache and refresh when maintenance changes
+      setTimeSlotsCache({});
+      refreshDataCallback();
+    },
+    enabled: !!currentUser?.id
+  });
+
+  // Real-time subscription for join request / membership updates (admin pending approvals)
+  useRealtimeSubscription({
+    table: 'community_join_requests',
+    event: '*',
+    filter: effectiveHoaId ? `hoa_id=eq.${effectiveHoaId}` : undefined,
+    onChange: () => {
+      refreshPendingUsersCallback();
+    },
+    enabled: !!currentUser?.id && isAdmin && !!effectiveHoaId
+  });
+
+  useRealtimeSubscription({
+    table: 'hoa_memberships',
+    event: '*',
+    filter: effectiveHoaId ? `hoa_id=eq.${effectiveHoaId}` : undefined,
+    onChange: () => {
+      refreshPendingUsersCallback();
+    },
+    enabled: !!currentUser?.id && isAdmin && !!effectiveHoaId
+  });
+
+  useRealtimeSubscription({
+    table: 'profiles',
+    event: 'UPDATE',
+    filter: effectiveHoaId ? `hoa_id=eq.${effectiveHoaId}` : undefined,
+    onChange: () => {
+      refreshPendingUsersCallback();
+    },
+    enabled: !!currentUser?.id && isAdmin && !!effectiveHoaId
+  });
+  
+  // Refresh data when active HOA changes
+  useEffect(() => {
+    if (effectiveHoaId) {
+      refreshDataCallback();
+    }
+  }, [effectiveHoaId]);
+
+  // Initialize data when user changes
+  useEffect(() => {
+    if (currentUser) {
+      refreshDataCallback();
+    } else {
+      // Clear data when user logs out
+      setCurrentHOA(null);
+      setHOAs([]);
+      setAmenities([]);
+      setBookings([]);
+      setPendingUsers([]);
+      setLoading(false);
+    }
+  }, [currentUser, refreshDataCallback]);
+
+  const refreshData = refreshDataCallback;
+
+  // Helper functions
+  const getTimeSlots = (date: string, amenityId: string): TimeSlot[] => {
+    const cacheKey = `${date}-${amenityId}`;
+    if (timeSlotsCache[cacheKey]) {
+      return timeSlotsCache[cacheKey];
+    }
+    
+    // Generate slots synchronously for now, fetch async in background
+    generateTimeSlots(date, amenityId).then(slots => {
+      setTimeSlotsCache(prev => ({
+        ...prev,
+        [cacheKey]: slots
+      }));
+    });
+    
+    // Return basic available slots immediately
+    const slots: TimeSlot[] = [];
+    for (let hour = 6; hour < 22; hour++) {
+      const start = new Date(`${date}T${hour.toString().padStart(2, '0')}:00:00`);
+      const end = new Date(start.getTime() + 60 * 60 * 1000);
+      
+      slots.push({
+        id: `${amenityId}-${date}-${hour}`,
+        start: start.toISOString(),
+        end: end.toISOString(),
+        status: AmenityStatus.AVAILABLE
+      });
+    }
+    
+    return slots;
+  };
+
+  const approveUserAsync = async (userId: string): Promise<void> => {
+    try {
+      await supabaseApproveUser(userId);
+      toast.success("User approved successfully");
+      await refreshData();
+    } catch (error) {
+      console.error('Error approving user:', error);
+      toast.error('Failed to approve user');
+    }
+  };
+
+  const rejectUserAsync = async (userId: string): Promise<void> => {
+    try {
+      await supabaseRejectUser(userId);
+      toast.success("User rejected");
+      await refreshData();
+    } catch (error) {
+      console.error('Error rejecting user:', error);
+      toast.error('Failed to reject user');
+    }
+  };
+
+  const addAmenityAsync = async (name: string, hoaId: string, amenityType: Amenity['amenityType']): Promise<void> => {
+    try {
+      await supabaseAddAmenity(name, hoaId, amenityType);
+      toast.success(`${name} added successfully`);
+      await refreshData();
+    } catch (error) {
+      console.error('Error adding amenity:', error);
+      toast.error('Failed to add amenity');
+    }
+  };
+
+  const removeAmenityAsync = async (amenityId: string): Promise<void> => {
+    try {
+      const amenity = amenities.find(a => a.id === amenityId);
+      await supabaseRemoveAmenity(amenityId);
+      toast.success(`${amenity?.name || 'Amenity'} removed successfully`);
+      await refreshData();
+    } catch (error) {
+      console.error('Error removing amenity:', error);
+      toast.error('Failed to remove amenity');
+    }
+  };
+
+  const bookAmenityAsync = async (
+    userId: string, 
+    userName: string, 
+    amenityId: string, 
+    amenityName: string, 
+    date: string, 
+    timeSlot: TimeSlot,
+    playType: 'singles' | 'doubles' | 'family' | 'group' = 'singles'
+  ): Promise<void> => {
+    try {
+      // Check if user already has a booking for this amenity on this date
+      const { count } = await supabase
+        .from('bookings')
+        .select('id', { count: 'exact', head: true })
+        .eq('court_id', amenityId)
+        .eq('user_id', userId)
+        .eq('date', date)
+        .eq('status', 'confirmed');
+      
+      if ((count || 0) > 0) {
+        toast.error("You've already reached your daily booking limit for this amenity");
+        return;
+      }
+
+      const startTime = new Date(timeSlot.start).toTimeString().split(' ')[0].substring(0, 5);
+      const endTime = new Date(timeSlot.end).toTimeString().split(' ')[0].substring(0, 5);
+      
+      // TODO: Add validation against amenity rules here
+      // - Check if booking time is within allowed window
+      // - Check if duration respects max duration
+      // - Check if user has exceeded daily/weekly limits
+      // - Check if booking respects advance booking window
+      // - Check other rule constraints
+      
+      await createBooking(userId, amenityId, date, startTime, endTime, playType);
+      
+      // Show detailed confirmation toast
+      const formattedDate = new Date(date).toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric'
+      });
+      const fmt12 = (t: string) => {
+        const [h, m] = t.split(':').map(Number);
+        return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
+      };
+      toast.success(`✅ ${amenityName} Reserved!`, {
+        description: `📅 ${formattedDate}\n⏰ ${fmt12(startTime)} - ${fmt12(endTime)}\n🎾 ${playType}\n\nYou'll receive a reminder 1 hour before.`,
+        duration: 5000,
+      });
+
+      // Send booking confirmation email
+      try {
+        await supabase.functions.invoke('send-booking-email', {
+          body: {
+            type: 'booking_confirmation',
+            userId,
+            courtName: amenityName,
+            date,
+            startTime,
+            endTime,
+            playType,
+          }
+        });
+      } catch (emailError) {
+        console.error('Failed to send booking confirmation email:', emailError);
+      }
+
+      await refreshData();
+    } catch (error: any) {
+      console.error('Error booking amenity:', error);
+      toast.error(error.message || 'Failed to book amenity');
+    }
+  };
+
+  const cancelBookingAsync = async (bookingId: string): Promise<void> => {
+    try {
+      await supabaseCancelBooking(bookingId);
+      toast.success("Booking canceled successfully");
+      await refreshData();
+    } catch (error) {
+      console.error('Error canceling booking:', error);
+      toast.error('Failed to cancel booking');
+    }
+  };
+
+  const setAmenityMaintenanceAsync = async (amenityId: string, date: string, hour: number, isMaintenance: boolean): Promise<void> => {
+    try {
+      if (isMaintenance) {
+        const startTime = `${hour.toString().padStart(2, '0')}:00`;
+        const endTime = `${(hour + 1).toString().padStart(2, '0')}:00`;
+        await supabaseSetAmenityMaintenance(amenityId, date, startTime, endTime, 'Amenity maintenance');
+      }
+      toast.success(isMaintenance 
+        ? "Amenity set to maintenance" 
+        : "Amenity maintenance removed");
+      
+      // Clear time slots cache for this amenity/date
+      const cacheKey = `${date}-${amenityId}`;
+      setTimeSlotsCache(prev => {
+        const newCache = { ...prev };
+        delete newCache[cacheKey];
+        return newCache;
+      });
+    } catch (error) {
+      console.error('Error setting amenity maintenance:', error);
+      toast.error('Failed to update amenity maintenance');
+    }
+  };
+
+  const hasBookingForDateSync = (userId: string, date: string): boolean => {
+    return bookings.some(booking => booking.userId === userId && booking.date === date);
+  };
+
+  const value = {
+    users,
+    hoas,
+    amenities,
+    bookings,
+    currentHOA,
+    pendingUsers,
+    loading,
+    getTimeSlots,
+    approveUser: approveUserAsync,
+    rejectUser: rejectUserAsync,
+    addAmenity: addAmenityAsync,
+    removeAmenity: removeAmenityAsync,
+    bookAmenity: bookAmenityAsync,
+    cancelBooking: cancelBookingAsync,
+    setAmenityMaintenance: setAmenityMaintenanceAsync,
+    hasBookingForDate: hasBookingForDateSync,
+    refreshData,
+    // Legacy support for courts
+    courts: amenities.filter(a => a.amenityType === 'tennis' || a.amenityType === 'pickleball'),
+    addCourt: (name: string, hoaId: string, courtType: "tennis" | "pickleball") => addAmenityAsync(name, hoaId, courtType),
+    removeCourt: removeAmenityAsync,
+    bookCourt: bookAmenityAsync,
+    setCourtMaintenance: setAmenityMaintenanceAsync
+  };
+
+  return (
+    <DataContext.Provider value={value}>
+      {children}
+    </DataContext.Provider>
+  );
+}
+
+export function useData() {
+  const context = useContext(DataContext);
+  if (context === undefined) {
+    throw new Error("useData must be used within a DataProvider");
+  }
+  return context;
+}

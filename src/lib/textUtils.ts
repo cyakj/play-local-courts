@@ -1,0 +1,112 @@
+/**
+ * Capitalizes the first letter of each word in a string
+ */
+export const capitalizeWords = (text: string | null | undefined): string => {
+  if (!text) return '';
+  return text
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
+
+/**
+ * Formats match type for display (e.g., "singles" -> "Singles", "mixed_doubles" -> "Mixed Doubles")
+ */
+export const formatMatchType = (type: string | null | undefined): string => {
+  if (!type) return '';
+  return type
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
+
+/**
+ * Formats lesson types for display (e.g., "semi-private" -> "Semi-Private")
+ */
+export const formatLessonTypeDisplay = (type: string | null | undefined): string => {
+  if (!type) return '';
+
+  const normalized = type.trim().toLowerCase();
+
+  // Preserve hyphenated lesson types like "semi-private".
+  if (normalized.includes('-')) {
+    return normalized
+      .split('-')
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+      .join('-');
+  }
+
+  // Fallback for underscore/space separated strings.
+  return normalized
+    .replace(/_/g, ' ')
+    .split(' ')
+    .filter(Boolean)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
+/**
+ * Auto-capitalize input handler for proper nouns (names, places)
+ * Capitalizes the first letter of each word as the user types
+ */
+export const autoCapitalizeProperNoun = (value: string): string => {
+  if (!value) return '';
+  return value
+    .split(' ')
+    .map(word => {
+      if (word.length === 0) return '';
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(' ');
+};
+
+/**
+ * Formats a time string from 24-hour format (HH:MM:SS or HH:MM) to 12-hour format with AM/PM
+ * Examples: "13:00:00" -> "1:00 PM", "09:30" -> "9:30 AM"
+ */
+export const formatTime12Hour = (time: string | null | undefined): string => {
+  if (!time) return '';
+  
+  // Extract hours and minutes (ignore seconds if present)
+  const parts = time.split(':');
+  if (parts.length < 2) return time;
+  
+  let hours = parseInt(parts[0], 10);
+  const minutes = parts[1];
+  
+  if (isNaN(hours)) return time;
+  
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12; // Convert 0 to 12
+  
+  return `${hours}:${minutes} ${ampm}`;
+};
+
+/**
+ * Smart auto-correct for user-written prose (e.g. report descriptions):
+ * - Capitalizes the first letter of the text
+ * - Capitalizes the first letter after sentence-ending punctuation (. ! ?)
+ * - Capitalizes the standalone pronoun "i" (and contractions like i'm, i'll, i've, i'd)
+ * - Collapses excess whitespace and trims
+ */
+export const smartSentenceCase = (text: string | null | undefined): string => {
+  if (!text) return '';
+  let out = text.replace(/[ \t]+/g, ' ').replace(/\s+\n/g, '\n').trim();
+
+  // Capitalize first alphabetic char
+  out = out.replace(/^(\s*["'(\[]?\s*)([a-z])/, (_m, p1, p2) => p1 + p2.toUpperCase());
+
+  // Capitalize after sentence-ending punctuation followed by space(s)
+  out = out.replace(/([.!?]\s+["'(\[]?)([a-z])/g, (_m, p1, p2) => p1 + p2.toUpperCase());
+
+  // Capitalize after newlines
+  out = out.replace(/(\n+\s*["'(\[]?)([a-z])/g, (_m, p1, p2) => p1 + p2.toUpperCase());
+
+  // Standalone "i" and common contractions
+  out = out.replace(/\bi\b/g, 'I');
+  out = out.replace(/\bi('(?:m|ll|ve|d|re))\b/gi, (_m, suffix) => 'I' + suffix.toLowerCase());
+
+  return out;
+};
+
