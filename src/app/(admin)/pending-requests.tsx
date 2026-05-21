@@ -97,7 +97,7 @@ export default function PendingRequestsScreen() {
     <View style={styles.screen}>
       <Header
         variant="inner"
-        title="Pending Requests"
+        title={`Pending Requests${requests.length > 0 ? ` (${requests.length})` : ''}`}
         onBack={() => router.back()}
       />
 

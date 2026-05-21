@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Plus, Trash2, Dumbbell, Waves, Building2, Flame, X } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
@@ -61,6 +61,7 @@ function getTypeIcon(courtType: string) {
 }
 
 export default function ManageAmenitiesScreen() {
+  const { hoaId } = useLocalSearchParams<{ hoaId: string }>();
   const [courts, setCourts] = useState<Court[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
@@ -70,10 +71,9 @@ export default function ManageAmenitiesScreen() {
 
   async function loadCourts() {
     setLoading(true);
-    const { data } = await supabase
-      .from('courts')
-      .select('*')
-      .order('name', { ascending: true });
+    let query = supabase.from('courts').select('*').order('name', { ascending: true });
+    if (hoaId) query = query.eq('hoa_id', hoaId);
+    const { data } = await query;
     setCourts(data ?? []);
     setLoading(false);
   }
@@ -108,7 +108,7 @@ export default function ManageAmenitiesScreen() {
     await supabase.from('courts').insert({
       name: newName.trim(),
       court_type: newType,
-      hoa_id: '',
+      hoa_id: hoaId ?? '',
     });
     setSaving(false);
     setModalVisible(false);
