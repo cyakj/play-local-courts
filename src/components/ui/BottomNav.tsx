@@ -3,7 +3,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Colors, FontFamily } from '@/constants/design';
 
-export function BottomNav({ state, descriptors, navigation }: BottomTabBarProps) {
+export function BottomNav(props: BottomTabBarProps) {
+  const { state, descriptors, navigation } = props;
   const insets = useSafeAreaInsets();
 
   return (
