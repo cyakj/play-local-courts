@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, View } from 'react-native';
-import { Radius } from '@/constants/design';
+import { Colors, Radius } from '@/constants/design';
 
 interface SkeletonProps {
   width?: number | string;
@@ -53,10 +53,10 @@ export function CardSkeleton() {
 const styles = StyleSheet.create({
   base: { backgroundColor: '#E5E7EB' },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.cardBg,
     borderRadius: Radius.card,
     padding: 20,
     borderWidth: 1,
-    borderColor: 'rgba(15,31,61,0.08)',
+    borderColor: Colors.border,
   },
 });
