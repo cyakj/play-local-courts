@@ -92,6 +92,6 @@ const styles = StyleSheet.create({
   buttonText: {
     fontFamily: FontFamily.interSemiBold,
     fontSize: 14,
-    color: '#FFF',
+    color: Colors.white,
   },
 });

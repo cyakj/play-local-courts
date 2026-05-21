@@ -17,6 +17,7 @@ export const Colors = {
   attentionBg: '#FFF5F5',
   criticalBg: '#FEF2F2',
   blueMid: '#0369A1',
+  white: '#FFFFFF',
 } as const;
 
 export const FontFamily = {
