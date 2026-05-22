@@ -84,7 +84,7 @@ export default function MaintenanceReportsScreen() {
 
   return (
     <View style={styles.screen}>
-      <Header variant="inner" title="Maintenance Reports" onBack={() => {}} />
+      <Header variant="inner" title="Maintenance Reports" />
 
       <ScrollView
         style={styles.scroll}

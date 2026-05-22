@@ -98,6 +98,8 @@ export default function AdminHubScreen() {
         variant="cm-portfolio"
         greeting={`Hey${userName ? ', ' + userName.split(' ')[0] : ''}!`}
         subCopy={`${totalCommunities} communit${totalCommunities !== 1 ? 'ies' : 'y'} under management`}
+        onBell={() => router.push('/notifications')}
+        onMenu={() => router.push('/settings')}
       />
       <ScrollView
         style={styles.scroll}

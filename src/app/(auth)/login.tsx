@@ -13,13 +13,22 @@ export default function LoginScreen() {
 
   async function signIn() {
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
+    const { data: authData, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
+      setLoading(false);
       Alert.alert('Sign in failed', error.message);
-    } else {
-      router.replace('/(cm)');
+      return;
     }
+    const uid = authData.user?.id;
+    if (!uid) { setLoading(false); return; }
+    const { data: rolesData } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', uid);
+    const roles = (rolesData ?? []).map((r: { role: string }) => r.role);
+    const isCM = roles.some((r) => ['admin', 'condo_manager', 'manager'].includes(r));
+    setLoading(false);
+    router.replace(isCM ? '/(cm)' : '/(resident)');
   }
 
   return (

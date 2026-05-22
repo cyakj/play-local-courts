@@ -61,6 +61,11 @@ export default function RootLayout() {
       <Stack.Screen name="(cm)" />
       <Stack.Screen name="(admin)" />
       <Stack.Screen name="(resident)" />
+      <Stack.Screen name="notifications" />
+      <Stack.Screen name="settings" />
+      <Stack.Screen name="messages" />
+      <Stack.Screen name="my-reservations" />
+      <Stack.Screen name="my-reports" />
     </Stack>
   );
 }

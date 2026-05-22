@@ -37,12 +37,16 @@ export function Header(props: HeaderProps) {
     return (
       <View style={[styles.base, { paddingTop: topPad + 8, paddingBottom: 20 }]}>
         <View style={styles.innerRow}>
-          <TouchableOpacity
-            onPress={props.onBack}
-            style={styles.iconBtn}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <ArrowLeft color="#FFFFFF" size={22} strokeWidth={1.5} />
-          </TouchableOpacity>
+          {props.onBack ? (
+            <TouchableOpacity
+              onPress={props.onBack}
+              style={styles.iconBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <ArrowLeft color="#FFFFFF" size={22} strokeWidth={1.5} />
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.iconBtn} />
+          )}
           <Text style={styles.innerTitle} numberOfLines={1}>
             {props.title}
           </Text>
