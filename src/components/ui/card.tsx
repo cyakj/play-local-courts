@@ -1,80 +1,47 @@
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Colors, Radius, Shadow } from '@/constants/design';
 
-import * as React from "react"
+type AccentVariant = 'optimal' | 'attention' | 'critical' | 'none';
 
-import { cn } from "@/lib/utils"
+const accentColors: Record<AccentVariant, string> = {
+  optimal: Colors.accentCyan,
+  attention: Colors.coral,
+  critical: Colors.red,
+  none: 'transparent',
+};
 
-const Card = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn(
-      "rounded-2xl border bg-card text-card-foreground shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm bg-white/80",
-      className
-    )}
-    {...props}
-  />
-))
-Card.displayName = "Card"
+interface CardProps {
+  children: React.ReactNode;
+  accent?: AccentVariant;
+  onPress?: () => void;
+  style?: object;
+}
 
-const CardHeader = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn("flex flex-col space-y-2 p-6", className)}
-    {...props}
-  />
-))
-CardHeader.displayName = "CardHeader"
+export function Card({ children, accent = 'none', onPress, style }: CardProps) {
+  const borderLeftColor = accentColors[accent];
+  const accentStyle = accent !== 'none' ? { borderLeftWidth: 2, borderLeftColor } : {};
 
-const CardTitle = React.forwardRef<
-  HTMLParagraphElement,
-  React.HTMLAttributes<HTMLHeadingElement>
->(({ className, ...props }, ref) => (
-  <h3
-    ref={ref}
-    className={cn(
-      "text-2xl font-bold leading-none tracking-tight bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text",
-      className
-    )}
-    {...props}
-  />
-))
-CardTitle.displayName = "CardTitle"
+  if (onPress) {
+    return (
+      <TouchableOpacity
+        style={[styles.card, accentStyle, style]}
+        onPress={onPress}
+        activeOpacity={0.85}>
+        {children}
+      </TouchableOpacity>
+    );
+  }
 
-const CardDescription = React.forwardRef<
-  HTMLParagraphElement,
-  React.HTMLAttributes<HTMLParagraphElement>
->(({ className, ...props }, ref) => (
-  <p
-    ref={ref}
-    className={cn("text-sm text-muted-foreground leading-relaxed", className)}
-    {...props}
-  />
-))
-CardDescription.displayName = "CardDescription"
+  return <View style={[styles.card, accentStyle, style]}>{children}</View>;
+}
 
-const CardContent = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div ref={ref} className={cn("p-6 pt-0", className)} {...props} />
-))
-CardContent.displayName = "CardContent"
-
-const CardFooter = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn("flex items-center p-6 pt-0", className)}
-    {...props}
-  />
-))
-CardFooter.displayName = "CardFooter"
-
-export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent }
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: Colors.cardBg,
+    borderRadius: Radius.card,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    ...Shadow,
+  },
+});

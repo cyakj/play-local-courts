@@ -1,16 +1,13 @@
 {
   "permissions": {
     "allow": [
-<<<<<<< HEAD
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(curl *)",
       "Skill(update-config)",
       "PowerShell(Out-File *)",
-      "PowerShell(New-Item *)"
-=======
+      "PowerShell(New-Item *)",
       "Bash(npm run:*)",
       "Bash(chmod +x *)"
->>>>>>> 6236cde5f8a07f7d9ff539c42ee6bb3c5b78cc88
     ]
   }
 }
