@@ -1,6 +1,4 @@
-<<<<<<< HEAD
 @AGENTS.md
-=======
 # CLAUDE.md — play-local-courts
 
 HOA community management mobile app for tennis/sports court bookings.
@@ -15,30 +13,28 @@ Target: App Store launch end of April 2026.
 
 ## Commands
 
-- **Dev server**: `npm run dev` (runs on port 8080)
-- **Build**: `npm run build`
+- **Dev server**: `npm run dev` (alias for `expo start`)
+- **Build**: `npm run build` (alias for `expo export`)
 - **Lint**: `npm run lint`
 
 ## Architecture
 
-React + TypeScript app for HOA community court/amenity booking,
-built with Vite and Supabase as the backend.
+React Native + TypeScript app for HOA community court/amenity booking,
+built with Expo (expo-router) and Supabase as the backend.
 
 ### Tech Stack
-- React 18 with TypeScript
-- Vite for build tooling
+- React Native 0.85 with TypeScript
+- Expo SDK 56 / expo-router 56 for routing
 - Supabase (auth, database, RLS, edge functions)
-- TanStack Query for data fetching
-- Tailwind CSS with shadcn/ui components
-- React Router v7 for routing
-- Capacitor (iOS/Android wrapper)
+- Lucide React Native for icons
+- Custom design tokens in `src/constants/design.ts`
 
 ### Key Directories
-- `src/contexts/` — AuthContext, ActiveHOAContext, DataContext
-- `src/integrations/supabase/` — Supabase client and auto-generated types
-- `src/services/` — `supabaseService.ts`, `emailService.ts`
-- `src/types/` — TypeScript types and enums
-- `src/config/` — Feature flags
+- `src/app/` — Expo Router file-based routes
+- `src/components/ui/` — React Native UI components (Button, Card, Header, etc.)
+- `src/constants/design.ts` — Design tokens (Colors, FontFamily, FontSize, etc.)
+- `src/lib/supabase.ts` — Supabase client
+- `src/lib/types.ts` — Auto-generated DB types
 - `supabase/functions/` — Edge functions
 - `supabase/migrations/` — All DB changes go here
 
@@ -59,8 +55,7 @@ Use `@/` to import from `src/`
 - **NEVER** use `dark:` variant classes — dark mode is disabled
 
 ### Database Types
-Auto-generated in `src/integrations/supabase/types.ts`.
-Frontend types in `src/types/index.ts` use camelCase mapping to snake_case.
+Auto-generated in `src/lib/types.ts`.
 
 ### Real-time Updates
 Supabase real-time subscriptions via `useRealtimeSubscription` hook.
@@ -183,4 +178,3 @@ When running unattended (e.g. overnight-ui.sh):
 - Never modify Stage 2 hidden components
 - Always read CMPortfolio.tsx first for style consistency
 - No emoji icons — SVG stroke icons only
->>>>>>> 6236cde5f8a07f7d9ff539c42ee6bb3c5b78cc88
