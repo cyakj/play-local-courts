@@ -9,9 +9,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Plus, Trash2, Dumbbell, Waves, Building2, Flame, X } from 'lucide-react-native';
+import { ArrowLeft, Plus, Trash2, Dumbbell, Waves, Building2, Flame, X } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import {
@@ -19,10 +19,10 @@ import {
   FontFamily,
   FontSize,
   Radius,
+  Shadow,
   Spacing,
   MaxWidth,
 } from '@/constants/design';
-import { Header } from '@/components/ui/Header';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -61,6 +61,7 @@ function getTypeIcon(courtType: string) {
 }
 
 export default function ManageAmenitiesScreen() {
+  const insets = useSafeAreaInsets();
   const { hoaId } = useLocalSearchParams<{ hoaId: string }>();
   const [courts, setCourts] = useState<Court[]>([]);
   const [loading, setLoading] = useState(true);
@@ -128,12 +129,18 @@ export default function ManageAmenitiesScreen() {
 
   return (
     <View style={styles.screen}>
-      <Header
-        variant="inner"
-        title="Manage Amenities"
-        onBack={() => router.back()}
-        rightIcon={plusButton}
-      />
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 8 }]}>
+        <View style={styles.headerTopRow}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <ArrowLeft color={Colors.white} size={20} strokeWidth={1.5} />
+          </TouchableOpacity>
+          {plusButton}
+        </View>
+        <Text style={styles.headerTag}>ADMIN</Text>
+        <Text style={styles.headerTitle}>Manage Amenities</Text>
+        <Text style={styles.headerSub}>Add, remove, and schedule maintenance for your community amenities.</Text>
+      </View>
 
       <ScrollView
         style={styles.scroll}
@@ -232,9 +239,36 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.pageBg },
   scroll: { flex: 1 },
   content: { padding: Spacing.pagePx, gap: Spacing.cardGap, paddingBottom: 100 },
+  header: {
+    backgroundColor: Colors.navy,
+    paddingHorizontal: Spacing.pagePx,
+    paddingBottom: 24,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  backBtn: {
+    width: 36, height: 36, borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  headerTag: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: FontSize.metadata,
+    color: Colors.accentCyan,
+    letterSpacing: 2,
+    marginBottom: 4,
+  },
+  headerTitle: { fontFamily: FontFamily.manropeBlack, fontSize: 32, color: Colors.white, lineHeight: 36 },
+  headerSub: { fontFamily: FontFamily.interRegular, fontSize: 15, color: 'rgba(200,240,255,0.85)', marginTop: 8, lineHeight: 22 },
   plusBtn: {
     width: 40,
     height: 40,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
   },

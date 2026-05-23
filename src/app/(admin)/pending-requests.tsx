@@ -1,20 +1,15 @@
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ScrollView, StyleSheet, Text, TouchableOpacity, View,
+} from 'react-native';
 import { router } from 'expo-router';
-import { Users } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ArrowLeft, UserCheck, UserX, Users } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import {
-  Colors,
-  FontFamily,
-  FontSize,
-  Radius,
-  Spacing,
-  MaxWidth,
+  Colors, FontFamily, FontSize, Radius, Shadow, Spacing, MaxWidth,
 } from '@/constants/design';
-import { Header } from '@/components/ui/Header';
-import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import type { Database } from '@/lib/types';
 
@@ -26,6 +21,7 @@ interface RequestWithProfile extends JoinRequest {
 }
 
 export default function PendingRequestsScreen() {
+  const insets = useSafeAreaInsets();
   const [requests, setRequests] = useState<RequestWithProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -44,7 +40,6 @@ export default function PendingRequestsScreen() {
       return;
     }
 
-    // Fetch profiles separately (no FK relationship between community_join_requests and profiles)
     const userIds = rawRequests.map((r) => r.user_id);
     const { data: profiles } = await supabase
       .from('profiles')
@@ -52,9 +47,7 @@ export default function PendingRequestsScreen() {
       .in('id', userIds);
 
     const profileMap = new Map<string, Profile>();
-    for (const p of profiles ?? []) {
-      profileMap.set(p.id, p);
-    }
+    for (const p of profiles ?? []) profileMap.set(p.id, p);
 
     const enriched: RequestWithProfile[] = rawRequests.map((r) => ({
       ...r,
@@ -68,19 +61,12 @@ export default function PendingRequestsScreen() {
   useEffect(() => {
     loadRequests();
 
-    const subscription = supabase
+    const sub = supabase
       .channel('community_join_requests_admin')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'community_join_requests' },
-        loadRequests,
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'community_join_requests' }, loadRequests)
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(subscription);
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => { supabase.removeChannel(sub); };
   }, []);
 
   async function updateRequest(id: string, status: 'approved' | 'rejected') {
@@ -95,86 +81,99 @@ export default function PendingRequestsScreen() {
 
   return (
     <View style={styles.screen}>
-      <Header
-        variant="inner"
-        title={`Pending Requests${requests.length > 0 ? ` (${requests.length})` : ''}`}
-        onBack={() => router.back()}
-      />
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 8 }]}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <ArrowLeft color={Colors.white} size={20} strokeWidth={1.5} />
+        </TouchableOpacity>
+        <View style={styles.headerBody}>
+          <Text style={styles.headerTag}>ADMIN</Text>
+          <Text style={styles.headerTitle}>Pending Requests</Text>
+          <Text style={styles.headerSub}>Review and approve users wanting to join your HOA.</Text>
+          {requests.length > 0 && (
+            <View style={styles.awaitingBadge}>
+              <Users color={Colors.white} size={12} strokeWidth={1.5} />
+              <Text style={styles.awaitingText}>{requests.length} Awaiting</Text>
+            </View>
+          )}
+        </View>
+      </View>
 
       <ScrollView
-        style={styles.scroll}
+        style={{ flex: 1 }}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}>
         <View style={{ maxWidth: MaxWidth, width: '100%', alignSelf: 'center' }}>
           {!loading && requests.length === 0 && (
-            <EmptyState
-              icon={<Users color={Colors.textMuted} size={48} strokeWidth={1.5} />}
-              title="No pending requests"
-              subtitle="All community join requests have been reviewed."
-            />
+            <View style={styles.emptyCard}>
+              <UserCheck color={Colors.accentCyan} size={48} strokeWidth={1.5} />
+              <Text style={styles.emptyTitle}>All Clear</Text>
+              <Text style={styles.emptySub}>No pending member requests right now.</Text>
+            </View>
           )}
 
           {requests.map((req) => {
             const isProcessing = processingId === req.id;
             const displayName = req.profile?.full_name ?? 'Unknown User';
-            const username = req.profile?.username;
             const appliedDate = new Date(req.created_at).toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
+              month: 'short', day: 'numeric', year: 'numeric',
             });
 
             return (
-              <Card key={req.id} style={styles.requestCard}>
-                {/* Requester info */}
-                <View style={styles.requesterRow}>
-                  <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>
-                      {displayName.charAt(0).toUpperCase()}
-                    </Text>
-                  </View>
-                  <View style={styles.requesterInfo}>
-                    <Text style={styles.requesterName}>{displayName}</Text>
-                    {username ? (
-                      <Text style={styles.requesterSub}>@{username}</Text>
-                    ) : null}
+              <View key={req.id} style={styles.card}>
+                {/* Name + Pending pill */}
+                <View style={styles.cardTop}>
+                  <Text style={styles.cardName}>{displayName}</Text>
+                  <View style={styles.pendingPill}>
+                    <Text style={styles.pendingPillText}>Pending</Text>
                   </View>
                 </View>
 
-                {/* Application date */}
-                <Text style={styles.appliedDate}>Applied {appliedDate}</Text>
+                {/* Detail rows */}
+                <View style={styles.detailRows}>
+                  {(req.profile as any)?.email && (
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>EMAIL</Text>
+                      <Text style={styles.detailValue} numberOfLines={1}>{(req.profile as any).email}</Text>
+                    </View>
+                  )}
+                  {(req.profile as any)?.phone_number && (
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>PHONE</Text>
+                      <Text style={styles.detailValue}>{(req.profile as any).phone_number}</Text>
+                    </View>
+                  )}
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>APPLIED</Text>
+                    <Text style={styles.detailValue}>{appliedDate}</Text>
+                  </View>
+                </View>
 
                 {/* Message */}
                 {req.message ? (
-                  <Text style={styles.message} numberOfLines={3}>
-                    "{req.message}"
-                  </Text>
+                  <Text style={styles.message} numberOfLines={3}>"{req.message}"</Text>
                 ) : null}
 
-                {/* Approve / Reject */}
+                {/* Actions */}
                 <View style={styles.actionRow}>
-                  <View style={styles.actionBtn}>
-                    <Button
-                      variant="accent"
-                      label="Approve"
-                      onPress={() => updateRequest(req.id, 'approved')}
-                      loading={isProcessing}
-                      disabled={!!processingId && !isProcessing}
-                      fullWidth
-                    />
-                  </View>
-                  <View style={styles.actionBtn}>
-                    <Button
-                      variant="destructive"
-                      label="Reject"
-                      onPress={() => updateRequest(req.id, 'rejected')}
-                      loading={isProcessing}
-                      disabled={!!processingId && !isProcessing}
-                      fullWidth
-                    />
-                  </View>
+                  <TouchableOpacity
+                    style={styles.rejectBtn}
+                    onPress={() => updateRequest(req.id, 'rejected')}
+                    disabled={!!processingId}
+                    activeOpacity={0.8}>
+                    <UserX color={Colors.red} size={16} strokeWidth={1.5} />
+                    <Text style={styles.rejectLabel}>Reject</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.approveBtn}
+                    onPress={() => updateRequest(req.id, 'approved')}
+                    disabled={!!processingId}
+                    activeOpacity={0.8}>
+                    <UserCheck color={Colors.white} size={16} strokeWidth={1.5} />
+                    <Text style={styles.approveLabel}>{isProcessing ? 'Processing…' : 'Approve'}</Text>
+                  </TouchableOpacity>
                 </View>
-              </Card>
+              </View>
             );
           })}
         </View>
@@ -185,44 +184,91 @@ export default function PendingRequestsScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.pageBg },
-  scroll: { flex: 1 },
-  content: { padding: Spacing.pagePx, gap: Spacing.cardGap, paddingBottom: 100 },
-  requestCard: { gap: 12 },
-  requesterRow: {
+
+  header: {
+    backgroundColor: Colors.navy,
+    paddingHorizontal: Spacing.pagePx,
+    paddingBottom: 24,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 14,
+  },
+  backBtn: {
+    width: 36, height: 36, borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center', justifyContent: 'center', marginTop: 4, flexShrink: 0,
+  },
+  headerBody: { flex: 1 },
+  headerTag: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: FontSize.metadata,
+    color: Colors.accentCyan,
+    letterSpacing: 2,
+    marginBottom: 4,
+  },
+  headerTitle: { fontFamily: FontFamily.manropeBlack, fontSize: 32, color: Colors.white, lineHeight: 36 },
+  headerSub: { fontFamily: FontFamily.interRegular, fontSize: 15, color: 'rgba(200,240,255,0.85)', marginTop: 8, lineHeight: 22 },
+  awaitingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(249,112,102,0.25)',
+    borderRadius: Radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    alignSelf: 'flex-start',
+    marginTop: 12,
+  },
+  awaitingText: { fontFamily: FontFamily.manropeExtraBold, fontSize: 12, color: Colors.white },
+
+  content: { padding: Spacing.pagePx, paddingBottom: 100, gap: 12 },
+
+  emptyCard: {
+    backgroundColor: Colors.white,
+    borderRadius: Radius.card,
+    padding: 40,
+    alignItems: 'center',
+    gap: 8,
+    ...Shadow,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  emptyTitle: { fontFamily: FontFamily.manropeExtraBold, fontSize: 15, color: Colors.navy },
+  emptySub: { fontFamily: FontFamily.interRegular, fontSize: 13, color: Colors.textMuted, textAlign: 'center' },
+
+  card: {
+    backgroundColor: Colors.white,
+    borderRadius: Radius.card,
+    padding: 20,
+    ...Shadow,
+    borderWidth: 1,
+    borderColor: Colors.border,
     gap: 12,
   },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Colors.accentCyan,
-    alignItems: 'center',
-    justifyContent: 'center',
+  cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  cardName: { fontFamily: FontFamily.manropeExtraBold, fontSize: 16, color: Colors.navy, flex: 1 },
+  pendingPill: {
+    backgroundColor: '#FFF5F5',
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+    borderColor: '#F97066',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
   },
-  avatarText: {
-    fontFamily: FontFamily.manropeBold,
-    fontSize: 18,
-    color: Colors.navy,
-  },
-  requesterInfo: { flex: 1 },
-  requesterName: {
-    fontFamily: FontFamily.manropeBold,
-    fontSize: FontSize.cardTitle,
-    color: Colors.textPrimary,
-  },
-  requesterSub: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.uiLabel,
+  pendingPillText: { fontFamily: FontFamily.interSemiBold, fontSize: 11, color: '#C0392B' },
+
+  detailRows: { gap: 6 },
+  detailRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  detailLabel: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: 11,
     color: Colors.textMuted,
-    marginTop: 2,
+    letterSpacing: 0.8,
+    width: 64,
+    flexShrink: 0,
   },
-  appliedDate: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.min,
-    color: Colors.textMuted,
-  },
+  detailValue: { fontFamily: FontFamily.interRegular, fontSize: 13, color: Colors.navy, flex: 1 },
+
   message: {
     fontFamily: FontFamily.interRegular,
     fontSize: FontSize.body,
@@ -230,10 +276,30 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     lineHeight: 20,
   },
-  actionRow: {
+
+  actionRow: { flexDirection: 'row', gap: 10 },
+  rejectBtn: {
+    flex: 1,
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#FEF2F2',
+    borderRadius: Radius.button,
+    paddingVertical: 13,
+    minHeight: 44,
   },
-  actionBtn: { flex: 1 },
+  rejectLabel: { fontFamily: FontFamily.interSemiBold, fontSize: 13, color: Colors.red },
+  approveBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: Colors.accentCyan,
+    borderRadius: Radius.button,
+    paddingVertical: 13,
+    minHeight: 44,
+  },
+  approveLabel: { fontFamily: FontFamily.interSemiBold, fontSize: 13, color: Colors.white },
 });
