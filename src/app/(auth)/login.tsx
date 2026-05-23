@@ -1,26 +1,103 @@
-import { useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useRef, useState } from 'react';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 
 import { supabase } from '@/lib/supabase';
-import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/design';
+import { Colors, FontFamily, FontSize, Radius, Shadow, Spacing } from '@/constants/design';
+
+function OTPInput({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+}) {
+  const refs = useRef<(TextInput | null)[]>(Array(6).fill(null));
+  const digits = Array.from({ length: 6 }, (_, i) => value[i] || '');
+
+  return (
+    <View style={otpStyles.row}>
+      {digits.map((digit, i) => (
+        <TextInput
+          key={i}
+          ref={(el) => { refs.current[i] = el; }}
+          style={[otpStyles.box, digit ? otpStyles.boxFilled : null]}
+          value={digit}
+          maxLength={1}
+          keyboardType="number-pad"
+          editable={!disabled}
+          textAlign="center"
+          onChangeText={(text) => {
+            const char = text.replace(/\D/g, '').slice(-1);
+            if (!char) {
+              const arr = [...digits];
+              arr[i] = '';
+              onChange(arr.join(''));
+              if (i > 0) refs.current[i - 1]?.focus();
+              return;
+            }
+            const arr = [...digits];
+            arr[i] = char;
+            onChange(arr.join(''));
+            if (i < 5) refs.current[i + 1]?.focus();
+          }}
+        />
+      ))}
+    </View>
+  );
+}
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+  const [focused, setFocused] = useState<string | null>(null);
+  const [isResetting, setIsResetting] = useState(false);
+  const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
+  const [mfaCode, setMfaCode] = useState('');
+  const [mfaVerifying, setMfaVerifying] = useState(false);
 
   async function signIn() {
+    if (!email.trim() || !password.trim()) return;
+    setError('');
     setLoading(true);
-    const { data: authData, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
+
+    await supabase.auth.signOut({ scope: 'local' });
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (signInError) {
+      const msg = signInError.message.toLowerCase();
+      if (msg.includes('mfa') || msg.includes('factor')) {
+        const { data: factors } = await supabase.auth.mfa.listFactors();
+        const totpFactor = factors?.totp?.[0];
+        if (totpFactor) {
+          setMfaFactorId(totpFactor.id);
+          setLoading(false);
+          return;
+        }
+      }
+      setError(signInError.message);
       setLoading(false);
-      Alert.alert('Sign in failed', error.message);
       return;
     }
-    const uid = authData.user?.id;
+
+    const uid = data.user?.id;
     if (!uid) { setLoading(false); return; }
+
     const { data: rolesData } = await supabase
       .from('user_roles')
       .select('role')
@@ -31,76 +108,333 @@ export default function LoginScreen() {
     router.replace(isCM ? '/(cm)' : '/(resident)');
   }
 
+  async function handleForgotPassword() {
+    if (!email.trim()) {
+      setError('Please enter your email address to reset your password');
+      return;
+    }
+    setError('');
+    setIsResetting(true);
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim());
+    setIsResetting(false);
+    if (resetError) {
+      setError(resetError.message);
+    } else {
+      setSuccessMsg('Password reset email sent. Check your inbox.');
+    }
+  }
+
+  async function handleMFAVerify() {
+    if (!mfaFactorId || mfaCode.length !== 6) return;
+    setMfaVerifying(true);
+    setError('');
+
+    const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({ factorId: mfaFactorId });
+    if (challengeError) {
+      setError(challengeError.message);
+      setMfaVerifying(false);
+      return;
+    }
+
+    const { error: verifyError } = await supabase.auth.mfa.verify({
+      factorId: mfaFactorId,
+      challengeId: challengeData.id,
+      code: mfaCode,
+    });
+
+    if (verifyError) {
+      setError(verifyError.message || 'Invalid code. Please try again.');
+      setMfaCode('');
+      setMfaVerifying(false);
+      return;
+    }
+
+    setMfaVerifying(false);
+    // Auth state listener will handle navigation
+  }
+
+  if (mfaFactorId) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+          <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+            <View style={styles.card}>
+              <View style={styles.mfaIconWrap}>
+                <Text style={styles.mfaIconText}>🔒</Text>
+              </View>
+              <Text style={[styles.title, { textAlign: 'center', marginTop: 16 }]}>Two-Factor Auth</Text>
+              <Text style={[styles.subtitle, { textAlign: 'center', marginBottom: 0 }]}>
+                Enter the 6-digit code from your authenticator app
+              </Text>
+
+              {!!error && (
+                <View style={[styles.banner, styles.errorBanner]}>
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              )}
+
+              <OTPInput value={mfaCode} onChange={setMfaCode} disabled={mfaVerifying} />
+
+              <TouchableOpacity
+                style={[styles.button, (mfaCode.length !== 6 || mfaVerifying) && styles.buttonDisabled]}
+                onPress={handleMFAVerify}
+                disabled={mfaCode.length !== 6 || mfaVerifying}
+                activeOpacity={0.85}>
+                <Text style={styles.buttonText}>{mfaVerifying ? 'Verifying…' : 'Verify'}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.centeredLink}
+                onPress={() => { setMfaFactorId(null); setMfaCode(''); setError(''); }}>
+                <Text style={styles.cyanLink}>Back to login</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>TenisX</Text>
-      <Text style={styles.subtitle}>Sign in to continue</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        placeholderTextColor={Colors.textPlaceholder}
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        keyboardType="email-address"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        placeholderTextColor={Colors.textPlaceholder}
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
-      <TouchableOpacity style={styles.button} onPress={signIn} disabled={loading}>
-        <Text style={styles.buttonText}>{loading ? 'Signing in…' : 'Sign In'}</Text>
-      </TouchableOpacity>
+    <SafeAreaView style={styles.screen}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+          <View style={styles.card}>
+            <Text style={styles.title}>Welcome back</Text>
+            <Text style={styles.subtitle}>Sign in to your TenisX account</Text>
+
+            {!!successMsg && (
+              <View style={[styles.banner, styles.successBanner]}>
+                <Text style={styles.successText}>{successMsg}</Text>
+              </View>
+            )}
+
+            {!!error && (
+              <View style={[styles.banner, styles.errorBanner]}>
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            )}
+
+            {/* Email */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Email</Text>
+              <TextInput
+                style={[styles.input, focused === 'email' && styles.inputFocused]}
+                placeholder="your@email.com"
+                placeholderTextColor={Colors.textPlaceholder}
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                editable={!loading}
+                onFocus={() => setFocused('email')}
+                onBlur={() => setFocused(null)}
+              />
+            </View>
+
+            {/* Password */}
+            <View style={[styles.fieldGroup, { marginBottom: 24 }]}>
+              <Text style={styles.fieldLabel}>Password</Text>
+              <TextInput
+                style={[styles.input, focused === 'password' && styles.inputFocused]}
+                placeholder="••••••••"
+                placeholderTextColor={Colors.textPlaceholder}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                editable={!loading}
+                onFocus={() => setFocused('password')}
+                onBlur={() => setFocused(null)}
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[styles.button, loading && styles.buttonDisabled]}
+              onPress={signIn}
+              disabled={loading}
+              activeOpacity={0.85}>
+              <Text style={styles.buttonText}>{loading ? 'Signing in…' : 'Sign in'}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.centeredLink}
+              onPress={handleForgotPassword}
+              disabled={isResetting}>
+              <Text style={[styles.cyanLink, isResetting && { opacity: 0.6 }]}>
+                {isResetting ? 'Sending reset email…' : 'Forgot password?'}
+              </Text>
+            </TouchableOpacity>
+
+            <View style={styles.divider} />
+
+            <Text style={styles.signUpRow}>
+              Don't have an account?{' '}
+              <Text style={styles.signUpLink}>Sign up</Text>
+            </Text>
+
+            <TouchableOpacity style={styles.centeredLink}>
+              <Text style={styles.reviewerLink}>RallyNet Personnel Login</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.pageBg,
-    paddingHorizontal: Spacing.pagePx,
+const otpStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    gap: 8,
     justifyContent: 'center',
-    gap: 12,
+    marginVertical: 24,
+  },
+  box: {
+    width: 48,
+    height: 56,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    backgroundColor: Colors.white,
+    fontSize: 24,
+    fontFamily: FontFamily.manropeBold,
+    color: Colors.navy,
+  },
+  boxFilled: {
+    borderColor: Colors.accentCyan,
+  },
+});
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: Colors.pageBg },
+  scroll: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    padding: Spacing.pagePx,
+    paddingVertical: 40,
+  },
+  card: {
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(15,31,61,0.06)',
+    ...Shadow,
   },
   title: {
-    fontFamily: FontFamily.manropeBlack,
-    fontSize: 32,
+    fontFamily: FontFamily.manropeExtraBold,
+    fontSize: 24,
     color: Colors.navy,
-    textAlign: 'center',
+    lineHeight: 29,
+    marginBottom: 4,
   },
   subtitle: {
     fontFamily: FontFamily.interRegular,
     fontSize: FontSize.body,
     color: Colors.textMuted,
-    textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 20,
+  },
+  banner: {
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 16,
+    borderWidth: 1,
+  },
+  successBanner: {
+    backgroundColor: '#F0FFFE',
+    borderColor: Colors.accentCyan,
+  },
+  successText: {
+    fontFamily: FontFamily.interRegular,
+    fontSize: FontSize.body,
+    color: Colors.navy,
+  },
+  errorBanner: {
+    backgroundColor: '#FFF5F5',
+    borderColor: '#F97066',
+  },
+  errorText: {
+    fontFamily: FontFamily.interRegular,
+    fontSize: FontSize.body,
+    color: '#C0392B',
+  },
+  fieldGroup: { marginBottom: 16 },
+  fieldLabel: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: 13,
+    color: Colors.navy,
+    marginBottom: 6,
   },
   input: {
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: 'rgba(15,31,61,0.15)',
     borderRadius: Radius.input,
-    padding: 14,
-    fontSize: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 15,
     fontFamily: FontFamily.interRegular,
     color: Colors.textPrimary,
-    backgroundColor: Colors.cardBg,
-    minHeight: Spacing.tapTarget,
+    backgroundColor: Colors.white,
+    minHeight: 52,
+  },
+  inputFocused: {
+    borderColor: Colors.accentCyan,
+    borderWidth: 1.5,
   },
   button: {
     backgroundColor: Colors.navy,
     borderRadius: Radius.button,
-    padding: 14,
     alignItems: 'center',
-    minHeight: Spacing.tapTarget,
+    justifyContent: 'center',
+    minHeight: 52,
+  },
+  buttonDisabled: {
+    backgroundColor: Colors.textMuted,
   },
   buttonText: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: 14,
+    fontFamily: FontFamily.manropeBold,
+    fontSize: 16,
     color: Colors.white,
   },
+  centeredLink: {
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  cyanLink: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: FontSize.body,
+    color: Colors.accentCyan,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(15,31,61,0.08)',
+    marginTop: 24,
+    marginBottom: 20,
+  },
+  signUpRow: {
+    fontFamily: FontFamily.interRegular,
+    fontSize: FontSize.body,
+    color: Colors.textMuted,
+    textAlign: 'center',
+  },
+  signUpLink: {
+    fontFamily: FontFamily.interSemiBold,
+    color: Colors.accentCyan,
+  },
+  reviewerLink: {
+    fontFamily: FontFamily.interRegular,
+    fontSize: 12,
+    color: Colors.textMuted,
+  },
+  mfaIconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#E0F9FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+  },
+  mfaIconText: { fontSize: 24 },
 });
