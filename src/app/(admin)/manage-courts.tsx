@@ -1,168 +1,196 @@
 import { useEffect, useState } from 'react';
 import {
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { router, useLocalSearchParams } from 'expo-router';
+import { ArrowLeft, Plus, Trash2 } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import {
-  Colors,
-  FontFamily,
-  FontSize,
-  Radius,
-  Spacing,
-  MaxWidth,
+  Colors, FontFamily, FontSize, Radius, Shadow, Spacing, MaxWidth,
 } from '@/constants/design';
-import { Header } from '@/components/ui/Header';
+import { EmptyState } from '@/components/ui/EmptyState';
 import type { Database } from '@/lib/types';
 
 type Court = Database['public']['Tables']['courts']['Row'];
 type Booking = Database['public']['Tables']['bookings']['Row'];
-type Maintenance = Database['public']['Tables']['court_maintenance']['Row'];
+type CourtMaintenance = Database['public']['Tables']['court_maintenance']['Row'];
 
-// Vanilla JS date helpers (no date-fns)
+const AMENITY_TYPES = [
+  { value: 'tennis', label: 'Tennis' },
+  { value: 'pickleball', label: 'Pickleball' },
+  { value: 'pool', label: 'Pool' },
+  { value: 'gym', label: 'Gym' },
+  { value: 'clubhouse', label: 'Clubhouse' },
+  { value: 'barbecue', label: 'Barbecue' },
+  { value: 'jacuzzi', label: 'Jacuzzi' },
+] as const;
+type CourtTypeValue = (typeof AMENITY_TYPES)[number]['value'];
+
 const DAYS_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-function addDays(date: Date, n: number): Date {
-  return new Date(date.getTime() + n * 86400000);
-}
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 function startOfDay(date: Date): Date {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
   return d;
 }
-
+function addDays(date: Date, n: number): Date {
+  return new Date(date.getTime() + n * 86400000);
+}
 function toDateString(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
 }
-
-// 7am–8pm time slots (14 slots, each 1 hour)
-const TIME_SLOTS: string[] = [];
-for (let h = 7; h <= 19; h++) {
-  const label = h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h - 12}pm`;
-  TIME_SLOTS.push(label);
+function formatDateLabel(date: Date): string {
+  return `${DAYS_SHORT[date.getDay()]}, ${MONTHS_SHORT[date.getMonth()]} ${date.getDate()}`;
 }
 
-// Convert "7am" → "07:00:00", "1pm" → "13:00:00"
-function slotToTime(slot: string): string {
-  const isPm = slot.endsWith('pm');
-  const num = parseInt(slot.replace('am', '').replace('pm', ''), 10);
-  let hour = num;
-  if (isPm && num !== 12) hour = num + 12;
-  if (!isPm && num === 12) hour = 0;
-  return `${String(hour).padStart(2, '0')}:00:00`;
+const TIME_SLOTS: string[] = [];
+for (let h = 7; h <= 19; h++) {
+  TIME_SLOTS.push(h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h - 12}pm`);
 }
 
 function slotToHour(slot: string): number {
   const isPm = slot.endsWith('pm');
-  const num = parseInt(slot.replace('am', '').replace('pm', ''), 10);
+  const num = parseInt(slot.replace(/[ap]m/, ''), 10);
   if (isPm && num !== 12) return num + 12;
   if (!isPm && num === 12) return 0;
   return num;
 }
 
 type SlotStatus = 'available' | 'booked' | 'maintenance';
-
-const slotBg: Record<SlotStatus, string> = {
-  available: Colors.optimalBg,
-  booked: Colors.attentionBg,
-  maintenance: Colors.criticalBg,
-};
-
-const slotTextColor: Record<SlotStatus, string> = {
-  available: Colors.blueMid,
-  booked: Colors.coral,
-  maintenance: Colors.red,
+const SLOT_COLORS: Record<SlotStatus, { bg: string; border: string; text: string }> = {
+  available: { bg: '#F9FAFB', border: '#E5E7EB', text: '#0F1F3D' },
+  booked: { bg: '#FEF2F2', border: '#EF4444', text: '#991B1B' },
+  maintenance: { bg: '#FFFBEB', border: '#F59E0B', text: '#B45309' },
 };
 
 export default function ManageCourtsScreen() {
+  const insets = useSafeAreaInsets();
+  const { hoaId } = useLocalSearchParams<{ hoaId: string }>();
+
   const [courts, setCourts] = useState<Court[]>([]);
-  const [selectedCourt, setSelectedCourt] = useState<Court | null>(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newType, setNewType] = useState<CourtTypeValue>('tennis');
+  const [saving, setSaving] = useState(false);
+
+  const [selectedCourtId, setSelectedCourtId] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()));
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [maintenance, setMaintenance] = useState<Maintenance[]>([]);
-  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [maintenance, setMaintenance] = useState<CourtMaintenance[]>([]);
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(startOfDay(new Date()), i));
 
   async function loadCourts() {
-    const { data } = await supabase
-      .from('courts')
-      .select('*')
-      .order('name', { ascending: true });
-    const list = data ?? [];
-    setCourts(list);
-    if (list.length > 0 && !selectedCourt) {
-      setSelectedCourt(list[0]);
-    }
+    let query = supabase.from('courts').select('*').order('name', { ascending: true });
+    if (hoaId) query = query.eq('hoa_id', hoaId);
+    const { data } = await query;
+    setCourts(data ?? []);
   }
 
   async function loadSlots() {
-    if (!selectedCourt) return;
-    setLoadingSlots(true);
+    if (!selectedCourtId) return;
     const dateStr = toDateString(selectedDate);
-
     const [bookingRes, maintenanceRes] = await Promise.all([
-      supabase
-        .from('bookings')
-        .select('*')
-        .eq('court_id', selectedCourt.id)
-        .eq('date', dateStr),
-      supabase
-        .from('court_maintenance')
-        .select('*')
-        .eq('court_id', selectedCourt.id)
-        .eq('date', dateStr),
+      supabase.from('bookings').select('*').eq('court_id', selectedCourtId).eq('date', dateStr),
+      supabase.from('court_maintenance').select('*').eq('court_id', selectedCourtId).eq('date', dateStr),
     ]);
-
     setBookings(bookingRes.data ?? []);
     setMaintenance(maintenanceRes.data ?? []);
-    setLoadingSlots(false);
   }
 
-  useEffect(() => {
-    loadCourts();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    loadSlots();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCourt, selectedDate]);
+  useEffect(() => { loadCourts(); }, []);
+  useEffect(() => { loadSlots(); }, [selectedCourtId, selectedDate]);
 
   function getSlotStatus(slot: string): SlotStatus {
     const hour = slotToHour(slot);
     const slotTime = `${String(hour).padStart(2, '0')}:00:00`;
-
-    // Check maintenance first
     for (const m of maintenance) {
-      const mStart = m.start_time.substring(0, 8);
-      const mEnd = m.end_time.substring(0, 8);
-      if (slotTime >= mStart && slotTime < mEnd) return 'maintenance';
+      if (slotTime >= m.start_time.substring(0, 8) && slotTime < m.end_time.substring(0, 8)) return 'maintenance';
     }
-
-    // Check bookings
     for (const b of bookings) {
       if (b.status === 'cancelled') continue;
-      const bStart = b.start_time.substring(0, 8);
-      const bEnd = b.end_time.substring(0, 8);
-      if (slotTime >= bStart && slotTime < bEnd) return 'booked';
+      if (slotTime >= b.start_time.substring(0, 8) && slotTime < b.end_time.substring(0, 8)) return 'booked';
     }
-
     return 'available';
+  }
+
+  async function toggleMaintenance(slot: string, isMaintenance: boolean) {
+    const hour = slotToHour(slot);
+    const startTime = `${String(hour).padStart(2, '0')}:00:00`;
+    const endTime = `${String(hour + 1).padStart(2, '0')}:00:00`;
+    const dateStr = toDateString(selectedDate);
+    if (isMaintenance) {
+      await supabase.from('court_maintenance')
+        .delete()
+        .eq('court_id', selectedCourtId)
+        .eq('date', dateStr)
+        .eq('start_time', startTime);
+    } else {
+      await supabase.from('court_maintenance')
+        .insert({ court_id: selectedCourtId, date: dateStr, start_time: startTime, end_time: endTime });
+    }
+    loadSlots();
+  }
+
+  async function addCourt() {
+    if (!newName.trim()) return;
+    setSaving(true);
+    await supabase.from('courts').insert({
+      name: newName.trim(),
+      court_type: newType,
+      hoa_id: hoaId ?? '',
+    });
+    setSaving(false);
+    setShowAddForm(false);
+    setNewName('');
+    setNewType('tennis');
+    loadCourts();
+  }
+
+  function confirmDelete(court: Court) {
+    Alert.alert(
+      'Remove Amenity',
+      `Remove "${court.name}"? All bookings will also be removed.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Remove', style: 'destructive', onPress: () => deleteCourt(court.id) },
+      ],
+    );
+  }
+
+  async function deleteCourt(id: string) {
+    if (selectedCourtId === id) setSelectedCourtId('');
+    await supabase.from('courts').delete().eq('id', id);
+    loadCourts();
   }
 
   return (
     <View style={styles.screen}>
-      <Header variant="inner" title="Court Schedule" onBack={() => router.back()} />
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 8 }]}>
+        <View style={styles.headerTopRow}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <ArrowLeft color={Colors.white} size={20} strokeWidth={1.5} />
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.headerTag}>ADMIN</Text>
+        <Text style={styles.headerTitle}>Manage Amenities</Text>
+        <Text style={styles.headerSub}>
+          Add, remove, and schedule maintenance for your community amenities.
+        </Text>
+      </View>
 
       <ScrollView
         style={styles.scroll}
@@ -170,92 +198,173 @@ export default function ManageCourtsScreen() {
         showsVerticalScrollIndicator={false}>
         <View style={{ maxWidth: MaxWidth, width: '100%', alignSelf: 'center' }}>
 
-          {/* Court selector pills */}
-          <Text style={styles.sectionLabel}>COURT / AMENITY</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.pillScroll}
-            contentContainerStyle={styles.pillContent}>
-            {courts.map((c) => (
-              <TouchableOpacity
-                key={c.id}
-                style={[
-                  styles.pill,
-                  selectedCourt?.id === c.id && styles.pillActive,
-                ]}
-                onPress={() => setSelectedCourt(c)}>
-                <Text
-                  style={[
-                    styles.pillLabel,
-                    selectedCourt?.id === c.id && styles.pillLabelActive,
-                  ]}>
-                  {c.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+          {/* Add New Amenity — dashed card or inline form */}
+          {!showAddForm ? (
+            <TouchableOpacity
+              style={styles.addDashedCard}
+              onPress={() => setShowAddForm(true)}
+              activeOpacity={0.8}>
+              <Plus color={Colors.accentCyan} size={20} strokeWidth={1.5} />
+              <Text style={styles.addDashedLabel}>Add New Amenity</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.addFormCard}>
+              <Text style={styles.addFormTitle}>New Amenity</Text>
 
-          {/* Date carousel */}
-          <Text style={[styles.sectionLabel, { marginTop: 20 }]}>DATE</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.pillScroll}
-            contentContainerStyle={styles.pillContent}>
-            {days.map((d) => {
-              const isSelected = toDateString(d) === toDateString(selectedDate);
-              const isToday = toDateString(d) === toDateString(startOfDay(new Date()));
-              return (
-                <TouchableOpacity
-                  key={toDateString(d)}
-                  style={[styles.datePill, isSelected && styles.datePillActive]}
-                  onPress={() => setSelectedDate(d)}>
-                  <Text style={[styles.dateDayLabel, isSelected && styles.dateLabelActive]}>
-                    {isToday ? 'Today' : DAYS_SHORT[d.getDay()]}
-                  </Text>
-                  <Text style={[styles.dateDayNum, isSelected && styles.dateLabelActive]}>
-                    {d.getDate()}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+              <Text style={styles.fieldLabel}>NAME</Text>
+              <TextInput
+                style={styles.textInput}
+                value={newName}
+                onChangeText={setNewName}
+                placeholder="e.g., Tennis Court 3, Pool Area"
+                placeholderTextColor={Colors.textPlaceholder}
+                autoFocus
+              />
 
-          {/* Slot grid */}
-          <Text style={[styles.sectionLabel, { marginTop: 24 }]}>TIME SLOTS</Text>
-
-          {/* Legend */}
-          <View style={styles.legend}>
-            {(['available', 'booked', 'maintenance'] as SlotStatus[]).map((s) => (
-              <View key={s} style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: slotBg[s] }]} />
-                <Text style={styles.legendLabel}>{s.charAt(0).toUpperCase() + s.slice(1)}</Text>
+              <Text style={[styles.fieldLabel, { marginTop: 16 }]}>TYPE</Text>
+              <View style={styles.typeGrid}>
+                {AMENITY_TYPES.map((t) => {
+                  const active = newType === t.value;
+                  return (
+                    <TouchableOpacity
+                      key={t.value}
+                      style={[styles.typePill, active && styles.typePillActive]}
+                      onPress={() => setNewType(t.value)}>
+                      <Text style={[styles.typePillLabel, active && styles.typePillLabelActive]}>
+                        {t.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
-            ))}
-          </View>
 
-          <View style={styles.slotGrid}>
-            {TIME_SLOTS.map((slot) => {
-              const status = loadingSlots ? 'available' : getSlotStatus(slot);
-              return (
-                <View
-                  key={slot}
-                  style={[styles.slotCell, { backgroundColor: slotBg[status] }]}>
-                  <Text style={[styles.slotTime, { color: slotTextColor[status] }]}>
-                    {slot}
-                  </Text>
-                  <Text style={[styles.slotStatus, { color: slotTextColor[status] }]}>
-                    {status}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
+              <View style={styles.formActions}>
+                <TouchableOpacity
+                  style={styles.cancelBtn}
+                  onPress={() => { setShowAddForm(false); setNewName(''); setNewType('tennis'); }}>
+                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.addBtn, (!newName.trim() || saving) && styles.addBtnDisabled]}
+                  onPress={addCourt}
+                  disabled={!newName.trim() || saving}>
+                  <Text style={styles.addBtnText}>{saving ? 'Adding…' : 'Add Amenity'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
 
-          {/* Slot toggle note */}
-          {/* Toggle to maintenance is not implemented — court_maintenance table requires
-              manual date + start/end_time inserts which need a separate form flow. */}
+          {/* Current Amenities section */}
+          {courts.length > 0 && (
+            <>
+              <Text style={styles.sectionTitle}>Current Amenities</Text>
+
+              {/* Date selector */}
+              <Text style={styles.dateSelectorLabel}>SELECT DATE FOR MAINTENANCE</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.dateRow}
+                style={styles.dateScroll}>
+                {days.map((d) => {
+                  const isSelected = toDateString(d) === toDateString(selectedDate);
+                  const isToday = toDateString(d) === toDateString(startOfDay(new Date()));
+                  return (
+                    <TouchableOpacity
+                      key={toDateString(d)}
+                      style={[styles.datePill, isSelected && styles.datePillActive]}
+                      onPress={() => setSelectedDate(d)}>
+                      <Text style={[styles.datePillText, isSelected && styles.datePillTextActive]}>
+                        {isToday ? 'Today' : DAYS_SHORT[d.getDay()]}, {MONTHS_SHORT[d.getMonth()]} {d.getDate()}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
+              {/* Per-amenity cards */}
+              {courts.map((court) => {
+                const isExpanded = selectedCourtId === court.id;
+                return (
+                  <View key={court.id} style={styles.courtCard}>
+                    {/* Card header row */}
+                    <View style={styles.courtCardHeader}>
+                      <View style={styles.courtInfo}>
+                        <Text style={styles.courtName}>{court.name}</Text>
+                        <Text style={styles.courtType}>{court.court_type}</Text>
+                      </View>
+                      <View style={styles.courtActions}>
+                        <TouchableOpacity
+                          style={[styles.slotsBtn, isExpanded && styles.slotsBtnActive]}
+                          onPress={() => setSelectedCourtId(isExpanded ? '' : court.id)}
+                          activeOpacity={0.8}>
+                          <Text style={[styles.slotsBtnText, isExpanded && styles.slotsBtnTextActive]}>
+                            {isExpanded ? 'Hide Slots' : 'Time Slots'}
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.deleteBtn}
+                          onPress={() => confirmDelete(court)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                          <Trash2 color={Colors.red} size={16} strokeWidth={1.5} />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+
+                    {/* Expanded slot grid */}
+                    {isExpanded && (
+                      <View style={styles.slotsContainer}>
+                        <Text style={styles.slotsSectionLabel}>
+                          TIME SLOTS — {formatDateLabel(selectedDate)}
+                        </Text>
+                        <View style={styles.slotGrid}>
+                          {TIME_SLOTS.map((slot) => {
+                            const status = getSlotStatus(slot);
+                            const colors = SLOT_COLORS[status];
+                            const isMaintenance = status === 'maintenance';
+                            const isBooked = status === 'booked';
+                            return (
+                              <View
+                                key={slot}
+                                style={[styles.slotCell, { backgroundColor: colors.bg, borderColor: colors.border }]}>
+                                <Text style={[styles.slotTime, { color: colors.text }]}>{slot}</Text>
+                                <Text style={[styles.slotStatusText, { color: colors.text }]}>
+                                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                                </Text>
+                                {!isBooked && (
+                                  <TouchableOpacity
+                                    style={[
+                                      styles.slotToggleBtn,
+                                      { backgroundColor: isMaintenance ? '#F3F4F6' : '#FFFBEB' },
+                                    ]}
+                                    onPress={() => toggleMaintenance(slot, isMaintenance)}>
+                                    <Text style={[
+                                      styles.slotToggleBtnText,
+                                      { color: isMaintenance ? '#6B7280' : '#B45309' },
+                                    ]}>
+                                      {isMaintenance ? 'Make Available' : 'Set Maintenance'}
+                                    </Text>
+                                  </TouchableOpacity>
+                                )}
+                              </View>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
+            </>
+          )}
+
+          {/* Empty state */}
+          {courts.length === 0 && !showAddForm && (
+            <View style={styles.emptyWrap}>
+              <Text style={styles.emptyTitle}>No amenities yet</Text>
+              <Text style={styles.emptySub}>Tap above to add your first amenity.</Text>
+            </View>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -265,68 +374,264 @@ export default function ManageCourtsScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.pageBg },
   scroll: { flex: 1 },
-  content: { padding: Spacing.pagePx, gap: 4, paddingBottom: 100 },
-  sectionLabel: {
+  content: { padding: Spacing.pagePx, gap: 12, paddingBottom: 100 },
+
+  header: {
+    backgroundColor: Colors.navy,
+    paddingHorizontal: Spacing.pagePx,
+    paddingBottom: 24,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  backBtn: {
+    width: 36, height: 36, borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  headerTag: {
     fontFamily: FontFamily.interSemiBold,
     fontSize: FontSize.metadata,
-    color: Colors.textMuted,
-    letterSpacing: 1.2,
-    marginBottom: 10,
+    color: Colors.accentCyan,
+    letterSpacing: 2,
+    marginBottom: 4,
   },
-  // Court pills
-  pillScroll: { marginBottom: 4 },
-  pillContent: { flexDirection: 'row', gap: 8, paddingVertical: 4 },
-  pill: {
-    borderRadius: Radius.pill,
+  headerTitle: {
+    fontFamily: FontFamily.manropeBlack,
+    fontSize: 32,
+    color: Colors.white,
+    lineHeight: 36,
+  },
+  headerSub: {
+    fontFamily: FontFamily.interRegular,
+    fontSize: 15,
+    color: 'rgba(200,240,255,0.85)',
+    marginTop: 8,
+    lineHeight: 22,
+  },
+
+  // Add dashed card
+  addDashedCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 18,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: '#E5E7EB',
+  },
+  addDashedLabel: {
+    fontFamily: FontFamily.manropeBold,
+    fontSize: FontSize.uiLabel,
+    color: Colors.navy,
+  },
+
+  // Add form card
+  addFormCard: {
+    backgroundColor: Colors.white,
+    borderRadius: Radius.card,
+    padding: 20,
     borderWidth: 1,
     borderColor: Colors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: Colors.cardBg,
+    ...Shadow,
   },
-  pillActive: { backgroundColor: Colors.navy, borderColor: Colors.navy },
-  pillLabel: {
+  addFormTitle: {
+    fontFamily: FontFamily.manropeExtraBold,
+    fontSize: FontSize.cardTitle,
+    color: Colors.navy,
+    marginBottom: 16,
+  },
+  fieldLabel: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: 12,
+    color: '#374151',
+    letterSpacing: 0.8,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.input,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontFamily: FontFamily.interRegular,
+    fontSize: FontSize.body,
+    color: Colors.textPrimary,
+  },
+  typeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  typePill: {
+    width: '47%',
+    borderRadius: Radius.input,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+  },
+  typePillActive: {
+    borderColor: Colors.accentCyan,
+    backgroundColor: 'rgba(0,212,255,0.08)',
+  },
+  typePillLabel: {
     fontFamily: FontFamily.interSemiBold,
     fontSize: FontSize.uiLabel,
-    color: Colors.textMuted,
+    color: '#6B7280',
   },
-  pillLabelActive: { color: Colors.white },
-  // Date pills
+  typePillLabelActive: {
+    color: Colors.accentCyan,
+  },
+  formActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  cancelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: Radius.input,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    minHeight: 44,
+  },
+  cancelBtnText: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: FontSize.body,
+    color: Colors.navy,
+  },
+  addBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: Radius.input,
+    backgroundColor: Colors.navy,
+    alignItems: 'center',
+    minHeight: 44,
+  },
+  addBtnDisabled: { opacity: 0.4 },
+  addBtnText: {
+    fontFamily: FontFamily.manropeBold,
+    fontSize: FontSize.uiLabel,
+    color: Colors.white,
+  },
+
+  // Section
+  sectionTitle: {
+    fontFamily: FontFamily.manropeBold,
+    fontSize: FontSize.sectionTitle,
+    color: Colors.navy,
+    marginTop: 4,
+  },
+
+  // Date selector
+  dateSelectorLabel: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: 12,
+    color: '#374151',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: 8,
+    marginTop: 12,
+  },
+  dateScroll: { marginBottom: 4 },
+  dateRow: { flexDirection: 'row', gap: 8, paddingBottom: 4 },
   datePill: {
+    borderRadius: Radius.input,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: Colors.white,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  datePillActive: {
+    backgroundColor: Colors.navy,
+    borderColor: Colors.navy,
+  },
+  datePillText: {
+    fontFamily: FontFamily.manropeBold,
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  datePillTextActive: { color: Colors.white },
+
+  // Per-amenity card
+  courtCard: {
+    backgroundColor: Colors.white,
     borderRadius: Radius.card,
     borderWidth: 1,
     borderColor: Colors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: Colors.cardBg,
-    alignItems: 'center',
-    minWidth: 60,
+    overflow: 'hidden',
+    ...Shadow,
   },
-  datePillActive: { backgroundColor: Colors.navy, borderColor: Colors.navy },
-  dateDayLabel: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: FontSize.min,
-    color: Colors.textMuted,
-  },
-  dateDayNum: {
-    fontFamily: FontFamily.manropeBold,
-    fontSize: FontSize.uiLabel,
-    color: Colors.textPrimary,
-    marginTop: 2,
-  },
-  dateLabelActive: { color: Colors.white },
-  // Slot grid
-  legend: {
+  courtCardHeader: {
     flexDirection: 'row',
-    gap: 16,
-    marginBottom: 12,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
   },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  legendDot: { width: 10, height: 10, borderRadius: 5 },
-  legendLabel: {
+  courtInfo: { flex: 1, minWidth: 0 },
+  courtName: {
+    fontFamily: FontFamily.manropeExtraBold,
+    fontSize: 15,
+    color: Colors.navy,
+  },
+  courtType: {
     fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.min,
-    color: Colors.textMuted,
+    fontSize: FontSize.uiLabel,
+    color: '#4B5563',
+    marginTop: 2,
+    textTransform: 'capitalize',
+  },
+  courtActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  slotsBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: Radius.input,
+    backgroundColor: '#F3F4F6',
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  slotsBtnActive: { backgroundColor: Colors.navy },
+  slotsBtnText: {
+    fontFamily: FontFamily.manropeBold,
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  slotsBtnTextActive: { color: Colors.white },
+  deleteBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: Radius.input,
+    backgroundColor: '#FEF2F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Slots inside card
+  slotsContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  slotsSectionLabel: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: 12,
+    color: '#374151',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: 10,
   },
   slotGrid: {
     flexDirection: 'row',
@@ -334,20 +639,50 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   slotCell: {
+    width: '47%',
     borderRadius: Radius.input,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    minWidth: '28%',
-    flex: 1,
-    alignItems: 'center',
-    gap: 2,
+    borderWidth: 1,
+    padding: 10,
+    gap: 4,
   },
   slotTime: {
     fontFamily: FontFamily.manropeBold,
-    fontSize: FontSize.uiLabel,
+    fontSize: 12,
   },
-  slotStatus: {
+  slotStatusText: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  slotToggleBtn: {
+    borderRadius: Radius.input - 2,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    minHeight: 28,
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  slotToggleBtnText: {
+    fontFamily: FontFamily.manropeBold,
+    fontSize: 10,
+  },
+
+  // Empty
+  emptyWrap: {
+    paddingVertical: 40,
+    alignItems: 'center',
+  },
+  emptyTitle: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: 15,
+    color: Colors.navy,
+    marginBottom: 4,
+  },
+  emptySub: {
     fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.min,
+    fontSize: FontSize.uiLabel,
+    color: '#4B5563',
   },
 });
