@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, User, Mail, LogOut, ChevronRight, Bell, Shield, HelpCircle } from 'lucide-react-native';
+import {
+  ArrowLeft, Bell, ChevronRight, LifeBuoy, Lock, Shield,
+} from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import {
@@ -14,6 +16,14 @@ interface Profile {
   email: string | null;
 }
 
+interface Membership {
+  id: string;
+  hoa_id: string;
+  hoa_name: string;
+  role: string;
+  status: 'active' | 'pending' | string;
+}
+
 function getInitials(name: string): string {
   const parts = name.trim().split(' ').filter(Boolean);
   if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
@@ -23,17 +33,31 @@ function getInitials(name: string): string {
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const [profile, setProfile] = useState<Profile>({ full_name: null, email: null });
+  const [memberships, setMemberships] = useState<Membership[]>([]);
 
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { data } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', user.id)
-        .single();
-      setProfile({ full_name: data?.full_name ?? null, email: user.email ?? null });
+
+      const [profileRes, membersRes] = await Promise.all([
+        supabase.from('profiles').select('full_name').eq('id', user.id).single(),
+        supabase
+          .from('hoa_members')
+          .select('id, hoa_id, role, status, hoas(name)')
+          .eq('user_id', user.id),
+      ]);
+
+      setProfile({ full_name: profileRes.data?.full_name ?? null, email: user.email ?? null });
+
+      const mapped: Membership[] = (membersRes.data ?? []).map((m: any) => ({
+        id: m.id,
+        hoa_id: m.hoa_id,
+        hoa_name: m.hoas?.name ?? 'Unknown',
+        role: m.role ?? 'member',
+        status: m.status ?? 'active',
+      }));
+      setMemberships(mapped);
     }
     load();
   }, []);
@@ -54,12 +78,23 @@ export default function SettingsScreen() {
 
   const name = profile.full_name ?? 'User';
   const initials = getInitials(name);
+  const activeMemberships = memberships.filter((m) => m.status === 'active');
+  const pendingMemberships = memberships.filter((m) => m.status === 'pending');
+  const activeHOA = activeMemberships[0];
+
+  const settingsLinks = [
+    { icon: Bell, label: 'Notifications', desc: 'Manage alert preferences' },
+    { icon: Shield, label: 'Privacy', desc: 'Profile visibility settings' },
+    { icon: Lock, label: 'Account', desc: 'Email, phone, password' },
+    { icon: LifeBuoy, label: 'Help & Support', desc: 'FAQ, terms, contact' },
+  ];
 
   return (
     <View style={styles.screen}>
+      {/* Header */}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 8 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <ArrowLeft color={Colors.white} size={22} strokeWidth={1.5} />
+          <ArrowLeft color={Colors.white} size={20} strokeWidth={1.5} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Settings</Text>
         <View style={styles.backBtn} />
@@ -70,64 +105,92 @@ export default function SettingsScreen() {
 
           {/* Profile card */}
           <View style={styles.profileCard}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{initials}</Text>
+            <View style={styles.avatarRow}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{initials}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.profileName}>{name}</Text>
+                {activeHOA && (
+                  <Text style={styles.profileHoa}>{activeHOA.hoa_name}</Text>
+                )}
+                {profile.email && (
+                  <Text style={styles.profileEmail}>{profile.email}</Text>
+                )}
+              </View>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.profileName}>{name}</Text>
-              {profile.email && (
-                <Text style={styles.profileEmail}>{profile.email}</Text>
-              )}
-            </View>
+            <TouchableOpacity style={styles.editProfileBtn} activeOpacity={0.8}>
+              <Text style={styles.editProfileLabel}>Edit Profile</Text>
+            </TouchableOpacity>
           </View>
 
-          {/* Account section */}
-          <Text style={styles.sectionLabel}>ACCOUNT</Text>
-          <View style={styles.menuSection}>
-            <TouchableOpacity style={styles.menuRow}>
-              <User color={Colors.navy} size={18} strokeWidth={1.5} />
-              <Text style={styles.menuLabel}>Edit Profile</Text>
-              <ChevronRight color={Colors.textMuted} size={16} strokeWidth={1.5} />
-            </TouchableOpacity>
+          {/* My Communities */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>My Communities</Text>
+            {activeMemberships.map((m, i) => (
+              <View key={m.id}>
+                {i > 0 && <View style={styles.divider} />}
+                <View style={styles.communityRow}>
+                  <View style={{ flex: 1 }}>
+                    <View style={styles.communityNameRow}>
+                      <Text style={styles.communityName}>{m.hoa_name}</Text>
+                      {i === 0 && (
+                        <View style={styles.activePill}>
+                          <Text style={styles.activePillText}>Active</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={styles.communityRole}>{m.role}</Text>
+                  </View>
+                </View>
+              </View>
+            ))}
+            {pendingMemberships.map((m, i) => (
+              <View key={m.id}>
+                {(activeMemberships.length > 0 || i > 0) && <View style={styles.divider} />}
+                <View style={styles.communityRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.communityName}>{m.hoa_name}</Text>
+                    <View style={styles.pendingPill}>
+                      <Text style={styles.pendingPillText}>Pending</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            ))}
             <View style={styles.divider} />
-            <TouchableOpacity style={styles.menuRow}>
-              <Mail color={Colors.navy} size={18} strokeWidth={1.5} />
-              <Text style={styles.menuLabel}>Change Email</Text>
-              <ChevronRight color={Colors.textMuted} size={16} strokeWidth={1.5} />
+            <TouchableOpacity
+              style={styles.joinBtn}
+              onPress={() => router.push('/hoa-application')}
+              activeOpacity={0.7}>
+              <Text style={styles.joinBtnText}>+ Join or apply to a new community</Text>
             </TouchableOpacity>
           </View>
 
-          {/* Preferences section */}
-          <Text style={styles.sectionLabel}>PREFERENCES</Text>
-          <View style={styles.menuSection}>
-            <TouchableOpacity style={styles.menuRow}>
-              <Bell color={Colors.navy} size={18} strokeWidth={1.5} />
-              <Text style={styles.menuLabel}>Notification Preferences</Text>
-              <ChevronRight color={Colors.textMuted} size={16} strokeWidth={1.5} />
-            </TouchableOpacity>
-            <View style={styles.divider} />
-            <TouchableOpacity style={styles.menuRow}>
-              <Shield color={Colors.navy} size={18} strokeWidth={1.5} />
-              <Text style={styles.menuLabel}>Privacy</Text>
-              <ChevronRight color={Colors.textMuted} size={16} strokeWidth={1.5} />
-            </TouchableOpacity>
+          {/* Settings links */}
+          <View style={styles.card}>
+            {settingsLinks.map(({ icon: Icon, label, desc }, i) => (
+              <View key={label}>
+                {i > 0 && <View style={styles.divider} />}
+                <TouchableOpacity style={styles.linkRow} activeOpacity={0.7}>
+                  <View style={styles.linkIconBox}>
+                    <Icon color={Colors.textMuted} size={16} strokeWidth={1.5} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.linkLabel}>{label}</Text>
+                    <Text style={styles.linkDesc}>{desc}</Text>
+                  </View>
+                  <ChevronRight color={Colors.textMuted} size={16} strokeWidth={1.5} />
+                </TouchableOpacity>
+              </View>
+            ))}
           </View>
 
-          {/* Support section */}
-          <Text style={styles.sectionLabel}>SUPPORT</Text>
-          <View style={styles.menuSection}>
-            <TouchableOpacity style={styles.menuRow}>
-              <HelpCircle color={Colors.navy} size={18} strokeWidth={1.5} />
-              <Text style={styles.menuLabel}>Help & FAQ</Text>
-              <ChevronRight color={Colors.textMuted} size={16} strokeWidth={1.5} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Sign out */}
-          <TouchableOpacity style={styles.signOutBtn} onPress={signOut}>
-            <LogOut color={Colors.coral} size={18} strokeWidth={1.5} />
+          {/* Sign Out */}
+          <TouchableOpacity style={styles.signOutCard} onPress={signOut} activeOpacity={0.8}>
             <Text style={styles.signOutText}>Sign Out</Text>
           </TouchableOpacity>
+
         </View>
       </ScrollView>
     </View>
@@ -136,74 +199,114 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.pageBg },
+
   header: {
-    backgroundColor: Colors.headerBg,
+    backgroundColor: Colors.navy,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.pagePx,
-    paddingBottom: 20,
+    paddingBottom: 16,
   },
-  backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  backBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontFamily: FontFamily.manropeExtraBold, fontSize: 18, color: Colors.white },
-  content: { padding: Spacing.pagePx, paddingBottom: 60 },
+
+  content: { padding: Spacing.pagePx, paddingBottom: 60, gap: 16 },
+
   profileCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    backgroundColor: Colors.cardBg,
+    backgroundColor: Colors.white,
     borderRadius: Radius.card,
     padding: 20,
-    marginBottom: 28,
     ...Shadow,
     borderWidth: 1,
     borderColor: Colors.border,
   },
+  avatarRow: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 14 },
   avatar: {
-    width: 60, height: 60, borderRadius: 30,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: Colors.navy,
-    alignItems: 'center', justifyContent: 'center',
-    flexShrink: 0,
-  },
-  avatarText: { fontFamily: FontFamily.manropeExtraBold, fontSize: 22, color: Colors.white },
-  profileName: { fontFamily: FontFamily.manropeExtraBold, fontSize: FontSize.cardTitle, color: Colors.navy },
-  profileEmail: { fontFamily: FontFamily.interRegular, fontSize: FontSize.uiLabel, color: Colors.textMuted, marginTop: 2 },
-  sectionLabel: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: FontSize.metadata,
-    color: Colors.textMuted,
-    letterSpacing: 1.2,
-    marginBottom: 8,
-    marginTop: 4,
-  },
-  menuSection: {
-    backgroundColor: Colors.cardBg,
-    borderRadius: Radius.card,
-    marginBottom: 20,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: Colors.border,
-    ...Shadow,
-  },
-  menuRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    padding: 16,
-  },
-  menuLabel: { fontFamily: FontFamily.interSemiBold, fontSize: FontSize.body, color: Colors.textPrimary, flex: 1 },
-  divider: { height: 1, backgroundColor: Colors.border, marginLeft: 48 },
-  signOutBtn: {
-    flexDirection: 'row',
+    borderWidth: 2,
+    borderColor: Colors.accentCyan,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    backgroundColor: Colors.cardBg,
+    flexShrink: 0,
+  },
+  avatarText: { fontFamily: FontFamily.manropeExtraBold, fontSize: 20, color: Colors.white },
+  profileName: { fontFamily: FontFamily.manropeExtraBold, fontSize: 17, color: Colors.navy },
+  profileHoa: { fontFamily: FontFamily.interSemiBold, fontSize: 12, color: Colors.accentCyan, marginTop: 2 },
+  profileEmail: { fontFamily: FontFamily.interRegular, fontSize: 11, color: Colors.textMuted, marginTop: 2 },
+  editProfileBtn: {
+    backgroundColor: Colors.accentCyan,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  editProfileLabel: { fontFamily: FontFamily.interSemiBold, fontSize: 13, color: Colors.white },
+
+  card: {
+    backgroundColor: Colors.white,
     borderRadius: Radius.card,
-    padding: 16,
-    marginTop: 8,
+    overflow: 'hidden',
+    ...Shadow,
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  signOutText: { fontFamily: FontFamily.interSemiBold, fontSize: FontSize.body, color: Colors.coral },
+  cardTitle: {
+    fontFamily: FontFamily.manropeExtraBold,
+    fontSize: 15,
+    color: Colors.navy,
+    padding: 16,
+    paddingBottom: 12,
+  },
+  divider: { height: 1, backgroundColor: Colors.border, marginHorizontal: 16 },
+
+  communityRow: { flexDirection: 'row', alignItems: 'center', padding: 12, paddingHorizontal: 16 },
+  communityNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  communityName: { fontFamily: FontFamily.interSemiBold, fontSize: 14, color: Colors.navy },
+  communityRole: { fontFamily: FontFamily.interRegular, fontSize: 12, color: Colors.textMuted, marginTop: 2, textTransform: 'capitalize' },
+  activePill: {
+    backgroundColor: Colors.accentCyan + '20',
+    borderRadius: 99,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  activePillText: { fontFamily: FontFamily.interSemiBold, fontSize: 10, color: Colors.accentCyan },
+  pendingPill: {
+    backgroundColor: '#FEF9C3',
+    borderRadius: 99,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    alignSelf: 'flex-start',
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: '#FDE047',
+  },
+  pendingPillText: { fontFamily: FontFamily.interSemiBold, fontSize: 10, color: '#92400E' },
+  joinBtn: { padding: 16, alignItems: 'center' },
+  joinBtnText: { fontFamily: FontFamily.interSemiBold, fontSize: 13, color: Colors.accentCyan },
+
+  linkRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, paddingHorizontal: 16, minHeight: 56 },
+  linkIconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: Colors.pageBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  linkLabel: { fontFamily: FontFamily.interSemiBold, fontSize: 14, color: Colors.textPrimary },
+  linkDesc: { fontFamily: FontFamily.interRegular, fontSize: 12, color: Colors.textMuted, marginTop: 1 },
+
+  signOutCard: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: Radius.card,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.13)',
+  },
+  signOutText: { fontFamily: FontFamily.manropeExtraBold, fontSize: 15, color: Colors.red },
 });
