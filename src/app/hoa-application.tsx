@@ -12,12 +12,12 @@ import {
 } from '@/constants/design';
 import { Button } from '@/components/ui/Button';
 
-type ClaimedRole = 'hoa_president' | 'board_member' | 'property_manager' | 'other' | '';
+type ClaimedRole = 'board_member' | 'property_manager' | 'administrator' | 'other' | '';
 
 const ROLE_OPTIONS: { value: ClaimedRole; label: string }[] = [
-  { value: 'hoa_president', label: 'HOA President' },
   { value: 'board_member', label: 'Board Member' },
   { value: 'property_manager', label: 'Property Manager' },
+  { value: 'administrator', label: 'Administrator' },
   { value: 'other', label: 'Other' },
 ];
 
@@ -27,6 +27,7 @@ interface ExistingApplication {
   community_location: string;
   estimated_residents: number;
   claimed_role: string;
+  claimed_role_other: string | null;
   status: string;
   submitted_at: string;
 }
@@ -43,6 +44,8 @@ export default function HOAApplicationScreen() {
   const [claimedRoleOther, setClaimedRoleOther] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [existingApplication, setExistingApplication] = useState<ExistingApplication | null>(null);
+  const [latestReviewerNote, setLatestReviewerNote] = useState<{ note: string; created_at: string } | null>(null);
+  const [forceResubmit, setForceResubmit] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState('');
 
@@ -61,7 +64,7 @@ export default function HOAApplicationScreen() {
 
       const { data: app } = await supabase
         .from('hoa_applications')
-        .select('id, hoa_name, community_location, estimated_residents, claimed_role, status, submitted_at')
+        .select('id, hoa_name, community_location, estimated_residents, claimed_role, claimed_role_other, status, submitted_at')
         .eq('applicant_id', user.id)
         .order('submitted_at', { ascending: false })
         .limit(1)
@@ -73,6 +76,16 @@ export default function HOAApplicationScreen() {
         setCommunityLocation(app.community_location || '');
         setEstimatedResidents(String(app.estimated_residents || ''));
         setClaimedRole((app.claimed_role as ClaimedRole) || '');
+        setClaimedRoleOther(app.claimed_role_other || '');
+
+        const { data: noteData } = await supabase
+          .from('hoa_application_notes')
+          .select('note, created_at')
+          .eq('application_id', app.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        setLatestReviewerNote(noteData ?? null);
       }
 
       setIsLoading(false);
@@ -121,9 +134,16 @@ export default function HOAApplicationScreen() {
   }
 
   // Existing application status view
-  if (existingApplication) {
-    const isPending = existingApplication.status === 'pending';
-    const isApproved = existingApplication.status === 'approved';
+  if (existingApplication && !forceResubmit) {
+    const { status } = existingApplication;
+    const isApproved = status === 'approved';
+    const isRejected = status === 'rejected';
+    const needsMoreInfo = status === 'needs_more_info';
+
+    const badgeBg = isApproved ? Colors.optimalBg : isRejected ? Colors.criticalBg : needsMoreInfo ? '#FFFBEB' : '#FFF9E6';
+    const badgeBorder = isApproved ? Colors.accentCyan : isRejected ? Colors.red : needsMoreInfo ? '#F59E0B' : '#F59E0B';
+    const badgeColor = isApproved ? Colors.accentCyan : isRejected ? Colors.red : needsMoreInfo ? '#92400E' : '#92400E';
+
     return (
       <View style={styles.screen}>
         <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 8 }]}>
@@ -140,29 +160,55 @@ export default function HOAApplicationScreen() {
               <Text style={styles.statusTitle}>HOA Application Status</Text>
               <Text style={styles.statusHoa}>"{existingApplication.hoa_name}"</Text>
 
-              <View style={[styles.statusBadge, {
-                backgroundColor: isApproved ? Colors.optimalBg : '#FFF9E6',
-                borderColor: isApproved ? Colors.accentCyan : '#F59E0B',
-              }]}>
-                {isApproved
-                  ? <CheckCircle color={Colors.accentCyan} size={18} strokeWidth={1.5} />
-                  : <Clock color="#F59E0B" size={18} strokeWidth={1.5} />
-                }
-                <Text style={[styles.statusBadgeText, { color: isApproved ? Colors.accentCyan : '#92400E' }]}>
-                  {isApproved ? 'Application Approved!' : 'Verification Pending'}
+              <View style={[styles.statusBadge, { backgroundColor: badgeBg, borderColor: badgeBorder }]}>
+                {isApproved && <CheckCircle color={Colors.accentCyan} size={18} strokeWidth={1.5} />}
+                {!isApproved && <Clock color={badgeColor} size={18} strokeWidth={1.5} />}
+                <Text style={[styles.statusBadgeText, { color: badgeColor }]}>
+                  {isApproved ? 'Application Approved!' : isRejected ? 'Application Not Approved' : needsMoreInfo ? 'Additional Information Needed' : 'Verification Pending'}
                 </Text>
               </View>
 
               <Text style={styles.statusDesc}>
                 {isApproved
                   ? 'Your HOA has been registered on TenisX. You can now manage your community.'
-                  : 'TenisX is reviewing your application to register this HOA. This typically takes 1-3 business days.'
+                  : isRejected
+                  ? 'Please review the reviewer note below for details.'
+                  : needsMoreInfo
+                  ? 'A reviewer requested more information. Review the request below and resubmit.'
+                  : 'TenisX is reviewing your application. This typically takes 1-3 business days.'
                 }
               </Text>
+
+              {(isRejected || needsMoreInfo) && latestReviewerNote && (
+                <View style={styles.reviewerNoteBox}>
+                  <Text style={styles.reviewerNoteLabel}>Reviewer Note</Text>
+                  <Text style={styles.reviewerNoteText}>{latestReviewerNote.note}</Text>
+                  {latestReviewerNote.created_at && (
+                    <Text style={styles.reviewerNoteDate}>
+                      {new Date(latestReviewerNote.created_at).toLocaleDateString('en-US', { dateStyle: 'medium' })}
+                    </Text>
+                  )}
+                </View>
+              )}
 
               <Text style={styles.submittedOn}>
                 Submitted {new Date(existingApplication.submitted_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
               </Text>
+
+              {needsMoreInfo && (
+                <Button
+                  variant="accent"
+                  label="Update Documents"
+                  onPress={() => setForceResubmit(true)}
+                  fullWidth
+                />
+              )}
+              <Button
+                variant="ghost"
+                label="Return to Dashboard"
+                onPress={() => router.back()}
+                fullWidth
+              />
             </View>
           </View>
         </ScrollView>
@@ -266,10 +312,17 @@ export default function HOAApplicationScreen() {
             </>
           )}
 
-          <View style={{ marginTop: 32 }}>
+          <View style={styles.infoNotice}>
+            <Text style={styles.infoNoticeText}>
+              <Text style={styles.infoNoticeBold}>Important: </Text>
+              Your application will be reviewed by our team to verify your administrative authority. This process typically takes 1-2 business days. You'll receive a notification once reviewed.
+            </Text>
+          </View>
+
+          <View style={{ marginTop: 20 }}>
             <Button
               variant="accent"
-              label="Submit Application"
+              label={isSubmitting ? 'Submitting…' : 'Submit Application'}
               onPress={handleSubmit}
               loading={isSubmitting}
               disabled={!hoaName.trim() || !claimedRole}
@@ -385,5 +438,48 @@ const styles = StyleSheet.create({
     fontSize: FontSize.uiLabel,
     color: Colors.textMuted,
     marginTop: 4,
+  },
+  reviewerNoteBox: {
+    width: '100%',
+    backgroundColor: Colors.pageBg,
+    borderRadius: Radius.input,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 14,
+  },
+  reviewerNoteLabel: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: FontSize.uiLabel,
+    color: Colors.textMuted,
+    marginBottom: 6,
+  },
+  reviewerNoteText: {
+    fontFamily: FontFamily.interRegular,
+    fontSize: FontSize.body,
+    color: Colors.textSubtle,
+    lineHeight: 20,
+  },
+  reviewerNoteDate: {
+    fontFamily: FontFamily.interRegular,
+    fontSize: FontSize.min,
+    color: Colors.textMuted,
+    marginTop: 6,
+  },
+  infoNotice: {
+    marginTop: 24,
+    padding: 14,
+    backgroundColor: '#EFF6FF',
+    borderRadius: Radius.input,
+    borderLeftWidth: 4,
+    borderLeftColor: '#3B82F6',
+  },
+  infoNoticeText: {
+    fontFamily: FontFamily.interRegular,
+    fontSize: FontSize.uiLabel,
+    color: '#1E40AF',
+    lineHeight: 19,
+  },
+  infoNoticeBold: {
+    fontFamily: FontFamily.interSemiBold,
   },
 });
