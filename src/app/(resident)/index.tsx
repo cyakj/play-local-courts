@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import {
-  Calendar, CalendarDays, Building2, Megaphone, Bell,
+  AlertTriangle, Calendar, CalendarDays, Building2, Megaphone, Bell, X,
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -44,10 +44,18 @@ interface HoaEvent {
 
 interface OpenReport {
   id: string;
+  title: string | null;
   category: string;
   description: string;
   status: string;
   created_at: string;
+}
+
+interface CancelledBooking {
+  id: string;
+  amenityName: string;
+  date: string;
+  start_time: string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -100,6 +108,8 @@ export default function ResidentHomeScreen() {
   const [events, setEvents] = useState<HoaEvent[]>([]);
   const [openReports, setOpenReports] = useState<OpenReport[]>([]);
   const [openReportsCount, setOpenReportsCount] = useState(0);
+  const [cancelledBookings, setCancelledBookings] = useState<CancelledBooking[]>([]);
+  const [dismissedCancellations, setDismissedCancellations] = useState<Set<string>>(new Set());
   const [expandedAnnouncement, setExpandedAnnouncement] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -110,7 +120,7 @@ export default function ResidentHomeScreen() {
 
     const [profileRes, membershipRes] = await Promise.all([
       supabase.from('profiles').select('full_name').eq('id', user.id).single(),
-      supabase.from('hoa_memberships').select('hoa_id').eq('user_id', user.id).limit(1).single(),
+      supabase.from('hoa_members').select('hoa_id').eq('user_id', user.id).eq('status', 'active').limit(1).single(),
     ]);
 
     const fname = profileRes.data?.full_name?.split(' ')[0] ?? 'there';
@@ -147,10 +157,10 @@ export default function ResidentHomeScreen() {
           .limit(3),
         supabase
           .from('maintenance_reports')
-          .select('id, category, description, status, created_at', { count: 'exact' })
+          .select('id, title, category, description, status, created_at', { count: 'exact' })
           .eq('reporter_id', user.id)
           .eq('hoa_id', hId)
-          .in('status', ['open', 'in-progress'])
+          .in('status', ['open', 'in_progress'])
           .order('created_at', { ascending: false })
           .limit(3),
       ]);
@@ -174,6 +184,25 @@ export default function ResidentHomeScreen() {
       setOpenReports((reportsRes.data ?? []) as OpenReport[]);
       setOpenReportsCount(reportsRes.count ?? 0);
     }
+
+    // Load admin-cancelled bookings from last 48h
+    const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+    const { data: cancelledData } = await supabase
+      .from('bookings')
+      .select('id, court_id, date, start_time, end_time, courts(name)')
+      .eq('user_id', user.id)
+      .eq('status', 'cancelled')
+      .eq('cancelled_by', 'admin')
+      .gte('updated_at', cutoff);
+
+    setCancelledBookings(
+      (cancelledData ?? []).map((b: any) => ({
+        id: b.id,
+        amenityName: b.courts?.name ?? 'Amenity',
+        date: b.date,
+        start_time: b.start_time,
+      }))
+    );
 
     setLoading(false);
   }
@@ -220,6 +249,28 @@ export default function ResidentHomeScreen() {
         }
         showsVerticalScrollIndicator={false}>
         <View style={{ maxWidth: MaxWidth, width: '100%', alignSelf: 'center' }}>
+
+          {/* Admin cancellation banners */}
+          {cancelledBookings
+            .filter((cb) => !dismissedCancellations.has(cb.id))
+            .map((cb) => (
+              <View key={cb.id} style={styles.cancelBanner}>
+                <AlertTriangle color="#EF4444" size={16} strokeWidth={1.5} style={{ flexShrink: 0 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.cancelBannerText}>
+                    Your {cb.amenityName} booking on {formatDate(cb.date)} at {formatTime(cb.start_time)} was cancelled by admin.
+                  </Text>
+                  <TouchableOpacity onPress={() => router.push('/(resident)/book')}>
+                    <Text style={styles.cancelBannerLink}>Book Again →</Text>
+                  </TouchableOpacity>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setDismissedCancellations((prev) => new Set(prev).add(cb.id))}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <X color="#9CA3AF" size={16} strokeWidth={1.5} />
+                </TouchableOpacity>
+              </View>
+            ))}
 
           {/* CARD: Upcoming Reservations */}
           <View style={cardStyle}>
@@ -349,7 +400,7 @@ export default function ResidentHomeScreen() {
                   <View style={{ flex: 1 }}>
                     <View style={styles.reportTitleRow}>
                       <Text style={[styles.listRowTitle, { flex: 1 }]} numberOfLines={1}>
-                        {r.category}
+                        {r.title || r.category || 'Report'}
                       </Text>
                       <View style={[
                         styles.statusPill,
@@ -547,6 +598,30 @@ const styles = StyleSheet.create({
   statusPillText: {
     fontFamily: FontFamily.interSemiBold,
     fontSize: 12,
+  },
+
+  cancelBanner: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: Radius.card,
+    borderWidth: 1,
+    borderColor: '#EF4444',
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginBottom: 12,
+  },
+  cancelBannerText: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: 13,
+    color: '#EF4444',
+    lineHeight: 18,
+  },
+  cancelBannerLink: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: 13,
+    color: Colors.accentCyan,
+    marginTop: 6,
   },
 
   // Skeleton

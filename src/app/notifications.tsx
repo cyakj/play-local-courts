@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.pagePx,
     paddingBottom: 20,
   },
-  backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  backBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
   headerTitle: {
     fontFamily: FontFamily.manropeExtraBold,
     fontSize: 18,
