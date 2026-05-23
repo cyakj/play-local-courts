@@ -8,16 +8,17 @@ import {
   View,
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
-import { CalendarDays, Plus, ClipboardList } from 'lucide-react-native';
+import {
+  Calendar, CalendarDays, Building2, Megaphone, Bell,
+} from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { supabase } from '@/lib/supabase';
 import {
-  Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing, Shadow,
+  Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing,
 } from '@/constants/design';
-import { Header } from '@/components/ui/Header';
-import { Card } from '@/components/ui/Card';
-import { EmptyState } from '@/components/ui/EmptyState';
-import { CardSkeleton } from '@/components/ui/Skeleton';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface UpcomingBooking {
   id: string;
@@ -27,10 +28,49 @@ interface UpcomingBooking {
   end_time: string;
 }
 
-function getInitials(name: string): string {
-  const parts = name.trim().split(' ').filter(Boolean);
-  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
+interface Announcement {
+  id: string;
+  title: string;
+  body: string;
+  created_at: string;
+}
+
+interface HoaEvent {
+  id: string;
+  title: string;
+  starts_at: string;
+  location: string | null;
+}
+
+interface OpenReport {
+  id: string;
+  category: string;
+  description: string;
+  status: string;
+  created_at: string;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function greeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning,';
+  if (h < 18) return 'Good afternoon,';
+  return 'Good evening,';
+}
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return mins <= 1 ? 'just now' : `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+function formatDate(iso: string): string {
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
 function formatTime(t: string): string {
@@ -41,15 +81,26 @@ function formatTime(t: string): string {
   return `${display}:00 ${suffix}`;
 }
 
-function formatDate(iso: string): string {
-  const d = new Date(iso + 'T00:00:00');
-  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+function getInitials(name: string): string {
+  const parts = name.trim().split(' ').filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
 }
 
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export default function ResidentHomeScreen() {
-  const [userName, setUserName] = useState('');
-  const [avatarInitials, setAvatarInitials] = useState('U');
+  const insets = useSafeAreaInsets();
+
+  const [firstName, setFirstName] = useState('');
+  const [hoaName, setHoaName] = useState('');
+  const [hoaId, setHoaId] = useState('');
   const [upcomingBookings, setUpcomingBookings] = useState<UpcomingBooking[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [events, setEvents] = useState<HoaEvent[]>([]);
+  const [openReports, setOpenReports] = useState<OpenReport[]>([]);
+  const [openReportsCount, setOpenReportsCount] = useState(0);
+  const [expandedAnnouncement, setExpandedAnnouncement] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -57,39 +108,77 @@ export default function ResidentHomeScreen() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
 
-    const [profileRes, bookingsRes] = await Promise.all([
+    const [profileRes, membershipRes] = await Promise.all([
       supabase.from('profiles').select('full_name').eq('id', user.id).single(),
-      supabase
-        .from('bookings')
-        .select('id, date, start_time, end_time, courts(name)')
-        .eq('user_id', user.id)
-        .gte('date', new Date().toISOString().split('T')[0])
-        .neq('status', 'cancelled')
-        .order('date', { ascending: true })
-        .order('start_time', { ascending: true })
-        .limit(10),
+      supabase.from('hoa_memberships').select('hoa_id').eq('user_id', user.id).limit(1).single(),
     ]);
 
-    if (profileRes.data?.full_name) {
-      setUserName(profileRes.data.full_name);
-      setAvatarInitials(getInitials(profileRes.data.full_name));
-    }
+    const fname = profileRes.data?.full_name?.split(' ')[0] ?? 'there';
+    setFirstName(fname);
 
-    setUpcomingBookings(
-      (bookingsRes.data ?? []).map((b: any) => ({
-        id: b.id,
-        courtName: b.courts?.name ?? 'Court',
-        date: b.date,
-        start_time: b.start_time,
-        end_time: b.end_time,
-      }))
-    );
+    const hId = membershipRes.data?.hoa_id ?? '';
+    setHoaId(hId);
+
+    if (hId) {
+      const [hoaRes, bookingsRes, announcementsRes, eventsRes, reportsRes] = await Promise.all([
+        supabase.from('hoas').select('name').eq('id', hId).single(),
+        supabase
+          .from('bookings')
+          .select('id, date, start_time, end_time, courts(name)')
+          .eq('user_id', user.id)
+          .gte('date', new Date().toISOString().split('T')[0])
+          .neq('status', 'cancelled')
+          .order('date', { ascending: true })
+          .order('start_time', { ascending: true })
+          .limit(3),
+        supabase
+          .from('hoa_announcements')
+          .select('id, title, body, created_at')
+          .eq('hoa_id', hId)
+          .order('created_at', { ascending: false })
+          .limit(3),
+        supabase
+          .from('hoa_events')
+          .select('id, title, starts_at, location')
+          .eq('hoa_id', hId)
+          .eq('event_type', 'community_event')
+          .gte('starts_at', new Date().toISOString())
+          .order('starts_at')
+          .limit(3),
+        supabase
+          .from('maintenance_reports')
+          .select('id, category, description, status, created_at', { count: 'exact' })
+          .eq('reporter_id', user.id)
+          .eq('hoa_id', hId)
+          .in('status', ['open', 'in-progress'])
+          .order('created_at', { ascending: false })
+          .limit(3),
+      ]);
+
+      setHoaName(hoaRes.data?.name ?? '');
+
+      setUpcomingBookings(
+        (bookingsRes.data ?? []).map((b: any) => ({
+          id: b.id,
+          courtName: b.courts?.name ?? 'Court',
+          date: b.date,
+          start_time: b.start_time,
+          end_time: b.end_time,
+        }))
+      );
+
+      setAnnouncements((announcementsRes.data ?? []) as Announcement[]);
+
+      setEvents((eventsRes.data ?? []) as HoaEvent[]);
+
+      setOpenReports((reportsRes.data ?? []) as OpenReport[]);
+      setOpenReportsCount(reportsRes.count ?? 0);
+    }
 
     setLoading(false);
   }
 
   useEffect(() => { load(); }, []);
-
   useFocusEffect(useCallback(() => { load(); }, []));
 
   async function onRefresh() {
@@ -98,129 +187,372 @@ export default function ResidentHomeScreen() {
     setRefreshing(false);
   }
 
+  const cardStyle = styles.card;
+
   return (
     <View style={styles.screen}>
-      <Header
-        variant="resident-home"
-        greeting={`Hey${userName ? ', ' + userName.split(' ')[0] : ''}!`}
-        subCopy="Manage your bookings and community"
-        avatarInitials={avatarInitials}
-        onBell={() => router.push('/notifications')}
-      />
+      {/* ── Header ─────────────────────────────────────────────────────── */}
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 12 }]}>
+        <View style={styles.headerTopBar}>
+          <View style={{ flex: 1 }} />
+          <TouchableOpacity onPress={() => router.push('/notifications')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Bell color={Colors.white} size={20} strokeWidth={1.5} />
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.welcomeTag}>WELCOME BACK</Text>
+        <Text style={styles.greetingText}>{greeting()}</Text>
+        <Text style={styles.firstName}>{firstName}</Text>
+        {hoaName ? (
+          <View style={styles.hoaRow}>
+            <Building2 color="rgba(0,212,255,0.7)" size={14} strokeWidth={1.5} />
+            <Text style={styles.hoaName}>{hoaName}</Text>
+          </View>
+        ) : null}
+        <View style={styles.headerFade} />
+      </View>
 
+      {/* ── Body ───────────────────────────────────────────────────────── */}
       <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.body}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accentCyan} />
         }
         showsVerticalScrollIndicator={false}>
         <View style={{ maxWidth: MaxWidth, width: '100%', alignSelf: 'center' }}>
 
-          {/* Quick actions */}
-          <TouchableOpacity style={styles.bookCta} onPress={() => router.push('/(resident)/book')}>
-            <View style={styles.bookCtaLeft}>
-              <CalendarDays color={Colors.accentCyan} size={22} strokeWidth={1.5} />
-              <View>
-                <Text style={styles.bookCtaTitle}>Book a Court</Text>
-                <Text style={styles.bookCtaSub}>Check availability and reserve</Text>
-              </View>
+          {/* CARD: Upcoming Reservations */}
+          <View style={cardStyle}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>Upcoming Reservations</Text>
+              {upcomingBookings.length > 0 && (
+                <TouchableOpacity onPress={() => router.push('/my-reservations')}>
+                  <Text style={styles.viewAll}>View All →</Text>
+                </TouchableOpacity>
+              )}
             </View>
-            <Plus color={Colors.navy} size={20} strokeWidth={2} />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[styles.bookCta, { marginTop: 10 }]} onPress={() => router.push('/my-reservations')}>
-            <View style={styles.bookCtaLeft}>
-              <CalendarDays color={Colors.navy} size={22} strokeWidth={1.5} />
-              <View>
-                <Text style={styles.bookCtaTitle}>My Reservations</Text>
-                <Text style={styles.bookCtaSub}>View and manage your bookings</Text>
+            {loading ? (
+              <View style={styles.skeletonLine} />
+            ) : upcomingBookings.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Calendar color={Colors.textMuted} size={36} strokeWidth={1.5} />
+                <Text style={styles.emptyText}>No upcoming reservations</Text>
+                <TouchableOpacity style={styles.ctaPill} onPress={() => router.push('/(resident)/book')}>
+                  <Text style={styles.ctaPillText}>Book an Amenity</Text>
+                </TouchableOpacity>
               </View>
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[styles.bookCta, { marginTop: 10 }]} onPress={() => router.push('/my-reports')}>
-            <View style={styles.bookCtaLeft}>
-              <ClipboardList color={Colors.coral} size={22} strokeWidth={1.5} />
-              <View>
-                <Text style={styles.bookCtaTitle}>My Reports</Text>
-                <Text style={styles.bookCtaSub}>Track your submitted issues</Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-
-          {/* Upcoming bookings */}
-          <Text style={styles.sectionTitle}>Upcoming Bookings</Text>
-          {loading ? (
-            <><CardSkeleton /><CardSkeleton /></>
-          ) : upcomingBookings.length === 0 ? (
-            <EmptyState
-              icon={null}
-              title="No upcoming bookings"
-              subtitle="Tap 'Book a Court' above to get started."
-            />
-          ) : (
-            upcomingBookings.map((b) => (
-              <Card key={b.id} style={styles.bookingCard}>
-                <View style={styles.bookingRow}>
-                  <View style={styles.bookingDot} />
+            ) : (
+              upcomingBookings.map((b, i) => (
+                <View
+                  key={b.id}
+                  style={[styles.listRow, i < upcomingBookings.length - 1 && styles.listRowBorder]}>
+                  <View style={styles.cyanDot} />
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.bookingCourt}>{b.courtName}</Text>
-                    <Text style={styles.bookingTime}>
+                    <Text style={styles.listRowTitle}>{b.courtName}</Text>
+                    <Text style={styles.listRowSub}>
                       {formatDate(b.date)} · {formatTime(b.start_time)} – {formatTime(b.end_time)}
                     </Text>
                   </View>
                 </View>
-              </Card>
-            ))
+              ))
+            )}
+          </View>
+
+          {/* CARD: Community Announcements */}
+          <View style={cardStyle}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>Community Announcements</Text>
+            </View>
+            {loading ? (
+              <View style={styles.skeletonLine} />
+            ) : announcements.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Megaphone color={Colors.textMuted} size={36} strokeWidth={1.5} />
+                <Text style={styles.emptyText}>No announcements yet</Text>
+              </View>
+            ) : (
+              announcements.map((a, i) => {
+                const isExpanded = expandedAnnouncement === a.id;
+                return (
+                  <TouchableOpacity
+                    key={a.id}
+                    style={[styles.listRow, i < announcements.length - 1 && styles.listRowBorder]}
+                    onPress={() => setExpandedAnnouncement(isExpanded ? null : a.id)}
+                    activeOpacity={0.7}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.listRowTitle}>{a.title}</Text>
+                      <Text style={styles.listRowSub} numberOfLines={isExpanded ? undefined : 1}>
+                        {a.body}
+                      </Text>
+                      <Text style={styles.timeAgo}>{timeAgo(a.created_at)}</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </View>
+
+          {/* CARD: Community Events */}
+          <View style={cardStyle}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>Community Events</Text>
+              {events.length > 0 && (
+                <TouchableOpacity onPress={() => router.push('/(resident)/calendar')}>
+                  <Text style={styles.viewAll}>View All →</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            {loading ? (
+              <View style={styles.skeletonLine} />
+            ) : events.length === 0 ? (
+              <View style={styles.emptyState}>
+                <CalendarDays color={Colors.textMuted} size={36} strokeWidth={1.5} />
+                <Text style={styles.emptyText}>No upcoming events</Text>
+              </View>
+            ) : (
+              events.map((e, i) => {
+                const dt = new Date(e.starts_at);
+                return (
+                  <View key={e.id} style={[styles.listRow, i < events.length - 1 && styles.listRowBorder]}>
+                    <View style={styles.cyanDot} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.listRowTitle}>{e.title}</Text>
+                      <Text style={styles.listRowSub}>
+                        {dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                        {' · '}
+                        {dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                        {e.location ? ` · ${e.location}` : ''}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })
+            )}
+          </View>
+
+          {/* CARD: My Open Reports (only if any) */}
+          {(openReportsCount > 0 || openReports.length > 0) && (
+            <View style={cardStyle}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.cardTitle}>My Open Reports</Text>
+                {openReportsCount > 3 && (
+                  <TouchableOpacity onPress={() => router.push('/my-reports')}>
+                    <Text style={styles.viewAll}>View All →</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              {openReports.map((r, i) => (
+                <TouchableOpacity
+                  key={r.id}
+                  style={[styles.listRow, i < openReports.length - 1 && styles.listRowBorder]}
+                  onPress={() => router.push('/my-reports')}>
+                  <View style={{ flex: 1 }}>
+                    <View style={styles.reportTitleRow}>
+                      <Text style={[styles.listRowTitle, { flex: 1 }]} numberOfLines={1}>
+                        {r.category}
+                      </Text>
+                      <View style={[
+                        styles.statusPill,
+                        { backgroundColor: r.status === 'open' ? '#FFF5F5' : '#E0F9FF' },
+                      ]}>
+                        <Text style={[
+                          styles.statusPillText,
+                          { color: r.status === 'open' ? '#F97066' : '#00D4FF' },
+                        ]}>
+                          {r.status === 'open' ? 'Open' : 'In Progress'}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.timeAgo}>{timeAgo(r.created_at)}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
           )}
+
         </View>
       </ScrollView>
     </View>
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.pageBg },
-  scroll: { flex: 1 },
-  content: { padding: Spacing.pagePx, paddingBottom: 100 },
-  sectionTitle: {
-    fontFamily: FontFamily.manropeExtraBold,
-    fontSize: FontSize.sectionTitle,
-    color: Colors.navy,
-    marginBottom: 12,
-    marginTop: 8,
+
+  // Header
+  header: {
+    backgroundColor: Colors.headerBg,
+    paddingHorizontal: Spacing.pagePx,
+    paddingBottom: 28,
+    position: 'relative',
+    overflow: 'hidden',
   },
-  bookCta: {
+  headerTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  welcomeTag: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: FontSize.metadata,
+    color: Colors.accentCyan,
+    letterSpacing: 2.2,
+    marginBottom: 4,
+  },
+  greetingText: {
+    fontFamily: FontFamily.manropeBlack,
+    fontSize: 32,
+    color: Colors.white,
+    lineHeight: 36,
+  },
+  firstName: {
+    fontFamily: FontFamily.manropeBlack,
+    fontSize: 32,
+    color: Colors.white,
+    lineHeight: 36,
+    marginBottom: 12,
+  },
+  hoaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  hoaName: {
+    fontFamily: FontFamily.interRegular,
+    fontSize: FontSize.body,
+    color: 'rgba(0,212,255,0.7)',
+  },
+  headerFade: {
+    position: 'absolute',
+    bottom: -24,
+    left: 0,
+    right: 0,
+    height: 32,
+    // gradient not possible in RN without LinearGradient, so skip it
+  },
+
+  // Body
+  body: {
+    paddingHorizontal: Spacing.pagePx,
+    paddingTop: 24,
+    paddingBottom: 100,
+  },
+
+  // Card
+  card: {
+    backgroundColor: Colors.cardBg,
+    borderRadius: Radius.card,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Colors.cardBg,
-    borderRadius: Radius.card,
-    padding: 18,
-    marginBottom: 24,
-    ...Shadow,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    marginBottom: 12,
   },
-  bookCtaLeft: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  bookCtaTitle: { fontFamily: FontFamily.interSemiBold, fontSize: FontSize.body, color: Colors.navy },
-  bookCtaSub: { fontFamily: FontFamily.interRegular, fontSize: FontSize.uiLabel, color: Colors.textMuted, marginTop: 2 },
-  bookingCard: { marginBottom: 10, padding: 16 },
-  bookingRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  bookingDot: {
-    width: 10, height: 10, borderRadius: 5,
-    backgroundColor: Colors.accentCyan, flexShrink: 0,
-  },
-  bookingCourt: {
-    fontFamily: FontFamily.manropeBold,
+  cardTitle: {
+    fontFamily: FontFamily.manropeExtraBold,
     fontSize: FontSize.cardTitle,
     color: Colors.navy,
   },
-  bookingTime: {
+  viewAll: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: FontSize.uiLabel,
+    color: Colors.accentCyan,
+  },
+
+  // List rows
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    paddingVertical: 10,
+  },
+  listRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  cyanDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: Colors.accentCyan,
+    marginTop: 3,
+    flexShrink: 0,
+  },
+  listRowTitle: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: FontSize.uiLabel,
+    color: Colors.navy,
+  },
+  listRowSub: {
     fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.body,
+    fontSize: 12,
     color: Colors.textMuted,
     marginTop: 2,
+  },
+  timeAgo: {
+    fontFamily: FontFamily.interRegular,
+    fontSize: 11,
+    color: Colors.textMuted,
+    marginTop: 3,
+  },
+
+  // Empty states
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 20,
+    gap: 8,
+  },
+  emptyText: {
+    fontFamily: FontFamily.interRegular,
+    fontSize: FontSize.uiLabel,
+    color: Colors.textMuted,
+  },
+  ctaPill: {
+    backgroundColor: Colors.accentCyan,
+    borderRadius: Radius.button,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginTop: 4,
+  },
+  ctaPillText: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: 12,
+    color: Colors.navy,
+  },
+
+  // Reports
+  reportTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  statusPill: {
+    borderRadius: Radius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    flexShrink: 0,
+  },
+  statusPillText: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: 12,
+  },
+
+  // Skeleton
+  skeletonLine: {
+    height: 40,
+    backgroundColor: Colors.pageBg,
+    borderRadius: 8,
   },
 });

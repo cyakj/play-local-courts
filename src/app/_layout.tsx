@@ -66,6 +66,7 @@ export default function RootLayout() {
       <Stack.Screen name="messages" />
       <Stack.Screen name="my-reservations" />
       <Stack.Screen name="my-reports" />
+      <Stack.Screen name="hoa-application" />
     </Stack>
   );
 }
