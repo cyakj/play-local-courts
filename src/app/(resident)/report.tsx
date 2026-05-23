@@ -42,9 +42,10 @@ export default function ReportScreen() {
       setUserId(user.id);
 
       const { data: membership } = await supabase
-        .from('hoa_memberships')
+        .from('hoa_members')
         .select('hoa_id')
         .eq('user_id', user.id)
+        .eq('status', 'active')
         .limit(1)
         .single();
 

@@ -97,9 +97,10 @@ export default function BookScreen() {
       setUserId(user.id);
 
       const { data: membership } = await supabase
-        .from('hoa_memberships')
+        .from('hoa_members')
         .select('hoa_id')
         .eq('user_id', user.id)
+        .eq('status', 'active')
         .limit(1)
         .single();
 
@@ -370,7 +371,7 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 20,
     alignItems: 'center',
-    backgroundColor: Colors.navy,
+    backgroundColor: Colors.accentCyan,
   },
   ctaTitle: {
     fontFamily: FontFamily.manropeExtraBold,
@@ -381,7 +382,7 @@ const styles = StyleSheet.create({
   ctaSubtitle: {
     fontFamily: FontFamily.interRegular,
     fontSize: FontSize.uiLabel,
-    color: 'rgba(0,212,255,0.8)',
+    color: 'rgba(255,255,255,0.85)',
     marginBottom: 14,
   },
   ctaTag: {
