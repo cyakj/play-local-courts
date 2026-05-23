@@ -12,11 +12,11 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, Send } from 'lucide-react-native';
+import { ArrowLeft, Check, CheckCheck, Search, Send } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import {
-  Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing,
+  Colors, FontFamily, FontSize, MaxWidth, Radius, Shadow, Spacing,
 } from '@/constants/design';
 import { CardSkeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -44,13 +44,14 @@ function getInitials(name: string): string {
   return name.slice(0, 2).toUpperCase();
 }
 
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return mins <= 1 ? 'just now' : `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
+function formatMessageTime(iso: string): string {
+  const date = new Date(iso);
+  const now = new Date();
+  const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return date.toLocaleDateString([], { weekday: 'short' });
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
 export default function MessagesScreen() {
@@ -58,6 +59,7 @@ export default function MessagesScreen() {
   const [userId, setUserId] = useState('');
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
   const [activeConvo, setActiveConvo] = useState<Conversation | null>(null);
   const [thread, setThread] = useState<Message[]>([]);
   const [threadLoading, setThreadLoading] = useState(false);
@@ -103,7 +105,9 @@ export default function MessagesScreen() {
       }
     });
 
-    setConversations(Object.values(convoMap));
+    const list = Object.values(convoMap);
+    list.sort((a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime());
+    setConversations(list);
     setLoading(false);
   }
 
@@ -123,6 +127,8 @@ export default function MessagesScreen() {
       .eq('sender_id', convo.partnerId)
       .eq('receiver_id', userId)
       .is('read_at', null);
+    load(userId);
+    setTimeout(() => flatRef.current?.scrollToEnd({ animated: false }), 100);
   }
 
   async function sendMessage() {
@@ -147,18 +153,31 @@ export default function MessagesScreen() {
     });
   }, []);
 
-  // Thread view
+  const totalUnread = conversations.reduce((sum, c) => sum + c.unread, 0);
+  const filtered = conversations.filter((c) =>
+    c.partnerName.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // ── THREAD VIEW ──────────────────────────────────────────────────────────────
   if (activeConvo) {
+    const firstUnreadIdx = thread.findIndex(
+      (m) => m.sender_id === activeConvo.partnerId && !m.read_at
+    );
     return (
       <View style={styles.screen}>
         <View style={[styles.threadHeader, { paddingTop: Math.max(insets.top, 24) + 8 }]}>
-          <TouchableOpacity onPress={() => { setActiveConvo(null); setThread([]); }} style={styles.backBtn}>
-            <ArrowLeft color={Colors.white} size={22} strokeWidth={1.5} />
+          <TouchableOpacity
+            onPress={() => { setActiveConvo(null); setThread([]); }}
+            style={styles.frostedBack}>
+            <ArrowLeft color={Colors.white} size={20} strokeWidth={2} />
           </TouchableOpacity>
           <View style={styles.threadAvatar}>
             <Text style={styles.threadAvatarText}>{getInitials(activeConvo.partnerName)}</Text>
           </View>
-          <Text style={styles.threadName} numberOfLines={1}>{activeConvo.partnerName}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.threadName} numberOfLines={1}>{activeConvo.partnerName}</Text>
+            <Text style={styles.threadSub}>Community member</Text>
+          </View>
         </View>
 
         <KeyboardAvoidingView
@@ -173,17 +192,34 @@ export default function MessagesScreen() {
               keyExtractor={(m) => m.id}
               contentContainerStyle={styles.threadContent}
               onLayout={() => flatRef.current?.scrollToEnd({ animated: false })}
-              renderItem={({ item }) => {
+              renderItem={({ item, index }) => {
                 const isMe = item.sender_id === userId;
+                const showNewDivider = index === firstUnreadIdx && firstUnreadIdx > 0;
                 return (
-                  <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
-                    <Text style={[styles.bubbleText, isMe ? styles.bubbleTextMe : styles.bubbleTextThem]}>
-                      {item.content}
-                    </Text>
-                    <Text style={[styles.bubbleTime, isMe ? styles.bubbleTimeMe : styles.bubbleTimeThem]}>
-                      {timeAgo(item.created_at)}
-                    </Text>
-                  </View>
+                  <>
+                    {showNewDivider && (
+                      <View style={styles.newDivider}>
+                        <View style={styles.newDividerLine} />
+                        <Text style={styles.newDividerLabel}>NEW</Text>
+                        <View style={styles.newDividerLine} />
+                      </View>
+                    )}
+                    <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
+                      <Text style={[styles.bubbleText, isMe ? styles.bubbleTextMe : styles.bubbleTextThem]}>
+                        {item.content}
+                      </Text>
+                      <View style={styles.bubbleFooter}>
+                        <Text style={[styles.bubbleTime, isMe ? styles.bubbleTimeMe : styles.bubbleTimeThem]}>
+                          {formatMessageTime(item.created_at)}
+                        </Text>
+                        {isMe && (
+                          item.read_at
+                            ? <CheckCheck color="rgba(255,255,255,0.5)" size={12} strokeWidth={2} />
+                            : <Check color="rgba(255,255,255,0.5)" size={12} strokeWidth={2} />
+                        )}
+                      </View>
+                    </View>
+                  </>
                 );
               }}
             />
@@ -193,7 +229,7 @@ export default function MessagesScreen() {
               style={styles.input}
               value={draft}
               onChangeText={setDraft}
-              placeholder="Message…"
+              placeholder="Type a message…"
               placeholderTextColor={Colors.textPlaceholder}
               multiline
             />
@@ -209,39 +245,68 @@ export default function MessagesScreen() {
     );
   }
 
-  // Conversation list
+  // ── CONVERSATION LIST ─────────────────────────────────────────────────────────
   return (
     <View style={styles.screen}>
       <View style={[styles.listHeader, { paddingTop: Math.max(insets.top, 24) + 8 }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <ArrowLeft color={Colors.white} size={22} strokeWidth={1.5} />
-        </TouchableOpacity>
+        <View style={styles.listHeaderTop}>
+          <Text style={styles.inboxTag}>INBOX</Text>
+          {totalUnread > 0 && (
+            <View style={styles.unreadBadge}>
+              <Text style={styles.unreadBadgeText}>{totalUnread} new</Text>
+            </View>
+          )}
+        </View>
         <Text style={styles.headerTitle}>Messages</Text>
-        <View style={styles.backBtn} />
+
+        {/* Search bar */}
+        <View style={styles.searchBar}>
+          <Search color="rgba(255,255,255,0.5)" size={15} strokeWidth={2} />
+          <TextInput
+            style={styles.searchInput}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Search conversations…"
+            placeholderTextColor="rgba(255,255,255,0.4)"
+          />
+        </View>
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 60 }}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 60, marginTop: 20 }}>
         <View style={{ maxWidth: MaxWidth, width: '100%', alignSelf: 'center' }}>
           {loading ? (
             <View style={{ padding: 20 }}><CardSkeleton /><CardSkeleton /><CardSkeleton /></View>
-          ) : conversations.length === 0 ? (
-            <EmptyState icon={null} title="No messages yet" subtitle="You haven't received any messages." />
+          ) : filtered.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyTitle}>
+                {searchQuery ? 'No results' : 'No conversations yet'}
+              </Text>
+              <Text style={styles.emptySub}>
+                {searchQuery
+                  ? 'Try a different name.'
+                  : "Start a conversation from a community member's profile."}
+              </Text>
+            </View>
           ) : (
-            conversations.map((c) => (
-              <TouchableOpacity key={c.partnerId} style={styles.convoRow} onPress={() => openConvo(c)}>
+            filtered.map((c) => (
+              <TouchableOpacity
+                key={c.partnerId}
+                style={styles.convoRow}
+                onPress={() => openConvo(c)}
+                activeOpacity={0.7}>
                 <View style={styles.convoAvatar}>
                   <Text style={styles.convoAvatarText}>{getInitials(c.partnerName)}</Text>
                 </View>
                 <View style={{ flex: 1 }}>
                   <View style={styles.convoMeta}>
                     <Text style={styles.convoName}>{c.partnerName}</Text>
-                    <Text style={styles.convoTime}>{timeAgo(c.lastAt)}</Text>
+                    <Text style={styles.convoTime}>{formatMessageTime(c.lastAt)}</Text>
                   </View>
                   <Text style={styles.convoPreview} numberOfLines={1}>{c.lastMessage}</Text>
                 </View>
                 {c.unread > 0 && (
-                  <View style={styles.unreadBadge}>
-                    <Text style={styles.unreadText}>{c.unread}</Text>
+                  <View style={styles.unreadDot}>
+                    <Text style={styles.unreadDotText}>{c.unread}</Text>
                   </View>
                 )}
               </TouchableOpacity>
@@ -255,60 +320,135 @@ export default function MessagesScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.pageBg },
+
   listHeader: {
-    backgroundColor: Colors.headerBg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    backgroundColor: Colors.navy,
     paddingHorizontal: Spacing.pagePx,
     paddingBottom: 20,
   },
-  backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontFamily: FontFamily.manropeExtraBold, fontSize: 18, color: Colors.white },
+  listHeaderTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  inboxTag: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: 13,
+    color: Colors.accentCyan,
+    letterSpacing: 2.4,
+  },
+  unreadBadge: {
+    backgroundColor: Colors.coral,
+    borderRadius: 99,
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+  },
+  unreadBadgeText: {
+    fontFamily: FontFamily.manropeBold,
+    fontSize: 12,
+    color: Colors.white,
+  },
+  headerTitle: {
+    fontFamily: FontFamily.manropeBlack,
+    fontSize: 28,
+    color: Colors.white,
+    lineHeight: 32,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 14,
+  },
+  searchInput: {
+    flex: 1,
+    fontFamily: FontFamily.interRegular,
+    fontSize: 14,
+    color: Colors.white,
+  },
+
   threadHeader: {
-    backgroundColor: Colors.headerBg,
+    backgroundColor: Colors.navy,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.pagePx,
     paddingBottom: 16,
     gap: 12,
   },
-  threadAvatar: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: Colors.accentCyan,
+  frostedBack: {
+    width: 44, height: 44,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.12)',
     alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0,
   },
-  threadAvatarText: { fontFamily: FontFamily.manropeBold, fontSize: 13, color: Colors.navy },
-  threadName: { fontFamily: FontFamily.manropeExtraBold, fontSize: 16, color: Colors.white, flex: 1 },
-  threadContent: { padding: Spacing.pagePx, paddingBottom: 20, gap: 8 },
-  bubble: { maxWidth: '75%', borderRadius: 16, padding: 12, gap: 4 },
+  threadAvatar: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: 'rgba(0,212,255,0.2)',
+    borderWidth: 2, borderColor: 'rgba(0,212,255,0.5)',
+    alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0,
+  },
+  threadAvatarText: { fontFamily: FontFamily.manropeBold, fontSize: 13, color: Colors.accentCyan },
+  threadName: { fontFamily: FontFamily.manropeBold, fontSize: 16, color: Colors.white },
+  threadSub: { fontFamily: FontFamily.interRegular, fontSize: 12, color: 'rgba(255,255,255,0.55)', marginTop: 1 },
+
+  threadContent: { padding: Spacing.pagePx, paddingBottom: 20, gap: 6 },
+  newDivider: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
+  newDividerLine: { flex: 1, height: 1, backgroundColor: 'rgba(0,212,255,0.3)' },
+  newDividerLabel: {
+    fontFamily: FontFamily.manropeBold,
+    fontSize: 11,
+    color: Colors.accentCyan,
+    letterSpacing: 1.2,
+  },
+  bubble: { maxWidth: '75%', borderRadius: 14, padding: 12, gap: 2 },
   bubbleMe: { backgroundColor: Colors.navy, alignSelf: 'flex-end', borderBottomRightRadius: 4 },
-  bubbleThem: { backgroundColor: Colors.cardBg, alignSelf: 'flex-start', borderBottomLeftRadius: 4, borderWidth: 1, borderColor: Colors.border },
-  bubbleText: { fontFamily: FontFamily.interRegular, fontSize: FontSize.body },
+  bubbleThem: {
+    backgroundColor: Colors.cardBg,
+    alignSelf: 'flex-start',
+    borderBottomLeftRadius: 4,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    ...Shadow,
+  },
+  bubbleText: { fontFamily: FontFamily.interRegular, fontSize: FontSize.body, lineHeight: 21 },
   bubbleTextMe: { color: Colors.white },
   bubbleTextThem: { color: Colors.textPrimary },
-  bubbleTime: { fontFamily: FontFamily.interRegular, fontSize: FontSize.metadata },
-  bubbleTimeMe: { color: 'rgba(255,255,255,0.5)', textAlign: 'right' },
+  bubbleFooter: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  bubbleTime: { fontFamily: FontFamily.interRegular, fontSize: 10 },
+  bubbleTimeMe: { color: 'rgba(255,255,255,0.5)' },
   bubbleTimeThem: { color: Colors.textMuted },
+
   inputRow: {
     flexDirection: 'row', alignItems: 'flex-end', gap: 10,
     padding: Spacing.pagePx, borderTopWidth: 1, borderTopColor: Colors.border,
     backgroundColor: Colors.cardBg,
   },
   input: {
-    flex: 1, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.input,
-    padding: 12, fontFamily: FontFamily.interRegular, fontSize: FontSize.body,
+    flex: 1, borderWidth: 1, borderColor: Colors.border, borderRadius: 24,
+    paddingHorizontal: 16, paddingVertical: 12,
+    fontFamily: FontFamily.interRegular, fontSize: FontSize.body,
     color: Colors.textPrimary, backgroundColor: Colors.pageBg, maxHeight: 100,
   },
   sendBtn: {
-    width: 44, height: 44, borderRadius: 22,
+    width: 48, height: 48, borderRadius: 24,
     backgroundColor: Colors.navy, alignItems: 'center', justifyContent: 'center',
   },
-  sendBtnDisabled: { backgroundColor: Colors.textMuted },
+  sendBtnDisabled: { backgroundColor: '#E5E7EB' },
+
   convoRow: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
     paddingHorizontal: Spacing.pagePx, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: Colors.border,
+    borderBottomWidth: 1, borderBottomColor: 'rgba(15,31,61,0.06)',
+    backgroundColor: Colors.white,
   },
   convoAvatar: {
     width: 44, height: 44, borderRadius: 22,
@@ -316,12 +456,16 @@ const styles = StyleSheet.create({
   },
   convoAvatarText: { fontFamily: FontFamily.manropeBold, fontSize: 15, color: Colors.white },
   convoMeta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  convoName: { fontFamily: FontFamily.interSemiBold, fontSize: FontSize.body, color: Colors.textPrimary },
+  convoName: { fontFamily: FontFamily.manropeBold, fontSize: FontSize.cardTitle, color: Colors.textPrimary },
   convoTime: { fontFamily: FontFamily.interRegular, fontSize: FontSize.metadata, color: Colors.textMuted },
   convoPreview: { fontFamily: FontFamily.interRegular, fontSize: FontSize.uiLabel, color: Colors.textMuted, marginTop: 2 },
-  unreadBadge: {
+  unreadDot: {
     width: 20, height: 20, borderRadius: 10, backgroundColor: Colors.accentCyan,
     alignItems: 'center', justifyContent: 'center',
   },
-  unreadText: { fontFamily: FontFamily.interSemiBold, fontSize: 11, color: Colors.navy },
+  unreadDotText: { fontFamily: FontFamily.interSemiBold, fontSize: 11, color: Colors.navy },
+
+  emptyState: { paddingVertical: 60, paddingHorizontal: 32, alignItems: 'center' },
+  emptyTitle: { fontFamily: FontFamily.manropeBold, fontSize: 15, color: Colors.navy, textAlign: 'center' },
+  emptySub: { fontFamily: FontFamily.interRegular, fontSize: 13, color: Colors.textMuted, marginTop: 6, textAlign: 'center' },
 });

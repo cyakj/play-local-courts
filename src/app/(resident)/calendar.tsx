@@ -162,7 +162,7 @@ export default function ResidentCalendarScreen() {
       setUserId(user.id);
 
       const { data: memberships } = await supabase
-        .from('hoa_memberships')
+        .from('hoa_members')
         .select('hoa_id, hoas(name)')
         .eq('user_id', user.id)
         .eq('status', 'approved');
