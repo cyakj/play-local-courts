@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { LayoutDashboard, AlertCircle, Calendar, MessageSquare } from 'lucide-react-native';
+import { LayoutDashboard, AlertCircle, Calendar, Bell } from 'lucide-react-native';
 import { BottomNav } from '@/components/ui/BottomNav';
 
 export default function CMLayout() {
@@ -35,8 +35,8 @@ export default function CMLayout() {
       <Tabs.Screen
         name="messages"
         options={{
-          title: 'Messages',
-          tabBarIcon: ({ color, size }) => <MessageSquare color={color} size={size} strokeWidth={1.5} />,
+          title: 'Alerts',
+          tabBarIcon: ({ color, size }) => <Bell color={color} size={size} strokeWidth={1.5} />,
         }}
       />
     </Tabs>

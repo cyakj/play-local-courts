@@ -1,416 +1,373 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  FlatList,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Send, ArrowLeft, MessageSquare } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  Bell, CalendarDays, TrendingUp, UserCheck, Wrench,
+} from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import {
-  Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing,
+  Colors, FontFamily, FontSize, MaxWidth, Radius, Shadow, Spacing,
 } from '@/constants/design';
-import { Header } from '@/components/ui/Header';
-import { CardSkeleton } from '@/components/ui/Skeleton';
-import { EmptyState } from '@/components/ui/EmptyState';
 
-interface Profile {
+const ALERT_CONFIG: Record<string, { Icon: typeof Bell; color: string }> = {
+  approval: { Icon: UserCheck, color: Colors.accentCyan },
+  issue: { Icon: Wrench, color: Colors.red },
+  booking: { Icon: CalendarDays, color: Colors.textMuted },
+  health: { Icon: TrendingUp, color: Colors.coral },
+};
+
+const FILTER_OPTIONS = ['All', 'Urgent', 'Approvals', 'Issues', 'Bookings'] as const;
+type FilterOption = typeof FILTER_OPTIONS[number];
+
+interface Alert {
   id: string;
-  full_name: string | null;
-}
-
-interface Conversation {
-  partnerId: string;
-  partnerName: string;
-  lastMessage: string;
-  lastAt: string;
-  unread: number;
-}
-
-interface Message {
-  id: string;
-  sender_id: string;
-  receiver_id: string;
-  content: string;
-  created_at: string;
-  read_at: string | null;
-}
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(' ').filter(Boolean);
-  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
+  type: 'approval' | 'issue' | 'booking' | 'health';
+  community: string;
+  communityId: string;
+  text: string;
+  time: string;
+  urgent: boolean;
+  reportId?: string;
 }
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 60) return mins <= 1 ? 'just now' : `${mins}m ago`;
+  if (mins < 60) return mins <= 1 ? 'Just now' : `${mins}m ago`;
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-export default function MessagesScreen() {
-  const [userId, setUserId] = useState('');
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [residents, setResidents] = useState<Profile[]>([]);
+export default function CMAlertsScreen() {
+  const insets = useSafeAreaInsets();
+  const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeConvo, setActiveConvo] = useState<Conversation | null>(null);
-  const [thread, setThread] = useState<Message[]>([]);
-  const [threadLoading, setThreadLoading] = useState(false);
-  const [draft, setDraft] = useState('');
-  const [sending, setSending] = useState(false);
-  const [composing, setComposing] = useState(false);
-  const flatRef = useRef<FlatList>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [filter, setFilter] = useState<FilterOption>('All');
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
-  async function load(uid: string) {
-    const { data: msgs } = await supabase
-      .from('messages')
-      .select('id, sender_id, receiver_id, content, created_at, read_at')
-      .or(`sender_id.eq.${uid},receiver_id.eq.${uid}`)
-      .order('created_at', { ascending: false });
+  async function load() {
+    const { data: hoas } = await supabase.from('hoas').select('id, name');
+    if (!hoas || hoas.length === 0) { setLoading(false); return; }
 
-    if (!msgs) { setLoading(false); return; }
+    const hoaIds = hoas.map((h) => h.id);
+    const hoaMap = new Map(hoas.map((h) => [h.id, h.name]));
 
-    const partnerIds = [...new Set(msgs.map((m) =>
-      m.sender_id === uid ? m.receiver_id : m.sender_id
-    ))];
+    const [approvalsRes, issuesRes] = await Promise.all([
+      supabase
+        .from('community_join_requests')
+        .select('id, hoa_id, created_at, profiles(full_name)')
+        .in('hoa_id', hoaIds)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('maintenance_reports')
+        .select('id, hoa_id, title, status, created_at')
+        .in('hoa_id', hoaIds)
+        .in('status', ['open', 'in_progress'])
+        .order('created_at', { ascending: false })
+        .limit(20),
+    ]);
 
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, full_name')
-      .in('id', partnerIds.length > 0 ? partnerIds : ['__none__']);
+    const allAlerts: Alert[] = [];
 
-    const profileMap: Record<string, string> = {};
-    (profiles ?? []).forEach((p) => { profileMap[p.id] = p.full_name ?? 'Unknown'; });
-
-    const convoMap: Record<string, Conversation> = {};
-    msgs.forEach((m) => {
-      const partnerId = m.sender_id === uid ? m.receiver_id : m.sender_id;
-      if (!convoMap[partnerId]) {
-        convoMap[partnerId] = {
-          partnerId,
-          partnerName: profileMap[partnerId] ?? 'Unknown',
-          lastMessage: m.content,
-          lastAt: m.created_at,
-          unread: 0,
-        };
-      }
-      if (m.receiver_id === uid && !m.read_at) {
-        convoMap[partnerId].unread += 1;
-      }
-    });
-
-    setConversations(Object.values(convoMap));
-
-    // load all residents for compose
-    const { data: hoaMembership } = await supabase
-      .from('hoa_memberships')
-      .select('user_id')
-      .neq('user_id', uid);
-    const memberIds = [...new Set((hoaMembership ?? []).map((m) => m.user_id))];
-    if (memberIds.length > 0) {
-      const { data: allProfiles } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .in('id', memberIds);
-      setResidents(allProfiles ?? []);
+    for (const req of approvalsRes.data ?? []) {
+      const name = (req.profiles as any)?.full_name ?? 'Someone';
+      allAlerts.push({
+        id: `approval-${req.id}`,
+        type: 'approval',
+        community: hoaMap.get(req.hoa_id) ?? '',
+        communityId: req.hoa_id,
+        text: `${name} is requesting to join`,
+        time: timeAgo(req.created_at),
+        urgent: true,
+      });
     }
 
+    for (const report of issuesRes.data ?? []) {
+      allAlerts.push({
+        id: `issue-${report.id}`,
+        type: 'issue',
+        community: hoaMap.get(report.hoa_id) ?? '',
+        communityId: report.hoa_id,
+        text: report.title ?? 'Maintenance issue reported',
+        time: timeAgo(report.created_at),
+        urgent: report.status === 'open',
+        reportId: report.id,
+      });
+    }
+
+    allAlerts.sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0));
+    setAlerts(allAlerts);
     setLoading(false);
   }
 
-  async function openConvo(convo: Conversation) {
-    setActiveConvo(convo);
-    setThreadLoading(true);
-    const { data } = await supabase
-      .from('messages')
-      .select('*')
-      .or(`and(sender_id.eq.${userId},receiver_id.eq.${convo.partnerId}),and(sender_id.eq.${convo.partnerId},receiver_id.eq.${userId})`)
-      .order('created_at', { ascending: true });
-    setThread(data ?? []);
-    setThreadLoading(false);
+  useEffect(() => { load(); }, []);
 
-    // mark as read
-    await supabase
-      .from('messages')
-      .update({ read_at: new Date().toISOString() })
-      .eq('sender_id', convo.partnerId)
-      .eq('receiver_id', userId)
-      .is('read_at', null);
+  async function onRefresh() {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
   }
 
-  async function sendMessage() {
-    if (!draft.trim() || !activeConvo || !userId) return;
-    setSending(true);
-    const { data: newMsg } = await supabase
-      .from('messages')
-      .insert({
-        sender_id: userId,
-        receiver_id: activeConvo.partnerId,
-        content: draft.trim(),
-      })
-      .select()
-      .single();
-    if (newMsg) setThread((prev) => [...prev, newMsg]);
-    setDraft('');
-    setSending(false);
-    setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 100);
-  }
+  const visible = alerts.filter((a) => !dismissed.has(a.id));
+  const urgentCount = visible.filter((a) => a.urgent).length;
 
-  async function startNewConvo(resident: Profile) {
-    setComposing(false);
-    const convo: Conversation = {
-      partnerId: resident.id,
-      partnerName: resident.full_name ?? 'Unknown',
-      lastMessage: '',
-      lastAt: new Date().toISOString(),
-      unread: 0,
-    };
-    await openConvo(convo);
-  }
+  const filtered = visible.filter((a) => {
+    if (filter === 'All') return true;
+    if (filter === 'Urgent') return a.urgent;
+    if (filter === 'Approvals') return a.type === 'approval';
+    if (filter === 'Issues') return a.type === 'issue';
+    if (filter === 'Bookings') return a.type === 'booking';
+    return true;
+  });
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return;
-      setUserId(user.id);
-      load(user.id);
-    });
-  }, []);
-
-  // Thread view
-  if (activeConvo) {
-    return (
-      <View style={styles.screen}>
-        <View style={styles.threadHeader}>
-          <TouchableOpacity onPress={() => { setActiveConvo(null); setThread([]); }} style={styles.backBtn}>
-            <ArrowLeft color={Colors.white} size={22} strokeWidth={1.5} />
-          </TouchableOpacity>
-          <View style={styles.threadAvatar}>
-            <Text style={styles.threadAvatarText}>{getInitials(activeConvo.partnerName)}</Text>
-          </View>
-          <Text style={styles.threadName} numberOfLines={1}>{activeConvo.partnerName}</Text>
-        </View>
-
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={0}>
-          {threadLoading ? (
-            <View style={{ padding: 20 }}><CardSkeleton /><CardSkeleton /></View>
-          ) : (
-            <FlatList
-              ref={flatRef}
-              data={thread}
-              keyExtractor={(m) => m.id}
-              contentContainerStyle={styles.threadContent}
-              onLayout={() => flatRef.current?.scrollToEnd({ animated: false })}
-              renderItem={({ item }) => {
-                const isMe = item.sender_id === userId;
-                return (
-                  <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
-                    <Text style={[styles.bubbleText, isMe ? styles.bubbleTextMe : styles.bubbleTextThem]}>
-                      {item.content}
-                    </Text>
-                    <Text style={[styles.bubbleTime, isMe ? styles.bubbleTimeMe : styles.bubbleTimeThem]}>
-                      {timeAgo(item.created_at)}
-                    </Text>
-                  </View>
-                );
-              }}
-            />
-          )}
-
-          <View style={styles.inputRow}>
-            <TextInput
-              style={styles.input}
-              value={draft}
-              onChangeText={setDraft}
-              placeholder="Message…"
-              placeholderTextColor={Colors.textPlaceholder}
-              multiline
-            />
-            <TouchableOpacity
-              style={[styles.sendBtn, !draft.trim() && styles.sendBtnDisabled]}
-              onPress={sendMessage}
-              disabled={!draft.trim() || sending}>
-              <Send color={Colors.white} size={18} strokeWidth={1.5} />
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </View>
-    );
-  }
-
-  // Conversation list
   return (
     <View style={styles.screen}>
-      <Header
-        variant="inner"
-        title="Messages"
-        rightIcon={
-          <TouchableOpacity onPress={() => setComposing(true)}>
-            <MessageSquare color={Colors.white} size={20} strokeWidth={1.5} />
-          </TouchableOpacity>
-        }
-      />
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 60 }}>
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 8 }]}>
+        <View style={styles.headerInner}>
+          <View>
+            <Text style={styles.headerTitle}>Alerts</Text>
+            <Text style={styles.headerSub}>Pending actions</Text>
+          </View>
+          <View style={[styles.urgentBadge, urgentCount > 0 && styles.urgentBadgeActive]}>
+            <Text style={styles.urgentBadgeText}>{urgentCount} Urgent</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Filter chips row */}
+      <View style={styles.chipBar}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipContent}>
+          {FILTER_OPTIONS.map((opt) => {
+            const active = filter === opt;
+            return (
+              <TouchableOpacity
+                key={opt}
+                style={[styles.chip, active && styles.chipActive]}
+                onPress={() => setFilter(opt)}
+                activeOpacity={0.7}>
+                <Text style={[styles.chipLabel, active && styles.chipLabelActive]}>{opt}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accentCyan} />}>
         <View style={{ maxWidth: MaxWidth, width: '100%', alignSelf: 'center' }}>
           {loading ? (
-            <View style={{ padding: 20 }}><CardSkeleton /><CardSkeleton /><CardSkeleton /></View>
-          ) : conversations.length === 0 ? (
-            <EmptyState icon={null} title="No messages yet" subtitle="Start a conversation with a resident." />
+            <View style={styles.loadingRow}>
+              <View style={styles.spinner} />
+            </View>
+          ) : filtered.length === 0 ? (
+            <View style={styles.emptyRow}>
+              <Text style={styles.emptyText}>No alerts — everything looks good!</Text>
+            </View>
           ) : (
-            conversations.map((c) => (
-              <TouchableOpacity key={c.partnerId} style={styles.convoRow} onPress={() => openConvo(c)}>
-                <View style={styles.convoAvatar}>
-                  <Text style={styles.convoAvatarText}>{getInitials(c.partnerName)}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <View style={styles.convoMeta}>
-                    <Text style={styles.convoName}>{c.partnerName}</Text>
-                    <Text style={styles.convoTime}>{timeAgo(c.lastAt)}</Text>
+            filtered.map((a) => {
+              const cfg = ALERT_CONFIG[a.type] || { Icon: Bell, color: Colors.textMuted };
+              const { Icon } = cfg;
+              return (
+                <View
+                  key={a.id}
+                  style={[
+                    styles.alertCard,
+                    a.urgent && { borderColor: cfg.color + '44' },
+                  ]}>
+                  <View style={styles.alertRow}>
+                    <View style={[styles.alertIconBox, { backgroundColor: cfg.color + '18' }]}>
+                      <Icon color={cfg.color} size={16} strokeWidth={1.5} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <View style={styles.alertMeta}>
+                        <Text style={styles.alertCommunity}>{a.community.toUpperCase()}</Text>
+                        <Text style={styles.alertTime}>{a.time}</Text>
+                      </View>
+                      <Text style={styles.alertText}>{a.text}</Text>
+                      {(a.urgent || a.type === 'issue') && (
+                        <View style={styles.alertActions}>
+                          <TouchableOpacity style={styles.actionBtnPrimary} activeOpacity={0.8}>
+                            <Text style={styles.actionBtnPrimaryLabel}>Take Action</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.actionBtnSecondary}
+                            onPress={() => setDismissed((prev) => new Set(prev).add(a.id))}
+                            activeOpacity={0.7}>
+                            <Text style={styles.actionBtnSecondaryLabel}>Dismiss</Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    </View>
                   </View>
-                  <Text style={styles.convoPreview} numberOfLines={1}>{c.lastMessage}</Text>
                 </View>
-                {c.unread > 0 && (
-                  <View style={styles.unreadBadge}>
-                    <Text style={styles.unreadText}>{c.unread}</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            ))
+              );
+            })
           )}
         </View>
       </ScrollView>
-
-      {/* Compose modal */}
-      <Modal visible={composing} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setComposing(false)}>
-        <SafeAreaView style={styles.composeModal}>
-          <View style={styles.composeHeader}>
-            <Text style={styles.composeTitle}>New Message</Text>
-            <TouchableOpacity onPress={() => setComposing(false)}>
-              <Text style={styles.composeClose}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-          <ScrollView>
-            {residents.map((r) => (
-              <TouchableOpacity key={r.id} style={styles.residentRow} onPress={() => startNewConvo(r)}>
-                <View style={styles.convoAvatar}>
-                  <Text style={styles.convoAvatarText}>{getInitials(r.full_name ?? '?')}</Text>
-                </View>
-                <Text style={styles.residentName}>{r.full_name ?? 'Unknown'}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </SafeAreaView>
-      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.pageBg },
-  threadHeader: {
-    backgroundColor: Colors.headerBg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: 56,
-    paddingBottom: 16,
-    paddingHorizontal: Spacing.pagePx,
-    gap: 12,
-  },
-  backBtn: { padding: 4 },
-  threadAvatar: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: Colors.accentCyan,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  threadAvatarText: { fontFamily: FontFamily.manropeBold, fontSize: 13, color: Colors.navy },
-  threadName: { fontFamily: FontFamily.manropeExtraBold, fontSize: 16, color: Colors.white, flex: 1 },
-  threadContent: { padding: Spacing.pagePx, paddingBottom: 20, gap: 8 },
-  bubble: { maxWidth: '75%', borderRadius: 16, padding: 12, gap: 4 },
-  bubbleMe: { backgroundColor: Colors.navy, alignSelf: 'flex-end', borderBottomRightRadius: 4 },
-  bubbleThem: { backgroundColor: Colors.cardBg, alignSelf: 'flex-start', borderBottomLeftRadius: 4 },
-  bubbleText: { fontFamily: FontFamily.interRegular, fontSize: FontSize.body },
-  bubbleTextMe: { color: Colors.white },
-  bubbleTextThem: { color: Colors.textPrimary },
-  bubbleTime: { fontFamily: FontFamily.interRegular, fontSize: FontSize.metadata },
-  bubbleTimeMe: { color: 'rgba(255,255,255,0.5)', textAlign: 'right' },
-  bubbleTimeThem: { color: Colors.textMuted },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 10,
-    padding: Spacing.pagePx,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    backgroundColor: Colors.cardBg,
-  },
-  input: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Radius.input,
-    padding: 12,
-    fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.body,
-    color: Colors.textPrimary,
-    backgroundColor: Colors.pageBg,
-    maxHeight: 100,
-  },
-  sendBtn: {
-    width: 44, height: 44, borderRadius: 22,
+
+  header: {
     backgroundColor: Colors.navy,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  sendBtnDisabled: { backgroundColor: Colors.textMuted },
-  convoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
     paddingHorizontal: Spacing.pagePx,
-    paddingVertical: 14,
+    paddingBottom: 16,
+  },
+  headerInner: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontFamily: FontFamily.manropeExtraBold,
+    fontSize: 20,
+    color: Colors.white,
+  },
+  headerSub: {
+    fontFamily: FontFamily.interRegular,
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.65)',
+    marginTop: 2,
+  },
+  urgentBadge: {
+    borderRadius: 99,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  urgentBadgeActive: { backgroundColor: 'rgba(239,68,68,0.25)' },
+  urgentBadgeText: {
+    fontFamily: FontFamily.manropeExtraBold,
+    fontSize: 13,
+    color: Colors.white,
+  },
+
+  chipBar: {
+    backgroundColor: Colors.white,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
+    paddingVertical: 10,
+    paddingHorizontal: Spacing.pagePx,
   },
-  convoAvatar: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: Colors.navy,
-    alignItems: 'center', justifyContent: 'center',
+  chipContent: { gap: 8 },
+  chip: {
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    backgroundColor: Colors.pageBg,
+    minHeight: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chipActive: { backgroundColor: Colors.navy, borderColor: Colors.navy },
+  chipLabel: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: FontSize.uiLabel,
+    color: Colors.textMuted,
+  },
+  chipLabelActive: { color: Colors.white },
+
+  content: { padding: Spacing.pagePx, paddingBottom: 100, gap: 12 },
+
+  loadingRow: { alignItems: 'center', paddingVertical: 40 },
+  spinner: {
+    width: 32, height: 32, borderRadius: 16,
+    borderWidth: 2,
+    borderColor: 'rgba(0,212,255,0.2)',
+    borderTopColor: Colors.accentCyan,
+  },
+  emptyRow: { paddingVertical: 40, alignItems: 'center' },
+  emptyText: { fontFamily: FontFamily.interRegular, fontSize: FontSize.body, color: Colors.textMuted },
+
+  alertCard: {
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    ...Shadow,
+  },
+  alertRow: { flexDirection: 'row', gap: 12 },
+  alertIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
     flexShrink: 0,
   },
-  convoAvatarText: { fontFamily: FontFamily.manropeBold, fontSize: 15, color: Colors.white },
-  convoMeta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  convoName: { fontFamily: FontFamily.interSemiBold, fontSize: FontSize.body, color: Colors.textPrimary },
-  convoTime: { fontFamily: FontFamily.interRegular, fontSize: FontSize.metadata, color: Colors.textMuted },
-  convoPreview: { fontFamily: FontFamily.interRegular, fontSize: FontSize.uiLabel, color: Colors.textMuted, marginTop: 2 },
-  unreadBadge: {
-    width: 20, height: 20, borderRadius: 10,
-    backgroundColor: Colors.accentCyan,
-    alignItems: 'center', justifyContent: 'center',
+  alertMeta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
   },
-  unreadText: { fontFamily: FontFamily.interSemiBold, fontSize: 11, color: Colors.navy },
-  composeModal: { flex: 1, backgroundColor: Colors.pageBg },
-  composeHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    padding: Spacing.pagePx, borderBottomWidth: 1, borderBottomColor: Colors.border,
+  alertCommunity: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: 11,
+    color: Colors.accentCyan,
+    letterSpacing: 0.8,
   },
-  composeTitle: { fontFamily: FontFamily.manropeExtraBold, fontSize: FontSize.sectionTitle, color: Colors.navy },
-  composeClose: { fontFamily: FontFamily.interSemiBold, fontSize: FontSize.body, color: Colors.accentCyan },
-  residentRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    paddingHorizontal: Spacing.pagePx, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: Colors.border,
+  alertTime: {
+    fontFamily: FontFamily.interRegular,
+    fontSize: 10,
+    color: Colors.textMuted,
   },
-  residentName: { fontFamily: FontFamily.interSemiBold, fontSize: FontSize.body, color: Colors.textPrimary },
+  alertText: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: 13,
+    color: Colors.navy,
+  },
+  alertActions: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  actionBtnPrimary: {
+    flex: 1,
+    backgroundColor: Colors.navy,
+    borderRadius: 12,
+    paddingVertical: 10,
+    alignItems: 'center',
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  actionBtnPrimaryLabel: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: 12,
+    color: Colors.white,
+  },
+  actionBtnSecondary: {
+    flex: 1,
+    backgroundColor: Colors.pageBg,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingVertical: 10,
+    alignItems: 'center',
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  actionBtnSecondaryLabel: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: 12,
+    color: Colors.textMuted,
+  },
 });
