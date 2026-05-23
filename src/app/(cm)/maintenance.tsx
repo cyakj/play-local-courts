@@ -244,7 +244,7 @@ export default function MaintenanceReportsScreen() {
                 <View style={styles.reportTop}>
                   <View style={styles.reportTitleBlock}>
                     <Text style={styles.reportTitle} numberOfLines={1}>
-                      {r.amenity_name}
+                      {r.title || r.category.charAt(0).toUpperCase() + r.category.slice(1)}
                     </Text>
                     <Text style={styles.reportAmenity}>{r.amenity_name}</Text>
                   </View>
@@ -298,7 +298,7 @@ export default function MaintenanceReportsScreen() {
             </View>
             <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
 
-              <Text style={styles.modalReportTitle}>{selected.amenity_name}</Text>
+              <Text style={styles.modalReportTitle}>{selected.title || selected.category.charAt(0).toUpperCase() + selected.category.slice(1)}</Text>
               <Text style={styles.modalReporter}>
                 Reported by {selected.reporter_name} · {new Date(selected.created_at).toLocaleDateString()}
               </Text>
