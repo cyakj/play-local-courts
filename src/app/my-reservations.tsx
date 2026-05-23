@@ -92,6 +92,48 @@ export default function MyReservationsScreen() {
     return 'needs-attention';
   }
 
+  function BookingCard({ b, isUpcoming }: { b: Booking; isUpcoming: boolean }) {
+    const d = new Date(b.date + 'T00:00:00');
+    const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
+    const dayNum = d.getDate();
+    return (
+      <View style={styles.card}>
+        {/* Colored date sidebar */}
+        <View style={[styles.dateSidebar, isUpcoming ? styles.dateSidebarUpcoming : styles.dateSidebarPast]}>
+          <Text style={[styles.dateDayName, isUpcoming ? styles.dateTextUpcoming : styles.dateTextPast]}>
+            {dayName}
+          </Text>
+          <Text style={[styles.dateDayNum, isUpcoming ? styles.dateTextUpcoming : styles.dateTextPast]}>
+            {dayNum}
+          </Text>
+        </View>
+
+        {/* Content */}
+        <View style={styles.cardBody}>
+          <Text style={[styles.cardCourt, !isUpcoming && { color: Colors.textMuted }]} numberOfLines={1}>
+            {b.courtName}
+          </Text>
+          <Text style={styles.cardTime}>
+            {formatDate(b.date)} · {formatTime(b.start_time)} – {formatTime(b.end_time)}
+          </Text>
+          <StatusPill status={bookingStatus(b.status)} label={b.status} />
+        </View>
+
+        {/* Cancel — upcoming only */}
+        {isUpcoming && (
+          <TouchableOpacity
+            style={styles.cancelBtn}
+            onPress={() => cancelBooking(b.id)}
+            disabled={cancelling === b.id}>
+            <Text style={styles.cancelText}>
+              {cancelling === b.id ? '…' : 'Cancel'}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  }
+
   return (
     <View style={styles.screen}>
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 8 }]}>
@@ -110,50 +152,20 @@ export default function MyReservationsScreen() {
             <>
               <Text style={styles.sectionTitle}>Upcoming ({upcoming.length})</Text>
               {upcoming.length === 0 ? (
-                <EmptyState icon={null} title="No upcoming bookings" subtitle="Book a court to see it here." />
+                <EmptyState
+                  icon={<CalendarDays color={Colors.textMuted} size={40} strokeWidth={1.5} />}
+                  title="No upcoming reservations"
+                  subtitle="Book a court to see it here."
+                />
               ) : (
-                upcoming.map((b) => (
-                  <View key={b.id} style={styles.card}>
-                    <View style={styles.cardTop}>
-                      <CalendarDays color={Colors.accentCyan} size={18} strokeWidth={1.5} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.cardCourt}>{b.courtName}</Text>
-                        <Text style={styles.cardTime}>
-                          {formatDate(b.date)} · {formatTime(b.start_time)} – {formatTime(b.end_time)}
-                        </Text>
-                      </View>
-                      <StatusPill status={bookingStatus(b.status)} label={b.status} />
-                    </View>
-                    <TouchableOpacity
-                      style={styles.cancelBtn}
-                      onPress={() => cancelBooking(b.id)}
-                      disabled={cancelling === b.id}>
-                      <Text style={styles.cancelText}>
-                        {cancelling === b.id ? 'Cancelling…' : 'Cancel Booking'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                ))
+                upcoming.map((b) => <BookingCard key={b.id} b={b} isUpcoming />)
               )}
 
-              <Text style={[styles.sectionTitle, { marginTop: 28 }]}>Past Bookings</Text>
-              {past.length === 0 ? (
-                <EmptyState icon={null} title="No past bookings" subtitle="" />
-              ) : (
-                past.map((b) => (
-                  <View key={b.id} style={[styles.card, styles.cardPast]}>
-                    <View style={styles.cardTop}>
-                      <CalendarDays color={Colors.textMuted} size={18} strokeWidth={1.5} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.cardCourt, { color: Colors.textMuted }]}>{b.courtName}</Text>
-                        <Text style={styles.cardTime}>
-                          {formatDate(b.date)} · {formatTime(b.start_time)} – {formatTime(b.end_time)}
-                        </Text>
-                      </View>
-                      <StatusPill status={bookingStatus(b.status)} label={b.status} />
-                    </View>
-                  </View>
-                ))
+              {past.length > 0 && (
+                <>
+                  <Text style={[styles.sectionTitle, { marginTop: 28 }]}>Past Reservations</Text>
+                  {past.slice(0, 5).map((b) => <BookingCard key={b.id} b={b} isUpcoming={false} />)}
+                </>
               )}
             </>
           )}
@@ -185,22 +197,42 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: Colors.cardBg,
     borderRadius: Radius.card,
-    padding: 16,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: Colors.border,
     ...Shadow,
-  },
-  cardPast: { opacity: 0.7 },
-  cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  cardCourt: { fontFamily: FontFamily.manropeBold, fontSize: FontSize.cardTitle, color: Colors.navy },
-  cardTime: { fontFamily: FontFamily.interRegular, fontSize: FontSize.uiLabel, color: Colors.textMuted, marginTop: 2 },
-  cancelBtn: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
+    flexDirection: 'row',
+    overflow: 'hidden',
     alignItems: 'center',
   },
-  cancelText: { fontFamily: FontFamily.interSemiBold, fontSize: FontSize.uiLabel, color: Colors.coral },
+  dateSidebar: {
+    width: 64,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  dateSidebarUpcoming: { backgroundColor: Colors.navy },
+  dateSidebarPast: { backgroundColor: '#D1D5DB' },
+  dateDayName: { fontFamily: FontFamily.manropeBold, fontSize: 13 },
+  dateDayNum: { fontFamily: FontFamily.manropeBlack, fontSize: 22, lineHeight: 26 },
+  dateTextUpcoming: { color: Colors.white },
+  dateTextPast: { color: '#374151' },
+  cardBody: {
+    flex: 1,
+    padding: 14,
+    gap: 3,
+  },
+  cardCourt: { fontFamily: FontFamily.manropeBold, fontSize: FontSize.cardTitle, color: Colors.navy },
+  cardTime: { fontFamily: FontFamily.interRegular, fontSize: FontSize.uiLabel, color: Colors.textMuted },
+  cancelBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginRight: 4,
+    borderRadius: Radius.button,
+    backgroundColor: '#FEF2F2',
+    minHeight: 36,
+    justifyContent: 'center',
+  },
+  cancelText: { fontFamily: FontFamily.interSemiBold, fontSize: FontSize.metadata, color: Colors.red },
 });
