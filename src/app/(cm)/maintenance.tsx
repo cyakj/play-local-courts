@@ -1,23 +1,34 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
+  Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { CheckCircle, ChevronDown, ClipboardList, X } from 'lucide-react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CheckCircle, ChevronDown, X } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import {
   Colors, FontFamily, FontSize, Radius, Spacing, MaxWidth, Shadow,
 } from '@/constants/design';
-import { Header } from '@/components/ui/Header';
 import { CardSkeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
-import type { Database } from '@/lib/types';
 
-type Report = Database['public']['Tables']['maintenance_reports']['Row'] & {
-  reporter_name: string;
-  amenity_name: string;
-};
+interface Report {
+  id: string;
+  community: string;
+  communityId: string;
+  amenity: string | null;
+  displayTitle: string;
+  status: string;
+  priority: string;
+  category: string;
+  description: string;
+  reporter: string;
+  date: string;
+  report_type?: string;
+  location_text?: string;
+  is_urgent: boolean;
+  admin_notes: string | null;
+}
 
 const STATUS_OPTIONS = [
   { value: 'active', label: 'Active (all open)' },
@@ -56,6 +67,15 @@ function getStatusPill(status: string): { bg: string; text: string; border: stri
   return map[status] || { bg: '#F3F4F6', text: '#6B7280', border: '#E5E7EB', label: status };
 }
 
+function getPriorityBadge(priority: string): { bg: string; text: string; label: string } {
+  const map: Record<string, { bg: string; text: string; label: string }> = {
+    high:   { bg: '#FEF2F2', text: '#EF4444', label: 'High' },
+    medium: { bg: '#FFF7ED', text: '#EA580C', label: 'Medium' },
+    low:    { bg: '#F0FDF4', text: '#16A34A', label: 'Low' },
+  };
+  return map[priority] || { bg: '#F3F4F6', text: '#6B7280', label: priority };
+}
+
 function FilterPicker({
   options, value, onChange,
 }: { options: { value: string; label: string }[]; value: string; onChange: (v: string) => void }) {
@@ -88,8 +108,12 @@ function FilterPicker({
 }
 
 export default function MaintenanceReportsScreen() {
+  const insets = useSafeAreaInsets();
   const [reports, setReports] = useState<Report[]>([]);
+  const [communities, setCommunities] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [communityFilter, setCommunityFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('active');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [amenityFilter, setAmenityFilter] = useState('All');
@@ -99,10 +123,17 @@ export default function MaintenanceReportsScreen() {
   const [saving, setSaving] = useState(false);
 
   async function load() {
-    setLoading(true);
+    const { data: hoas } = await supabase.from('hoas').select('id, name');
+    if (!hoas || hoas.length === 0) { setLoading(false); setRefreshing(false); return; }
+
+    setCommunities(hoas);
+    const hoaIds = hoas.map((h) => h.id);
+    const hoaMap = new Map(hoas.map((h) => [h.id, h.name]));
+
     let query = supabase
       .from('maintenance_reports')
-      .select('*')
+      .select('id, hoa_id, amenity_id, status, priority, category, description, reporter_id, created_at, report_type, location_text, is_urgent, title, admin_notes')
+      .in('hoa_id', hoaIds)
       .order('created_at', { ascending: false });
 
     if (statusFilter === 'active') {
@@ -113,33 +144,53 @@ export default function MaintenanceReportsScreen() {
     if (categoryFilter !== 'all') query = query.eq('category', categoryFilter);
 
     const { data } = await query;
-    if (!data) { setLoading(false); return; }
+    if (!data) { setLoading(false); setRefreshing(false); return; }
 
-    const reporterIds = [...new Set(data.map((r) => r.reporter_id).filter(Boolean))];
-    const amenityIds = [...new Set(data.map((r) => r.amenity_id).filter(Boolean))];
+    const reporterIds = [...new Set(data.map((r: any) => r.reporter_id).filter(Boolean))];
+    const amenityIds = [...new Set(data.map((r: any) => r.amenity_id).filter(Boolean))];
 
     const [profilesRes, courtsRes] = await Promise.all([
       reporterIds.length > 0
-        ? supabase.from('profiles').select('id, full_name').in('id', reporterIds)
+        ? supabase.from('profiles').select('id, full_name').in('id', reporterIds as string[])
         : { data: [] },
       amenityIds.length > 0
-        ? supabase.from('courts').select('id, name').in('id', amenityIds)
+        ? supabase.from('courts').select('id, name').in('id', amenityIds as string[])
         : { data: [] },
     ]);
 
-    const profileMap: Record<string, string> = {};
-    for (const p of profilesRes.data ?? []) profileMap[p.id] = p.full_name ?? 'Unknown';
-    const courtMap: Record<string, string> = {};
-    for (const c of courtsRes.data ?? []) courtMap[c.id] = c.name;
+    const profileMap = new Map((profilesRes.data ?? []).map((p: any) => [p.id, p.full_name as string]));
+    const courtMap = new Map((courtsRes.data ?? []).map((c: any) => [c.id, c.name as string]));
 
-    const enriched: Report[] = data.map((r) => ({
-      ...r,
-      reporter_name: profileMap[r.reporter_id ?? ''] ?? 'Unknown',
-      amenity_name: r.amenity_id ? (courtMap[r.amenity_id] ?? 'General') : 'General',
-    }));
+    const enriched: Report[] = (data as any[]).map((r) => {
+      const amenityName = r.amenity_id ? (courtMap.get(r.amenity_id) ?? null) : null;
+      const locationText = r.location_text as string | undefined;
+      const displayTitle = r.report_type === 'location'
+        ? `${(locationText ?? 'Unknown location').slice(0, 30)}${(locationText ?? '').length > 30 ? '…' : ''}`
+        : (r.title ?? amenityName ?? (r.category.charAt(0).toUpperCase() + r.category.slice(1)));
+      return {
+        id: r.id,
+        community: hoaMap.get(r.hoa_id) ?? '',
+        communityId: r.hoa_id,
+        amenity: amenityName,
+        displayTitle,
+        status: r.status,
+        priority: r.priority ?? 'medium',
+        category: r.category,
+        description: r.description,
+        reporter: profileMap.get(r.reporter_id) ?? 'Unknown',
+        date: new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        report_type: r.report_type,
+        location_text: r.location_text,
+        is_urgent: r.is_urgent ?? false,
+        admin_notes: r.admin_notes ?? null,
+      };
+    });
+
+    enriched.sort((a, b) => (b.is_urgent ? 1 : 0) - (a.is_urgent ? 1 : 0));
 
     setReports(enriched);
     setLoading(false);
+    setRefreshing(false);
   }
 
   useEffect(() => { load(); }, [statusFilter, categoryFilter]);
@@ -151,6 +202,11 @@ export default function MaintenanceReportsScreen() {
       .subscribe();
     return () => { supabase.removeChannel(sub); };
   }, []);
+
+  async function onRefresh() {
+    setRefreshing(true);
+    await load();
+  }
 
   async function saveDetail() {
     if (!selected) return;
@@ -164,34 +220,64 @@ export default function MaintenanceReportsScreen() {
     load();
   }
 
-  const openCount = reports.filter((r) => r.status === 'open').length;
+  const openCount = reports.filter((r) => ['open'].includes(r.status)).length;
   const inProgressCount = reports.filter((r) => r.status === 'in_progress').length;
 
+  const communityOptions = ['All', ...communities.map((c) => c.name)];
+
   const amenityTabs = useMemo(() => {
-    const names = [...new Set(reports.map((r) => r.amenity_name))];
+    const names = [...new Set(reports.map((r) => r.amenity).filter((n): n is string => !!n))];
     return ['All', ...names];
   }, [reports]);
 
-  const visibleReports = useMemo(() => {
-    if (amenityFilter === 'All') return reports;
-    return reports.filter((r) => r.amenity_name === amenityFilter);
-  }, [reports, amenityFilter]);
+  const visibleReports = useMemo(() => reports.filter((r) => {
+    if (communityFilter !== 'All' && r.community !== communityFilter) return false;
+    if (amenityFilter !== 'All' && r.amenity !== amenityFilter) return false;
+    return true;
+  }), [reports, communityFilter, amenityFilter]);
 
   return (
     <View style={styles.screen}>
-      <Header variant="inner" title="Maintenance Reports" rightIcon={
-        <View style={styles.headerBadges}>
-          <View style={[styles.headerBadge, { backgroundColor: Colors.coral }]}>
-            <Text style={styles.headerBadgeText}>{openCount} Open</Text>
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 8 }]}>
+        <View style={styles.headerInner}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.headerTitle}>Maintenance Reports</Text>
+            <Text style={styles.headerSub}>
+              {communityFilter === 'All' ? 'All communities' : communityFilter} · real time
+            </Text>
           </View>
-          <View style={[styles.headerBadge, { backgroundColor: Colors.accentCyan }]}>
-            <Text style={styles.headerBadgeText}>{inProgressCount} In Prog</Text>
+          <View style={styles.headerBadges}>
+            <View style={[styles.headerBadge, { backgroundColor: openCount > 0 ? Colors.coral : 'rgba(255,255,255,0.16)' }]}>
+              <Text style={styles.headerBadgeText}>{openCount} Open</Text>
+            </View>
+            <View style={[styles.headerBadge, { backgroundColor: inProgressCount > 0 ? Colors.accentCyan : 'rgba(255,255,255,0.16)' }]}>
+              <Text style={styles.headerBadgeText}>{inProgressCount} In Prog</Text>
+            </View>
           </View>
         </View>
-      } />
+      </View>
+
+      {/* Community filter chips */}
+      <View style={styles.chipBar}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipContent}>
+          {communityOptions.map((opt) => {
+            const active = communityFilter === opt;
+            return (
+              <TouchableOpacity
+                key={opt}
+                style={[styles.chip, active && styles.chipActive]}
+                onPress={() => setCommunityFilter(opt)}
+                activeOpacity={0.7}>
+                <Text style={[styles.chipLabel, active && styles.chipLabelActive]}>{opt}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
 
       {/* Amenity filter tabs */}
-      {amenityTabs.length > 1 && (
+      {amenityTabs.length > 2 && (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -223,7 +309,8 @@ export default function MaintenanceReportsScreen() {
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accentCyan} />}>
         <View style={{ maxWidth: MaxWidth, width: '100%', alignSelf: 'center' }}>
 
           {loading && [0, 1, 2].map((i) => <CardSkeleton key={i} />)}
@@ -238,19 +325,30 @@ export default function MaintenanceReportsScreen() {
 
           {!loading && visibleReports.map((r) => {
             const pill = getStatusPill(r.status);
+            const pBadge = getPriorityBadge(r.priority);
             return (
-              <View key={r.id} style={styles.reportCard}>
-                {/* Top: title + status badge */}
+              <TouchableOpacity
+                key={r.id}
+                style={styles.reportCard}
+                activeOpacity={0.85}
+                onPress={() => { setSelected(r); setDetailStatus(r.status); setAdminNote(r.admin_notes ?? ''); }}>
+                {/* Top: urgent badge + title block + status/priority badges */}
                 <View style={styles.reportTop}>
                   <View style={styles.reportTitleBlock}>
-                    <Text style={styles.reportTitle} numberOfLines={1}>
-                      {r.title || r.category.charAt(0).toUpperCase() + r.category.slice(1)}
-                    </Text>
-                    <Text style={styles.reportAmenity}>{r.amenity_name}</Text>
+                    {r.is_urgent && (
+                      <View style={styles.urgentBadge}>
+                        <Text style={styles.urgentBadgeText}>URGENT</Text>
+                      </View>
+                    )}
+                    <Text style={styles.reportTitle} numberOfLines={1}>{r.displayTitle}</Text>
+                    <Text style={styles.reportCommunity}>{r.community}</Text>
                   </View>
                   <View style={styles.badgeCol}>
                     <View style={[styles.statusBadge, { backgroundColor: pill.bg, borderColor: pill.border }]}>
                       <Text style={[styles.statusBadgeText, { color: pill.text }]}>{pill.label}</Text>
+                    </View>
+                    <View style={[styles.priorityBadge, { backgroundColor: pBadge.bg }]}>
+                      <Text style={[styles.priorityBadgeText, { color: pBadge.text }]}>{pBadge.label}</Text>
                     </View>
                   </View>
                 </View>
@@ -259,24 +357,14 @@ export default function MaintenanceReportsScreen() {
                 <Text style={styles.reportDesc} numberOfLines={2}>{r.description}</Text>
 
                 {/* Reporter · date */}
-                <Text style={styles.reportMeta}>
-                  {r.reporter_name}
-                  {'  ·  '}
-                  {new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                </Text>
+                <Text style={styles.reportMeta}>{r.reporter}  ·  {r.date}</Text>
 
                 {/* View Details */}
                 <View style={styles.reportDivider} />
-                <TouchableOpacity
-                  style={styles.viewDetailsBtn}
-                  onPress={() => {
-                    setSelected(r);
-                    setDetailStatus(r.status);
-                    setAdminNote(r.admin_notes ?? '');
-                  }}>
+                <View style={styles.viewDetailsBtn}>
                   <Text style={styles.viewDetailsLabel}>View Details →</Text>
-                </TouchableOpacity>
-              </View>
+                </View>
+              </TouchableOpacity>
             );
           })}
         </View>
@@ -298,9 +386,10 @@ export default function MaintenanceReportsScreen() {
             </View>
             <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
 
-              <Text style={styles.modalReportTitle}>{selected.title || selected.category.charAt(0).toUpperCase() + selected.category.slice(1)}</Text>
+              <Text style={styles.modalReportTitle}>{selected.displayTitle}</Text>
+              <Text style={styles.modalCommunity}>{selected.community}</Text>
               <Text style={styles.modalReporter}>
-                Reported by {selected.reporter_name} · {new Date(selected.created_at).toLocaleDateString()}
+                Reported by {selected.reporter} · {selected.date}
               </Text>
               <Text style={styles.modalCategory}>
                 {selected.category.toUpperCase()}{selected.report_type ? ` · ${selected.report_type.toUpperCase()}` : ''}
@@ -358,12 +447,50 @@ export default function MaintenanceReportsScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.pageBg },
-  scroll: { flex: 1 },
-  content: { padding: Spacing.pagePx, gap: 10, paddingBottom: 100 },
 
-  headerBadges: { flexDirection: 'row', gap: 4 },
-  headerBadge: { borderRadius: 99, paddingHorizontal: 8, paddingVertical: 3 },
+  header: {
+    backgroundColor: Colors.navy,
+    paddingHorizontal: Spacing.pagePx,
+    paddingBottom: 16,
+  },
+  headerInner: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  headerTitle: {
+    fontFamily: FontFamily.manropeExtraBold,
+    fontSize: 20,
+    color: Colors.white,
+  },
+  headerSub: {
+    fontFamily: FontFamily.interRegular,
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.65)',
+    marginTop: 2,
+  },
+  headerBadges: { flexDirection: 'row', gap: 4, marginTop: 2 },
+  headerBadge: { borderRadius: 99, paddingHorizontal: 10, paddingVertical: 5 },
   headerBadgeText: { fontFamily: FontFamily.interSemiBold, fontSize: 11, color: Colors.white },
+
+  chipBar: {
+    backgroundColor: Colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    paddingVertical: 10,
+    paddingHorizontal: Spacing.pagePx,
+  },
+  chipContent: { gap: 8 },
+  chip: {
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    backgroundColor: Colors.pageBg,
+    minHeight: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chipActive: { backgroundColor: Colors.navy, borderColor: Colors.navy },
+  chipLabel: { fontFamily: FontFamily.interSemiBold, fontSize: FontSize.uiLabel, color: Colors.textMuted },
+  chipLabelActive: { color: Colors.white },
 
   amenityTabsScroll: { backgroundColor: Colors.cardBg, borderBottomWidth: 1, borderBottomColor: Colors.border },
   amenityTabsContent: { flexDirection: 'row', gap: 8, paddingHorizontal: Spacing.pagePx, paddingVertical: 10 },
@@ -374,6 +501,9 @@ const styles = StyleSheet.create({
   amenityTabActive: { backgroundColor: Colors.navy, borderColor: Colors.navy },
   amenityTabLabel: { fontFamily: FontFamily.interSemiBold, fontSize: FontSize.uiLabel, color: Colors.textMuted },
   amenityTabLabelActive: { color: Colors.white },
+
+  scroll: { flex: 1 },
+  content: { padding: Spacing.pagePx, gap: 10, paddingBottom: 100 },
 
   filterRow: {
     flexDirection: 'row',
@@ -416,29 +546,38 @@ const styles = StyleSheet.create({
   pickerOptionLabel: { fontFamily: FontFamily.interRegular, fontSize: 13, color: Colors.textPrimary },
   pickerOptionActive: { color: Colors.accentCyan, fontFamily: FontFamily.interSemiBold },
 
-  // Report cards
   reportCard: {
     backgroundColor: Colors.cardBg,
     borderRadius: 16,
-    padding: 20,
+    padding: 16,
     borderWidth: 1,
     borderColor: Colors.border,
     ...Shadow,
   },
   reportTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 8 },
   reportTitleBlock: { flex: 1 },
-  reportTitle: { fontFamily: FontFamily.manropeBold, fontSize: 17, color: Colors.navy, marginBottom: 2 },
-  reportAmenity: { fontFamily: FontFamily.interSemiBold, fontSize: 13, color: Colors.accentCyan },
-  badgeCol: { gap: 4 },
+  urgentBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#FEF2F2',
+    borderRadius: 99,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginBottom: 4,
+  },
+  urgentBadgeText: { fontFamily: FontFamily.interSemiBold, fontSize: 10, color: '#EF4444' },
+  reportTitle: { fontFamily: FontFamily.manropeBold, fontSize: 15, color: Colors.navy, marginBottom: 2 },
+  reportCommunity: { fontFamily: FontFamily.interSemiBold, fontSize: 11, color: Colors.accentCyan, letterSpacing: 0.5 },
+  badgeCol: { gap: 4, alignItems: 'flex-end' },
   statusBadge: { borderRadius: 99, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 4 },
   statusBadgeText: { fontFamily: FontFamily.interSemiBold, fontSize: 11 },
+  priorityBadge: { borderRadius: 99, paddingHorizontal: 10, paddingVertical: 4 },
+  priorityBadgeText: { fontFamily: FontFamily.interSemiBold, fontSize: 10 },
   reportDesc: { fontFamily: FontFamily.interRegular, fontSize: 14, color: Colors.textSubtle, lineHeight: 20, marginBottom: 8 },
-  reportMeta: { fontFamily: FontFamily.interSemiBold, fontSize: 13, color: Colors.textMuted },
+  reportMeta: { fontFamily: FontFamily.interSemiBold, fontSize: 12, color: Colors.textMuted },
   reportDivider: { height: 1, backgroundColor: Colors.border, marginVertical: 10 },
   viewDetailsBtn: { alignItems: 'flex-end' },
   viewDetailsLabel: { fontFamily: FontFamily.interSemiBold, fontSize: 13, color: Colors.accentCyan },
 
-  // Modal
   modal: { flex: 1, backgroundColor: Colors.cardBg },
   modalHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
@@ -447,6 +586,7 @@ const styles = StyleSheet.create({
   modalTitle: { fontFamily: FontFamily.manropeExtraBold, fontSize: 18, color: Colors.navy },
   modalContent: { padding: Spacing.pagePx, gap: 8, paddingBottom: 40 },
   modalReportTitle: { fontFamily: FontFamily.manropeExtraBold, fontSize: 16, color: Colors.navy },
+  modalCommunity: { fontFamily: FontFamily.interSemiBold, fontSize: 12, color: Colors.accentCyan },
   modalReporter: { fontFamily: FontFamily.interSemiBold, fontSize: 14, color: Colors.textPrimary },
   modalCategory: { fontFamily: FontFamily.interSemiBold, fontSize: 11, color: Colors.textMuted, letterSpacing: 0.8, textTransform: 'uppercase' },
   fieldLabel: { fontFamily: FontFamily.interSemiBold, fontSize: FontSize.metadata, color: Colors.textMuted, letterSpacing: 1.2, marginTop: 12, marginBottom: 6 },
