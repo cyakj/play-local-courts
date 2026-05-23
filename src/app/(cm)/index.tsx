@@ -92,12 +92,16 @@ export default function AdminHubScreen() {
     ? Math.round(communities.reduce((s, c) => s + c.healthScore, 0) / communities.length)
     : 0;
 
+  const firstName = userName ? userName.split(' ')[0] : '';
+  const hour = new Date().getHours();
+  const timeGreeting = hour < 12 ? 'Good morning,' : hour < 18 ? 'Good afternoon,' : 'Good evening,';
+
   return (
     <View style={styles.screen}>
       <Header
         variant="cm-portfolio"
-        greeting={`Hey${userName ? ', ' + userName.split(' ')[0] : ''}!`}
-        subCopy={`${totalCommunities} communit${totalCommunities !== 1 ? 'ies' : 'y'} under management`}
+        greeting={firstName ? `${timeGreeting}\n${firstName}` : timeGreeting}
+        subCopy="Your portfolio is being monitored for performance and occupancy efficiency."
         onBell={() => router.push('/notifications')}
         onMenu={() => router.push('/settings')}
       />
