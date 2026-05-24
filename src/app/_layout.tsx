@@ -67,6 +67,7 @@ export default function RootLayout() {
       <Stack.Screen name="my-reservations" />
       <Stack.Screen name="my-reports" />
       <Stack.Screen name="hoa-application" />
+      <Stack.Screen name="amenity-book" />
     </Stack>
   );
 }

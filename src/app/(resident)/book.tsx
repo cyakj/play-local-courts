@@ -1,434 +1,339 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { CheckCircle } from 'lucide-react-native';
+import { router, useFocusEffect } from 'expo-router';
+import {
+  Bell, Menu, Activity, Droplet, Flame, Dumbbell, Sparkles, Building2, LayoutGrid,
+} from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { supabase } from '@/lib/supabase';
 import {
   Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing,
 } from '@/constants/design';
-import { Header } from '@/components/ui/Header';
-import { EmptyState } from '@/components/ui/EmptyState';
-import { CardSkeleton } from '@/components/ui/Skeleton';
 import type { Database } from '@/lib/types';
+
+function LoadingCard() {
+  return (
+    <View style={loadingCardStyle}>
+      <ActivityIndicator color={Colors.accentCyan} />
+    </View>
+  );
+}
+const loadingCardStyle = {
+  backgroundColor: Colors.white, borderRadius: 16, padding: 32, marginBottom: 12,
+  alignItems: 'center' as const, borderWidth: 1, borderColor: Colors.border,
+};
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type Court = Database['public']['Tables']['courts']['Row'];
 
-interface Slot {
-  start: string;
-  end: string;
-  label: string;
+type LucideIcon = React.ComponentType<{ color: string; size: number; strokeWidth: number }>;
+
+interface AmenityIconEntry {
+  Icon: LucideIcon;
+  color: string;
+  bg: string;
 }
 
-interface DateOption {
-  iso: string;
-  shortLabel: string;
-  dayNum: number;
-}
+// ─── Icon + label config ──────────────────────────────────────────────────────
 
-const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-const SLOTS: Slot[] = Array.from({ length: 14 }, (_, i) => {
-  const h = i + 7;
-  const pad = (n: number) => String(n).padStart(2, '0');
-  const label = h < 12 ? `${h}:00 AM` : h === 12 ? '12:00 PM' : `${h - 12}:00 PM`;
-  return { start: `${pad(h)}:00:00`, end: `${pad(h + 1)}:00:00`, label };
-});
-
-function getDateOptions(): DateOption[] {
-  return Array.from({ length: 14 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() + i);
-    return {
-      iso: d.toISOString().split('T')[0],
-      shortLabel: i === 0 ? 'Today' : i === 1 ? 'Tmrw' : DAY_NAMES[d.getDay()],
-      dayNum: d.getDate(),
-    };
-  });
-}
-
-const TYPE_LABELS: Record<string, string> = {
-  all: 'All',
-  tennis: 'Tennis',
-  pickleball: 'Pickleball',
-  pool: 'Pool',
-  gym: 'Gym',
-  clubhouse: 'Clubhouse',
-  barbecue: 'Barbecue',
-  jacuzzi: 'Jacuzzi',
+const ICON_CONFIG: Record<string, AmenityIconEntry> = {
+  tennis:     { Icon: Activity  as LucideIcon, color: '#00D4FF', bg: '#E0F9FF' },
+  pickleball: { Icon: Activity  as LucideIcon, color: '#00D4FF', bg: '#E0F9FF' },
+  pool:       { Icon: Droplet   as LucideIcon, color: '#0369A1', bg: '#E0F9FF' },
+  barbecue:   { Icon: Flame     as LucideIcon, color: '#F97066', bg: '#FFF5F5' },
+  clubhouse:  { Icon: Building2 as LucideIcon, color: '#0F1F3D', bg: '#F3F4F6' },
+  gym:        { Icon: Dumbbell  as LucideIcon, color: '#8892A4', bg: '#F3F4F6' },
+  fitness:    { Icon: Dumbbell  as LucideIcon, color: '#8892A4', bg: '#F3F4F6' },
+  jacuzzi:    { Icon: Sparkles  as LucideIcon, color: '#0369A1', bg: '#E0F9FF' },
+  spa:        { Icon: Sparkles  as LucideIcon, color: '#0369A1', bg: '#E0F9FF' },
+  basketball: { Icon: Activity  as LucideIcon, color: '#F97066', bg: '#FFF5F5' },
+  parking:    { Icon: LayoutGrid as LucideIcon, color: '#8892A4', bg: '#F3F4F6' },
+};
+const FALLBACK_ENTRY: AmenityIconEntry = {
+  Icon: LayoutGrid as LucideIcon, color: '#8892A4', bg: '#F3F4F6',
 };
 
+const AMENITY_LABELS: Record<string, string> = {
+  tennis: 'COURT', pickleball: 'COURT', pool: 'POOL', barbecue: 'BBQ AREA',
+  clubhouse: 'CLUBHOUSE', gym: 'GYM', fitness: 'GYM', jacuzzi: 'SPA', spa: 'SPA',
+  basketball: 'COURT', parking: 'PARKING',
+};
+
+// ─── Filter config ─────────────────────────────────────────────────────────────
+
+const FILTER_GROUPS: Record<string, string[] | null> = {
+  all:    null,
+  courts: ['tennis', 'pickleball', 'basketball'],
+  pools:  ['pool', 'jacuzzi', 'spa'],
+  other:  ['barbecue', 'clubhouse', 'gym', 'fitness', 'parking'],
+};
+const FILTERS = ['all', 'courts', 'pools', 'other'];
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export default function BookScreen() {
-  const dateOptions = getDateOptions();
-  const [userId, setUserId] = useState('');
+  const insets = useSafeAreaInsets();
   const [courts, setCourts] = useState<Court[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
-  const [selectedCourtId, setSelectedCourtId] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState(dateOptions[0].iso);
-  const [bookedSlots, setBookedSlots] = useState<string[]>([]);
-  const [pendingSlot, setPendingSlot] = useState<Slot | null>(null);
-  const [slotLoading, setSlotLoading] = useState(false);
-  const [booking, setBooking] = useState(false);
-  const [successMsg, setSuccessMsg] = useState('');
 
-  async function loadSlots(courtId: string, date: string) {
-    setSlotLoading(true);
-    const { data } = await supabase
-      .from('bookings')
-      .select('start_time')
-      .eq('court_id', courtId)
-      .eq('date', date)
-      .neq('status', 'cancelled');
-    setBookedSlots((data ?? []).map((b) => b.start_time));
-    setSlotLoading(false);
+  async function load() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setLoading(false); return; }
+
+    const { data: membership } = await supabase
+      .from('hoa_memberships')
+      .select('hoa_id')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .limit(1)
+      .single();
+
+    if (membership?.hoa_id) {
+      const { data: courtsData } = await supabase
+        .from('courts')
+        .select('*')
+        .eq('hoa_id', membership.hoa_id)
+        .order('name');
+      setCourts(courtsData ?? []);
+    }
+    setLoading(false);
   }
 
-  useEffect(() => {
-    async function init() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setLoading(false); return; }
-      setUserId(user.id);
+  useEffect(() => { load(); }, []);
+  useFocusEffect(useCallback(() => { load(); }, []));
 
-      const { data: membership } = await supabase
-        .from('hoa_members')
-        .select('hoa_id')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .limit(1)
-        .single();
-
-      if (membership?.hoa_id) {
-        const { data: courtsData } = await supabase
-          .from('courts')
-          .select('*')
-          .eq('hoa_id', membership.hoa_id)
-          .order('name');
-        setCourts(courtsData ?? []);
-      }
-      setLoading(false);
-    }
-    init();
-  }, []);
-
-  useEffect(() => {
-    if (selectedCourtId && selectedDate) {
-      setPendingSlot(null);
-      loadSlots(selectedCourtId, selectedDate);
-    }
-  }, [selectedCourtId, selectedDate]);
-
-  function toggleCourt(court: Court) {
-    if (selectedCourtId === court.id) {
-      setSelectedCourtId(null);
-      setBookedSlots([]);
-      setPendingSlot(null);
-    } else {
-      setSelectedCourtId(court.id);
-    }
-  }
-
-  async function confirmBooking() {
-    if (!pendingSlot || !selectedCourtId || !userId) return;
-    setBooking(true);
-    await supabase.from('bookings').insert({
-      court_id: selectedCourtId,
-      user_id: userId,
-      date: selectedDate,
-      start_time: pendingSlot.start,
-      end_time: pendingSlot.end,
-      status: 'confirmed',
-    });
-    setBooking(false);
-    setPendingSlot(null);
-    const court = courts.find((c) => c.id === selectedCourtId);
-    setSuccessMsg(`${court?.name ?? 'Court'} booked for ${pendingSlot.label}!`);
-    setTimeout(() => setSuccessMsg(''), 3500);
-    loadSlots(selectedCourtId, selectedDate);
-  }
-
-  const filteredCourts = activeFilter === 'all'
+  const filtered = activeFilter === 'all'
     ? courts
-    : courts.filter((c) => c.court_type === activeFilter);
-
-  const availableTypes = ['all', ...new Set(courts.map((c) => c.court_type))];
+    : courts.filter((c) => FILTER_GROUPS[activeFilter]?.includes(c.court_type));
 
   return (
     <View style={styles.screen}>
-      <Header variant="inner" title="Book Amenity" />
 
-      {!!successMsg && (
-        <View style={styles.successBanner}>
-          <CheckCircle color={Colors.accentCyan} size={18} strokeWidth={1.5} />
-          <Text style={styles.successText}>{successMsg}</Text>
+      {/* ── Hero Header ─────────────────────────────────────────────────── */}
+      <View style={[styles.hero, { paddingTop: Math.max(insets.top, 24) + 12 }]}>
+        <View style={styles.heroTopBar}>
+          <Image
+            source={require('@/assets/images/TenisX_logo-removebg-preview.png')}
+            style={styles.heroLogo}
+            resizeMode="contain"
+          />
+          <View style={styles.heroIcons}>
+            <TouchableOpacity
+              onPress={() => router.push('/notifications')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Bell color={Colors.white} size={20} strokeWidth={1.5} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push('/settings')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Menu color={Colors.white} size={22} strokeWidth={1.5} />
+            </TouchableOpacity>
+          </View>
         </View>
-      )}
+        <Text style={styles.heroLabel}>AMENITIES</Text>
+        <Text style={styles.heroTitle}>Book Amenity</Text>
+        <Text style={styles.heroSub}>Reserve your spot instantly.</Text>
+      </View>
 
+      {/* ── Body ────────────────────────────────────────────────────────── */}
       <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.body}
         showsVerticalScrollIndicator={false}>
         <View style={{ maxWidth: MaxWidth, width: '100%', alignSelf: 'center' }}>
 
-          {/* Check Availability CTA */}
-          <View style={styles.ctaCard}>
-            <Text style={styles.ctaTitle}>Check Availability</Text>
-            <Text style={styles.ctaSubtitle}>Pick a date and time to see what's open</Text>
-            <View style={styles.ctaTag}>
-              <Text style={styles.ctaTagText}>📅  Select Date & Time</Text>
-            </View>
-          </View>
-
-          {/* Type filter tabs */}
-          {!loading && courts.length > 0 && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.filterScroll}
-              contentContainerStyle={styles.filterContent}>
-              {availableTypes.map((type) => (
+          {/* Filter pills */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterRow}>
+            {FILTERS.map((f) => {
+              const active = activeFilter === f;
+              return (
                 <TouchableOpacity
-                  key={type}
-                  onPress={() => {
-                    setActiveFilter(type);
-                    setSelectedCourtId(null);
-                    setPendingSlot(null);
-                  }}
-                  style={[styles.filterTab, activeFilter === type && styles.filterTabActive]}>
-                  <Text style={[styles.filterLabel, activeFilter === type && styles.filterLabelActive]}>
-                    {TYPE_LABELS[type] ?? (type.charAt(0).toUpperCase() + type.slice(1))}
+                  key={f}
+                  onPress={() => setActiveFilter(f)}
+                  style={[styles.filterPill, active && styles.filterPillActive]}>
+                  <Text style={[styles.filterPillLabel, active && styles.filterPillLabelActive]}>
+                    {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
                   </Text>
                 </TouchableOpacity>
-              ))}
-            </ScrollView>
-          )}
+              );
+            })}
+          </ScrollView>
 
-          <Text style={styles.discoverTitle}>Discover Amenities</Text>
+          {/* Section label */}
+          <Text style={styles.sectionLabel}>AVAILABLE AMENITIES</Text>
 
+          {/* Amenity cards */}
           {loading ? (
-            <><CardSkeleton /><CardSkeleton /></>
-          ) : filteredCourts.length === 0 ? (
-            <EmptyState
-              icon={null}
-              title="No amenities available"
-              subtitle="Contact your HOA admin to add amenities."
-            />
+            <><LoadingCard /><LoadingCard /></>
+          ) : filtered.length === 0 ? (
+            <View style={styles.emptyBox}>
+              <Text style={styles.emptyTitle}>No amenities available</Text>
+              <Text style={styles.emptySubtitle}>Contact your HOA admin to add amenities.</Text>
+            </View>
           ) : (
-            filteredCourts.map((court) => {
-              const isSelected = selectedCourtId === court.id;
-              const typeLabel = TYPE_LABELS[court.court_type] ?? court.court_type;
+            filtered.map((court) => {
+              const label = AMENITY_LABELS[court.court_type] ?? court.court_type.toUpperCase();
+              const { Icon, color: iconColor, bg: iconBg } =
+                ICON_CONFIG[court.court_type] ?? FALLBACK_ENTRY;
 
               return (
-                <View
-                  key={court.id}
-                  style={[styles.amenityCard, isSelected && styles.amenityCardSelected]}>
-
-                  {/* Card header row */}
-                  <View style={styles.amenityTop}>
-                    <View style={styles.amenityInfo}>
-                      <Text style={styles.amenityName}>{court.name}</Text>
-                      <Text style={styles.amenityType}>{typeLabel}</Text>
+                <View key={court.id} style={styles.card}>
+                  {/* Top row */}
+                  <View style={styles.cardTop}>
+                    <View style={[styles.iconWrap, { backgroundColor: iconBg }]}>
+                      <Icon color={iconColor} size={24} strokeWidth={1.5} />
+                    </View>
+                    <View style={styles.cardInfo}>
+                      <Text style={styles.cardName}>{court.name}</Text>
+                      <Text style={styles.cardType}>{label}</Text>
                     </View>
                     <View style={styles.openBadge}>
                       <Text style={styles.openBadgeText}>Open Now</Text>
                     </View>
                   </View>
 
-                  {/* Book Now button or inline form */}
-                  {!isSelected ? (
+                  {/* Action row */}
+                  <View style={styles.cardActions}>
                     <TouchableOpacity
-                      style={styles.bookNowBtn}
-                      onPress={() => toggleCourt(court)}
+                      style={styles.bookBtn}
+                      onPress={() =>
+                        router.push({
+                          pathname: '/amenity-book',
+                          params: {
+                            amenityId: court.id,
+                            amenityName: court.name,
+                            amenityType: court.court_type,
+                          },
+                        })
+                      }
                       activeOpacity={0.8}>
-                      <Text style={styles.bookNowLabel}>Book Now</Text>
+                      <Text style={styles.bookBtnLabel}>Book Now →</Text>
                     </TouchableOpacity>
-                  ) : (
-                    <View style={styles.bookingForm}>
-                      <View style={styles.formDivider} />
-
-                      {/* Date selector */}
-                      <Text style={styles.formLabel}>SELECT DATE</Text>
-                      <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.datePillRow}>
-                        {dateOptions.map((d) => (
-                          <TouchableOpacity
-                            key={d.iso}
-                            style={[styles.datePill, selectedDate === d.iso && styles.datePillActive]}
-                            onPress={() => setSelectedDate(d.iso)}>
-                            <Text style={[styles.datePillDay, selectedDate === d.iso && styles.dateLabelActive]}>
-                              {d.shortLabel}
-                            </Text>
-                            <Text style={[styles.datePillNum, selectedDate === d.iso && styles.dateLabelActive]}>
-                              {d.dayNum}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
-
-                      {/* Time slots */}
-                      <Text style={[styles.formLabel, { marginTop: 16 }]}>SELECT TIME</Text>
-                      <Text style={styles.formHint}>
-                        Green = available · Tap a slot to select, then confirm below
-                      </Text>
-
-                      {slotLoading ? (
-                        <ActivityIndicator color={Colors.accentCyan} style={{ marginVertical: 16 }} />
-                      ) : (
-                        <View style={styles.slotsGrid}>
-                          {SLOTS.map((slot) => {
-                            const isBooked = bookedSlots.includes(slot.start);
-                            const isPending = pendingSlot?.start === slot.start;
-                            return (
-                              <TouchableOpacity
-                                key={slot.start}
-                                style={[
-                                  styles.slotPill,
-                                  isBooked && styles.slotBooked,
-                                  !isBooked && !isPending && styles.slotAvailable,
-                                  isPending && styles.slotPending,
-                                ]}
-                                onPress={() => {
-                                  if (!isBooked) setPendingSlot(isPending ? null : slot);
-                                }}
-                                disabled={isBooked}
-                                activeOpacity={0.75}>
-                                <Text style={[
-                                  styles.slotLabel,
-                                  { color: isBooked ? Colors.textMuted : isPending ? Colors.white : Colors.navy },
-                                ]}>
-                                  {slot.label}
-                                </Text>
-                              </TouchableOpacity>
-                            );
-                          })}
-                        </View>
-                      )}
-
-                      {/* Confirm button */}
-                      <TouchableOpacity
-                        style={[styles.confirmBtn, !pendingSlot && styles.confirmBtnDisabled]}
-                        onPress={confirmBooking}
-                        disabled={!pendingSlot || booking}
-                        activeOpacity={0.85}>
-                        {booking
-                          ? <ActivityIndicator color={Colors.white} size="small" />
-                          : <Text style={styles.confirmBtnLabel}>
-                              {pendingSlot
-                                ? `Confirm Booking for ${pendingSlot.label} →`
-                                : 'Select a time slot'}
-                            </Text>
-                        }
-                      </TouchableOpacity>
-
-                      <TouchableOpacity onPress={() => toggleCourt(court)} style={styles.collapseBtn}>
-                        <Text style={styles.collapseBtnLabel}>Hide ↑</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
+                    <TouchableOpacity style={styles.rulesBtn} activeOpacity={0.7}>
+                      <Text style={styles.rulesBtnLabel}>Rules</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               );
             })
           )}
+
         </View>
       </ScrollView>
     </View>
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.pageBg },
-  scroll: { flex: 1 },
-  content: { padding: Spacing.pagePx, paddingBottom: 100 },
 
-  successBanner: {
+  // Hero
+  hero: {
+    backgroundColor: Colors.headerBg,
+    paddingHorizontal: Spacing.pagePx,
+    paddingBottom: 24,
+  },
+  heroTopBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(0,212,255,0.1)',
-    paddingHorizontal: Spacing.pagePx,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,212,255,0.2)',
+    justifyContent: 'space-between',
+    marginBottom: 16,
   },
-  successText: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: FontSize.body,
-    color: Colors.navy,
-    flex: 1,
+  heroLogo: {
+    height: 48,
+    width: 140,
   },
-
-  // Check Availability card
-  ctaCard: {
-    borderRadius: Radius.card,
-    padding: 20,
-    marginBottom: 20,
+  heroIcons: {
+    flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.accentCyan,
+    gap: 16,
   },
-  ctaTitle: {
-    fontFamily: FontFamily.manropeExtraBold,
-    fontSize: FontSize.sectionTitle,
-    color: Colors.white,
+  heroLabel: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: FontSize.metadata,
+    color: Colors.accentCyan,
+    letterSpacing: 2.2,
     marginBottom: 4,
   },
-  ctaSubtitle: {
+  heroTitle: {
+    fontFamily: FontFamily.manropeBlack,
+    fontSize: 32,
+    color: Colors.white,
+    lineHeight: 36,
+  },
+  heroSub: {
     fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.uiLabel,
-    color: 'rgba(255,255,255,0.85)',
-    marginBottom: 14,
-  },
-  ctaTag: {
-    backgroundColor: Colors.white,
-    borderRadius: Radius.button,
-    paddingHorizontal: 18,
-    paddingVertical: 8,
-  },
-  ctaTagText: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: FontSize.uiLabel,
-    color: Colors.navy,
+    fontSize: FontSize.body,
+    color: 'rgba(0,212,255,0.7)',
+    marginTop: 6,
   },
 
-  // Filter tabs
-  filterScroll: { marginBottom: 16 },
-  filterContent: { flexDirection: 'row', gap: 8, paddingRight: 4 },
-  filterTab: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: Radius.pill,
-    backgroundColor: Colors.cardBg,
-    borderWidth: 1,
-    borderColor: Colors.border,
+  // Body
+  body: {
+    paddingHorizontal: Spacing.pagePx,
+    paddingTop: 20,
+    paddingBottom: 120,
   },
-  filterTabActive: {
+
+  // Filter pills
+  filterRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 14,
+    paddingRight: 4,
+  },
+  filterPill: {
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: Radius.pill,
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    backgroundColor: Colors.white,
+    minHeight: 40,
+    justifyContent: 'center',
+  },
+  filterPillActive: {
     backgroundColor: Colors.navy,
     borderColor: Colors.navy,
   },
-  filterLabel: {
+  filterPillLabel: {
     fontFamily: FontFamily.interSemiBold,
     fontSize: FontSize.uiLabel,
-    color: Colors.textMuted,
+    color: '#9CA3AF',
   },
-  filterLabelActive: { color: Colors.white },
+  filterPillLabelActive: {
+    color: Colors.white,
+  },
 
-  discoverTitle: {
-    fontFamily: FontFamily.manropeExtraBold,
-    fontSize: FontSize.sectionTitle,
-    color: Colors.navy,
-    marginBottom: 12,
+  // Section label
+  sectionLabel: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: 11,
+    color: Colors.textMuted,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginBottom: 10,
   },
 
   // Amenity card
-  amenityCard: {
-    backgroundColor: Colors.cardBg,
+  card: {
+    backgroundColor: Colors.white,
     borderRadius: Radius.card,
     borderWidth: 1,
     borderColor: Colors.border,
@@ -440,128 +345,104 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  amenityCardSelected: {
-    borderColor: Colors.accentCyan,
-    borderWidth: 2,
-  },
-  amenityTop: {
+  cardTop: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    marginBottom: 12,
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 14,
   },
-  amenityInfo: { flex: 1, marginRight: 12 },
-  amenityName: {
+  iconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  cardInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  cardName: {
     fontFamily: FontFamily.manropeExtraBold,
-    fontSize: FontSize.cardTitle,
+    fontSize: 16,
     color: Colors.navy,
   },
-  amenityType: {
+  cardType: {
     fontFamily: FontFamily.interSemiBold,
     fontSize: FontSize.metadata,
     color: Colors.textMuted,
+    textTransform: 'uppercase',
     letterSpacing: 0.8,
     marginTop: 2,
   },
   openBadge: {
-    backgroundColor: 'rgba(0,212,255,0.12)',
-    borderRadius: Radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 4,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+    borderColor: Colors.accentCyan,
+    backgroundColor: '#E0F9FF',
   },
   openBadgeText: {
     fontFamily: FontFamily.interSemiBold,
     fontSize: 11,
-    color: Colors.accentCyan,
+    color: '#0369A1',
   },
-  bookNowBtn: {
+
+  // Empty state
+  emptyBox: {
+    alignItems: 'center',
+    paddingVertical: 48,
+    gap: 8,
+  },
+  emptyTitle: {
+    fontFamily: FontFamily.manropeBold,
+    fontSize: 18,
+    color: Colors.navy,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    fontFamily: FontFamily.interRegular,
+    fontSize: 14,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    paddingHorizontal: 32,
+  },
+
+  // Action buttons
+  cardActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  bookBtn: {
+    flex: 1,
     backgroundColor: Colors.accentCyan,
     borderRadius: Radius.button,
-    paddingVertical: 10,
+    paddingVertical: 12,
     alignItems: 'center',
+    minHeight: 44,
+    justifyContent: 'center',
   },
-  bookNowLabel: {
-    fontFamily: FontFamily.manropeExtraBold,
-    fontSize: FontSize.uiLabel,
-    color: Colors.navy,
-  },
-
-  // Inline booking form
-  bookingForm: { gap: 0 },
-  formDivider: { height: 1, backgroundColor: Colors.border, marginBottom: 16 },
-  formLabel: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: FontSize.metadata,
-    color: Colors.textMuted,
-    letterSpacing: 1.2,
-    marginBottom: 10,
-  },
-  formHint: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: 11,
-    color: Colors.textMuted,
-    marginBottom: 10,
-    marginTop: -6,
-  },
-
-  datePillRow: { flexDirection: 'row', gap: 8, paddingBottom: 4 },
-  datePill: {
-    alignItems: 'center',
-    borderRadius: Radius.button,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: Colors.pageBg,
-    minWidth: 50,
-  },
-  datePillActive: { backgroundColor: Colors.navy, borderColor: Colors.navy },
-  datePillDay: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: 10,
-    color: Colors.textMuted,
-    letterSpacing: 0.3,
-  },
-  datePillNum: {
-    fontFamily: FontFamily.manropeBold,
-    fontSize: 16,
-    color: Colors.navy,
-    marginTop: 2,
-  },
-  dateLabelActive: { color: Colors.white },
-
-  slotsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-  slotPill: {
-    borderRadius: Radius.button,
-    paddingHorizontal: 10,
-    paddingVertical: 9,
-    minWidth: '30%',
-    flex: 1,
-    alignItems: 'center',
-  },
-  slotAvailable: { backgroundColor: Colors.optimalBg },
-  slotBooked: { backgroundColor: Colors.attentionBg },
-  slotPending: { backgroundColor: Colors.navy },
-  slotLabel: { fontFamily: FontFamily.interSemiBold, fontSize: FontSize.uiLabel },
-
-  confirmBtn: {
-    backgroundColor: Colors.navy,
-    borderRadius: Radius.button,
-    paddingVertical: 13,
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  confirmBtnDisabled: { backgroundColor: Colors.textMuted },
-  confirmBtnLabel: {
+  bookBtnLabel: {
     fontFamily: FontFamily.manropeExtraBold,
     fontSize: FontSize.uiLabel,
     color: Colors.white,
   },
-
-  collapseBtn: { alignItems: 'center', paddingVertical: 4 },
-  collapseBtnLabel: {
+  rulesBtn: {
+    borderRadius: Radius.button,
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    backgroundColor: Colors.white,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    alignItems: 'center',
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  rulesBtnLabel: {
     fontFamily: FontFamily.interSemiBold,
     fontSize: FontSize.uiLabel,
-    color: Colors.textMuted,
+    color: '#4B5563',
   },
 });
