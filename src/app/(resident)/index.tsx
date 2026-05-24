@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
+  Image,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -9,7 +10,7 @@ import {
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import {
-  AlertTriangle, Calendar, CalendarDays, Building2, Megaphone, Bell, X,
+  AlertTriangle, Calendar, CalendarDays, Building2, Megaphone, Bell, X, Menu,
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -33,6 +34,22 @@ interface Announcement {
   title: string;
   body: string;
   created_at: string;
+  href?: string;
+}
+
+function mergeAnnouncementFeed(
+  announcementRows: Announcement[],
+  closedSurveyRows: { id: string; title: string; created_at: string; closes_at: string | null }[]
+): Announcement[] {
+  return [
+    ...announcementRows,
+    ...closedSurveyRows.map((survey) => ({
+      id: `survey-results-${survey.id}`,
+      title: `Survey Results: ${survey.title}`,
+      body: `Results are now available for "${survey.title}" — tap to view the community results.`,
+      created_at: survey.closes_at ?? survey.created_at,
+    })),
+  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 }
 
 interface HoaEvent {
@@ -130,7 +147,7 @@ export default function ResidentHomeScreen() {
     setHoaId(hId);
 
     if (hId) {
-      const [hoaRes, bookingsRes, announcementsRes, eventsRes, reportsRes] = await Promise.all([
+      const [hoaRes, bookingsRes, announcementsRes, closedSurveysRes, eventsRes, reportsRes] = await Promise.all([
         supabase.from('hoas').select('name').eq('id', hId).single(),
         supabase
           .from('bookings')
@@ -146,11 +163,20 @@ export default function ResidentHomeScreen() {
           .select('id, title, body, created_at')
           .eq('hoa_id', hId)
           .order('created_at', { ascending: false })
-          .limit(3),
+          .limit(10),
+        supabase
+          .from('hoa_surveys')
+          .select('id, title, created_at, closes_at')
+          .eq('hoa_id', hId)
+          .eq('status', 'closed')
+          .eq('results_visibility', 'community')
+          .order('closes_at', { ascending: false })
+          .limit(10),
         supabase
           .from('hoa_events')
           .select('id, title, starts_at, location')
           .eq('hoa_id', hId)
+          .eq('status', 'active')
           .eq('event_type', 'community_event')
           .gte('starts_at', new Date().toISOString())
           .order('starts_at')
@@ -177,7 +203,12 @@ export default function ResidentHomeScreen() {
         }))
       );
 
-      setAnnouncements((announcementsRes.data ?? []) as Announcement[]);
+      setAnnouncements(
+        mergeAnnouncementFeed(
+          (announcementsRes.data ?? []) as Announcement[],
+          closedSurveysRes.data ?? []
+        ).slice(0, 3)
+      );
 
       setEvents((eventsRes.data ?? []) as HoaEvent[]);
 
@@ -223,10 +254,19 @@ export default function ResidentHomeScreen() {
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 12 }]}>
         <View style={styles.headerTopBar}>
-          <View style={{ flex: 1 }} />
-          <TouchableOpacity onPress={() => router.push('/notifications')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Bell color={Colors.white} size={20} strokeWidth={1.5} />
-          </TouchableOpacity>
+          <Image
+            source={require('@/assets/images/TenisX_logo-removebg-preview.png')}
+            style={styles.headerLogo}
+            resizeMode="contain"
+          />
+          <View style={styles.headerIcons}>
+            <TouchableOpacity onPress={() => router.push('/notifications')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Bell color={Colors.white} size={20} strokeWidth={1.5} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/settings')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Menu color={Colors.white} size={22} strokeWidth={1.5} />
+            </TouchableOpacity>
+          </View>
         </View>
         <Text style={styles.welcomeTag}>WELCOME BACK</Text>
         <Text style={styles.greetingText}>{greeting()}</Text>
@@ -443,7 +483,17 @@ const styles = StyleSheet.create({
   headerTopBar: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 16,
+  },
+  headerLogo: {
+    height: 48,
+    width: 140,
+  },
+  headerIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
   },
   welcomeTag: {
     fontFamily: FontFamily.interSemiBold,
