@@ -7,9 +7,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react-native';
+import { Header } from '@/components/ui/Header';
 
 import { supabase } from '@/lib/supabase';
 import {
@@ -77,7 +76,6 @@ function fmtTime(t: string): string {
 }
 
 export default function ResidentCalendarScreen() {
-  const insets = useSafeAreaInsets();
   const now = new Date();
 
   const [viewMode, setViewMode] = useState<'month' | 'week'>('month');
@@ -162,10 +160,10 @@ export default function ResidentCalendarScreen() {
       setUserId(user.id);
 
       const { data: memberships } = await supabase
-        .from('hoa_members')
+        .from('hoa_memberships')
         .select('hoa_id, hoas(name)')
         .eq('user_id', user.id)
-        .eq('status', 'approved');
+        .eq('status', 'active');
 
       const comms: Community[] = (memberships ?? []).map((m: any) => ({
         hoaId: m.hoa_id,
@@ -231,11 +229,7 @@ export default function ResidentCalendarScreen() {
 
   return (
     <View style={styles.screen}>
-      {/* Navy header */}
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 8 }]}>
-        <Text style={styles.headerTitle}>Calendar</Text>
-        <Text style={styles.headerSub}>{displayMonthLabel}</Text>
-      </View>
+      <Header variant="resident" />
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={{ maxWidth: MaxWidth, width: '100%', alignSelf: 'center' }}>
@@ -505,23 +499,6 @@ export default function ResidentCalendarScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.pageBg },
-
-  header: {
-    backgroundColor: Colors.navy,
-    paddingHorizontal: Spacing.pagePx,
-    paddingBottom: 12,
-  },
-  headerTitle: {
-    fontFamily: FontFamily.manropeExtraBold,
-    fontSize: 20,
-    color: Colors.white,
-  },
-  headerSub: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.85)',
-    marginTop: 2,
-  },
 
   content: { padding: Spacing.pagePx, paddingBottom: 100, gap: 12 },
 

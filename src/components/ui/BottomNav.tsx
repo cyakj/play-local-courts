@@ -19,7 +19,7 @@ export function BottomNav(props: BottomTabBarProps) {
         const icon = options.tabBarIcon?.({
           focused: isFocused,
           color: isFocused ? Colors.accentCyan : Colors.textMuted,
-          size: 22,
+          size: 26,
         });
 
         return (
@@ -54,7 +54,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.9)',
     borderTopWidth: 1,
     borderTopColor: 'rgba(15,31,61,0.08)',
-    paddingTop: 8,
+    paddingTop: 10,
+    minHeight: 70,
   },
   tab: {
     flex: 1,
@@ -64,7 +65,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontFamily: FontFamily.interSemiBold,
-    fontSize: 10,
+    fontSize: 12,
     letterSpacing: 0.5,
   },
   dot: {

@@ -30,12 +30,12 @@ export const FontFamily = {
 
 export const FontSize = {
   pageTitle: 32,
-  sectionTitle: 18,
-  cardTitle: 16,
+  sectionTitle: 20,
+  cardTitle: 17,
   keyMetric: 40,
   statValue: 24,
   body: 15,
-  uiLabel: 13,
+  uiLabel: 15,
   metadata: 11,
   min: 12,
 } as const;

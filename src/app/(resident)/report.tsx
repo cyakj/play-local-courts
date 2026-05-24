@@ -42,7 +42,7 @@ export default function ReportScreen() {
       setUserId(user.id);
 
       const { data: membership } = await supabase
-        .from('hoa_members')
+        .from('hoa_memberships')
         .select('hoa_id')
         .eq('user_id', user.id)
         .eq('status', 'active')
@@ -89,7 +89,7 @@ export default function ReportScreen() {
   if (submitted) {
     return (
       <View style={styles.screen}>
-        <Header variant="inner" title="Report Issue" />
+        <Header variant="resident" />
         <View style={styles.successContainer}>
           <CheckCircle color={Colors.accentCyan} size={64} strokeWidth={1.5} />
           <Text style={styles.successTitle}>Report Submitted</Text>

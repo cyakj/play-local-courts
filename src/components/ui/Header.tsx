@@ -1,4 +1,5 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Bell, ArrowLeft, Menu } from 'lucide-react-native';
 
@@ -27,11 +28,43 @@ interface InnerScreenHeaderProps {
   rightIcon?: React.ReactNode;
 }
 
-type HeaderProps = CMPortfolioHeaderProps | ResidentHomeHeaderProps | InnerScreenHeaderProps;
+interface ResidentHeaderProps {
+  variant: 'resident';
+  onBell?: () => void;
+  onMenu?: () => void;
+}
+
+type HeaderProps = CMPortfolioHeaderProps | ResidentHomeHeaderProps | InnerScreenHeaderProps | ResidentHeaderProps;
 
 export function Header(props: HeaderProps) {
   const insets = useSafeAreaInsets();
   const topPad = Math.max(insets.top, 24);
+
+  if (props.variant === 'resident') {
+    return (
+      <View style={[styles.base, styles.residentBase, { paddingTop: topPad + 8 }]}>
+        <View style={styles.topBar}>
+          <Image
+            source={require('@/assets/images/TenisX_logo-removebg-preview.png')}
+            style={styles.residentLogo}
+            resizeMode="contain"
+          />
+          <View style={styles.topBarRight}>
+            <TouchableOpacity
+              onPress={props.onBell ?? (() => router.push('/notifications'))}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Bell color="#FFFFFF" size={22} strokeWidth={1.5} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={props.onMenu ?? (() => router.push('/settings'))}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Menu color="#FFFFFF" size={22} strokeWidth={1.5} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  }
 
   if (props.variant === 'inner') {
     return (
@@ -110,6 +143,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 16,
     alignItems: 'center',
+  },
+  residentBase: {
+    paddingBottom: 16,
+    minHeight: 64,
+    justifyContent: 'flex-end',
+  },
+  residentLogo: {
+    height: 36,
+    width: 120,
   },
   logo: {
     fontFamily: FontFamily.manropeBlack,

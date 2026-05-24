@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
+  Image,
   Linking,
   ScrollView,
   StyleSheet,
@@ -11,15 +13,13 @@ import {
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  ArrowLeft, ChevronDown, ChevronRight, Download, Eye, Search,
+  Bell, Menu, ChevronDown, ChevronRight, Download, Eye, Search,
 } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import {
   Colors, FontFamily, FontSize, MaxWidth, Radius, Shadow, Spacing,
 } from '@/constants/design';
-import { CardSkeleton } from '@/components/ui/Skeleton';
-import { EmptyState } from '@/components/ui/EmptyState';
 
 interface HoaDocument {
   id: string;
@@ -59,12 +59,18 @@ function formatBytes(bytes: number | null): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function isNew(createdAt: string): boolean {
+  return Date.now() - new Date(createdAt).getTime() < 7 * 24 * 60 * 60 * 1000;
+}
+
 export default function DocsScreen() {
   const insets = useSafeAreaInsets();
   const [docs, setDocs] = useState<HoaDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set(CATEGORIES.map((c) => c.key)));
+  const [expandedCats, setExpandedCats] = useState<Set<string>>(
+    new Set(CATEGORIES.map((c) => c.key)),
+  );
 
   useEffect(() => {
     async function load() {
@@ -72,7 +78,7 @@ export default function DocsScreen() {
       if (!user) { setLoading(false); return; }
 
       const { data: membership } = await supabase
-        .from('hoa_members')
+        .from('hoa_memberships')
         .select('hoa_id')
         .eq('user_id', user.id)
         .eq('status', 'active')
@@ -111,7 +117,9 @@ export default function DocsScreen() {
   }
 
   const filtered = docs.filter(
-    (d) => !search || d.title.toLowerCase().includes(search.toLowerCase()),
+    (d) => !search
+      || d.title.toLowerCase().includes(search.toLowerCase())
+      || d.category.toLowerCase().includes(search.toLowerCase()),
   );
 
   const groupedCats = CATEGORIES.map((cat) => ({
@@ -121,18 +129,39 @@ export default function DocsScreen() {
 
   return (
     <View style={styles.screen}>
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 8 }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <ArrowLeft color={Colors.white} size={20} strokeWidth={1.5} />
-        </TouchableOpacity>
-        <View style={{ flex: 1, marginLeft: 12 }}>
-          <Text style={styles.headerTitle}>Community Documents</Text>
-          <Text style={styles.headerSub}>{docs.length} document{docs.length !== 1 ? 's' : ''}</Text>
+
+      {/* ── Hero Header ─────────────────────────────────────────────────── */}
+      <View style={[styles.hero, { paddingTop: Math.max(insets.top, 24) + 12 }]}>
+        <View style={styles.heroTopBar}>
+          <Image
+            source={require('@/assets/images/TenisX_logo-removebg-preview.png')}
+            style={styles.heroLogo}
+            resizeMode="contain"
+          />
+          <View style={styles.heroIcons}>
+            <TouchableOpacity
+              onPress={() => router.push('/notifications')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Bell color={Colors.white} size={20} strokeWidth={1.5} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push('/settings')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Menu color={Colors.white} size={22} strokeWidth={1.5} />
+            </TouchableOpacity>
+          </View>
         </View>
+        <Text style={styles.heroTitle}>Community Documents</Text>
+        <Text style={styles.heroSub}>
+          {docs.length} document{docs.length !== 1 ? 's' : ''}
+        </Text>
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      {/* ── Body ────────────────────────────────────────────────────────── */}
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}>
         <View style={{ maxWidth: MaxWidth, width: '100%', alignSelf: 'center' }}>
 
           {/* Search */}
@@ -148,21 +177,38 @@ export default function DocsScreen() {
           </View>
 
           {loading ? (
-            <><CardSkeleton /><CardSkeleton /></>
+            <View style={styles.loadingBox}>
+              <ActivityIndicator color={Colors.accentCyan} size="large" />
+            </View>
           ) : filtered.length === 0 ? (
-            <EmptyState icon={null} title="No documents" subtitle="Your HOA hasn't uploaded any documents yet." />
+            <View style={styles.emptyBox}>
+              <Text style={styles.emptyTitle}>No documents</Text>
+              <Text style={styles.emptySubtitle}>
+                Your HOA hasn't uploaded any documents yet.
+              </Text>
+            </View>
           ) : (
             groupedCats.map((cat) => {
+              const newCount = cat.docs.filter((d) => isNew(d.created_at)).length;
               const isExpanded = expandedCats.has(cat.key);
               return (
                 <View key={cat.key} style={styles.catSection}>
+
                   {/* Category header */}
-                  <TouchableOpacity style={styles.catHeader} onPress={() => toggleCat(cat.key)}>
+                  <TouchableOpacity
+                    style={styles.catHeader}
+                    onPress={() => toggleCat(cat.key)}>
                     <View style={styles.catAccentBar} />
                     <Text style={styles.catLabel}>{cat.label}</Text>
-                    <View style={styles.catCountPill}>
-                      <Text style={styles.catCountText}>{cat.docs.length}</Text>
-                    </View>
+                    {newCount > 0 ? (
+                      <View style={[styles.catCountPill, styles.catNewPill]}>
+                        <Text style={styles.catNewText}>{newCount} new</Text>
+                      </View>
+                    ) : (
+                      <View style={styles.catCountPill}>
+                        <Text style={styles.catCountText}>{cat.docs.length}</Text>
+                      </View>
+                    )}
                     {isExpanded
                       ? <ChevronDown color={Colors.textMuted} size={16} strokeWidth={1.5} />
                       : <ChevronRight color={Colors.textMuted} size={16} strokeWidth={1.5} />}
@@ -170,28 +216,41 @@ export default function DocsScreen() {
 
                   {/* Document rows */}
                   {isExpanded && cat.docs.map((doc) => (
-                    <TouchableOpacity key={doc.id} style={styles.docRow} onPress={() => openDoc(doc)} activeOpacity={0.7}>
-                      {/* File type icon */}
-                      <View style={styles.fileIconBox}>
-                        <Text style={styles.fileIconEmoji}>{getFileEmoji(doc.file_name)}</Text>
-                      </View>
+                    <TouchableOpacity
+                      key={doc.id}
+                      style={styles.docRow}
+                      onPress={() => openDoc(doc)}
+                      activeOpacity={0.7}>
 
-                      {/* Title + meta */}
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.docTitle} numberOfLines={2}>{doc.title}</Text>
-                        <Text style={styles.docMeta}>
-                          {new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                          {doc.file_size_bytes ? ` · ${formatBytes(doc.file_size_bytes)}` : ''}
+                      {isNew(doc.created_at) && <View style={styles.newDot} />}
+
+                      <View style={styles.fileIconBox}>
+                        <Text style={styles.fileIconEmoji}>
+                          {getFileEmoji(doc.file_name)}
                         </Text>
                       </View>
 
-                      {/* Open + Download buttons */}
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.docTitle} numberOfLines={2}>
+                          {doc.title}
+                        </Text>
+                        <Text style={styles.docMeta}>
+                          {new Date(doc.created_at).toLocaleDateString('en-US', {
+                            month: 'short', day: 'numeric', year: 'numeric',
+                          })}
+                          {doc.file_size_bytes
+                            ? ` · ${formatBytes(doc.file_size_bytes)}`
+                            : ''}
+                        </Text>
+                      </View>
+
                       <TouchableOpacity
                         style={styles.docActionBtn}
                         onPress={() => openDoc(doc)}
                         hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
                         <Eye color={Colors.accentCyan} size={16} strokeWidth={1.5} />
                       </TouchableOpacity>
+
                       {doc.file_url && (
                         <TouchableOpacity
                           style={[styles.docActionBtn, styles.docDownloadBtn]}
@@ -212,19 +271,43 @@ export default function DocsScreen() {
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.pageBg },
 
-  header: {
+  hero: {
     backgroundColor: Colors.navy,
+    paddingHorizontal: Spacing.pagePx,
+    paddingBottom: 20,
+  },
+  heroTopBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Spacing.pagePx,
-    paddingBottom: 16,
+    justifyContent: 'space-between',
+    marginBottom: 16,
   },
-  backBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontFamily: FontFamily.manropeExtraBold, fontSize: 18, color: Colors.white },
-  headerSub: { fontFamily: FontFamily.interRegular, fontSize: 12, color: 'rgba(255,255,255,0.65)', marginTop: 2 },
+  heroLogo: {
+    height: 36,
+    width: 120,
+  },
+  heroIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  heroTitle: {
+    fontFamily: FontFamily.manropeExtraBold,
+    fontSize: 22,
+    color: Colors.white,
+    lineHeight: 26,
+  },
+  heroSub: {
+    fontFamily: FontFamily.interRegular,
+    fontSize: FontSize.body,
+    color: 'rgba(255,255,255,0.65)',
+    marginTop: 4,
+  },
 
   content: { padding: Spacing.pagePx, paddingBottom: 80 },
 
@@ -248,6 +331,28 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
   },
 
+  loadingBox: {
+    alignItems: 'center',
+    paddingVertical: 48,
+  },
+  emptyBox: {
+    alignItems: 'center',
+    paddingVertical: 48,
+    gap: 8,
+  },
+  emptyTitle: {
+    fontFamily: FontFamily.manropeBold,
+    fontSize: FontSize.sectionTitle,
+    color: Colors.navy,
+  },
+  emptySubtitle: {
+    fontFamily: FontFamily.interRegular,
+    fontSize: FontSize.body,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    paddingHorizontal: 32,
+  },
+
   catSection: {
     backgroundColor: Colors.white,
     borderRadius: Radius.card,
@@ -264,7 +369,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     gap: 8,
   },
-  catAccentBar: { width: 3, height: 16, borderRadius: 2, backgroundColor: Colors.accentCyan, flexShrink: 0 },
+  catAccentBar: {
+    width: 3,
+    height: 16,
+    borderRadius: 2,
+    backgroundColor: Colors.accentCyan,
+    flexShrink: 0,
+  },
   catLabel: {
     fontFamily: FontFamily.interSemiBold,
     fontSize: 11,
@@ -279,7 +390,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
-  catCountText: { fontFamily: FontFamily.interSemiBold, fontSize: 11, color: Colors.textMuted },
+  catCountText: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: 11,
+    color: Colors.textMuted,
+  },
+  catNewPill: { backgroundColor: Colors.accentCyan },
+  catNewText: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: 10,
+    color: Colors.white,
+    letterSpacing: 0.3,
+  },
 
   docRow: {
     flexDirection: 'row',
@@ -289,6 +411,15 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
+  },
+  newDot: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.accentCyan,
   },
   fileIconBox: {
     width: 40,
