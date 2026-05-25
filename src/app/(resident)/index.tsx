@@ -137,7 +137,7 @@ export default function ResidentHomeScreen() {
 
     const [profileRes, membershipRes] = await Promise.all([
       supabase.from('profiles').select('full_name').eq('id', user.id).single(),
-      supabase.from('hoa_members').select('hoa_id').eq('user_id', user.id).eq('status', 'active').limit(1).single(),
+      supabase.from('hoa_memberships').select('hoa_id').eq('user_id', user.id).eq('status', 'approved').limit(1).single(),
     ]);
 
     const fname = profileRes.data?.full_name?.split(' ')[0] ?? 'there';
@@ -260,10 +260,10 @@ export default function ResidentHomeScreen() {
             resizeMode="contain"
           />
           <View style={styles.headerIcons}>
-            <TouchableOpacity onPress={() => router.push('/notifications')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TouchableOpacity testID="bell-icon" onPress={() => router.push('/notifications')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Bell color={Colors.white} size={20} strokeWidth={1.5} />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => router.push('/settings')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TouchableOpacity testID="menu-icon" onPress={() => router.push('/settings')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Menu color={Colors.white} size={22} strokeWidth={1.5} />
             </TouchableOpacity>
           </View>

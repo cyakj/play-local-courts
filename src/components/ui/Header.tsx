@@ -51,11 +51,13 @@ export function Header(props: HeaderProps) {
           />
           <View style={styles.topBarRight}>
             <TouchableOpacity
+              testID="bell-icon"
               onPress={props.onBell ?? (() => router.push('/notifications'))}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Bell color="#FFFFFF" size={22} strokeWidth={1.5} />
             </TouchableOpacity>
             <TouchableOpacity
+              testID="menu-icon"
               onPress={props.onMenu ?? (() => router.push('/settings'))}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Menu color="#FFFFFF" size={22} strokeWidth={1.5} />

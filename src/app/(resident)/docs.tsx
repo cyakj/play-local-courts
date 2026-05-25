@@ -81,7 +81,7 @@ export default function DocsScreen() {
         .from('hoa_memberships')
         .select('hoa_id')
         .eq('user_id', user.id)
-        .eq('status', 'active')
+        .eq('status', 'approved')
         .limit(1)
         .single();
 
@@ -140,11 +140,13 @@ export default function DocsScreen() {
           />
           <View style={styles.heroIcons}>
             <TouchableOpacity
+              testID="bell-icon"
               onPress={() => router.push('/notifications')}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Bell color={Colors.white} size={20} strokeWidth={1.5} />
             </TouchableOpacity>
             <TouchableOpacity
+              testID="menu-icon"
               onPress={() => router.push('/settings')}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Menu color={Colors.white} size={22} strokeWidth={1.5} />
@@ -245,6 +247,7 @@ export default function DocsScreen() {
                       </View>
 
                       <TouchableOpacity
+                        testID="doc-eye-btn"
                         style={styles.docActionBtn}
                         onPress={() => openDoc(doc)}
                         hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
@@ -253,6 +256,7 @@ export default function DocsScreen() {
 
                       {doc.file_url && (
                         <TouchableOpacity
+                          testID="doc-download-btn"
                           style={[styles.docActionBtn, styles.docDownloadBtn]}
                           onPress={() => openDoc(doc)}
                           hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>

@@ -5,14 +5,15 @@ const PASSWORD = process.env.TEST_PASSWORD ?? '';
 
 async function authenticate(page: Page) {
   await page.goto('/');
-  const emailInput = page.locator('input[type="email"]').first();
-  const visible = await emailInput.isVisible({ timeout: 8000 }).catch(() => false);
-  if (visible) {
-    await emailInput.fill(EMAIL);
-    await page.locator('input[type="password"]').first().fill(PASSWORD);
-    await page.getByRole('button', { name: /sign in|log in|continue/i }).click();
-    await page.waitForLoadState('networkidle', { timeout: 20000 });
-  }
+  const emailInput = page.locator('input[placeholder="your@email.com"]');
+  const isLoginPage = await emailInput.isVisible({ timeout: 6000 }).catch(() => false);
+  if (!isLoginPage) return;
+
+  await emailInput.fill(EMAIL);
+  await page.locator('input[type="password"]').first().fill(PASSWORD);
+  await page.getByText('Sign in').click();
+  await page.waitForURL((url) => !url.pathname.includes('login'), { timeout: 20000 });
+  await page.waitForLoadState('networkidle');
 }
 
 const RESIDENT_ROUTES = ['/', '/book', '/report', '/calendar', '/docs'];
@@ -32,18 +33,14 @@ test.describe('Global Header — every resident screen', () => {
       await authenticate(page);
       await page.goto(route);
       await page.waitForLoadState('networkidle');
-      // Bell lucide icon renders as SVG on web
-      const bell = page.locator('svg').nth(0);
-      await expect(bell).toBeVisible({ timeout: 10000 });
+      await expect(page.locator('[data-testid="bell-icon"]')).toBeVisible({ timeout: 10000 });
     });
 
     test(`Hamburger menu visible on ${route}`, async ({ page }) => {
       await authenticate(page);
       await page.goto(route);
       await page.waitForLoadState('networkidle');
-      const svgs = page.locator('svg');
-      const count = await svgs.count();
-      expect(count).toBeGreaterThan(1);
+      await expect(page.locator('[data-testid="menu-icon"]')).toBeVisible({ timeout: 10000 });
     });
   }
 });

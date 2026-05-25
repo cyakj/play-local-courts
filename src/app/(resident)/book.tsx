@@ -95,7 +95,7 @@ export default function BookScreen() {
       .from('hoa_memberships')
       .select('hoa_id')
       .eq('user_id', user.id)
-      .eq('status', 'active')
+      .eq('status', 'approved')
       .limit(1)
       .single();
 
@@ -130,11 +130,13 @@ export default function BookScreen() {
           />
           <View style={styles.heroIcons}>
             <TouchableOpacity
+              testID="bell-icon"
               onPress={() => router.push('/notifications')}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Bell color={Colors.white} size={20} strokeWidth={1.5} />
             </TouchableOpacity>
             <TouchableOpacity
+              testID="menu-icon"
               onPress={() => router.push('/settings')}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Menu color={Colors.white} size={22} strokeWidth={1.5} />

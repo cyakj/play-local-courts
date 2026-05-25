@@ -109,7 +109,7 @@ export default function ResidentCalendarScreen() {
       .from('hoa_events')
       .select('id, title, event_type, location, starts_at, hoa_id, description')
       .in('hoa_id', hoaIds)
-      .eq('status', 'active')
+      .eq('status', 'approved')
       .order('starts_at');
 
     const mapped: CalendarEvent[] = (hoaEvents || []).map((e) => ({
@@ -163,7 +163,7 @@ export default function ResidentCalendarScreen() {
         .from('hoa_memberships')
         .select('hoa_id, hoas(name)')
         .eq('user_id', user.id)
-        .eq('status', 'active');
+        .eq('status', 'approved');
 
       const comms: Community[] = (memberships ?? []).map((m: any) => ({
         hoaId: m.hoa_id,

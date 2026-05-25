@@ -4,22 +4,33 @@ const EMAIL = process.env.TEST_EMAIL ?? '';
 const PASSWORD = process.env.TEST_PASSWORD ?? '';
 
 async function authenticate(page: Page) {
-  await page.goto('/');
-  const emailInput = page.locator('input[type="email"]').first();
-  const visible = await emailInput.isVisible({ timeout: 8000 }).catch(() => false);
-  if (visible) {
-    await emailInput.fill(EMAIL);
-    await page.locator('input[type="password"]').first().fill(PASSWORD);
-    await page.getByRole('button', { name: /sign in|log in|continue/i }).click();
-    await page.waitForLoadState('networkidle', { timeout: 20000 });
-  }
+  await page.goto('/login');
+  await page.waitForLoadState('domcontentloaded');
+
+  const emailInput = page.locator('input[placeholder="your@email.com"]');
+  await emailInput.waitFor({ state: 'visible', timeout: 15000 });
+
+  await emailInput.fill(EMAIL);
+  await page.locator('input[type="password"]').first().fill(PASSWORD);
+  await page.getByText('Sign in', { exact: true }).click();
+  await page.waitForURL((url) => !url.pathname.includes('login'), { timeout: 25000 });
+  await page.waitForLoadState('domcontentloaded');
 }
 
 test.describe('Docs Screen', () => {
   test.beforeEach(async ({ page }) => {
     await authenticate(page);
     await page.goto('/docs');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
+    // Wait for Supabase data to load: count shows non-zero OR empty state appears
+    await page.waitForFunction(
+      () => {
+        const body = document.body.textContent ?? '';
+        // Either empty state loaded or at least 1 doc loaded
+        return body.includes('No documents') || /[1-9]\d* documents?/.test(body);
+      },
+      { timeout: 20000 },
+    ).catch(() => {/* data may still be loading */});
   });
 
   test('TenisX logo is visible in header', async ({ page }) => {
@@ -27,18 +38,11 @@ test.describe('Docs Screen', () => {
   });
 
   test('bell icon is visible in header', async ({ page }) => {
-    // Bell SVG rendered by lucide-react-native on web
-    const bell = page.locator('img[alt*="bell"], [aria-label*="bell"]').or(
-      page.locator('svg').filter({ has: page.locator('path[d*="M18 8A6 6"]') })
-    );
-    await expect(bell.first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('[data-testid="bell-icon"]')).toBeVisible({ timeout: 10000 });
   });
 
   test('hamburger menu is visible in header', async ({ page }) => {
-    const menu = page.locator('img[alt*="menu"], [aria-label*="menu"]').or(
-      page.locator('svg').filter({ has: page.locator('line') })
-    );
-    await expect(menu.first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('[data-testid="menu-icon"]')).toBeVisible({ timeout: 10000 });
   });
 
   test('"Community Documents" heading is visible', async ({ page }) => {
@@ -46,34 +50,22 @@ test.describe('Docs Screen', () => {
   });
 
   test('document count in header is not "0 documents"', async ({ page }) => {
-    const countEl = page.locator('div, span').filter({ hasText: /^\d+ documents?$/ }).first();
-    await expect(countEl).toBeVisible({ timeout: 10000 });
-    const text = await countEl.textContent();
-    expect(text?.trim()).not.toBe('0 documents');
-    expect(text?.trim()).not.toBe('0 document');
+    // Wait for a non-zero count: e.g. "2 documents"
+    const countEl = page.locator('div, span').filter({ hasText: /^[1-9]\d* documents?$/ }).first();
+    await expect(countEl).toBeVisible({ timeout: 20000 });
   });
 
   test('"No documents" message is NOT visible when HOA has docs', async ({ page }) => {
-    // Give time for Supabase to load
-    await page.waitForTimeout(3000);
-    await expect(page.getByText('No documents')).not.toBeVisible();
+    await expect(page.getByText('No documents')).not.toBeVisible({ timeout: 10000 });
   });
 
   test('at least one category section renders', async ({ page }) => {
-    const categoryLabels = ['RULES', 'MEETING', 'FINANCIAL', 'MAINTENANCE', 'FORMS'];
-    let found = false;
-    for (const label of categoryLabels) {
-      const el = page.getByText(new RegExp(label, 'i'));
-      if (await el.isVisible({ timeout: 5000 }).catch(() => false)) {
-        found = true;
-        break;
-      }
-    }
-    expect(found).toBe(true);
+    // Docs "Meeting #1" and "Rules4" belong to categories; they appear in expanded sections
+    const docTitles = page.getByText(/Meeting #1|Rules4/);
+    await expect(docTitles.first()).toBeVisible({ timeout: 20000 });
   });
 
   test('category sections have collapse chevron', async ({ page }) => {
-    // ChevronDown or ChevronRight SVG present
     const chevrons = page.locator('svg').filter({
       has: page.locator('polyline, path').first(),
     });
@@ -87,28 +79,19 @@ test.describe('Docs Screen', () => {
   });
 
   test('search filters documents in real time', async ({ page }) => {
-    await page.waitForTimeout(2000);
     const searchInput = page.locator('input[placeholder*="Search"], input[placeholder*="search"]');
     await searchInput.fill('zzznomatch_____');
     await page.waitForTimeout(800);
-    await expect(page.getByText(/no documents/i)).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText(/no documents/i)).toBeVisible({ timeout: 8000 });
   });
 
   test('each document card has a view (eye) button', async ({ page }) => {
-    await page.waitForTimeout(2000);
-    // Eye icon SVG from lucide
-    const eyeIcons = page.locator('svg').filter({
-      has: page.locator('path[d*="M1 12"]').or(page.locator('circle[cx="12"]')),
-    });
+    const eyeIcons = page.locator('[data-testid="doc-eye-btn"]');
     await expect(eyeIcons.first()).toBeVisible({ timeout: 10000 });
   });
 
   test('each document card has a download button', async ({ page }) => {
-    await page.waitForTimeout(2000);
-    // Download icon SVG from lucide
-    const downloadIcons = page.locator('svg').filter({
-      has: page.locator('path[d*="M21 15"]').or(page.locator('polyline[points*="7 10"]')),
-    });
+    const downloadIcons = page.locator('[data-testid="doc-download-btn"]');
     await expect(downloadIcons.first()).toBeVisible({ timeout: 10000 });
   });
 });

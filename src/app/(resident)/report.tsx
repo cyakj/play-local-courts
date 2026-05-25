@@ -45,7 +45,7 @@ export default function ReportScreen() {
         .from('hoa_memberships')
         .select('hoa_id')
         .eq('user_id', user.id)
-        .eq('status', 'active')
+        .eq('status', 'approved')
         .limit(1)
         .single();
 
