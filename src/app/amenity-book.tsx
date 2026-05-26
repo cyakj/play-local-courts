@@ -102,8 +102,8 @@ export default function AmenityBookScreen() {
   // Load rules and user id
   useEffect(() => {
     async function loadInit() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) setUserId(user.id ?? '');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) setUserId(session.user.id ?? '');
 
       if (!amenityId) return;
       const { data } = await supabase
@@ -286,7 +286,7 @@ export default function AmenityBookScreen() {
             </TouchableOpacity>
           </View>
         </View>
-        <Text style={styles.amenityName}>{amenityName}</Text>
+        <Text testID="amenity-detail-name" style={styles.amenityName}>{amenityName}</Text>
         <Text style={styles.amenitySub}>{typeLabel} · Book a slot</Text>
       </View>
 

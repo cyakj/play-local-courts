@@ -86,26 +86,31 @@ export default function BookScreen() {
   const [activeFilter, setActiveFilter] = useState('all');
 
   async function load() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setLoading(false); return; }
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user ?? null;
+      if (!user) { setLoading(false); return; }
 
-    const { data: membership } = await supabase
-      .from('hoa_memberships')
-      .select('hoa_id')
-      .eq('user_id', user.id)
-      .eq('status', 'approved')
-      .limit(1)
-      .single();
+      const { data: membership } = await supabase
+        .from('hoa_memberships')
+        .select('hoa_id')
+        .eq('user_id', user.id)
+        .eq('status', 'approved')
+        .limit(1)
+        .single();
 
-    if (membership?.hoa_id) {
-      const { data: courtsData } = await supabase
-        .from('courts')
-        .select('*')
-        .eq('hoa_id', membership.hoa_id)
-        .order('name');
-      setCourts(courtsData ?? []);
+      if (membership?.hoa_id) {
+        const { data: courtsData } = await supabase
+          .from('courts')
+          .select('*')
+          .eq('hoa_id', membership.hoa_id)
+          .order('name');
+        setCourts(courtsData ?? []);
+      }
+      setLoading(false);
+    } catch {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   useEffect(() => { load(); }, []);
@@ -172,7 +177,7 @@ export default function BookScreen() {
                 ICON_CONFIG[court.court_type] ?? FALLBACK_ENTRY;
 
               return (
-                <View key={court.id} style={styles.card}>
+                <View key={court.id} testID="amenity-card" style={styles.card}>
                   {/* Top row */}
                   <View style={styles.cardTop}>
                     <View style={[styles.iconWrap, { backgroundColor: iconBg }]}>
@@ -190,6 +195,7 @@ export default function BookScreen() {
                   {/* Action row */}
                   <View style={styles.cardActions}>
                     <TouchableOpacity
+                      testID="book-now-btn"
                       style={styles.bookBtn}
                       onPress={() =>
                         router.push({
