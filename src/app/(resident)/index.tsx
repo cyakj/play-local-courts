@@ -129,7 +129,9 @@ export default function ResidentHomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   async function load() {
-    const { data: { user } } = await supabase.auth.getUser();
+    try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) { setLoading(false); return; }
 
     const [profileRes, membershipRes] = await Promise.all([
@@ -233,6 +235,9 @@ export default function ResidentHomeScreen() {
     );
 
     setLoading(false);
+    } catch {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { load(); }, []);
@@ -258,7 +263,7 @@ export default function ResidentHomeScreen() {
         {hoaName ? (
           <View style={styles.hoaRow}>
             <Building2 color="rgba(0,212,255,0.7)" size={14} strokeWidth={1.5} />
-            <Text style={styles.hoaName}>{hoaName}</Text>
+            <Text testID="hoa-name" style={styles.hoaName}>{hoaName}</Text>
           </View>
         ) : null}
         <View style={styles.headerFade} />
@@ -320,6 +325,7 @@ export default function ResidentHomeScreen() {
               upcomingBookings.map((b, i) => (
                 <View
                   key={b.id}
+                  testID="booking-row"
                   style={[styles.listRow, i < upcomingBookings.length - 1 && styles.listRowBorder]}>
                   <View style={styles.cyanDot} />
                   <View style={{ flex: 1 }}>
@@ -351,6 +357,7 @@ export default function ResidentHomeScreen() {
                 return (
                   <TouchableOpacity
                     key={a.id}
+                    testID="announcement-row"
                     style={[styles.listRow, i < announcements.length - 1 && styles.listRowBorder]}
                     onPress={() => setExpandedAnnouncement(isExpanded ? null : a.id)}
                     activeOpacity={0.7}>
