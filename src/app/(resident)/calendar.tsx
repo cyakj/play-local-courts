@@ -16,18 +16,18 @@ import {
 } from '@/constants/design';
 
 const EVENT_TYPE_CONFIG: Record<string, { color: string; label: string }> = {
-  amenity_booking: { color: Colors.accentCyan, label: 'Amenity Booking' },
-  community_event: { color: Colors.navy, label: 'Community Event' },
-  board_meeting: { color: Colors.textMuted, label: 'Board Meeting' },
-  maintenance_scheduled: { color: Colors.coral, label: 'Maintenance' },
+  amenity_booking:       { color: Colors.accentCyan,  label: 'Amenity Booking' },
+  community_event:       { color: Colors.navy,         label: 'Community Event' },
+  board_meeting:         { color: Colors.textMuted,    label: 'Board Meeting' },
+  maintenance_scheduled: { color: Colors.coral,        label: 'Maintenance' },
 };
 
 const EVENT_TYPE_FILTERS = ['All', 'Amenity Booking', 'Community Event', 'Board Meeting', 'Maintenance'];
 const EVENT_TYPE_FILTER_MAP: Record<string, string> = {
   'Amenity Booking': 'amenity_booking',
   'Community Event': 'community_event',
-  'Board Meeting': 'board_meeting',
-  Maintenance: 'maintenance_scheduled',
+  'Board Meeting':   'board_meeting',
+  Maintenance:       'maintenance_scheduled',
 };
 
 const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -78,24 +78,23 @@ function fmtTime(t: string): string {
 export default function ResidentCalendarScreen() {
   const now = new Date();
 
-  const [viewMode, setViewMode] = useState<'month' | 'week'>('month');
+  const [viewMode, setViewMode]       = useState<'month' | 'week'>('month');
   const [currentMonth, setCurrentMonth] = useState(new Date(now.getFullYear(), now.getMonth(), 1));
-  const [weekBase, setWeekBase] = useState(now);
-  const [selectedDay, setSelectedDay] = useState(now.getDate());
+  const [weekBase, setWeekBase]       = useState(now);
+  const [selectedDay, setSelectedDay]   = useState(now.getDate());
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
-  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+  const [selectedYear, setSelectedYear]  = useState(now.getFullYear());
 
-  const [communities, setCommunities] = useState<Community[]>([]);
+  const [communities, setCommunities]   = useState<Community[]>([]);
   const [activeCommunity, setActiveCommunity] = useState('all');
   const [activeEventType, setActiveEventType] = useState('All');
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [detailEvent, setDetailEvent] = useState<CalendarEvent | null>(null);
-  const [userId, setUserId] = useState('');
+  const [events, setEvents]             = useState<CalendarEvent[]>([]);
+  const [loading, setLoading]           = useState(true);
+  const [detailEvent, setDetailEvent]   = useState<CalendarEvent | null>(null);
+  const [userId, setUserId]             = useState('');
 
-  const monthGrid = useMemo(() => buildMonthGrid(currentMonth.getFullYear(), currentMonth.getMonth()), [currentMonth]);
-  const weekDates = useMemo(() => getWeekDates(weekBase), [weekBase]);
-
+  const monthGrid  = useMemo(() => buildMonthGrid(currentMonth.getFullYear(), currentMonth.getMonth()), [currentMonth]);
+  const weekDates  = useMemo(() => getWeekDates(weekBase), [weekBase]);
   const displayMonth = viewMode === 'month' ? currentMonth : (weekDates[3] || now);
   const displayMonthLabel = displayMonth.toLocaleString('en-US', { month: 'long', year: 'numeric' });
 
@@ -134,7 +133,7 @@ export default function ResidentCalendarScreen() {
         const court = (b as any).courts;
         if (!court || !hoaIds.includes(court.hoa_id)) continue;
         const startHour = b.start_time?.slice(0, 5) || '';
-        const endHour = b.end_time?.slice(0, 5) || '';
+        const endHour   = b.end_time?.slice(0, 5)   || '';
         mapped.push({
           id: b.id,
           title: `${court.name} · ${fmtTime(startHour)} – ${fmtTime(endHour)}`,
@@ -155,22 +154,27 @@ export default function ResidentCalendarScreen() {
 
   useEffect(() => {
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setLoading(false); return; }
-      setUserId(user.id);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user ?? null;
+        if (!user) { setLoading(false); return; }
+        setUserId(user.id);
 
-      const { data: memberships } = await supabase
-        .from('hoa_memberships')
-        .select('hoa_id, hoas(name)')
-        .eq('user_id', user.id)
-        .eq('status', 'approved');
+        const { data: memberships } = await supabase
+          .from('hoa_memberships')
+          .select('hoa_id, hoas(name)')
+          .eq('user_id', user.id)
+          .eq('status', 'approved');
 
-      const comms: Community[] = (memberships ?? []).map((m: any) => ({
-        hoaId: m.hoa_id,
-        name: m.hoas?.name || 'Community',
-      }));
-      setCommunities(comms);
-      await fetchAll(user.id, comms);
+        const comms: Community[] = (memberships ?? []).map((m: any) => ({
+          hoaId: m.hoa_id,
+          name: m.hoas?.name || 'Community',
+        }));
+        setCommunities(comms);
+        await fetchAll(user.id, comms);
+      } catch {
+        setLoading(false);
+      }
     }
     load();
   }, []);
@@ -180,9 +184,7 @@ export default function ResidentCalendarScreen() {
     const channel = supabase
       .channel('resident-calendar-bookings')
       .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'bookings',
+        event: '*', schema: 'public', table: 'bookings',
         filter: `user_id=eq.${userId}`,
       }, () => { fetchAll(userId, communities); })
       .subscribe();
@@ -227,9 +229,18 @@ export default function ResidentCalendarScreen() {
     setSelectedDay(day);
   }
 
+  const dayEventsTitle = `${new Date(selectedYear, selectedMonth).toLocaleString('en-US', { month: 'short' })} ${selectedDay} Events`.toUpperCase();
+
   return (
     <View style={styles.screen}>
       <Header variant="resident" />
+
+      {/* ── Hero ──────────────────────────────────────────────────────────── */}
+      <View style={styles.hero}>
+        <Text style={styles.heroLabel}>SCHEDULE</Text>
+        <Text testID="calendar-heading" style={styles.heroTitle}>Calendar</Text>
+        <Text testID="month-label" style={styles.heroSub}>{displayMonthLabel}</Text>
+      </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={{ maxWidth: MaxWidth, width: '100%', alignSelf: 'center' }}>
@@ -242,6 +253,7 @@ export default function ResidentCalendarScreen() {
               style={{ flex: 1 }}
               contentContainerStyle={styles.communityChips}>
               <TouchableOpacity
+                testID="community-chip"
                 style={[styles.commChip, activeCommunity === 'all' && styles.commChipActive]}
                 onPress={() => setActiveCommunity('all')}
                 activeOpacity={0.7}>
@@ -250,6 +262,7 @@ export default function ResidentCalendarScreen() {
               {communities.map((c) => (
                 <TouchableOpacity
                   key={c.hoaId}
+                  testID="community-chip"
                   style={[styles.commChip, activeCommunity === c.hoaId && styles.commChipActive]}
                   onPress={() => setActiveCommunity(c.hoaId)}
                   activeOpacity={0.7}>
@@ -257,18 +270,22 @@ export default function ResidentCalendarScreen() {
                 </TouchableOpacity>
               ))}
             </ScrollView>
-            <View style={styles.viewToggle}>
-              {(['week', 'month'] as const).map((mode) => (
-                <TouchableOpacity
-                  key={mode}
-                  style={[styles.viewToggleBtn, viewMode === mode && styles.viewToggleBtnActive]}
-                  onPress={() => setViewMode(mode)}
-                  activeOpacity={0.7}>
-                  <Text style={[styles.viewToggleBtnLabel, viewMode === mode && styles.viewToggleBtnLabelActive]}>
-                    {mode.charAt(0).toUpperCase() + mode.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+
+            <View testID="view-toggle" style={styles.viewToggle}>
+              <TouchableOpacity
+                testID="view-toggle-week"
+                style={[styles.viewToggleBtn, viewMode === 'week' && styles.viewToggleBtnActive]}
+                onPress={() => setViewMode('week')}
+                activeOpacity={0.7}>
+                <Text style={[styles.viewToggleBtnLabel, viewMode === 'week' && styles.viewToggleBtnLabelActive]}>Week</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                testID="view-toggle-month"
+                style={[styles.viewToggleBtn, viewMode === 'month' && styles.viewToggleBtnActive]}
+                onPress={() => setViewMode('month')}
+                activeOpacity={0.7}>
+                <Text style={[styles.viewToggleBtnLabel, viewMode === 'month' && styles.viewToggleBtnLabelActive]}>Month</Text>
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -292,7 +309,7 @@ export default function ResidentCalendarScreen() {
                     <Text key={d} style={styles.dayHeader}>{d}</Text>
                   ))}
                 </View>
-                <View style={styles.grid}>
+                <View testID="calendar-grid" style={styles.grid}>
                   {monthGrid.map((cell, idx) => {
                     const cy = currentMonth.getFullYear();
                     const cm = currentMonth.getMonth();
@@ -302,6 +319,7 @@ export default function ResidentCalendarScreen() {
                     return (
                       <TouchableOpacity
                         key={idx}
+                        testID="day-cell"
                         style={styles.dayCell}
                         onPress={() => { if (cell.inMonth) selectDay(cy, cm, cell.day); }}
                         activeOpacity={cell.inMonth ? 0.7 : 1}>
@@ -320,7 +338,9 @@ export default function ResidentCalendarScreen() {
                           </Text>
                         </View>
                         <View style={styles.dotRow}>
-                          {dots.map((c, j) => <View key={j} style={[styles.dot, { backgroundColor: c }]} />)}
+                          {dots.map((c, j) => (
+                            <View key={j} testID="event-dot" style={[styles.dot, { backgroundColor: c }]} />
+                          ))}
                         </View>
                       </TouchableOpacity>
                     );
@@ -334,13 +354,14 @@ export default function ResidentCalendarScreen() {
                     <ChevronLeft color="#4B5563" size={16} strokeWidth={2} />
                   </TouchableOpacity>
                   <Text style={styles.calNavLabel}>
-                    {weekDates[0]?.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – {weekDates[6]?.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    {weekDates[0]?.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} –{' '}
+                    {weekDates[6]?.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                   </Text>
                   <TouchableOpacity style={styles.navBtn} onPress={() => navigateWeek(1)}>
                     <ChevronRight color="#4B5563" size={16} strokeWidth={2} />
                   </TouchableOpacity>
                 </View>
-                <View style={styles.weekGrid}>
+                <View testID="week-grid" style={styles.weekGrid}>
                   {weekDates.map((date, i) => {
                     const isSel = date.getDate() === selectedDay && date.getMonth() === selectedMonth && date.getFullYear() === selectedYear;
                     const isToday = date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
@@ -348,6 +369,7 @@ export default function ResidentCalendarScreen() {
                     return (
                       <TouchableOpacity
                         key={i}
+                        testID="day-cell"
                         style={styles.weekDayCell}
                         onPress={() => selectDay(date.getFullYear(), date.getMonth(), date.getDate())}
                         activeOpacity={0.7}>
@@ -366,7 +388,9 @@ export default function ResidentCalendarScreen() {
                           </Text>
                         </View>
                         <View style={styles.dotRow}>
-                          {dots.map((c, j) => <View key={j} style={[styles.dot, { backgroundColor: c }]} />)}
+                          {dots.map((c, j) => (
+                            <View key={j} testID="event-dot" style={[styles.dot, { backgroundColor: c }]} />
+                          ))}
                         </View>
                       </TouchableOpacity>
                     );
@@ -383,6 +407,7 @@ export default function ResidentCalendarScreen() {
               return (
                 <TouchableOpacity
                   key={opt}
+                  testID="event-type-tab"
                   style={[styles.typeChip, active && styles.typeChipActive]}
                   onPress={() => setActiveEventType(opt)}
                   activeOpacity={0.7}>
@@ -395,7 +420,7 @@ export default function ResidentCalendarScreen() {
           {/* Legend */}
           <View style={styles.legend}>
             {Object.entries(EVENT_TYPE_CONFIG).map(([k, v]) => (
-              <View key={k} style={styles.legendItem}>
+              <View key={k} testID="legend-item" style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: v.color }]} />
                 <Text style={styles.legendLabel}>{v.label}</Text>
               </View>
@@ -403,39 +428,40 @@ export default function ResidentCalendarScreen() {
           </View>
 
           {/* Day events section */}
-          <Text style={styles.dayEventsTitle}>
-            {`${new Date(selectedYear, selectedMonth).toLocaleString('en-US', { month: 'short' })} ${selectedDay} Events`.toUpperCase()}
-          </Text>
+          <View testID="day-events-section">
+            <Text style={styles.dayEventsTitle}>{dayEventsTitle}</Text>
 
-          {loading ? (
-            <View style={styles.loadingRow}>
-              <View style={styles.spinner} />
-            </View>
-          ) : dayEvents.length === 0 ? (
-            <Text style={styles.noEvents}>No events on this day</Text>
-          ) : (
-            dayEvents.map((e) => {
-              const cfg = EVENT_TYPE_CONFIG[e.event_type] || { color: Colors.textMuted, label: '' };
-              const dt = new Date(e.starts_at);
-              return (
-                <TouchableOpacity
-                  key={e.id}
-                  style={styles.eventCard}
-                  onPress={() => setDetailEvent(e)}
-                  activeOpacity={0.85}>
-                  <View style={[styles.eventBar, { backgroundColor: cfg.color }]} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.eventTitle}>{e.title}</Text>
-                    <Text style={styles.eventMeta}>
-                      {dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
-                      {e.location ? ` · ${e.location}` : ''}
-                    </Text>
-                    {e.community_name ? <Text style={styles.eventMeta}>{e.community_name}</Text> : null}
-                  </View>
-                </TouchableOpacity>
-              );
-            })
-          )}
+            {loading ? (
+              <View style={styles.loadingRow}>
+                <View style={styles.spinner} />
+              </View>
+            ) : dayEvents.length === 0 ? (
+              <Text testID="no-events-msg" style={styles.noEvents}>No events on this day</Text>
+            ) : (
+              dayEvents.map((e) => {
+                const cfg = EVENT_TYPE_CONFIG[e.event_type] || { color: Colors.textMuted, label: '' };
+                const dt = new Date(e.starts_at);
+                return (
+                  <TouchableOpacity
+                    key={e.id}
+                    testID="event-card"
+                    style={styles.eventCard}
+                    onPress={() => setDetailEvent(e)}
+                    activeOpacity={0.85}>
+                    <View style={[styles.eventBar, { backgroundColor: cfg.color }]} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.eventTitle}>{e.title}</Text>
+                      <Text style={styles.eventMeta}>
+                        {dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                        {e.location ? ` · ${e.location}` : ''}
+                      </Text>
+                      {e.community_name ? <Text style={styles.eventMeta}>{e.community_name}</Text> : null}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </View>
         </View>
       </ScrollView>
 
@@ -497,8 +523,37 @@ export default function ResidentCalendarScreen() {
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.pageBg },
+
+  // Hero
+  hero: {
+    backgroundColor: Colors.headerBg,
+    paddingHorizontal: Spacing.pagePx,
+    paddingTop: 8,
+    paddingBottom: 24,
+  },
+  heroLabel: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: FontSize.metadata,
+    color: Colors.accentCyan,
+    letterSpacing: 2.2,
+    marginBottom: 4,
+  },
+  heroTitle: {
+    fontFamily: FontFamily.manropeBlack,
+    fontSize: 32,
+    color: Colors.white,
+    lineHeight: 36,
+  },
+  heroSub: {
+    fontFamily: FontFamily.interRegular,
+    fontSize: FontSize.body,
+    color: 'rgba(0,212,255,0.7)',
+    marginTop: 6,
+  },
 
   content: { padding: Spacing.pagePx, paddingBottom: 100, gap: 12 },
 
@@ -518,6 +573,7 @@ const styles = StyleSheet.create({
   commChipActive: { backgroundColor: Colors.navy, borderColor: Colors.navy },
   commChipLabel: { fontFamily: FontFamily.interSemiBold, fontSize: 12, color: Colors.textMuted },
   commChipLabelActive: { color: Colors.white },
+
   viewToggle: {
     flexDirection: 'row',
     borderRadius: 99,
@@ -619,6 +675,7 @@ const styles = StyleSheet.create({
     color: Colors.navy,
     letterSpacing: 1,
     marginTop: 4,
+    marginBottom: 8,
   },
   loadingRow: { alignItems: 'center', paddingVertical: 32 },
   spinner: {
@@ -642,6 +699,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     padding: 16,
+    marginBottom: 8,
     ...Shadow,
   },
   eventBar: { width: 4, borderRadius: 4, minHeight: 50 },
