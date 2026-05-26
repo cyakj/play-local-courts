@@ -8,7 +8,7 @@ export function BottomNav(props: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+    <View testID="bottom-nav" style={[styles.container, { paddingBottom: Math.max(insets.bottom, 8) }]}>
       {state.routes.map((route, index) => {
         const { options } = descriptors[route.key];
         const label =

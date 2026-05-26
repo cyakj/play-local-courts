@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Image,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -10,14 +9,14 @@ import {
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import {
-  AlertTriangle, Calendar, CalendarDays, Building2, Megaphone, Bell, X, Menu,
+  AlertTriangle, Calendar, CalendarDays, Building2, Megaphone, X,
 } from 'lucide-react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { supabase } from '@/lib/supabase';
 import {
   Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing,
 } from '@/constants/design';
+import { Header } from '@/components/ui/Header';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -115,8 +114,6 @@ function getInitials(name: string): string {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function ResidentHomeScreen() {
-  const insets = useSafeAreaInsets();
-
   const [firstName, setFirstName] = useState('');
   const [hoaName, setHoaName] = useState('');
   const [hoaId, setHoaId] = useState('');
@@ -251,23 +248,10 @@ export default function ResidentHomeScreen() {
 
   return (
     <View style={styles.screen}>
-      {/* ── Header ─────────────────────────────────────────────────────── */}
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 12 }]}>
-        <View style={styles.headerTopBar}>
-          <Image
-            source={require('@/assets/images/TenisX_logo-removebg-preview.png')}
-            style={styles.headerLogo}
-            resizeMode="contain"
-          />
-          <View style={styles.headerIcons}>
-            <TouchableOpacity testID="bell-icon" onPress={() => router.push('/notifications')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Bell color={Colors.white} size={20} strokeWidth={1.5} />
-            </TouchableOpacity>
-            <TouchableOpacity testID="menu-icon" onPress={() => router.push('/settings')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Menu color={Colors.white} size={22} strokeWidth={1.5} />
-            </TouchableOpacity>
-          </View>
-        </View>
+      <Header variant="resident" />
+
+      {/* ── Hero greeting ──────────────────────────────────────────────── */}
+      <View style={styles.hero}>
         <Text style={styles.welcomeTag}>WELCOME BACK</Text>
         <Text style={styles.greetingText}>{greeting()}</Text>
         <Text style={styles.firstName}>{firstName}</Text>
@@ -472,28 +456,14 @@ export default function ResidentHomeScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.pageBg },
 
-  // Header
-  header: {
+  // Hero greeting (below shared Header)
+  hero: {
     backgroundColor: Colors.headerBg,
     paddingHorizontal: Spacing.pagePx,
+    paddingTop: 8,
     paddingBottom: 28,
     position: 'relative',
     overflow: 'hidden',
-  },
-  headerTopBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  headerLogo: {
-    height: 48,
-    width: 140,
-  },
-  headerIcons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
   },
   welcomeTag: {
     fontFamily: FontFamily.interSemiBold,

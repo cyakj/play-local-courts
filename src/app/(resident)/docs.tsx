@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   Linking,
   ScrollView,
   StyleSheet,
@@ -10,16 +9,15 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { router } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  Bell, Menu, ChevronDown, ChevronRight, Download, Eye, Search,
+  ChevronDown, ChevronRight, Download, Eye, Search,
 } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import {
   Colors, FontFamily, FontSize, MaxWidth, Radius, Shadow, Spacing,
 } from '@/constants/design';
+import { Header } from '@/components/ui/Header';
 
 interface HoaDocument {
   id: string;
@@ -64,7 +62,6 @@ function isNew(createdAt: string): boolean {
 }
 
 export default function DocsScreen() {
-  const insets = useSafeAreaInsets();
   const [docs, setDocs] = useState<HoaDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -130,29 +127,10 @@ export default function DocsScreen() {
   return (
     <View style={styles.screen}>
 
-      {/* ── Hero Header ─────────────────────────────────────────────────── */}
-      <View style={[styles.hero, { paddingTop: Math.max(insets.top, 24) + 12 }]}>
-        <View style={styles.heroTopBar}>
-          <Image
-            source={require('@/assets/images/TenisX_logo-removebg-preview.png')}
-            style={styles.heroLogo}
-            resizeMode="contain"
-          />
-          <View style={styles.heroIcons}>
-            <TouchableOpacity
-              testID="bell-icon"
-              onPress={() => router.push('/notifications')}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Bell color={Colors.white} size={20} strokeWidth={1.5} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              testID="menu-icon"
-              onPress={() => router.push('/settings')}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Menu color={Colors.white} size={22} strokeWidth={1.5} />
-            </TouchableOpacity>
-          </View>
-        </View>
+      <Header variant="resident" />
+
+      {/* ── Hero title ──────────────────────────────────────────────────── */}
+      <View style={styles.hero}>
         <Text style={styles.heroTitle}>Community Documents</Text>
         <Text style={styles.heroSub}>
           {docs.length} document{docs.length !== 1 ? 's' : ''}
@@ -283,22 +261,8 @@ const styles = StyleSheet.create({
   hero: {
     backgroundColor: Colors.navy,
     paddingHorizontal: Spacing.pagePx,
+    paddingTop: 12,
     paddingBottom: 20,
-  },
-  heroTopBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  heroLogo: {
-    height: 36,
-    width: 120,
-  },
-  heroIcons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
   },
   heroTitle: {
     fontFamily: FontFamily.manropeExtraBold,

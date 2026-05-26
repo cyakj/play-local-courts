@@ -44,11 +44,13 @@ export function Header(props: HeaderProps) {
     return (
       <View style={[styles.base, styles.residentBase, { paddingTop: topPad + 8 }]}>
         <View style={styles.topBar}>
-          <Image
-            source={require('@/assets/images/TenisX_logo-removebg-preview.png')}
-            style={styles.residentLogo}
-            resizeMode="contain"
-          />
+          <View testID="tenisx-logo">
+            <Image
+              source={require('@/assets/images/TenisX_logo-removebg-preview.png')}
+              style={styles.residentLogo}
+              resizeMode="contain"
+            />
+          </View>
           <View style={styles.topBarRight}>
             <TouchableOpacity
               testID="bell-icon"

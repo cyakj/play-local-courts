@@ -104,7 +104,7 @@ export default function ReportScreen() {
 
   return (
     <View style={styles.screen}>
-      <Header variant="inner" title="Report Issue" />
+      <Header variant="resident" />
 
       <ScrollView
         style={styles.scroll}

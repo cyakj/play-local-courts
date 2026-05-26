@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,14 +9,14 @@ import {
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import {
-  Bell, Menu, Activity, Droplet, Flame, Dumbbell, Sparkles, Building2, LayoutGrid,
+  Activity, Droplet, Flame, Dumbbell, Sparkles, Building2, LayoutGrid,
 } from 'lucide-react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { supabase } from '@/lib/supabase';
 import {
   Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing,
 } from '@/constants/design';
+import { Header } from '@/components/ui/Header';
 import type { Database } from '@/lib/types';
 
 function LoadingCard() {
@@ -82,7 +81,6 @@ const FILTERS = ['all', 'courts', 'pools', 'other'];
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function BookScreen() {
-  const insets = useSafeAreaInsets();
   const [courts, setCourts] = useState<Court[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
@@ -120,29 +118,10 @@ export default function BookScreen() {
   return (
     <View style={styles.screen}>
 
-      {/* ── Hero Header ─────────────────────────────────────────────────── */}
-      <View style={[styles.hero, { paddingTop: Math.max(insets.top, 24) + 12 }]}>
-        <View style={styles.heroTopBar}>
-          <Image
-            source={require('@/assets/images/TenisX_logo-removebg-preview.png')}
-            style={styles.heroLogo}
-            resizeMode="contain"
-          />
-          <View style={styles.heroIcons}>
-            <TouchableOpacity
-              testID="bell-icon"
-              onPress={() => router.push('/notifications')}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Bell color={Colors.white} size={20} strokeWidth={1.5} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              testID="menu-icon"
-              onPress={() => router.push('/settings')}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Menu color={Colors.white} size={22} strokeWidth={1.5} />
-            </TouchableOpacity>
-          </View>
-        </View>
+      <Header variant="resident" />
+
+      {/* ── Hero title ──────────────────────────────────────────────────── */}
+      <View style={styles.hero}>
         <Text style={styles.heroLabel}>AMENITIES</Text>
         <Text style={styles.heroTitle}>Book Amenity</Text>
         <Text style={styles.heroSub}>Reserve your spot instantly.</Text>
@@ -245,26 +224,12 @@ export default function BookScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.pageBg },
 
-  // Hero
+  // Hero title (below shared Header)
   hero: {
     backgroundColor: Colors.headerBg,
     paddingHorizontal: Spacing.pagePx,
+    paddingTop: 8,
     paddingBottom: 24,
-  },
-  heroTopBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  heroLogo: {
-    height: 48,
-    width: 140,
-  },
-  heroIcons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
   },
   heroLabel: {
     fontFamily: FontFamily.interSemiBold,
