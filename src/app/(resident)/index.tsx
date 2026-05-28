@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import {
-  AlertTriangle, Calendar, CalendarDays, Building2, Megaphone, X,
+  AlertTriangle, BarChart2, Calendar, CalendarDays, Building2, Megaphone, X,
 } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
@@ -345,7 +345,7 @@ export default function ResidentHomeScreen() {
               <Text style={styles.cardTitle}>Community Announcements</Text>
               <TouchableOpacity
                 testID="announcements-view-all"
-                onPress={() => router.push('/(resident)/calendar')}>
+                onPress={() => router.push('/announcements')}>
                 <Text style={styles.viewAll}>View All →</Text>
               </TouchableOpacity>
             </View>
@@ -372,18 +372,19 @@ export default function ResidentHomeScreen() {
                       <Text style={styles.listRowSub} numberOfLines={isExpanded ? undefined : 1}>
                         {a.body}
                       </Text>
-                      <View style={styles.announcementFooter}>
-                        <Text style={styles.timeAgo}>{timeAgo(a.created_at)}</Text>
-                        {isSurveyResult && (
-                          <TouchableOpacity
-                            testID="view-results-btn"
-                            style={styles.viewResultsPill}
-                            onPress={() => router.push('/(resident)/calendar')}
-                            hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
-                            <Text style={styles.viewResultsPillText}>View Results →</Text>
-                          </TouchableOpacity>
-                        )}
-                      </View>
+                      <Text style={styles.timeAgo}>{timeAgo(a.created_at)}</Text>
+                      {isSurveyResult && (
+                        <TouchableOpacity
+                          testID="view-results-btn"
+                          style={styles.viewResultsBtn}
+                          onPress={() => {
+                            const surveyId = a.id.replace('survey-results-', '');
+                            router.push({ pathname: '/survey-results/[id]', params: { id: surveyId } } as any);
+                          }}>
+                          <BarChart2 color={Colors.accentCyan} size={15} strokeWidth={1.75} />
+                          <Text style={styles.viewResultsBtnText}>View Results →</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
                   </TouchableOpacity>
                 );
@@ -670,22 +671,22 @@ const styles = StyleSheet.create({
     paddingTop: 20,
   },
 
-  announcementFooter: {
+  viewResultsBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 3,
+    gap: 6,
+    backgroundColor: 'rgba(0,212,255,0.1)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(0,212,255,0.25)',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    marginTop: 10,
+    alignSelf: 'flex-start',
   },
-
-  viewResultsPill: {
-    backgroundColor: Colors.accentCyan,
-    borderRadius: Radius.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-  },
-  viewResultsPillText: {
+  viewResultsBtnText: {
     fontFamily: FontFamily.interSemiBold,
-    fontSize: 11,
-    color: Colors.navy,
+    fontSize: 13,
+    color: Colors.accentCyan,
   },
 });

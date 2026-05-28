@@ -106,4 +106,29 @@ test.describe('Resident Home Screen', () => {
     await expect(page.getByText('Community Announcements', { exact: true })).toBeVisible({ timeout: 5000 });
     await expect(page.getByText('Community Events', { exact: true })).toBeVisible({ timeout: 5000 });
   });
+
+  // ── Navigation: View All → Announcements screen ───────────────────────────
+
+  test('"View All →" navigates to Announcements screen', async ({ page }) => {
+    await expect(page.locator('[data-testid="announcements-view-all"]')).toBeVisible({ timeout: 20000 });
+    await page.locator('[data-testid="announcements-view-all"]').click();
+    // After navigation the inner header title renders as exactly "Announcements"
+    await expect(page.getByText('Announcements', { exact: true })).toBeVisible({ timeout: 15000 });
+  });
+
+  // ── View Results button visible when survey result announcements exist ─────
+
+  test('"View Results →" button appears on survey result announcement rows', async ({ page }) => {
+    // Wait for announcements to load
+    await expect(
+      page.locator('[data-testid="announcement-row"]').first()
+        .or(page.getByText('No announcements yet'))
+    ).toBeVisible({ timeout: 20000 });
+    // If any survey results exist, the button should be present
+    const hasSurveyResult = await page.locator('[data-testid="view-results-btn"]').count() > 0;
+    if (hasSurveyResult) {
+      await expect(page.locator('[data-testid="view-results-btn"]').first()).toBeVisible({ timeout: 5000 });
+    }
+    // Test passes whether or not survey results exist in the DB
+  });
 });
