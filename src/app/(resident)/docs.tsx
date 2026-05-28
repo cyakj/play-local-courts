@@ -71,29 +71,34 @@ export default function DocsScreen() {
 
   useEffect(() => {
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setLoading(false); return; }
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user ?? null;
+        if (!user) { setLoading(false); return; }
 
-      const { data: membership } = await supabase
-        .from('hoa_memberships')
-        .select('hoa_id')
-        .eq('user_id', user.id)
-        .eq('status', 'approved')
-        .limit(1)
-        .single();
+        const { data: membership } = await supabase
+          .from('hoa_memberships')
+          .select('hoa_id')
+          .eq('user_id', user.id)
+          .eq('status', 'approved')
+          .limit(1)
+          .single();
 
-      const hoaId = membership?.hoa_id;
-      if (!hoaId) { setLoading(false); return; }
+        const hoaId = membership?.hoa_id;
+        if (!hoaId) { setLoading(false); return; }
 
-      const { data } = await supabase
-        .from('hoa_documents')
-        .select('id, hoa_id, title, category, file_name, file_url, file_size_bytes, created_at')
-        .eq('hoa_id', hoaId)
-        .eq('visibility', 'all_residents')
-        .order('created_at', { ascending: false });
+        const { data } = await supabase
+          .from('hoa_documents')
+          .select('id, hoa_id, title, category, file_name, file_url, file_size_bytes, created_at')
+          .eq('hoa_id', hoaId)
+          .eq('visibility', 'all_residents')
+          .order('created_at', { ascending: false });
 
-      setDocs((data ?? []) as HoaDocument[]);
-      setLoading(false);
+        setDocs((data ?? []) as HoaDocument[]);
+        setLoading(false);
+      } catch {
+        setLoading(false);
+      }
     }
     load();
   }, []);
@@ -131,8 +136,9 @@ export default function DocsScreen() {
 
       {/* ── Hero title ──────────────────────────────────────────────────── */}
       <View style={styles.hero}>
-        <Text style={styles.heroTitle}>Community Documents</Text>
-        <Text style={styles.heroSub}>
+        <Text style={styles.heroLabel}>DOCUMENTS</Text>
+        <Text testID="docs-heading" style={styles.heroTitle}>Community Documents</Text>
+        <Text testID="doc-count" style={styles.heroSub}>
           {docs.length} document{docs.length !== 1 ? 's' : ''}
         </Text>
       </View>
@@ -148,6 +154,7 @@ export default function DocsScreen() {
           <View style={styles.searchRow}>
             <Search color={Colors.textMuted} size={16} strokeWidth={1.5} />
             <TextInput
+              testID="search-input"
               style={styles.searchInput}
               value={search}
               onChangeText={setSearch}
@@ -161,7 +168,7 @@ export default function DocsScreen() {
               <ActivityIndicator color={Colors.accentCyan} size="large" />
             </View>
           ) : filtered.length === 0 ? (
-            <View style={styles.emptyBox}>
+            <View testID="docs-empty" style={styles.emptyBox}>
               <Text style={styles.emptyTitle}>No documents</Text>
               <Text style={styles.emptySubtitle}>
                 Your HOA hasn't uploaded any documents yet.
@@ -172,14 +179,14 @@ export default function DocsScreen() {
               const newCount = cat.docs.filter((d) => isNew(d.created_at)).length;
               const isExpanded = expandedCats.has(cat.key);
               return (
-                <View key={cat.key} style={styles.catSection}>
+                <View key={cat.key} testID="category-section" style={styles.catSection}>
 
                   {/* Category header */}
                   <TouchableOpacity
                     style={styles.catHeader}
                     onPress={() => toggleCat(cat.key)}>
                     <View style={styles.catAccentBar} />
-                    <Text style={styles.catLabel}>{cat.label}</Text>
+                    <Text testID="category-label" style={styles.catLabel}>{cat.label}</Text>
                     {newCount > 0 ? (
                       <View style={[styles.catCountPill, styles.catNewPill]}>
                         <Text style={styles.catNewText}>{newCount} new</Text>
@@ -198,6 +205,7 @@ export default function DocsScreen() {
                   {isExpanded && cat.docs.map((doc) => (
                     <TouchableOpacity
                       key={doc.id}
+                      testID="doc-card"
                       style={styles.docRow}
                       onPress={() => openDoc(doc)}
                       activeOpacity={0.7}>
@@ -259,22 +267,29 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.pageBg },
 
   hero: {
-    backgroundColor: Colors.navy,
+    backgroundColor: Colors.headerBg,
     paddingHorizontal: Spacing.pagePx,
-    paddingTop: 12,
-    paddingBottom: 20,
+    paddingTop: 8,
+    paddingBottom: 24,
+  },
+  heroLabel: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: FontSize.metadata,
+    color: Colors.accentCyan,
+    letterSpacing: 2.2,
+    marginBottom: 4,
   },
   heroTitle: {
-    fontFamily: FontFamily.manropeExtraBold,
-    fontSize: 22,
+    fontFamily: FontFamily.manropeBlack,
+    fontSize: 32,
     color: Colors.white,
-    lineHeight: 26,
+    lineHeight: 36,
   },
   heroSub: {
     fontFamily: FontFamily.interRegular,
     fontSize: FontSize.body,
-    color: 'rgba(255,255,255,0.65)',
-    marginTop: 4,
+    color: 'rgba(0,212,255,0.7)',
+    marginTop: 6,
   },
 
   content: { padding: Spacing.pagePx, paddingBottom: 80 },
