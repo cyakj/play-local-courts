@@ -67,4 +67,43 @@ test.describe('Resident Home Screen', () => {
       await expect(page.getByText(label, { exact: true })).toBeVisible({ timeout: 10000 });
     }
   });
+
+  // ── New: View All / View Results CTAs ─────────────────────────────────────
+
+  test('"View All →" link is visible in Community Announcements header', async ({ page }) => {
+    await expect(page.locator('[data-testid="announcements-view-all"]')).toBeVisible({ timeout: 20000 });
+  });
+
+  // ── New: Scroll behaviour ─────────────────────────────────────────────────
+
+  test('hero greeting scrolls away — Y position moves up after scrolling', async ({ page }) => {
+    // Wait for the greeting to appear
+    const greeting = page.getByText(/Good (morning|afternoon|evening),/i).first();
+    await expect(greeting).toBeVisible({ timeout: 20000 });
+    // Record initial Y position
+    const boxBefore = await greeting.boundingBox();
+    // Scroll every overflow-scroll/auto container in the page (React Native Web ScrollView)
+    await page.evaluate(() => {
+      document.querySelectorAll<HTMLElement>('*').forEach((el) => {
+        const s = window.getComputedStyle(el);
+        if (/(scroll|auto)/.test(s.overflow + s.overflowY)) el.scrollTop = 600;
+      });
+    });
+    await page.waitForTimeout(400);
+    // The greeting element should now have a smaller (more negative) Y value
+    const boxAfter = await greeting.boundingBox();
+    // Logo (sticky header) stays visible after scroll
+    await expect(page.locator('[data-testid="tenisx-logo"]').first()).toBeVisible({ timeout: 5000 });
+    // Greeting moved up (scrolled away from its original position)
+    expect(boxAfter!.y).toBeLessThan(boxBefore!.y);
+  });
+
+  // ── New: Section header prominence ────────────────────────────────────────
+
+  test('section card titles are present and prominent', async ({ page }) => {
+    // All three main card section titles should be visible
+    await expect(page.getByText('Upcoming Reservations', { exact: true })).toBeVisible({ timeout: 20000 });
+    await expect(page.getByText('Community Announcements', { exact: true })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('Community Events', { exact: true })).toBeVisible({ timeout: 5000 });
+  });
 });

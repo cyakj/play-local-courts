@@ -255,21 +255,7 @@ export default function ResidentHomeScreen() {
     <View style={styles.screen}>
       <Header variant="resident" />
 
-      {/* ── Hero greeting ──────────────────────────────────────────────── */}
-      <View style={styles.hero}>
-        <Text style={styles.welcomeTag}>WELCOME BACK</Text>
-        <Text style={styles.greetingText}>{greeting()}</Text>
-        <Text style={styles.firstName}>{firstName}</Text>
-        {hoaName ? (
-          <View style={styles.hoaRow}>
-            <Building2 color="rgba(0,212,255,0.7)" size={14} strokeWidth={1.5} />
-            <Text testID="hoa-name" style={styles.hoaName}>{hoaName}</Text>
-          </View>
-        ) : null}
-        <View style={styles.headerFade} />
-      </View>
-
-      {/* ── Body ───────────────────────────────────────────────────────── */}
+      {/* ── Body + hero (hero scrolls away) ───────────────────────────── */}
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={styles.body}
@@ -277,7 +263,21 @@ export default function ResidentHomeScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accentCyan} />
         }
         showsVerticalScrollIndicator={false}>
-        <View style={{ maxWidth: MaxWidth, width: '100%', alignSelf: 'center' }}>
+
+        {/* Hero greeting — inside scroll so it scrolls away */}
+        <View style={styles.hero}>
+          <Text style={styles.welcomeTag}>WELCOME BACK</Text>
+          <Text style={styles.greetingText}>{greeting()}</Text>
+          <Text style={styles.firstName}>{firstName}</Text>
+          {hoaName ? (
+            <View style={styles.hoaRow}>
+              <Building2 color="rgba(0,212,255,0.7)" size={14} strokeWidth={1.5} />
+              <Text testID="hoa-name" style={styles.hoaName}>{hoaName}</Text>
+            </View>
+          ) : null}
+        </View>
+
+        <View style={styles.cardsContainer}>
 
           {/* Admin cancellation banners */}
           {cancelledBookings
@@ -315,7 +315,7 @@ export default function ResidentHomeScreen() {
               <View style={styles.skeletonLine} />
             ) : upcomingBookings.length === 0 ? (
               <View style={styles.emptyState}>
-                <Calendar color={Colors.textMuted} size={36} strokeWidth={1.5} />
+                <Calendar color={Colors.textMuted} size={40} strokeWidth={1.75} />
                 <Text style={styles.emptyText}>No upcoming reservations</Text>
                 <TouchableOpacity style={styles.ctaPill} onPress={() => router.push('/(resident)/book')}>
                   <Text style={styles.ctaPillText}>Book an Amenity</Text>
@@ -343,17 +343,23 @@ export default function ResidentHomeScreen() {
           <View style={cardStyle}>
             <View style={styles.cardHeader}>
               <Text style={styles.cardTitle}>Community Announcements</Text>
+              <TouchableOpacity
+                testID="announcements-view-all"
+                onPress={() => router.push('/(resident)/calendar')}>
+                <Text style={styles.viewAll}>View All →</Text>
+              </TouchableOpacity>
             </View>
             {loading ? (
               <View style={styles.skeletonLine} />
             ) : announcements.length === 0 ? (
               <View style={styles.emptyState}>
-                <Megaphone color={Colors.textMuted} size={36} strokeWidth={1.5} />
+                <Megaphone color={Colors.textMuted} size={40} strokeWidth={1.75} />
                 <Text style={styles.emptyText}>No announcements yet</Text>
               </View>
             ) : (
               announcements.map((a, i) => {
                 const isExpanded = expandedAnnouncement === a.id;
+                const isSurveyResult = a.id.startsWith('survey-results-');
                 return (
                   <TouchableOpacity
                     key={a.id}
@@ -366,7 +372,18 @@ export default function ResidentHomeScreen() {
                       <Text style={styles.listRowSub} numberOfLines={isExpanded ? undefined : 1}>
                         {a.body}
                       </Text>
-                      <Text style={styles.timeAgo}>{timeAgo(a.created_at)}</Text>
+                      <View style={styles.announcementFooter}>
+                        <Text style={styles.timeAgo}>{timeAgo(a.created_at)}</Text>
+                        {isSurveyResult && (
+                          <TouchableOpacity
+                            testID="view-results-btn"
+                            style={styles.viewResultsPill}
+                            onPress={() => router.push('/(resident)/calendar')}
+                            hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+                            <Text style={styles.viewResultsPillText}>View Results →</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
                     </View>
                   </TouchableOpacity>
                 );
@@ -388,7 +405,7 @@ export default function ResidentHomeScreen() {
               <View style={styles.skeletonLine} />
             ) : events.length === 0 ? (
               <View style={styles.emptyState}>
-                <CalendarDays color={Colors.textMuted} size={36} strokeWidth={1.5} />
+                <CalendarDays color={Colors.textMuted} size={40} strokeWidth={1.75} />
                 <Text style={styles.emptyText}>No upcoming events</Text>
               </View>
             ) : (
@@ -463,14 +480,12 @@ export default function ResidentHomeScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.pageBg },
 
-  // Hero greeting (below shared Header)
+  // Hero greeting (inside ScrollView — scrolls away)
   hero: {
     backgroundColor: Colors.headerBg,
     paddingHorizontal: Spacing.pagePx,
     paddingTop: 8,
     paddingBottom: 28,
-    position: 'relative',
-    overflow: 'hidden',
   },
   welcomeTag: {
     fontFamily: FontFamily.interSemiBold,
@@ -502,19 +517,8 @@ const styles = StyleSheet.create({
     fontSize: FontSize.body,
     color: 'rgba(0,212,255,0.7)',
   },
-  headerFade: {
-    position: 'absolute',
-    bottom: -24,
-    left: 0,
-    right: 0,
-    height: 32,
-    // gradient not possible in RN without LinearGradient, so skip it
-  },
-
   // Body
   body: {
-    paddingHorizontal: Spacing.pagePx,
-    paddingTop: 24,
     paddingBottom: 100,
   },
 
@@ -540,7 +544,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontFamily: FontFamily.manropeExtraBold,
-    fontSize: FontSize.cardTitle,
+    fontSize: 19,
     color: Colors.navy,
   },
   viewAll: {
@@ -656,5 +660,32 @@ const styles = StyleSheet.create({
     height: 40,
     backgroundColor: Colors.pageBg,
     borderRadius: 8,
+  },
+
+  cardsContainer: {
+    maxWidth: MaxWidth,
+    width: '100%',
+    alignSelf: 'center',
+    paddingHorizontal: Spacing.pagePx,
+    paddingTop: 20,
+  },
+
+  announcementFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 3,
+  },
+
+  viewResultsPill: {
+    backgroundColor: Colors.accentCyan,
+    borderRadius: Radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  viewResultsPillText: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: 11,
+    color: Colors.navy,
   },
 });

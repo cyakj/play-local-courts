@@ -43,7 +43,7 @@ export function Header(props: HeaderProps) {
   if (props.variant === 'resident') {
     return (
       <View style={[styles.base, styles.residentBase, { paddingTop: topPad + 8 }]}>
-        <View style={styles.topBar}>
+        <View style={[styles.topBar, styles.residentTopBar]}>
           <View testID="tenisx-logo">
             <Image
               source={require('@/assets/images/TenisX_logo-removebg-preview.png')}
@@ -54,15 +54,17 @@ export function Header(props: HeaderProps) {
           <View style={styles.topBarRight}>
             <TouchableOpacity
               testID="bell-icon"
+              style={styles.iconBtn}
               onPress={props.onBell ?? (() => router.push('/notifications'))}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Bell color="#FFFFFF" size={22} strokeWidth={1.5} />
+              <Bell color="#FFFFFF" size={26} strokeWidth={1.5} />
             </TouchableOpacity>
             <TouchableOpacity
               testID="menu-icon"
+              style={styles.iconBtn}
               onPress={props.onMenu ?? (() => router.push('/settings'))}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Menu color="#FFFFFF" size={22} strokeWidth={1.5} />
+              <Menu color="#FFFFFF" size={26} strokeWidth={1.5} />
             </TouchableOpacity>
           </View>
         </View>
@@ -149,13 +151,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   residentBase: {
-    paddingBottom: 16,
-    minHeight: 64,
+    paddingBottom: 20,
+    minHeight: 80,
     justifyContent: 'flex-end',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  residentTopBar: {
+    marginBottom: 0,
   },
   residentLogo: {
-    height: 36,
-    width: 120,
+    height: 52,
+    width: 180,
   },
   logo: {
     fontFamily: FontFamily.manropeBlack,
