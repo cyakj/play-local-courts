@@ -44,7 +44,7 @@ export function Header(props: HeaderProps) {
     return (
       <View style={[styles.base, styles.residentBase, { paddingTop: topPad + 8 }]}>
         <View style={[styles.topBar, styles.residentTopBar]}>
-          <View testID="tenisx-logo">
+          <View testID="tenisx-logo" style={styles.residentLogoWrap}>
             <Image
               source={require('@/assets/images/TenisX_logo-removebg-preview.png')}
               style={styles.residentLogo}
@@ -151,6 +151,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   residentBase: {
+    paddingLeft: 8,
+    paddingRight: 16,
     paddingBottom: 18,
     minHeight: 88,
     justifyContent: 'flex-end',
@@ -165,9 +167,12 @@ const styles = StyleSheet.create({
   residentTopBar: {
     marginBottom: 0,
   },
+  residentLogoWrap: {
+    marginLeft: -6,
+  },
   residentLogo: {
-    height: 60,
-    width: 220,
+    height: 64,
+    width: 240,
   },
   logo: {
     fontFamily: FontFamily.manropeBlack,

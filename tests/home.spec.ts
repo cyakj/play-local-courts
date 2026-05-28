@@ -14,6 +14,16 @@ test.describe('Resident Home Screen', () => {
     await expect(page.locator('[data-testid="tenisx-logo"]').first()).toBeVisible({ timeout: 10000 });
   });
 
+  test('TenisX logo is large and starts close to the left edge', async ({ page }) => {
+    const logo = page.locator('[data-testid="tenisx-logo"]').first();
+    await expect(logo).toBeVisible({ timeout: 10000 });
+    const box = await logo.boundingBox();
+    // Logo should start within 20px of the left viewport edge
+    expect(box!.x).toBeLessThan(20);
+    // Logo rendered width should be at least 180px
+    expect(box!.width).toBeGreaterThan(180);
+  });
+
   test('bell icon is visible in header', async ({ page }) => {
     await expect(page.locator('[data-testid="bell-icon"]')).toBeVisible({ timeout: 10000 });
   });
