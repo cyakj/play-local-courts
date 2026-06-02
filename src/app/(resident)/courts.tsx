@@ -14,7 +14,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   MapPin, Clock, Sun, Cloud, CloudRain, Zap, X, ChevronRight,
-  CalendarDays, Check, ChevronDown, ChevronUp,
+  CalendarDays, Check, ChevronDown,
 } from 'lucide-react-native';
 import * as Location from 'expo-location';
 
@@ -941,7 +941,7 @@ function ScheduleSheet({ courtName, courtType, now, scheduleDate, onDateChange, 
   const START_HOUR = 7;
   const END_HOUR = 21;
   const dateLabel = scheduleDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
-  const [showMoreSchedDates, setShowMoreSchedDates] = useState(false);
+  const [showSchedDateDropdown, setShowSchedDateDropdown] = useState(false);
 
   const schedDateChips = useMemo(() => getAllowedBookingDates(rules, now, 3), [rules, now]);
   const primarySchedDates = schedDateChips.slice(0, 2);
@@ -987,75 +987,59 @@ function ScheduleSheet({ courtName, courtType, now, scheduleDate, onDateChange, 
           </View>
 
           {/* Date picker — same window as booking */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sheetDateScroll} contentContainerStyle={styles.sheetDateContent} testID="schedule-date-scroll">
-            {primarySchedDates.map((date, i) => {
-              const isSelected = date.toDateString() === scheduleDate.toDateString();
-              return (
-                <TouchableOpacity
-                  key={i === 0 ? 'sched-today' : 'sched-1'}
-                  testID={i === 0 ? 'sched-date-today' : 'sched-date-1'}
-                  style={[styles.sheetDateChip, isSelected && styles.sheetDateChipActive]}
-                  onPress={() => { onDateChange(date); setShowMoreSchedDates(false); }}
-                  activeOpacity={0.7}>
-                  <Text style={[styles.sheetDateChipText, isSelected && styles.sheetDateChipTextActive]}>
-                    {formatDateLabel(date, now)}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-            {moreSchedDates.length > 0 && !showMoreSchedDates && (
-              selectedMoreSchedDate ? (
-                <TouchableOpacity
-                  key="sched-selected-more"
-                  testID="sched-date-selected-more"
-                  style={[styles.sheetDateChip, styles.sheetDateChipActive]}
-                  onPress={() => setShowMoreSchedDates(true)}
-                  activeOpacity={0.7}>
-                  <Text style={[styles.sheetDateChipText, styles.sheetDateChipTextActive]}>
-                    {formatDateLabel(selectedMoreSchedDate, now)}
-                  </Text>
-                </TouchableOpacity>
-              ) : (
+          <View style={styles.dateRowContainer}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sheetDateScroll} contentContainerStyle={styles.sheetDateContent} testID="schedule-date-scroll">
+              {primarySchedDates.map((date, i) => {
+                const isSelected = date.toDateString() === scheduleDate.toDateString();
+                return (
+                  <TouchableOpacity
+                    key={i === 0 ? 'sched-today' : 'sched-1'}
+                    testID={i === 0 ? 'sched-date-today' : 'sched-date-1'}
+                    style={[styles.sheetDateChip, isSelected && styles.sheetDateChipActive]}
+                    onPress={() => { onDateChange(date); setShowSchedDateDropdown(false); }}
+                    activeOpacity={0.7}>
+                    <Text style={[styles.sheetDateChipText, isSelected && styles.sheetDateChipTextActive]}>
+                      {formatDateLabel(date, now)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+              {moreSchedDates.length > 0 && (
                 <TouchableOpacity
                   testID="sched-date-more"
-                  style={styles.sheetDateChip}
-                  onPress={() => setShowMoreSchedDates(true)}
+                  style={[styles.sheetDateChip, selectedMoreSchedDate ? styles.sheetDateChipActive : undefined]}
+                  onPress={() => setShowSchedDateDropdown(v => !v)}
                   activeOpacity={0.7}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <Text style={styles.sheetDateChipText}>More Dates</Text>
-                    <ChevronDown color={Colors.fg3} size={12} strokeWidth={1.5} />
+                    <Text style={[styles.sheetDateChipText, selectedMoreSchedDate ? styles.sheetDateChipTextActive : undefined]}>
+                      {selectedMoreSchedDate ? formatDateLabel(selectedMoreSchedDate, now) : 'More Dates'}
+                    </Text>
+                    <ChevronDown color={selectedMoreSchedDate ? Colors.white : Colors.fg3} size={12} strokeWidth={1.5} />
                   </View>
                 </TouchableOpacity>
-              )
+              )}
+            </ScrollView>
+            {showSchedDateDropdown && moreSchedDates.length > 0 && (
+              <View style={styles.dateDropdown} testID="sched-date-dropdown">
+                {moreSchedDates.map((date, i) => {
+                  const isSelected = date.toDateString() === scheduleDate.toDateString();
+                  return (
+                    <TouchableOpacity
+                      key={i}
+                      testID={`sched-date-${i + 2}`}
+                      style={[styles.dateDropdownItem, i < moreSchedDates.length - 1 && styles.dateDropdownItemBorder, isSelected && styles.dateDropdownItemActive]}
+                      onPress={() => { onDateChange(date); setShowSchedDateDropdown(false); }}
+                      activeOpacity={0.7}>
+                      <Text style={[styles.dateDropdownItemText, isSelected && styles.dateDropdownItemTextActive]}>
+                        {formatDateLabel(date, now)}
+                      </Text>
+                      {isSelected && <Check color={Colors.blue} size={14} strokeWidth={2} />}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             )}
-            {showMoreSchedDates && moreSchedDates.map((date, i) => {
-              const isSelected = date.toDateString() === scheduleDate.toDateString();
-              return (
-                <TouchableOpacity
-                  key={`sched-more-${i}`}
-                  testID={`sched-date-${i + 2}`}
-                  style={[styles.sheetDateChip, isSelected && styles.sheetDateChipActive]}
-                  onPress={() => { onDateChange(date); setShowMoreSchedDates(false); }}
-                  activeOpacity={0.7}>
-                  <Text style={[styles.sheetDateChipText, isSelected && styles.sheetDateChipTextActive]}>
-                    {formatDateLabel(date, now)}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-            {showMoreSchedDates && (
-              <TouchableOpacity
-                testID="sched-date-less"
-                style={styles.sheetDateChip}
-                onPress={() => setShowMoreSchedDates(false)}
-                activeOpacity={0.7}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Text style={styles.sheetDateChipText}>Less</Text>
-                  <ChevronUp color={Colors.fg3} size={12} strokeWidth={1.5} />
-                </View>
-              </TouchableOpacity>
-            )}
-          </ScrollView>
+          </View>
 
           {loading ? (
             <ActivityIndicator color={Colors.cyan} style={{ marginVertical: 24 }} />

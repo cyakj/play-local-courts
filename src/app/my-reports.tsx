@@ -37,8 +37,13 @@ type FilterVal = 'active' | 'all' | 'resolved';
 
 function getCategoryLabel(cat: string): string {
   const map: Record<string, string> = {
-    plumbing: 'Plumbing', electrical: 'Electrical', structural: 'Structural',
-    cleanliness: 'Cleanliness', equipment: 'Equipment', safety: 'Safety', other: 'Other',
+    plumbing:            'Water & Plumbing',
+    electrical:          'Lighting & Electrical',
+    structural:          'Buildings & Structures',
+    grounds_landscaping: 'Grounds & Landscaping',
+    equipment:           'Amenities & Equipment',
+    safety:              'Safety',
+    other:               'Other',
   };
   return map[cat] ?? cat.charAt(0).toUpperCase() + cat.slice(1);
 }
@@ -141,8 +146,9 @@ export default function MyReportsScreen() {
     <View style={styles.screen}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 8 }]}>
+        <Text style={styles.headerLabel}>MAINTENANCE</Text>
         <View style={styles.headerTopRow}>
-          <Text style={styles.headerTag}>REPORTS</Text>
+          <Text style={styles.headerTitle}>My Reports</Text>
           <TouchableOpacity
             style={styles.addBtn}
             onPress={() => router.push('/(resident)/report')}
@@ -150,7 +156,6 @@ export default function MyReportsScreen() {
             <Plus color={Colors.white} size={20} strokeWidth={2} />
           </TouchableOpacity>
         </View>
-        <Text style={styles.headerTitle}>My Reports</Text>
         <Text style={styles.headerSub}>Track and submit maintenance issues in your community.</Text>
       </View>
 
@@ -198,17 +203,25 @@ export default function MyReportsScreen() {
           ) : (
             filtered.map((r) => {
               const pill = getStatusPill(r.status);
+              const isActive = ACTIVE_STATUSES.includes(r.status);
               return (
                 <TouchableOpacity
                   key={r.id}
+                  testID="my-report-card"
                   style={styles.card}
-                  onPress={() => setSelectedReport(r)}
+                  onPress={() => router.push(`/report-detail/${r.id}` as any)}
                   activeOpacity={0.85}>
+                  {/* Left status accent bar */}
+                  <View style={[styles.cardAccentBar, { backgroundColor: pill.color }]} />
                   <View style={styles.cardMain}>
                     <View style={{ flex: 1, minWidth: 0 }}>
                       <Text style={styles.cardTitle} numberOfLines={1}>{getReportTitle(r)}</Text>
                       <View style={styles.pillRow}>
-                        <View style={[styles.statusPill, { backgroundColor: pill.bg }]}>
+                        <View style={[styles.statusPill, {
+                          backgroundColor: pill.bg,
+                          borderWidth: 1,
+                          borderColor: pill.color + '40',
+                        }]}>
                           <Text style={[styles.statusPillText, { color: pill.color }]}>{pill.label}</Text>
                         </View>
                         <View style={styles.catPill}>
@@ -217,7 +230,7 @@ export default function MyReportsScreen() {
                       </View>
                       <Text style={styles.cardDesc} numberOfLines={2}>{r.description}</Text>
                       <View style={styles.dateRow}>
-                        <Calendar color="#4B5563" size={12} strokeWidth={1.5} />
+                        <Calendar color="#4B5563" size={12} strokeWidth={2} />
                         <Text style={styles.dateText}>{fmtDate(r.created_at)}</Text>
                       </View>
                       {r.admin_notes && (
@@ -229,7 +242,7 @@ export default function MyReportsScreen() {
                         </View>
                       )}
                     </View>
-                    <ChevronRight color={Colors.textMuted} size={16} strokeWidth={1.5} />
+                    <ChevronRight color={Colors.textMuted} size={16} strokeWidth={2} />
                   </View>
                 </TouchableOpacity>
               );
@@ -312,21 +325,21 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: Colors.navy,
     paddingHorizontal: Spacing.pagePx,
-    paddingBottom: 20,
+    paddingBottom: 24,
     overflow: 'hidden',
+  },
+  headerLabel: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: 11,
+    color: Colors.accentCyan,
+    letterSpacing: 2.2,
+    marginBottom: 6,
   },
   headerTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  headerTag: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: 13,
-    color: Colors.accentCyan,
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
+    marginBottom: 10,
   },
   addBtn: {
     width: 40,
@@ -335,6 +348,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.accentCyan,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   headerTitle: {
     fontFamily: FontFamily.manropeBlack,
@@ -342,12 +356,13 @@ const styles = StyleSheet.create({
     color: Colors.white,
     lineHeight: 36,
     letterSpacing: -0.5,
+    flex: 1,
   },
   headerSub: {
     fontFamily: FontFamily.interRegular,
     fontSize: 15,
-    color: 'rgba(255,255,255,0.9)',
-    marginTop: 12,
+    color: 'rgba(255,255,255,0.75)',
+    marginTop: 4,
     lineHeight: 22,
   },
 
@@ -360,7 +375,7 @@ const styles = StyleSheet.create({
   },
   chipContent: { gap: 8 },
   chip: {
-    borderRadius: Radius.pill,
+    borderRadius: Radius.chip,
     borderWidth: 1,
     borderColor: '#E5E7EB',
     paddingHorizontal: 16,
@@ -407,17 +422,27 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: Colors.white,
     borderRadius: 16,
-    padding: 16,
+    paddingVertical: 16,
+    paddingRight: 16,
+    paddingLeft: 0,
     borderWidth: 1,
     borderColor: Colors.border,
+    overflow: 'hidden',
     ...Shadow,
   },
-  cardMain: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  cardAccentBar: {
+    width: 4,
+    alignSelf: 'stretch',
+    flexShrink: 0,
+    borderRadius: 0,
+  },
+  cardMain: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingLeft: 12 },
   cardTitle: {
     fontFamily: FontFamily.manropeExtraBold,
     fontSize: 16,
     color: Colors.navy,
     marginBottom: 6,
+    letterSpacing: -0.2,
   },
   pillRow: { flexDirection: 'row', gap: 8, marginBottom: 8, flexWrap: 'wrap', alignItems: 'center' },
   statusPill: { borderRadius: 99, paddingHorizontal: 8, paddingVertical: 2 },

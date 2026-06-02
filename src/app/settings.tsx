@@ -3,13 +3,14 @@ import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  ArrowLeft, Bell, ChevronRight, LifeBuoy, Lock, Shield,
+  ArrowLeft, Bell, ChevronRight, LifeBuoy, Lock, Shield, Sun, Moon,
 } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import {
   Colors, FontFamily, FontSize, MaxWidth, Radius, Shadow, Spacing,
 } from '@/constants/design';
+import { useTheme } from '@/context/ThemeContext';
 
 interface Profile {
   full_name: string | null;
@@ -32,6 +33,7 @@ function getInitials(name: string): string {
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
+  const { mode, theme, setTheme } = useTheme();
   const [profile, setProfile] = useState<Profile>({ full_name: null, email: null });
   const [memberships, setMemberships] = useState<Membership[]>([]);
 
@@ -90,7 +92,7 @@ export default function SettingsScreen() {
   ];
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { backgroundColor: theme.pageBg }]}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 8 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
@@ -104,13 +106,13 @@ export default function SettingsScreen() {
         <View style={{ maxWidth: MaxWidth, width: '100%', alignSelf: 'center' }}>
 
           {/* Profile card */}
-          <View style={styles.profileCard}>
+          <View style={[styles.profileCard, { backgroundColor: theme.cardBg }]}>
             <View style={styles.avatarRow}>
               <View style={styles.avatar}>
                 <Text style={styles.avatarText}>{initials}</Text>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.profileName}>{name}</Text>
+                <Text style={[styles.profileName, { color: theme.textPrimary }]}>{name}</Text>
                 {activeHOA && (
                   <Text style={styles.profileHoa}>{activeHOA.hoa_name}</Text>
                 )}
@@ -125,8 +127,8 @@ export default function SettingsScreen() {
           </View>
 
           {/* My Communities */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>My Communities</Text>
+          <View style={[styles.card, { backgroundColor: theme.cardBg }]}>
+            <Text style={[styles.cardTitle, { color: theme.textPrimary }]}>My Communities</Text>
             {activeMemberships.map((m, i) => (
               <View key={m.id}>
                 {i > 0 && <View style={styles.divider} />}
@@ -167,8 +169,37 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* Appearance */}
+          <View style={[styles.card, { backgroundColor: theme.cardBg }]}>
+            <Text style={[styles.cardTitle, { color: theme.textPrimary }]}>
+              <Text style={styles.appearanceEyebrow}>APPEARANCE</Text>
+            </Text>
+            <View testID="theme-toggle" style={[styles.segmentedControl, { backgroundColor: theme.surface2 }]}>
+              <TouchableOpacity
+                testID="theme-light"
+                style={[styles.segment, mode === 'light' && styles.segmentActive]}
+                onPress={() => setTheme('light')}
+                activeOpacity={0.8}>
+                <Sun color={mode === 'light' ? Colors.white : theme.textMuted} size={14} strokeWidth={1.5} />
+                <Text style={[styles.segmentLabel, mode === 'light' && styles.segmentLabelActive, { color: mode === 'light' ? Colors.white : theme.textMuted }]}>
+                  Light
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                testID="theme-dark"
+                style={[styles.segment, mode === 'dark' && styles.segmentActive]}
+                onPress={() => setTheme('dark')}
+                activeOpacity={0.8}>
+                <Moon color={mode === 'dark' ? Colors.white : theme.textMuted} size={14} strokeWidth={1.5} />
+                <Text style={[styles.segmentLabel, mode === 'dark' && styles.segmentLabelActive, { color: mode === 'dark' ? Colors.white : theme.textMuted }]}>
+                  Dark
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
           {/* Settings links */}
-          <View style={styles.card}>
+          <View style={[styles.card, { backgroundColor: theme.cardBg }]}>
             {settingsLinks.map(({ icon: Icon, label, desc }, i) => (
               <View key={label}>
                 {i > 0 && <View style={styles.divider} />}
@@ -177,7 +208,7 @@ export default function SettingsScreen() {
                     <Icon color={Colors.textMuted} size={16} strokeWidth={1.5} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.linkLabel}>{label}</Text>
+                    <Text style={[styles.linkLabel, { color: theme.textPrimary }]}>{label}</Text>
                     <Text style={styles.linkDesc}>{desc}</Text>
                   </View>
                   <ChevronRight color={Colors.textMuted} size={16} strokeWidth={1.5} />
@@ -198,7 +229,7 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.pageBg },
+  screen: { flex: 1 },
 
   header: {
     backgroundColor: Colors.navy,
@@ -214,7 +245,7 @@ const styles = StyleSheet.create({
   content: { padding: Spacing.pagePx, paddingBottom: 60, gap: 16 },
 
   profileCard: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.cardBg, // overridden inline with theme.cardBg
     borderRadius: Radius.card,
     padding: 20,
     ...Shadow,
@@ -246,7 +277,7 @@ const styles = StyleSheet.create({
   editProfileLabel: { fontFamily: FontFamily.interSemiBold, fontSize: 13, color: Colors.white },
 
   card: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.cardBg, // overridden inline with theme.cardBg
     borderRadius: Radius.card,
     overflow: 'hidden',
     ...Shadow,
@@ -309,4 +340,38 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(239,68,68,0.13)',
   },
   signOutText: { fontFamily: FontFamily.manropeExtraBold, fontSize: 15, color: Colors.red },
+
+  // Appearance segmented control
+  appearanceEyebrow: {
+    fontFamily: FontFamily.jetbrainsMonoSemiBold,
+    fontSize: FontSize.eyebrow,
+    color: Colors.cyan,
+    letterSpacing: 1.8,
+  },
+  segmentedControl: {
+    flexDirection: 'row',
+    borderRadius: 14,
+    padding: 3,
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  segment: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 40,
+    borderRadius: 11,
+  },
+  segmentActive: {
+    backgroundColor: Colors.blue,
+  },
+  segmentLabel: {
+    fontFamily: FontFamily.manropeSemiBold,
+    fontSize: FontSize.label,
+  },
+  segmentLabelActive: {
+    color: Colors.white,
+  },
 });

@@ -237,7 +237,6 @@ export default function ResidentCalendarScreen() {
 
       {/* ── Hero ──────────────────────────────────────────────────────────── */}
       <View style={styles.hero}>
-        <Text style={styles.heroLabel}>SCHEDULE</Text>
         <Text testID="calendar-heading" style={styles.heroTitle}>Calendar</Text>
         <Text testID="month-label" style={styles.heroSub}>{displayMonthLabel}</Text>
       </View>
@@ -532,15 +531,8 @@ const styles = StyleSheet.create({
   hero: {
     backgroundColor: Colors.headerBg,
     paddingHorizontal: Spacing.pagePx,
-    paddingTop: 8,
+    paddingTop: 16,
     paddingBottom: 24,
-  },
-  heroLabel: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: FontSize.metadata,
-    color: Colors.accentCyan,
-    letterSpacing: 2.2,
-    marginBottom: 4,
   },
   heroTitle: {
     fontFamily: FontFamily.manropeBlack,
@@ -551,7 +543,7 @@ const styles = StyleSheet.create({
   heroSub: {
     fontFamily: FontFamily.interRegular,
     fontSize: FontSize.body,
-    color: 'rgba(0,212,255,0.7)',
+    color: 'rgba(255,255,255,0.75)',
     marginTop: 6,
   },
 
@@ -560,37 +552,38 @@ const styles = StyleSheet.create({
   topRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   communityChips: { gap: 8, paddingRight: 4 },
   commChip: {
-    borderRadius: Radius.pill,
+    borderRadius: Radius.chip,
     borderWidth: 1,
     borderColor: Colors.border,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     backgroundColor: Colors.cardBg,
-    minHeight: 34,
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   commChipActive: { backgroundColor: Colors.navy, borderColor: Colors.navy },
-  commChipLabel: { fontFamily: FontFamily.interSemiBold, fontSize: 12, color: Colors.textMuted },
+  commChipLabel: { fontFamily: FontFamily.interSemiBold, fontSize: 13, color: Colors.textMuted },
   commChipLabelActive: { color: Colors.white },
 
   viewToggle: {
     flexDirection: 'row',
-    borderRadius: 99,
+    borderRadius: 14,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: Colors.border,
     flexShrink: 0,
   },
   viewToggleBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
     backgroundColor: Colors.cardBg,
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 44,
   },
   viewToggleBtnActive: { backgroundColor: Colors.navy },
-  viewToggleBtnLabel: { fontFamily: FontFamily.interSemiBold, fontSize: 10, color: Colors.textMuted },
+  viewToggleBtnLabel: { fontFamily: FontFamily.interSemiBold, fontSize: 13, color: Colors.textMuted },
   viewToggleBtnLabelActive: { color: Colors.white },
 
   calCard: {
@@ -650,32 +643,32 @@ const styles = StyleSheet.create({
 
   typeChips: { gap: 8, paddingBottom: 2 },
   typeChip: {
-    borderRadius: Radius.pill,
+    borderRadius: Radius.chip,
     borderWidth: 1,
     borderColor: Colors.border,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     backgroundColor: Colors.cardBg,
-    minHeight: 34,
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   typeChipActive: { backgroundColor: Colors.navy, borderColor: Colors.navy },
-  typeChipLabel: { fontFamily: FontFamily.interSemiBold, fontSize: 12, color: Colors.textMuted },
+  typeChipLabel: { fontFamily: FontFamily.interSemiBold, fontSize: 13, color: Colors.textMuted },
   typeChipLabelActive: { color: Colors.white },
 
-  legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  legendDot: { width: 10, height: 10, borderRadius: 5 },
-  legendLabel: { fontFamily: FontFamily.interRegular, fontSize: 12, color: '#4B5563' },
+  legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  legendDot: { width: 12, height: 12, borderRadius: 6 },
+  legendLabel: { fontFamily: FontFamily.interRegular, fontSize: 14, color: '#4B5563' },
 
   dayEventsTitle: {
     fontFamily: FontFamily.manropeBold,
-    fontSize: 13,
+    fontSize: 16,
     color: Colors.navy,
-    letterSpacing: 1,
-    marginTop: 4,
-    marginBottom: 8,
+    letterSpacing: 0.5,
+    marginTop: 12,
+    marginBottom: 12,
   },
   loadingRow: { alignItems: 'center', paddingVertical: 32 },
   spinner: {
