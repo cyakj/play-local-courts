@@ -735,7 +735,7 @@ const BookingSheet = memo(function BookingSheet({
   const { theme } = useTheme();
   const styles = useStyles(theme);
   const outdoor = isOutdoor(courtType);
-  const [showMoreDates, setShowMoreDates] = useState(false);
+  const [showDateDropdown, setShowDateDropdown] = useState(false);
 
   // minDays=3 ensures Today + Tomorrow + "More Dates" always appear even if rules restrict booking window
   const allDateChips = useMemo(() => getAllowedBookingDates(rules, now, 3), [rules, now]);
@@ -763,7 +763,7 @@ const BookingSheet = memo(function BookingSheet({
         key={testId}
         testID={testId}
         style={[styles.sheetDateChip, isSelected && styles.sheetDateChipActive]}
-        onPress={() => { onSheetDateChange(date); setShowMoreDates(false); }}
+        onPress={() => { onSheetDateChange(date); setShowDateDropdown(false); }}
         activeOpacity={0.7}>
         <Text style={[styles.sheetDateChipText, isSelected && styles.sheetDateChipTextActive]}>
           {formatDateLabel(date, now)}
@@ -789,46 +789,48 @@ const BookingSheet = memo(function BookingSheet({
             </TouchableOpacity>
           </View>
 
-          {/* Date: Today · Tomorrow · More Dates ▼ */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sheetDateScroll} contentContainerStyle={styles.sheetDateContent} testID="sheet-date-scroll">
-            {primaryDates.map((date, i) =>
-              renderDateChip(date, i === 0 ? 'sheet-date-today' : 'sheet-date-1')
+          {/* Date: Today · Tomorrow · More Dates ▼ (dropdown) */}
+          <View style={styles.dateRowContainer}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sheetDateScroll} contentContainerStyle={styles.sheetDateContent} testID="sheet-date-scroll">
+              {primaryDates.map((date, i) =>
+                renderDateChip(date, i === 0 ? 'sheet-date-today' : 'sheet-date-1')
+              )}
+              {moreDates.length > 0 && (
+                <TouchableOpacity
+                  testID="sheet-date-more"
+                  style={[styles.sheetDateChip, selectedMoreDate ? styles.sheetDateChipActive : undefined]}
+                  onPress={() => setShowDateDropdown(v => !v)}
+                  activeOpacity={0.7}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Text style={[styles.sheetDateChipText, selectedMoreDate ? styles.sheetDateChipTextActive : undefined]}>
+                      {selectedMoreDate ? formatDateLabel(selectedMoreDate, now) : 'More Dates'}
+                    </Text>
+                    <ChevronDown color={selectedMoreDate ? Colors.white : Colors.fg3} size={12} strokeWidth={1.5} />
+                  </View>
+                </TouchableOpacity>
+              )}
+            </ScrollView>
+            {showDateDropdown && moreDates.length > 0 && (
+              <View style={styles.dateDropdown} testID="sheet-date-dropdown">
+                {moreDates.map((date, i) => {
+                  const isSelected = date.toDateString() === sheetDate.toDateString();
+                  return (
+                    <TouchableOpacity
+                      key={i}
+                      testID={`sheet-date-${i + 2}`}
+                      style={[styles.dateDropdownItem, i < moreDates.length - 1 && styles.dateDropdownItemBorder, isSelected && styles.dateDropdownItemActive]}
+                      onPress={() => { onSheetDateChange(date); setShowDateDropdown(false); }}
+                      activeOpacity={0.7}>
+                      <Text style={[styles.dateDropdownItemText, isSelected && styles.dateDropdownItemTextActive]}>
+                        {formatDateLabel(date, now)}
+                      </Text>
+                      {isSelected && <Check color={Colors.blue} size={14} strokeWidth={2} />}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             )}
-
-            {moreDates.length > 0 && !showMoreDates && (
-              selectedMoreDate
-                ? renderDateChip(selectedMoreDate, 'sheet-date-selected-more')
-                : (
-                  <TouchableOpacity
-                    testID="sheet-date-more"
-                    style={styles.sheetDateChip}
-                    onPress={() => setShowMoreDates(true)}
-                    activeOpacity={0.7}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <Text style={styles.sheetDateChipText}>More Dates</Text>
-                      <ChevronDown color={Colors.fg3} size={12} strokeWidth={1.5} />
-                    </View>
-                  </TouchableOpacity>
-                )
-            )}
-
-            {showMoreDates && moreDates.map((date, i) =>
-              renderDateChip(date, `sheet-date-${i + 2}`)
-            )}
-
-            {showMoreDates && (
-              <TouchableOpacity
-                testID="sheet-date-less"
-                style={styles.sheetDateChip}
-                onPress={() => setShowMoreDates(false)}
-                activeOpacity={0.7}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Text style={styles.sheetDateChipText}>Less</Text>
-                  <ChevronUp color={Colors.fg3} size={12} strokeWidth={1.5} />
-                </View>
-              </TouchableOpacity>
-            )}
-          </ScrollView>
+          </View>
 
           {/* Conditions for selected date (outdoor only) */}
           {outdoor && sheetPlayability && (
@@ -1178,12 +1180,32 @@ function useStyles(theme: ThemeTokens) {
   sheetCloseBtn: { width: 36, height: 36, backgroundColor: theme.surface2, borderRadius: Radius.sm, alignItems: 'center', justifyContent: 'center' },
 
   // Date chips
-  sheetDateScroll: { minHeight: 50, marginBottom: 8 },
+  sheetDateScroll: { minHeight: 50 },
   sheetDateContent: { gap: 8, alignItems: 'center', paddingVertical: 6 },
   sheetDateChip: { height: 40, alignSelf: 'center', paddingHorizontal: 16, borderRadius: Radius.chip, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surface2, alignItems: 'center', justifyContent: 'center' },
   sheetDateChipActive: { backgroundColor: Colors.blue, borderColor: Colors.blue },
   sheetDateChipText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 13, color: theme.textSecondary },
   sheetDateChipTextActive: { color: Colors.white },
+  dateRowContainer: { marginBottom: 8 },
+  dateDropdown: {
+    backgroundColor: theme.cardBg,
+    borderRadius: Radius.chip,
+    borderWidth: 1,
+    borderColor: theme.border,
+    marginTop: 4,
+    overflow: 'hidden',
+  },
+  dateDropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  dateDropdownItemBorder: { borderBottomWidth: 1, borderBottomColor: theme.border },
+  dateDropdownItemActive: { backgroundColor: 'rgba(45,107,255,0.10)' },
+  dateDropdownItemText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 14, color: theme.textSecondary },
+  dateDropdownItemTextActive: { color: Colors.blue },
 
   sheetConditionsRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: theme.surface2, borderRadius: Radius.sm },
   sheetConditionsText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 13 },
