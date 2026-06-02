@@ -1180,7 +1180,7 @@ function useStyles(theme: ThemeTokens) {
   // Date chips
   sheetDateScroll: { minHeight: 50, marginBottom: 8 },
   sheetDateContent: { gap: 8, alignItems: 'center', paddingVertical: 6 },
-  sheetDateChip: { height: 40, alignSelf: 'center', paddingHorizontal: 12, borderRadius: Radius.pill, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surface2, alignItems: 'center', justifyContent: 'center' },
+  sheetDateChip: { height: 40, alignSelf: 'center', paddingHorizontal: 16, borderRadius: Radius.chip, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surface2, alignItems: 'center', justifyContent: 'center' },
   sheetDateChipActive: { backgroundColor: Colors.blue, borderColor: Colors.blue },
   sheetDateChipText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 13, color: theme.textSecondary },
   sheetDateChipTextActive: { color: Colors.white },
@@ -1191,14 +1191,14 @@ function useStyles(theme: ThemeTokens) {
 
   // Play type
   playTypeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  playTypeChip: { height: 36, paddingHorizontal: 16, borderRadius: Radius.pill, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surface2, alignItems: 'center', justifyContent: 'center' },
+  playTypeChip: { height: 40, paddingHorizontal: 16, borderRadius: Radius.chip, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surface2, alignItems: 'center', justifyContent: 'center' },
   playTypeChipActive: { backgroundColor: Colors.blue, borderColor: Colors.blue },
   playTypeText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 13, color: theme.textSecondary },
   playTypeTextActive: { color: Colors.white },
 
   // Duration selector
   durationRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
-  durationChip: { height: 36, paddingHorizontal: 14, borderRadius: Radius.pill, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surface2, alignItems: 'center', justifyContent: 'center' },
+  durationChip: { height: 40, paddingHorizontal: 16, borderRadius: Radius.chip, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surface2, alignItems: 'center', justifyContent: 'center' },
   durationChipActive: { backgroundColor: 'rgba(45,224,255,0.12)', borderColor: Colors.cyan },
   durationChipText: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: 12, color: theme.textSecondary, letterSpacing: 0.3 },
   durationChipTextActive: { color: Colors.cyan },
