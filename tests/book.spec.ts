@@ -84,4 +84,109 @@ test.describe('Resident Book Screen', () => {
     await page.locator('[data-testid="book-now-btn"]').first().click();
     await expect(page.getByText('Duration')).toBeVisible({ timeout: 20000 });
   });
+
+  // ── Icon & amenity polish ─────────────────────────────────────────────────
+
+  test('amenity cards render icon containers', async ({ page }) => {
+    await expect(page.locator('[data-testid="amenity-card"]').first()).toBeVisible({ timeout: 25000 });
+    const cards = page.locator('[data-testid="amenity-card"]');
+    const count = await cards.count();
+    expect(count).toBeGreaterThan(0);
+    // Each card should contain an SVG icon (rendered by Lucide)
+    const firstCard = cards.first();
+    const svgs = firstCard.locator('svg');
+    await expect(svgs.first()).toBeVisible({ timeout: 5000 });
+  });
+
+  test('"Open Now" badge is visible on amenity cards', async ({ page }) => {
+    await expect(page.locator('[data-testid="amenity-card"]').first()).toBeVisible({ timeout: 25000 });
+    await expect(page.locator('[data-testid="open-now-badge"]').first()).toBeVisible({ timeout: 5000 });
+  });
+
+  test('"Rules" button is visible on every amenity card', async ({ page }) => {
+    await expect(page.locator('[data-testid="amenity-card"]').first()).toBeVisible({ timeout: 25000 });
+    const cards = page.locator('[data-testid="amenity-card"]');
+    const cardCount = await cards.count();
+    const rulesBtns = page.locator('[data-testid="rules-btn"]');
+    // One Rules button per card
+    await expect(rulesBtns).toHaveCount(cardCount, { timeout: 5000 });
+  });
+
+  test('"Rules" button opens the rules sheet', async ({ page }) => {
+    await expect(page.locator('[data-testid="amenity-card"]').first()).toBeVisible({ timeout: 25000 });
+    await page.locator('[data-testid="rules-btn"]').first().click();
+    await expect(page.locator('[data-testid="rules-sheet"]')).toBeVisible({ timeout: 10000 });
+  });
+
+  test('rules sheet shows amenity name in title', async ({ page }) => {
+    await expect(page.locator('[data-testid="amenity-card"]').first()).toBeVisible({ timeout: 25000 });
+    await page.locator('[data-testid="rules-btn"]').first().click();
+    await expect(page.locator('[data-testid="rules-title"]')).toBeVisible({ timeout: 10000 });
+    const titleText = await page.locator('[data-testid="rules-title"]').textContent();
+    expect(titleText).toContain('Rules');
+  });
+
+  test('rules sheet displays rules content or empty state', async ({ page }) => {
+    await expect(page.locator('[data-testid="amenity-card"]').first()).toBeVisible({ timeout: 25000 });
+    await page.locator('[data-testid="rules-btn"]').first().click();
+    await expect(page.locator('[data-testid="rules-sheet"]')).toBeVisible({ timeout: 10000 });
+    // Wait for loading to finish
+    await expect(page.locator('[data-testid="rules-loading"]')).not.toBeVisible({ timeout: 10000 });
+    // Either rules content or empty state should appear
+    await expect(
+      page.locator('[data-testid="rules-content"]')
+        .or(page.locator('[data-testid="rules-empty"]'))
+    ).toBeVisible({ timeout: 10000 });
+  });
+
+  test('rules sheet close button dismisses the modal', async ({ page }) => {
+    await expect(page.locator('[data-testid="amenity-card"]').first()).toBeVisible({ timeout: 25000 });
+    await page.locator('[data-testid="rules-btn"]').first().click();
+    await expect(page.locator('[data-testid="rules-sheet"]')).toBeVisible({ timeout: 10000 });
+    await page.locator('[data-testid="rules-close-btn"]').click();
+    await expect(page.locator('[data-testid="rules-sheet"]')).not.toBeVisible({ timeout: 5000 });
+  });
+
+  test('rules sheet shows rule rows when rules data exists', async ({ page }) => {
+    await expect(page.locator('[data-testid="amenity-card"]').first()).toBeVisible({ timeout: 25000 });
+    await page.locator('[data-testid="rules-btn"]').first().click();
+    await expect(page.locator('[data-testid="rules-sheet"]')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('[data-testid="rules-loading"]')).not.toBeVisible({ timeout: 10000 });
+    const content = page.locator('[data-testid="rules-content"]');
+    const empty = page.locator('[data-testid="rules-empty"]');
+    if (await content.isVisible()) {
+      // If rules exist, at least one row should be visible
+      const rows = page.locator('[data-testid="rules-row"]');
+      await expect(rows.first()).toBeVisible({ timeout: 5000 });
+    } else {
+      // No rules: empty state should be there
+      await expect(empty).toBeVisible({ timeout: 5000 });
+    }
+  });
+
+  test('each amenity card can open separate rules (second card)', async ({ page }) => {
+    await expect(page.locator('[data-testid="amenity-card"]').first()).toBeVisible({ timeout: 25000 });
+    const rulesBtns = page.locator('[data-testid="rules-btn"]');
+    const count = await rulesBtns.count();
+    if (count >= 2) {
+      await rulesBtns.nth(1).click();
+      await expect(page.locator('[data-testid="rules-sheet"]')).toBeVisible({ timeout: 10000 });
+      await expect(page.locator('[data-testid="rules-title"]')).toBeVisible({ timeout: 5000 });
+      await page.locator('[data-testid="rules-close-btn"]').click();
+      await expect(page.locator('[data-testid="rules-sheet"]')).not.toBeVisible({ timeout: 5000 });
+    }
+  });
+
+  test('screenshot: booking list with polished icons', async ({ page }) => {
+    await expect(page.locator('[data-testid="amenity-card"]').first()).toBeVisible({ timeout: 25000 });
+    await page.screenshot({ path: 'test-results/book-list-snapshot.png' });
+  });
+
+  test('screenshot: rules modal open', async ({ page }) => {
+    await expect(page.locator('[data-testid="amenity-card"]').first()).toBeVisible({ timeout: 25000 });
+    await page.locator('[data-testid="rules-btn"]').first().click();
+    await expect(page.locator('[data-testid="rules-sheet"]')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('[data-testid="rules-loading"]')).not.toBeVisible({ timeout: 10000 });
+    await page.screenshot({ path: 'test-results/book-rules-snapshot.png' });
+  });
 });

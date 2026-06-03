@@ -12,7 +12,7 @@ import { Header } from '@/components/ui/Header';
 
 import { supabase } from '@/lib/supabase';
 import {
-  Colors, FontFamily, FontSize, MaxWidth, Radius, Shadow, Spacing,
+  Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing,
 } from '@/constants/design';
 
 const EVENT_TYPE_CONFIG: Record<string, { color: string; label: string }> = {
@@ -591,8 +591,12 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(15,31,61,0.06)',
-    ...Shadow,
+    borderColor: 'rgba(15,31,61,0.10)',
+    shadowColor: '#0C1A3A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.10,
+    shadowRadius: 16,
+    elevation: 4,
   },
   calNav: {
     flexDirection: 'row',
@@ -627,13 +631,13 @@ const styles = StyleSheet.create({
   dayCellSelected: {
     backgroundColor: Colors.navy,
     borderWidth: 2,
-    borderColor: Colors.accentCyan,
+    borderColor: Colors.blue,
   },
-  dayCellToday: { backgroundColor: 'rgba(0,212,255,0.1)' },
+  dayCellToday: { backgroundColor: 'rgba(45,107,255,0.10)' },
   dayNum: { fontFamily: FontFamily.manropeBold, fontSize: 16, color: Colors.textPrimary },
   dayNumOther: { color: '#D1D5DB' },
   dayNumSelected: { color: Colors.white },
-  dayNumToday: { color: Colors.accentCyan },
+  dayNumToday: { color: Colors.blue },
   dotRow: { flexDirection: 'row', gap: 3, marginTop: 2, height: 6 },
   dot: { width: 6, height: 6, borderRadius: 3 },
 
@@ -674,8 +678,8 @@ const styles = StyleSheet.create({
   spinner: {
     width: 32, height: 32, borderRadius: 16,
     borderWidth: 2,
-    borderColor: 'rgba(0,212,255,0.2)',
-    borderTopColor: Colors.accentCyan,
+    borderColor: 'rgba(45,107,255,0.2)',
+    borderTopColor: Colors.blue,
   },
   noEvents: {
     textAlign: 'center',
@@ -693,7 +697,11 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 16,
     marginBottom: 8,
-    ...Shadow,
+    shadowColor: '#0C1A3A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    elevation: 2,
   },
   eventBar: { width: 4, borderRadius: 4, minHeight: 50 },
   eventTitle: { fontFamily: FontFamily.manropeBold, fontSize: 15, color: Colors.navy },

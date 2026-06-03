@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Home, CalendarDays, Wrench, Calendar, FileText } from 'lucide-react-native';
+import { Home, MapPin, Swords, GraduationCap, UserCircle } from 'lucide-react-native';
 import { BottomNav } from '@/components/ui/BottomNav';
 
 export default function ResidentLayout() {
@@ -15,33 +15,38 @@ export default function ResidentLayout() {
         }}
       />
       <Tabs.Screen
-        name="book"
+        name="courts"
         options={{
-          title: 'Book',
-          tabBarIcon: ({ color, size }) => <CalendarDays color={color} size={size} strokeWidth={1.5} />,
+          title: 'Courts',
+          tabBarIcon: ({ color, size }) => <MapPin color={color} size={size} strokeWidth={1.5} />,
         }}
       />
       <Tabs.Screen
-        name="report"
+        name="match"
         options={{
-          title: 'Reports',
-          tabBarIcon: ({ color, size }) => <Wrench color={color} size={size} strokeWidth={1.5} />,
+          title: 'Match',
+          tabBarIcon: ({ color, size }) => <Swords color={color} size={size} strokeWidth={1.5} />,
         }}
       />
       <Tabs.Screen
-        name="calendar"
+        name="coaches"
         options={{
-          title: 'Calendar',
-          tabBarIcon: ({ color, size }) => <Calendar color={color} size={size} strokeWidth={1.5} />,
+          title: 'Coaches',
+          tabBarIcon: ({ color, size }) => <GraduationCap color={color} size={size} strokeWidth={1.5} />,
         }}
       />
       <Tabs.Screen
-        name="docs"
+        name="me"
         options={{
-          title: 'Docs',
-          tabBarIcon: ({ color, size }) => <FileText color={color} size={size} strokeWidth={1.5} />,
+          title: 'Me',
+          tabBarIcon: ({ color, size }) => <UserCircle color={color} size={size} strokeWidth={1.5} />,
         }}
       />
+      {/* Legacy routes — routable but not tab items */}
+      <Tabs.Screen name="book"     options={{ href: null }} />
+      <Tabs.Screen name="report"   options={{ href: null }} />
+      <Tabs.Screen name="calendar" options={{ href: null }} />
+      <Tabs.Screen name="docs"     options={{ href: null }} />
     </Tabs>
   );
 }

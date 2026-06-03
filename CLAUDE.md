@@ -8,8 +8,9 @@ Target: App Store launch end of April 2026.
 - **App name:** TenisX
 - **Domain:** tenisx.ai
 - **Logo:** `/public/images/TenisX_logo-removebg-preview.png`
-- **Dark mode:** DISABLED — light-only app, never use `dark:` Tailwind variants
-- **Design spec:** All visual decisions live in DESIGN.md
+- **Theme:** Dark-first — the canvas is midnight navy (`#0C0F18`), never white or light gray
+- **Design spec:** `DESIGN.md` — authoritative source for all visual decisions
+- **Brand spec:** `BRAND.md` — identity, voice, logo guidance, color meaning
 
 ## Commands
 
@@ -50,9 +51,9 @@ New HOA members start as `pending` until admin approves them.
 Use `@/` to import from `src/`
 
 ### Tailwind Usage
-- Always use inline hex for brand colors: `bg-[#0F1F3D]`, `text-[#00D4FF]`, `border-[rgba(15,31,61,0.08)]`
+- Always use inline hex for brand colors: `bg-[#0C0F18]`, `text-[#2DE0FF]`, `border-[#232838]`
 - **NEVER** use `cm-*` Tailwind tokens in new code — they are legacy-only
-- **NEVER** use `dark:` variant classes — dark mode is disabled
+- The app is dark-first — page background is `#0C0F18`, cards are `#161A26`
 
 ### Database Types
 Auto-generated in `src/lib/types.ts`.
@@ -88,87 +89,73 @@ When asked to work on a screen, only touch Stage 1
 components unless explicitly told otherwise.
 
 ## UI Design System
-**Creative Direction:** "The Digital Architect" — Lumina Slate.
-Premium AI-native light dashboard inspired by Vercel, Linear,
-and Notion. Precision, whitespace as function, living data.
+
+> **All visual decisions live in `DESIGN.md` and `BRAND.md`. When in doubt, read those files first.**
+
+**Creative Direction:** "The operating system for tennis" — dark-first, AI-native, circuit traces and glowing nodes.
 
 ### Fonts
-- Headlines: Manrope — Black (900) for page greetings, ExtraBold (800) for card/section titles; geometric, architectural
-- Body & UI labels: Inter — high legibility, scannable data
-- Data highlights: Manrope Bold with tighter tracking
-- High contrast between large bold headers and small
-  all-caps metadata labels
+- **Display / Headlines:** Space Grotesk — Bold (700) for titles and big numbers; tight negative tracking
+- **Body & UI:** Manrope — SemiBold (600) for labels, Medium (500) for body copy
+- **Data / Chips / Status:** JetBrains Mono — for ALL CAPS tags, court codes, scores, status pills
+- **Never use:** Inter (replaced), all-caps headlines (all-caps is for eyebrows/mono tags only)
 
-### Colors
+### Colors (quick reference — full system in DESIGN.md)
 
-#### Core Backgrounds
-- Page background: #F9FAFB (Zinc 50)
-- Card/nav background: #FFFFFF (White)
-- Header (alt / high-contrast): #0F1F3D (Deep Navy)
+#### Backgrounds
+- Page canvas: `#0C0F18` (Midnight)
+- Cards / surfaces: `#161A26`
+- Elevated bg: `#11141F`
+- Header: `--grad-court` gradient or `#0F2A57` (Court Blue)
 
 #### Primary Accents
-- Primary accent / AI identifier: #00D4FF (Electric Cyan)
-  — active states, key data viz, glow indicators, primary CTAs
-- Secondary brand: #0F1F3D (Deep Navy)
-  — primary headings, high-level navigation
+- Primary action (CTA buttons): `#2D6BFF` (Intelligent Blue)
+- Active / live / connected: `#2DE0FF` (Electric Cyan) + cyan glow
+- Athletic / live moments: `#D6FF3D` (Tennis Volt)
 
 #### Functional Colors
-- Warning/attention: #F97066 (Coral) — health 40–69, "Needs Attention" pills
-- Critical: #EF4444 (Red) — health < 40, "Critical" pills
-- Success/optimal: #00D4FF (Cyan) — health >= 70, "Optimal" pills (same as primary accent)
+- Positive / confirmed: `#2FD98B`
+- Negative / error: `#FF5C6B`
+- Warning: `#D6FF3D` (volt)
 
-#### Typography & Muted Elements
-- Primary text: #0F1F3D (Deep Navy)
-- Muted text & labels: #8892A4 (Cool Gray)
-- Border/divider: rgba(15, 31, 61, 0.08)
+#### Text (on dark backgrounds)
+- Primary text: `#F5F8FF`
+- Secondary text: `#9AA3B8`
+- Muted text (minimum readable): `#7A839A`
+- Disabled (never for readable text): `#5A6379`
+- Borders: `#232838`
 
 ### Cards
-- Background: white
-- Border radius: 16px (cards), 12px (buttons), 99px (pills)
-- Shadow: two-layer — see DESIGN.md Cards section
-- Elevation via tonal shift — no heavy borders
-- Attention state: Coral (#F97066) status pill + progress bar
-- Optimal state: Cyan (#00D4FF) status pill + progress bar
-- Key AI metrics: subtle cyan glow (box-shadow or text-shadow)
+- Background: `#161A26`, border: `#232838`, radius: 14px
+- Connected/live cards: cyan glow ring (`--glow-cyan`)
+- Shadow: `--e-card` (ambient dark shadow with inner highlight)
+- Minimum padding: 20px
 
-### Typography Scale
-- Large greeting header: Manrope Black (900), 32px, line-height 1.1
-- Section titles: Manrope Bold
-- Body/labels: Inter regular
-- Metadata: Inter, small, all-caps, Cool Gray (#8892A4)
+### Typography Scale (minimum enforced values)
+- Hero / page title: Space Grotesk Bold, 36px, tracking -0.02em
+- Section header: Space Grotesk Bold, 22px+
+- Card title: Space Grotesk Bold, 18px+
+- Body: Manrope 500, 16px minimum
+- UI label: Manrope 600, 14px minimum
+- Eyebrow / data chip: JetBrains Mono, 11px, ALL CAPS, tracking 0.18em
 
 ### Components
-- Status pill: "Needs Attention" in Coral #F97066,
-  "Optimal" in Cyan #00D4FF — small rounded pill (99px border-radius)
-- Progress bar: 4px height, color-coded by health status
-- Stats grid: 4-column, subtle icons, clear number
-  hierarchy, no internal borders
-- Bottom nav: fixed, glassmorphic blur background,
-  active state in Cyan #00D4FF
-- Add Community: dashed border card, minimal, centered
+- Status pills: `border-radius: 999px`, JetBrains Mono, 12px, color-tinted bg
+- Bottom nav: dark glass (`rgba(12,15,24,0.90)` + blur), active in cyan `#2DE0FF`
+- Stats grid: 3-column (not 4), Space Grotesk values, JetBrains Mono labels
+- Quick actions: `#161A26` surface cards, 72px height, cyan accent icon
 
 ### Interaction Patterns
-- Tonal shifts: white → #F3F4F6 or brand tint on hover/focus
-- Micro-interactions: scale 95–98% on tap for tactile feedback
-- Glassmorphism: backdrop-blur on nav bars and overlays
-
-### Special Effects
-- Cyan glow on AI/key metrics:
-  `box-shadow: 0 0 20px rgba(0,212,255,0.3)`
-- Glassmorphic nav: `backdrop-blur` + `bg-white/80`
-- Micro-interactions: `scale(0.97)` on tap
-
-### Health Score Color Logic
-- >= 70: #00D4FF (cyan)
-- >= 40: #F97066 (coral)
-- <  40: #EF4444 (red)
+- Tap feedback: `scale(0.97)` at 140ms with spring easing
+- Glow pulse: live sessions animate cyan glow opacity
+- Cyan glow (`--glow-cyan`) = live, active, connected state only — not decorative
 
 ### Layout Rules
 - Mobile-first, 390px reference width
-- Community cards: full width, stacked vertically
-- Generous whitespace throughout
-- Elevation through tonal layering not borders
-- Max content width: `max-w-[480px] mx-auto` on all page containers (prevents wall-to-wall stretch on iPad/tablet)
+- Page padding: 20px horizontal
+- Max content width on tablet: `max-w-[480px] mx-auto`
+- Cards: full-width, stacked vertically — no horizontal grid on mobile
+- Section gaps: 24px minimum — never compress below 20px
 
 ## Autonomous Mode Rules
 When running unattended (e.g. overnight-ui.sh):

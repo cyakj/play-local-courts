@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Bell, ArrowLeft, Menu } from 'lucide-react-native';
 
 import { Colors, FontFamily, FontSize } from '@/constants/design';
+import { useTheme } from '@/context/ThemeContext';
 
 interface CMPortfolioHeaderProps {
   variant: 'cm-portfolio';
@@ -34,15 +35,20 @@ interface ResidentHeaderProps {
   onMenu?: () => void;
 }
 
-type HeaderProps = CMPortfolioHeaderProps | ResidentHomeHeaderProps | InnerScreenHeaderProps | ResidentHeaderProps;
+type HeaderProps =
+  | CMPortfolioHeaderProps
+  | ResidentHomeHeaderProps
+  | InnerScreenHeaderProps
+  | ResidentHeaderProps;
 
 export function Header(props: HeaderProps) {
   const insets = useSafeAreaInsets();
   const topPad = Math.max(insets.top, 24);
+  const { theme } = useTheme();
 
   if (props.variant === 'resident') {
     return (
-      <View style={[styles.base, styles.residentBase, { paddingTop: topPad + 8 }]}>
+      <View style={[styles.base, styles.residentBase, { paddingTop: topPad + 8, backgroundColor: theme.headerBg, borderBottomColor: theme.headerBorder }]}>
         <View style={[styles.topBar, styles.residentTopBar]}>
           <View testID="tenisx-logo" style={styles.residentLogoWrap}>
             <Image
@@ -56,15 +62,15 @@ export function Header(props: HeaderProps) {
               testID="bell-icon"
               style={styles.iconBtn}
               onPress={props.onBell ?? (() => router.push('/notifications'))}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Bell color="#FFFFFF" size={26} strokeWidth={1.5} />
+              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+              <Bell color="#FFFFFF" size={24} strokeWidth={1.5} />
             </TouchableOpacity>
             <TouchableOpacity
               testID="menu-icon"
               style={styles.iconBtn}
               onPress={props.onMenu ?? (() => router.push('/settings'))}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Menu color="#FFFFFF" size={26} strokeWidth={1.5} />
+              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+              <Menu color="#FFFFFF" size={24} strokeWidth={1.5} />
             </TouchableOpacity>
           </View>
         </View>
@@ -80,7 +86,7 @@ export function Header(props: HeaderProps) {
             <TouchableOpacity
               onPress={props.onBack}
               style={styles.iconBtn}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
               <ArrowLeft color="#FFFFFF" size={22} strokeWidth={1.5} />
             </TouchableOpacity>
           ) : (
@@ -112,13 +118,13 @@ export function Header(props: HeaderProps) {
         <View style={styles.topBarRight}>
           <TouchableOpacity
             onPress={props.onBell}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
             <Bell color="#FFFFFF" size={22} strokeWidth={1.5} />
           </TouchableOpacity>
           {isCM && (
             <TouchableOpacity
               onPress={(props as CMPortfolioHeaderProps).onMenu}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
               <Menu color="#FFFFFF" size={22} strokeWidth={1.5} />
             </TouchableOpacity>
           )}
@@ -133,7 +139,9 @@ export function Header(props: HeaderProps) {
 
 const styles = StyleSheet.create({
   base: {
-    backgroundColor: Colors.headerBg,
+    // Court gradient: #0F2A57 → #081427 → #080A11
+    // LinearGradient not used here — solid approximation for non-resident variants
+    backgroundColor: Colors.courtBlue,
     paddingHorizontal: 20,
   },
   portfolioBase: {
@@ -147,21 +155,22 @@ const styles = StyleSheet.create({
   },
   topBarRight: {
     flexDirection: 'row',
-    gap: 16,
+    gap: 8,
     alignItems: 'center',
   },
   residentBase: {
+    backgroundColor: '#0A1628',
     paddingLeft: 0,
     paddingRight: 14,
-    paddingBottom: 14,
-    minHeight: 148,
+    paddingBottom: 10,
+    minHeight: 80,
     justifyContent: 'flex-end',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,212,255,0.18)',
+    borderBottomColor: 'rgba(45,224,255,0.18)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.22,
-    shadowRadius: 10,
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
     elevation: 8,
   },
   residentTopBar: {
@@ -170,11 +179,11 @@ const styles = StyleSheet.create({
   },
   residentLogoWrap: {},
   residentLogo: {
-    width: 200,
-    height: 102,
+    width: 160,
+    height: 72,
   },
   logo: {
-    fontFamily: FontFamily.manropeBlack,
+    fontFamily: FontFamily.spaceGroteskBold,
     fontSize: 22,
     color: '#FFFFFF',
   },
@@ -182,7 +191,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.accentCyan,
+    backgroundColor: Colors.cyan,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -192,37 +201,38 @@ const styles = StyleSheet.create({
     color: Colors.navy,
   },
   welcomeTag: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: FontSize.metadata,
-    color: Colors.accentCyan,
-    letterSpacing: 1.5,
+    fontFamily: FontFamily.jetbrainsMonoSemiBold,
+    fontSize: FontSize.eyebrow,
+    color: Colors.cyan,
+    letterSpacing: 2,
     marginBottom: 8,
   },
   greeting: {
-    fontFamily: FontFamily.manropeBlack,
+    fontFamily: FontFamily.spaceGroteskBold,
     fontSize: FontSize.pageTitle,
     color: '#FFFFFF',
     lineHeight: 36,
     marginBottom: 8,
   },
   subCopy: {
-    fontFamily: FontFamily.interRegular,
+    fontFamily: FontFamily.manropeMedium,
     fontSize: FontSize.body,
-    color: 'rgba(0,212,255,0.7)',
+    color: 'rgba(45,224,255,0.75)',
   },
   innerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  // 44×44px touch zone — spec requirement
   iconBtn: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   innerTitle: {
-    fontFamily: FontFamily.manropeExtraBold,
+    fontFamily: FontFamily.spaceGroteskBold,
     fontSize: 18,
     color: '#FFFFFF',
     flex: 1,

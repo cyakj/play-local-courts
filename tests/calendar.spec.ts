@@ -116,6 +116,13 @@ test.describe('Resident Calendar Screen', () => {
     await expect(page.locator('[data-testid="week-grid"]')).toBeVisible({ timeout: 5000 });
   });
 
+  test('tapping "Month" switches back to month view', async ({ page }) => {
+    await page.locator('[data-testid="view-toggle-week"]').click();
+    await expect(page.locator('[data-testid="week-grid"]')).toBeVisible({ timeout: 5000 });
+    await page.locator('[data-testid="view-toggle-month"]').click();
+    await expect(page.locator('[data-testid="calendar-grid"]')).toBeVisible({ timeout: 5000 });
+  });
+
   // ── Date tap ──────────────────────────────────────────────────────────────
 
   test('tapping a date updates the events section header', async ({ page }) => {
@@ -123,5 +130,49 @@ test.describe('Resident Calendar Screen', () => {
     // click the first in-month day cell
     await page.locator('[data-testid="day-cell"]').first().click();
     await expect(page.locator('[data-testid="day-events-section"]')).toBeVisible({ timeout: 5000 });
+  });
+
+  // ── Hero polish ───────────────────────────────────────────────────────────
+
+  test('"SCHEDULE" redundant label is NOT present', async ({ page }) => {
+    await expect(page.getByText('SCHEDULE', { exact: true })).not.toBeVisible({ timeout: 5000 });
+  });
+
+  test('hero subtitle (month label) is visible', async ({ page }) => {
+    await expect(page.locator('[data-testid="month-label"]')).toBeVisible({ timeout: 10000 });
+  });
+
+  // ── Legend polish ─────────────────────────────────────────────────────────
+
+  test('all four legend items are visible', async ({ page }) => {
+    const items = page.locator('[data-testid="legend-item"]');
+    await expect(items).toHaveCount(4, { timeout: 10000 });
+    for (const label of ['Amenity Booking', 'Community Event', 'Board Meeting', 'Maintenance']) {
+      await expect(items.filter({ hasText: label })).toBeVisible({ timeout: 5000 });
+    }
+  });
+
+  // ── Day events section ────────────────────────────────────────────────────
+
+  test('day events section shows either events or empty state', async ({ page }) => {
+    await expect(page.locator('[data-testid="day-events-section"]')).toBeVisible({ timeout: 30000 });
+    await expect(
+      page.locator('[data-testid="no-events-msg"]')
+        .or(page.locator('[data-testid="event-card"]').first())
+    ).toBeVisible({ timeout: 30000 });
+  });
+
+  // ── Screenshots ───────────────────────────────────────────────────────────
+
+  test('screenshot: calendar month view', async ({ page }) => {
+    await expect(page.locator('[data-testid="calendar-grid"]')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('[data-testid="day-events-section"]')).toBeVisible({ timeout: 30000 });
+    await page.screenshot({ path: 'test-results/calendar-month-snapshot.png' });
+  });
+
+  test('screenshot: calendar week view', async ({ page }) => {
+    await page.locator('[data-testid="view-toggle-week"]').click();
+    await expect(page.locator('[data-testid="week-grid"]')).toBeVisible({ timeout: 5000 });
+    await page.screenshot({ path: 'test-results/calendar-week-snapshot.png' });
   });
 });

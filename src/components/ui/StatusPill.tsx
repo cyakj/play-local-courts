@@ -16,15 +16,15 @@ const pillConfig: Record<
   StatusVariant,
   { bg: string; text: string; border: string; label: string }
 > = {
-  optimal:           { bg: Colors.optimalBg,    text: Colors.blueMid, border: Colors.accentCyan, label: 'Optimal' },
-  'needs-attention': { bg: Colors.attentionBg,  text: '#C0392B',       border: Colors.coral,      label: 'Needs Attention' },
-  critical:          { bg: Colors.criticalBg,   text: '#991B1B',       border: Colors.red,        label: 'Critical' },
-  pending:           { bg: '#FFF9E6',            text: '#92400E',       border: '#F59E0B',         label: 'Pending' },
-  approved:          { bg: Colors.optimalBg,    text: Colors.blueMid, border: Colors.accentCyan, label: 'Approved' },
-  rejected:          { bg: Colors.criticalBg,   text: '#991B1B',       border: Colors.red,        label: 'Rejected' },
-  open:              { bg: '#EFF6FF',            text: '#1D4ED8',       border: '#3B82F6',         label: 'Open' },
-  'in-progress':     { bg: '#FFF9E6',            text: '#92400E',       border: '#F59E0B',         label: 'In Progress' },
-  resolved:          { bg: Colors.optimalBg,    text: Colors.blueMid, border: Colors.accentCyan, label: 'Resolved' },
+  optimal:           { bg: 'rgba(47,217,139,0.15)',  text: '#1A9E63', border: 'rgba(47,217,139,0.40)', label: 'Optimal' },
+  'needs-attention': { bg: 'rgba(255,92,107,0.12)',  text: '#D63B4E', border: 'rgba(255,92,107,0.40)', label: 'Needs Attention' },
+  critical:          { bg: 'rgba(255,92,107,0.12)',  text: '#D63B4E', border: 'rgba(255,92,107,0.40)', label: 'Critical' },
+  pending:           { bg: 'rgba(245,158,11,0.14)',  text: '#92400E', border: 'rgba(245,158,11,0.45)', label: 'Pending' },
+  approved:          { bg: 'rgba(47,217,139,0.15)',  text: '#1A9E63', border: 'rgba(47,217,139,0.40)', label: 'Approved' },
+  rejected:          { bg: 'rgba(255,92,107,0.12)',  text: '#D63B4E', border: 'rgba(255,92,107,0.40)', label: 'Rejected' },
+  open:              { bg: 'rgba(45,107,255,0.12)',  text: '#1E4FCC', border: 'rgba(45,107,255,0.35)', label: 'Open' },
+  'in-progress':     { bg: 'rgba(245,158,11,0.14)',  text: '#92400E', border: 'rgba(245,158,11,0.45)', label: 'In Progress' },
+  resolved:          { bg: 'rgba(47,217,139,0.15)',  text: '#1A9E63', border: 'rgba(47,217,139,0.40)', label: 'Resolved' },
 };
 
 interface StatusPillProps {

@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -14,7 +14,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   MapPin, Clock, Sun, Cloud, CloudRain, Zap, X, ChevronRight,
-  CalendarDays, Check, ChevronDown,
+  CalendarDays, Check, ChevronDown, ChevronLeft,
 } from 'lucide-react-native';
 import * as Location from 'expo-location';
 
@@ -85,23 +85,29 @@ interface WeatherData {
   tempF: number;
   rainPct: number;
   weatherCode: number;
-  hourlyTemp: number[];  // 5 days × 24h = 120 values
-  hourlyRain: number[];  // same
+  hourlyTemp: number[];
+  hourlyRain: number[];
 }
 
 type PlayabilityLevel = 'prime' | 'good' | 'caution' | 'rain' | 'storm';
 
 interface Playability {
   level: PlayabilityLevel;
-  verdict: string;
   conditions: string;
   accentColor: string;
   icon: 'sun' | 'cloud' | 'rain' | 'storm';
 }
 
 type ActiveTab = 'tennis' | 'amenities';
+type TopLevelTab = 'hoa' | 'other';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) chunks.push(arr.slice(i, i + size));
+  return chunks;
+}
 
 function formatTime(t: string): string {
   const [h, m] = t.split(':').map(Number);
@@ -141,22 +147,30 @@ function getSlotWeatherLabel(hour: number, selectedDate: Date, now: Date, weathe
   const rain = weather.hourlyRain[idx] ?? 0;
   if (rain >= 70) return `${temp}°F · Rain`;
   if (rain >= 40) return `${temp}°F · Rain Risk`;
-  if (rain >= 20) return `${temp}°F · Low Rain`;
-  if (temp >= 95) return `${temp}°F · Extreme Heat`;
+  if (rain >= 20) return `${temp}°F · ${rain}%`;
+  if (temp >= 95) return `${temp}°F · Heat`;
   if (temp >= 85) return `${temp}°F · Warm`;
   return `${temp}°F · Clear`;
 }
 
-function getAllowedBookingDates(rule: AmenityRules | null, referenceDate: Date, minDays = 1): Date[] {
-  const maxDays = Math.max(minDays, rule?.advance_booking_days ?? 7);
-  const limit = Math.min(maxDays, 14);
-  const dates: Date[] = [];
-  for (let i = 0; i < limit; i++) {
-    const d = new Date(referenceDate);
-    d.setDate(referenceDate.getDate() + i);
-    dates.push(d);
-  }
-  return dates;
+function timeToMins(t: string): number {
+  const parts = t.split(':');
+  return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+}
+
+function slotsOverlap(startA: string, endA: string, startB: string, endB: string): boolean {
+  return timeToMins(startA) < timeToMins(endB) && timeToMins(endA) > timeToMins(startB);
+}
+
+function getSlotWeatherIcon(hour: number, selectedDate: Date, now: Date, weather: WeatherData | null): 'sun' | 'cloud' | 'rain' | 'storm' | null {
+  if (!weather || weather.hourlyRain.length === 0) return null;
+  const idx = getHourlyIndex(selectedDate, hour, now);
+  if (idx >= weather.hourlyRain.length) return null;
+  const rain = weather.hourlyRain[idx] ?? 0;
+  if (rain >= 70) return 'rain';
+  if (rain >= 40) return 'cloud';
+  if (rain >= 20) return 'cloud';
+  return 'sun';
 }
 
 function computeCourtStatus(courtId: string, now: Date, bookingsByDate: Record<string, TodayBooking[]>): CourtStatus {
@@ -203,11 +217,11 @@ function getPlayability(data: WeatherData, hour?: number, selectedDate?: Date, n
     }
   }
 
-  if (weatherCode >= 95) return { level: 'storm', verdict: 'Postpone Play', conditions: `${tempF}°F · Storm`, accentColor: Colors.negative, icon: 'storm' };
-  if (weatherCode >= 51 || rainPct >= 60) return { level: 'rain', verdict: 'Outdoor Play Not Recommended', conditions: `${tempF}°F · ${rainPct}% Rain`, accentColor: Colors.negative, icon: 'rain' };
-  if (weatherCode >= 45 || rainPct >= 40) return { level: 'caution', verdict: 'Playable with Caution', conditions: `${tempF}°F · ${rainPct}% Rain Risk`, accentColor: Colors.volt, icon: 'cloud' };
-  if (weatherCode === 3 || rainPct >= 20) return { level: 'good', verdict: 'Good Conditions', conditions: `${tempF}°F · ${rainPct}% Rain`, accentColor: Colors.fg2, icon: 'cloud' };
-  return { level: 'prime', verdict: 'Prime Playing Conditions', conditions: `${tempF}°F · ${rainPct}% Rain`, accentColor: Colors.cyan, icon: 'sun' };
+  if (weatherCode >= 95) return { level: 'storm', conditions: `${tempF}°F · Storm`, accentColor: Colors.negative, icon: 'storm' };
+  if (weatherCode >= 51 || rainPct >= 60) return { level: 'rain', conditions: `${tempF}°F · ${rainPct}% Rain`, accentColor: Colors.negative, icon: 'rain' };
+  if (weatherCode >= 45 || rainPct >= 40) return { level: 'caution', conditions: `${tempF}°F · ${rainPct}% Risk`, accentColor: Colors.volt, icon: 'cloud' };
+  if (weatherCode === 3 || rainPct >= 20) return { level: 'good', conditions: `${tempF}°F · ${rainPct}% Rain`, accentColor: Colors.fg2, icon: 'cloud' };
+  return { level: 'prime', conditions: `${tempF}°F · Clear`, accentColor: Colors.cyan, icon: 'sun' };
 }
 
 async function fetchWeather(lat: number, lon: number): Promise<WeatherData | null> {
@@ -235,6 +249,184 @@ function WeatherIcon({ type, color, size }: { type: 'sun' | 'cloud' | 'rain' | '
   return <Cloud color={color} size={size} strokeWidth={1.5} />;
 }
 
+// ─── CalendarPicker ───────────────────────────────────────────────────────────
+
+const CAL_MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const CAL_DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+function CalendarPicker({
+  selectedDate,
+  onSelect,
+  minDate,
+  maxDate,
+  theme,
+  testID,
+}: {
+  selectedDate: Date;
+  onSelect: (date: Date) => void;
+  minDate: Date;
+  maxDate: Date;
+  theme: ThemeTokens;
+  testID?: string;
+}) {
+  const clampedInit = selectedDate < minDate ? minDate : selectedDate > maxDate ? maxDate : selectedDate;
+  const [viewYear, setViewYear] = useState(clampedInit.getFullYear());
+  const [viewMonth, setViewMonth] = useState(clampedInit.getMonth());
+
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const firstDow = new Date(viewYear, viewMonth, 1).getDay();
+  const today = new Date();
+
+  const thisMonthStart = new Date(viewYear, viewMonth, 1);
+  const nextMonthStart = new Date(viewYear, viewMonth + 1, 1);
+  const minMonthStart = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
+  const maxMonthEnd = new Date(maxDate.getFullYear(), maxDate.getMonth() + 1, 0);
+
+  const canGoPrev = thisMonthStart > minMonthStart;
+  const canGoNext = nextMonthStart <= maxMonthEnd;
+
+  const cells: (number | null)[] = Array(firstDow).fill(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+  const rows = chunkArray(cells, 7);
+
+  const s = useMemo(() => ({
+    wrap: {
+      backgroundColor: theme.surface2,
+      borderRadius: Radius.card,
+      borderWidth: 1,
+      borderColor: theme.border,
+      padding: 12,
+      marginBottom: 8,
+    } as const,
+    header: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'space-between' as const,
+      marginBottom: 10,
+    } as const,
+    monthText: {
+      fontFamily: FontFamily.spaceGroteskBold,
+      fontSize: 15,
+      color: theme.textPrimary,
+    } as const,
+    navBtn: {
+      width: 32,
+      height: 32,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      borderRadius: Radius.sm,
+      backgroundColor: theme.cardBg,
+      borderWidth: 1,
+      borderColor: theme.border,
+    } as const,
+    dayHeaders: { flexDirection: 'row' as const, marginBottom: 4 } as const,
+    dayHeaderCell: { flex: 1, alignItems: 'center' as const } as const,
+    dayHeaderText: {
+      fontFamily: FontFamily.jetbrainsMonoSemiBold,
+      fontSize: 10,
+      color: theme.textMuted,
+      letterSpacing: 0.4,
+    } as const,
+    row: { flexDirection: 'row' as const, marginBottom: 2 } as const,
+    cell: {
+      flex: 1,
+      height: 36,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      borderRadius: Radius.sm,
+    } as const,
+    cellSelected: { backgroundColor: Colors.blue } as const,
+    cellToday: { borderWidth: 1, borderColor: theme.cyanOnLight } as const,
+    cellText: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: 13,
+      color: theme.textSecondary,
+    } as const,
+    cellTextSelected: { color: Colors.white, fontFamily: FontFamily.manropeBold } as const,
+    cellTextToday: { color: theme.cyanOnLight } as const,
+    cellTextDisabled: { color: theme.textMuted, opacity: 0.4 } as const,
+  }), [theme]);
+
+  return (
+    <View style={s.wrap} testID={testID ?? 'calendar-picker'}>
+      <View style={s.header}>
+        <TouchableOpacity
+          style={[s.navBtn, !canGoPrev && { opacity: 0.3 }]}
+          onPress={() => {
+            if (!canGoPrev) return;
+            const d = new Date(viewYear, viewMonth - 1, 1);
+            setViewYear(d.getFullYear()); setViewMonth(d.getMonth());
+          }}
+          disabled={!canGoPrev}
+          activeOpacity={0.7}
+          testID="cal-prev-month">
+          <ChevronLeft color={theme.textSecondary} size={16} strokeWidth={1.5} />
+        </TouchableOpacity>
+        <Text style={s.monthText}>{CAL_MONTH_NAMES[viewMonth]} {viewYear}</Text>
+        <TouchableOpacity
+          style={[s.navBtn, !canGoNext && { opacity: 0.3 }]}
+          onPress={() => {
+            if (!canGoNext) return;
+            const d = new Date(viewYear, viewMonth + 1, 1);
+            setViewYear(d.getFullYear()); setViewMonth(d.getMonth());
+          }}
+          disabled={!canGoNext}
+          activeOpacity={0.7}
+          testID="cal-next-month">
+          <ChevronRight color={theme.textSecondary} size={16} strokeWidth={1.5} />
+        </TouchableOpacity>
+      </View>
+
+      <View style={s.dayHeaders}>
+        {CAL_DAY_LABELS.map((d, i) => (
+          <View key={i} style={s.dayHeaderCell}>
+            <Text style={s.dayHeaderText}>{d}</Text>
+          </View>
+        ))}
+      </View>
+
+      {rows.map((row, rowIdx) => (
+        <View key={rowIdx} style={s.row}>
+          {row.map((day, colIdx) => {
+            if (!day) return <View key={colIdx} style={s.cell} />;
+            const cellDate = new Date(viewYear, viewMonth, day);
+            cellDate.setHours(0, 0, 0, 0);
+            const checkMin = new Date(minDate); checkMin.setHours(0, 0, 0, 0);
+            const checkMax = new Date(maxDate); checkMax.setHours(0, 0, 0, 0);
+            const isDisabled = cellDate < checkMin || cellDate > checkMax;
+            const isSelected = cellDate.toDateString() === selectedDate.toDateString();
+            const isToday = cellDate.toDateString() === today.toDateString();
+            return (
+              <TouchableOpacity
+                key={colIdx}
+                testID={`cal-day-${day}`}
+                style={[
+                  s.cell,
+                  isSelected && s.cellSelected,
+                  !isSelected && isToday && s.cellToday,
+                  isDisabled && { opacity: 0.25 },
+                ]}
+                onPress={() => { if (!isDisabled) onSelect(cellDate); }}
+                disabled={isDisabled}
+                activeOpacity={0.7}>
+                <Text style={[
+                  s.cellText,
+                  isSelected && s.cellTextSelected,
+                  !isSelected && isToday && s.cellTextToday,
+                  isDisabled && s.cellTextDisabled,
+                ]}>
+                  {day}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      ))}
+    </View>
+  );
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function CourtsScreen() {
@@ -253,6 +445,7 @@ export default function CourtsScreen() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<ActiveTab>('tennis');
+  const [topLevelTab, setTopLevelTab] = useState<TopLevelTab>('hoa');
 
   // ── Booking sheet state ──────────────────────────────────────────────────────
   const [bookingSheet, setBookingSheet] = useState<{ courtId: string; courtName: string; courtType: string } | null>(null);
@@ -388,11 +581,8 @@ export default function CourtsScreen() {
         .eq('amenity_id', court.id)
         .maybeSingle();
       setScheduleRules(rulesRes.data ?? null);
-    } catch {
-      // Silently fail — sheet will show empty blocks
-    } finally {
-      setScheduleLoading(false);
-    }
+    } catch { /* silently fail */ }
+    finally { setScheduleLoading(false); }
   }
 
   async function onScheduleDateChange(date: Date) {
@@ -408,52 +598,79 @@ export default function CourtsScreen() {
         .eq('court_id', scheduleSheet.courtId)
         .eq('date', dateStr);
       setMaintenanceBlocks((maintRes.data ?? []) as MaintenanceBlock[]);
-    } catch {
-      // keep existing blocks
-    } finally {
-      setScheduleLoading(false);
-    }
+    } catch { /* keep existing blocks */ }
+    finally { setScheduleLoading(false); }
   }
 
-  // ── Duration: user-overridable, defaults from play type + rules ─────────────
+  // ── Duration: tennis locked by play type; non-tennis user-selectable ─────────
+  const isTennisBooking = useMemo(() => TENNIS_TYPES.has(bookingSheet?.courtType ?? ''), [bookingSheet]);
+
   const sheetDuration = useMemo(() => {
+    if (isTennisBooking) {
+      return sheetPlayType === 'singles'
+        ? (sheetRules?.singles_duration_minutes ?? 60)
+        : (sheetRules?.doubles_duration_minutes ?? 90);
+    }
     if (sheetDurationOverride !== null) return sheetDurationOverride;
-    if (!sheetRules) return 60;
-    return sheetPlayType === 'singles'
-      ? (sheetRules.singles_duration_minutes ?? 60)
-      : (sheetRules.doubles_duration_minutes ?? 90);
-  }, [sheetRules, sheetPlayType, sheetDurationOverride]);
+    return sheetRules?.singles_duration_minutes ?? 60;
+  }, [sheetRules, sheetPlayType, sheetDurationOverride, isTennisBooking]);
 
   const availableDurations = useMemo(() => {
-    const max = sheetRules
-      ? Math.max(sheetRules.singles_duration_minutes ?? 60, sheetRules.doubles_duration_minutes ?? 90)
-      : 90;
-    return [30, 60, 90].filter(d => d <= max);
-  }, [sheetRules]);
+    if (isTennisBooking) return [];
+    if (!sheetRules) return [60];
+    const durations = new Set<number>();
+    if (sheetRules.singles_duration_minutes) durations.add(sheetRules.singles_duration_minutes);
+    if (sheetRules.doubles_duration_minutes) durations.add(sheetRules.doubles_duration_minutes);
+    return Array.from(durations).sort((a, b) => a - b);
+  }, [sheetRules, isTennisBooking]);
 
-  // ── Time slots — uses fresh Date() so past slots are always correct ─────────
+  // ── Time slots ──────────────────────────────────────────────────────────────
   const sheetTimeSlots = useMemo(() => {
     if (!bookingSheet) return [];
     const freshNow = new Date();
     const dateStr = sheetDate.toISOString().split('T')[0];
-    const courtBookings = (bookingsByDate[dateStr] ?? []).filter(b => b.court_id === bookingSheet.courtId);
+
+    // Merge bookings from two sources:
+    // 1. bookingsByDate — all users' bookings fetched per-date (may be empty if query failed)
+    // 2. userBookings   — current user's own bookings (always present from main load)
+    const fromCache = (bookingsByDate[dateStr] ?? []).filter(b => b.court_id === bookingSheet.courtId);
+    const ownForDate = userBookings
+      .filter(b => b.court_id === bookingSheet.courtId && b.date === dateStr)
+      .map(b => ({ court_id: b.court_id, start_time: b.start_time, end_time: b.end_time, user_id: userId } as TodayBooking));
+    // Deduplicate: keep any own booking not already in cache (same start+end)
+    const merged: TodayBooking[] = [...fromCache];
+    for (const ob of ownForDate) {
+      if (!merged.some(b => b.start_time === ob.start_time && b.end_time === ob.end_time)) {
+        merged.push(ob);
+      }
+    }
+
     const startHour = sheetRules?.booking_start_time ? parseInt(sheetRules.booking_start_time.split(':')[0]) : 7;
     const endHour = sheetRules?.booking_end_time ? parseInt(sheetRules.booking_end_time.split(':')[0]) : 21;
+    const endMins = endHour * 60;
     const isToday = sheetDate.toDateString() === freshNow.toDateString();
-    const nowStr = `${freshNow.getHours().toString().padStart(2, '0')}:${freshNow.getMinutes().toString().padStart(2, '0')}:00`;
+    const nowMins = freshNow.getHours() * 60 + freshNow.getMinutes();
+
     const slots: string[] = [];
     for (let h = startHour; h < endHour; h++) {
       for (let m = 0; m < 60; m += 30) {
         const slotStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-        const slotEnd = getEndTime(slotStr, sheetDuration);
-        if (slotEnd > `${endHour.toString().padStart(2, '0')}:00`) continue;
-        if (isToday && slotStr + ':00' <= nowStr) continue;
-        const hasConflict = courtBookings.some(b => slotStr + ':00' < b.end_time && slotEnd + ':00' > b.start_time);
+        const slotStartMins = h * 60 + m;
+        const slotEndMins = slotStartMins + sheetDuration;
+
+        // Exclude slots that go past operating end
+        if (slotEndMins > endMins) continue;
+        // Exclude past slots for today
+        if (isToday && slotStartMins <= nowMins) continue;
+        // Exclude any slot that overlaps an existing booking or maintenance block
+        const hasConflict = merged.some(b =>
+          slotsOverlap(slotStr, getEndTime(slotStr, sheetDuration), b.start_time, b.end_time)
+        );
         if (!hasConflict) slots.push(slotStr);
       }
     }
     return slots;
-  }, [bookingSheet, sheetDate, bookingsByDate, sheetDuration, sheetRules]);
+  }, [bookingSheet, sheetDate, bookingsByDate, sheetDuration, sheetRules, userBookings, userId]);
 
   // ── Confirm booking ─────────────────────────────────────────────────────────
   async function handleConfirm() {
@@ -480,7 +697,6 @@ export default function CourtsScreen() {
   const amenityCourts = useMemo(() => courts.filter(c => !TENNIS_TYPES.has(c.court_type)), [courts]);
   const visibleCourts = activeTab === 'tennis' ? tennisCourts : amenityCourts;
 
-  // ── Court statuses ──────────────────────────────────────────────────────────
   const courtStatuses = useMemo(() => {
     const map: Record<string, CourtStatus> = {};
     for (const court of courts) { map[court.id] = computeCourtStatus(court.id, now, bookingsByDate); }
@@ -505,7 +721,7 @@ export default function CourtsScreen() {
   const todayUserBooking = useMemo(() => userBookings.find(b => b.date === now.toISOString().split('T')[0]) ?? null, [userBookings, now]);
   const upcomingCount = useMemo(() => userBookings.filter(b => b.date >= now.toISOString().split('T')[0]).length, [userBookings, now]);
   const playability = useMemo(() => weather ? getPlayability(weather) : null, [weather]);
-  const showWeatherOnMain = activeTab === 'tennis';
+  const showWeatherOnMain = topLevelTab === 'hoa' && activeTab === 'tennis';
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
@@ -521,8 +737,8 @@ export default function CourtsScreen() {
 
         {/* ── Hero ─────────────────────────────────────────────────────── */}
         <View testID="courts-hero" style={styles.hero}>
-          <Text style={styles.heroLabel}>COURTS</Text>
-          <Text style={styles.heroTitle}>Find a Court</Text>
+          <Text style={styles.heroLabel}>RESERVE</Text>
+          <Text style={styles.heroTitle}>Reserve</Text>
           {showWeatherOnMain && (
             <>
               <View style={styles.heroConditionsDivider} />
@@ -531,91 +747,126 @@ export default function CourtsScreen() {
               ) : playability ? (
                 <View testID="conditions-strip" style={styles.conditionsRow}>
                   <WeatherIcon type={playability.icon} color={playability.accentColor} size={14} />
-                  <Text style={[styles.conditionsVerdict, { color: playability.accentColor }]}>{playability.verdict}</Text>
-                  <Text style={styles.conditionsDetail}>· {playability.conditions}</Text>
+                  <Text style={[styles.conditionsData, { color: playability.accentColor }]}>
+                    {playability.conditions}
+                  </Text>
                 </View>
               ) : null}
             </>
           )}
         </View>
 
-        {/* ── Tennis / Amenities Tab ────────────────────────────────────── */}
-        <View testID="tab-control" style={styles.tabControl}>
+        {/* ── Top-level: My HOA / Club · Other ─────────────────────────── */}
+        <View testID="top-tab-control" style={styles.topTabControl}>
           <TouchableOpacity
-            testID="tab-tennis"
-            style={[styles.tabBtn, activeTab === 'tennis' && styles.tabBtnActive]}
-            onPress={() => setActiveTab('tennis')} activeOpacity={0.7}>
-            <Text style={[styles.tabBtnText, activeTab === 'tennis' && styles.tabBtnTextActive]}>Tennis</Text>
+            testID="top-tab-hoa"
+            style={[styles.topTabBtn, topLevelTab === 'hoa' && styles.topTabBtnActive]}
+            onPress={() => setTopLevelTab('hoa')}
+            activeOpacity={0.7}>
+            <Text style={[styles.topTabText, topLevelTab === 'hoa' && styles.topTabTextActive]}>
+              My HOA / Club
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            testID="tab-amenities"
-            style={[styles.tabBtn, activeTab === 'amenities' && styles.tabBtnActive]}
-            onPress={() => setActiveTab('amenities')} activeOpacity={0.7}>
-            <Text style={[styles.tabBtnText, activeTab === 'amenities' && styles.tabBtnTextActive]}>Amenities</Text>
+            testID="top-tab-other"
+            style={[styles.topTabBtn, topLevelTab === 'other' && styles.topTabBtnActive]}
+            onPress={() => setTopLevelTab('other')}
+            activeOpacity={0.7}>
+            <Text style={[styles.topTabText, topLevelTab === 'other' && styles.topTabTextActive]}>
+              Other
+            </Text>
           </TouchableOpacity>
         </View>
 
-        {/* ── Content ──────────────────────────────────────────────────── */}
-        <View style={styles.contentWrap}>
-          {courtsLoading ? (
-            <View testID="intelligence-skeleton" style={styles.intelligenceSkeleton} />
-          ) : intelligenceLine ? (
-            <Text testID="intelligence-line" style={styles.intelligenceLine}>{intelligenceLine}</Text>
-          ) : null}
-
-          {/* Court cards */}
-          {courtsLoading ? (
-            <>{[0, 1, 2].map(i => <View key={i} testID="court-skeleton" style={styles.courtCardSkeleton} />)}</>
-          ) : sortedCourts.length === 0 ? (
-            <View testID="empty-no-courts" style={styles.emptyState}>
-              <MapPin color={Colors.fg3} size={52} strokeWidth={1.5} />
-              <Text style={styles.emptyTitle}>{activeTab === 'tennis' ? 'No courts available' : 'No amenities available'}</Text>
-              <Text style={styles.emptySubtitle}>Check back after your community adds {activeTab === 'tennis' ? 'courts' : 'amenities'}.</Text>
+        {topLevelTab === 'other' ? (
+          /* ── Other: coming soon placeholder ──────────────────────────── */
+          <View style={[styles.contentWrap, styles.otherEmpty]}>
+            <MapPin color={Colors.fg3} size={48} strokeWidth={1.5} />
+            <Text style={styles.emptyTitle}>Public courts coming soon</Text>
+            <Text style={styles.emptySubtitle}>
+              Public courts and clubs will be available in a future update.
+            </Text>
+          </View>
+        ) : (
+          <>
+            {/* ── Tennis / Amenities Tab ────────────────────────────────── */}
+            <View testID="tab-control" style={styles.tabControl}>
+              <TouchableOpacity
+                testID="tab-tennis"
+                style={[styles.tabBtn, activeTab === 'tennis' && styles.tabBtnActive]}
+                onPress={() => setActiveTab('tennis')} activeOpacity={0.7}>
+                <Text style={[styles.tabBtnText, activeTab === 'tennis' && styles.tabBtnTextActive]}>Tennis</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                testID="tab-amenities"
+                style={[styles.tabBtn, activeTab === 'amenities' && styles.tabBtnActive]}
+                onPress={() => setActiveTab('amenities')} activeOpacity={0.7}>
+                <Text style={[styles.tabBtnText, activeTab === 'amenities' && styles.tabBtnTextActive]}>Amenities</Text>
+              </TouchableOpacity>
             </View>
-          ) : openCount === 0 && !courtsLoading && sortedCourts.length > 0 ? (
-            <>
-              <View testID="empty-all-booked" style={styles.emptyState}>
-                <Clock color={Colors.fg3} size={52} strokeWidth={1.5} />
-                <Text style={styles.emptyTitle}>All {activeTab === 'tennis' ? 'courts' : 'facilities'} busy right now</Text>
-                {sortedCourts[0] && courtStatuses[sortedCourts[0].id] && (
-                  <Text style={styles.emptySubtitle}>{sortedCourts[0].name} · {courtStatuses[sortedCourts[0].id].detailText}</Text>
-                )}
-                {sortedCourts[0] && (
-                  <TouchableOpacity testID="reserve-next-cta" style={styles.reserveBtn} onPress={() => openBookingSheet(sortedCourts[0])} activeOpacity={0.8}>
-                    <Text style={styles.reserveBtnText}>Reserve Next Slot</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-              {sortedCourts.map(court => (
-                <CourtCard key={court.id} court={court} status={courtStatuses[court.id]}
-                  isMyBooking={todayUserBooking?.court_id === court.id ? todayUserBooking : null}
-                  onBook={() => openBookingSheet(court)}
-                  onSchedule={() => openScheduleSheet(court)}
-                  onReport={() => router.push({ pathname: '/(resident)/report', params: { courtId: court.id, courtName: court.name, facilityType: court.court_type, returnTo: '/(resident)/courts' } } as any)} />
-              ))}
-            </>
-          ) : (
-            sortedCourts.map(court => (
-              <CourtCard key={court.id} court={court} status={courtStatuses[court.id]}
-                isMyBooking={todayUserBooking?.court_id === court.id ? todayUserBooking : null}
-                onBook={() => openBookingSheet(court)}
-                onSchedule={() => openScheduleSheet(court)}
-                onReport={() => router.push({ pathname: '/(resident)/report', params: { courtId: court.id, courtName: court.name, facilityType: court.court_type, returnTo: '/(resident)/courts' } } as any)} />
-            ))
-          )}
 
-          {!courtsLoading && userBookings.length > 0 && (
-            <TouchableOpacity testID="upcoming-link" style={styles.upcomingCard} onPress={() => router.push('/my-reservations')} activeOpacity={0.8}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.upcomingCardEyebrow}>RESERVATIONS</Text>
-                <Text style={styles.upcomingCardTitle}>
-                  {`Upcoming Reservations${upcomingCount > 0 ? ` (${upcomingCount})` : ''}`}
-                </Text>
-              </View>
-              <ChevronRight color={Colors.cyan} size={20} strokeWidth={1.5} />
-            </TouchableOpacity>
-          )}
-        </View>
+            {/* ── Content ──────────────────────────────────────────────── */}
+            <View style={styles.contentWrap}>
+              {courtsLoading ? (
+                <View testID="intelligence-skeleton" style={styles.intelligenceSkeleton} />
+              ) : intelligenceLine ? (
+                <Text testID="intelligence-line" style={styles.intelligenceLine}>{intelligenceLine}</Text>
+              ) : null}
+
+              {courtsLoading ? (
+                <>{[0, 1, 2].map(i => <View key={i} testID="court-skeleton" style={styles.courtCardSkeleton} />)}</>
+              ) : sortedCourts.length === 0 ? (
+                <View testID="empty-no-courts" style={styles.emptyState}>
+                  <MapPin color={Colors.fg3} size={52} strokeWidth={1.5} />
+                  <Text style={styles.emptyTitle}>{activeTab === 'tennis' ? 'No courts available' : 'No amenities available'}</Text>
+                  <Text style={styles.emptySubtitle}>Check back after your community adds {activeTab === 'tennis' ? 'courts' : 'amenities'}.</Text>
+                </View>
+              ) : openCount === 0 && !courtsLoading && sortedCourts.length > 0 ? (
+                <>
+                  <View testID="empty-all-booked" style={styles.emptyState}>
+                    <Clock color={Colors.fg3} size={52} strokeWidth={1.5} />
+                    <Text style={styles.emptyTitle}>All {activeTab === 'tennis' ? 'courts' : 'facilities'} busy right now</Text>
+                    {sortedCourts[0] && courtStatuses[sortedCourts[0].id] && (
+                      <Text style={styles.emptySubtitle}>{sortedCourts[0].name} · {courtStatuses[sortedCourts[0].id].detailText}</Text>
+                    )}
+                    {sortedCourts[0] && (
+                      <TouchableOpacity testID="reserve-next-cta" style={styles.reserveBtn} onPress={() => openBookingSheet(sortedCourts[0])} activeOpacity={0.8}>
+                        <Text style={styles.reserveBtnText}>Reserve Next Slot</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  {sortedCourts.map(court => (
+                    <CourtCard key={court.id} court={court} status={courtStatuses[court.id]}
+                      isMyBooking={todayUserBooking?.court_id === court.id ? todayUserBooking : null}
+                      onBook={() => openBookingSheet(court)}
+                      onSchedule={() => openScheduleSheet(court)}
+                      onReport={() => router.push({ pathname: '/(resident)/report', params: { courtId: court.id, courtName: court.name, facilityType: court.court_type, returnTo: '/(resident)/courts' } } as any)} />
+                  ))}
+                </>
+              ) : (
+                sortedCourts.map(court => (
+                  <CourtCard key={court.id} court={court} status={courtStatuses[court.id]}
+                    isMyBooking={todayUserBooking?.court_id === court.id ? todayUserBooking : null}
+                    onBook={() => openBookingSheet(court)}
+                    onSchedule={() => openScheduleSheet(court)}
+                    onReport={() => router.push({ pathname: '/(resident)/report', params: { courtId: court.id, courtName: court.name, facilityType: court.court_type, returnTo: '/(resident)/courts' } } as any)} />
+                ))
+              )}
+
+              {!courtsLoading && userBookings.length > 0 && (
+                <TouchableOpacity testID="upcoming-link" style={styles.upcomingCard} onPress={() => router.push('/my-reservations')} activeOpacity={0.8}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.upcomingCardEyebrow}>RESERVATIONS</Text>
+                    <Text style={styles.upcomingCardTitle}>
+                      {`Upcoming Reservations${upcomingCount > 0 ? ` (${upcomingCount})` : ''}`}
+                    </Text>
+                  </View>
+                  <ChevronRight color={Colors.cyan} size={20} strokeWidth={1.5} />
+                </TouchableOpacity>
+              )}
+            </View>
+          </>
+        )}
       </ScrollView>
 
       {/* ── Booking Sheet ───────────────────────────────────────────────── */}
@@ -635,6 +886,7 @@ export default function CourtsScreen() {
           onSelectSlot={setSheetSelectedSlot}
           duration={sheetDuration}
           availableDurations={availableDurations}
+          isTennis={isTennisBooking}
           onDurationChange={(d) => { setSheetDurationOverride(d); setSheetSelectedSlot(null); }}
           weather={weather}
           confirming={confirming}
@@ -698,7 +950,6 @@ function CourtCard({ court, status, isMyBooking, onBook, onSchedule, onReport }:
       </Text>
       {!isMine && s.detailText ? <Text style={styles.courtDetailText}>{s.detailText}</Text> : null}
 
-      {/* Secondary actions */}
       <View style={styles.courtSecondaryDivider} />
       <View style={styles.courtSecondaryRow}>
         <TouchableOpacity testID={`view-schedule-${court.id}`} style={styles.secondaryAction} onPress={onSchedule} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} activeOpacity={0.7}>
@@ -719,7 +970,7 @@ const BookingSheet = memo(function BookingSheet({
   courtName, courtType, now, sheetDate, onSheetDateChange,
   playType, onPlayTypeChange, rules, rulesLoading,
   timeSlots, selectedSlot, onSelectSlot,
-  duration, availableDurations, onDurationChange,
+  duration, availableDurations, isTennis, onDurationChange,
   weather, confirming, success, onConfirm, onClose, insets,
 }: {
   courtName: string; courtType: string; now: Date;
@@ -727,7 +978,7 @@ const BookingSheet = memo(function BookingSheet({
   playType: 'singles' | 'doubles'; onPlayTypeChange: (t: 'singles' | 'doubles') => void;
   rules: AmenityRules | null; rulesLoading: boolean;
   timeSlots: string[]; selectedSlot: string | null; onSelectSlot: (s: string | null) => void;
-  duration: number; availableDurations: number[]; onDurationChange: (d: number) => void;
+  duration: number; availableDurations: number[]; isTennis: boolean; onDurationChange: (d: number) => void;
   weather: WeatherData | null;
   confirming: boolean; success: boolean; onConfirm: () => void; onClose: () => void;
   insets: { bottom: number };
@@ -735,16 +986,40 @@ const BookingSheet = memo(function BookingSheet({
   const { theme } = useTheme();
   const styles = useStyles(theme);
   const outdoor = isOutdoor(courtType);
-  const [showDateDropdown, setShowDateDropdown] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const slotsScrollRef = useRef<ScrollView>(null);
 
-  // minDays=3 ensures Today + Tomorrow + "More Dates" always appear even if rules restrict booking window
-  const allDateChips = useMemo(() => getAllowedBookingDates(rules, now, 3), [rules, now]);
+  // Reset slot scroll when time slots change (date/play-type/duration change)
+  useEffect(() => {
+    slotsScrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [timeSlots]);
 
-  const primaryDates = allDateChips.slice(0, 2);
-  const moreDates = allDateChips.slice(2);
-  const selectedMoreDate = moreDates.find(d => d.toDateString() === sheetDate.toDateString()) ?? null;
+  // Primary date buttons: Today + Tomorrow
+  const primaryDates = useMemo(() => {
+    const t = new Date(now); t.setHours(0, 0, 0, 0);
+    const tom = new Date(t); tom.setDate(t.getDate() + 1);
+    return [t, tom];
+  }, [now]);
 
-  // Conditions banner: use 9am proxy for the selected date forecast
+  // Calendar bounds: today → advance_booking_days from admin rules
+  const calMinDate = useMemo(() => {
+    const d = new Date(now); d.setHours(0, 0, 0, 0); return d;
+  }, [now]);
+
+  const calMaxDate = useMemo(() => {
+    const advDays = rules?.advance_booking_days ?? 7;
+    const d = new Date(now); d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + advDays);
+    return d;
+  }, [rules, now]);
+
+  const isMoreDate = useMemo(
+    () => sheetDate.toDateString() !== primaryDates[0].toDateString() &&
+          sheetDate.toDateString() !== primaryDates[1].toDateString(),
+    [sheetDate, primaryDates]
+  );
+
+  // Conditions for selected date (outdoor only, 9am proxy)
   const sheetPlayability = useMemo(() => {
     if (!weather || !outdoor) return null;
     return getPlayability(weather, 9, sheetDate, now);
@@ -755,22 +1030,6 @@ const BookingSheet = memo(function BookingSheet({
   const confirmLabel = selectedSlot
     ? `Confirm · ${formatTime(selectedSlot)} → ${formatTime(getEndTime(selectedSlot, duration))}`
     : 'Select a time slot';
-
-  function renderDateChip(date: Date, testId: string) {
-    const isSelected = date.toDateString() === sheetDate.toDateString();
-    return (
-      <TouchableOpacity
-        key={testId}
-        testID={testId}
-        style={[styles.sheetDateChip, isSelected && styles.sheetDateChipActive]}
-        onPress={() => { onSheetDateChange(date); setShowDateDropdown(false); }}
-        activeOpacity={0.7}>
-        <Text style={[styles.sheetDateChipText, isSelected && styles.sheetDateChipTextActive]}>
-          {formatDateLabel(date, now)}
-        </Text>
-      </TouchableOpacity>
-    );
-  }
 
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
@@ -789,130 +1048,157 @@ const BookingSheet = memo(function BookingSheet({
             </TouchableOpacity>
           </View>
 
-          {/* Date: Today · Tomorrow · More Dates ▼ (dropdown) */}
-          <View style={styles.dateRowContainer}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sheetDateScroll} contentContainerStyle={styles.sheetDateContent} testID="sheet-date-scroll">
-              {primaryDates.map((date, i) =>
-                renderDateChip(date, i === 0 ? 'sheet-date-today' : 'sheet-date-1')
-              )}
-              {moreDates.length > 0 && (
+          {/* Date row: Today · Tomorrow · Dates (opens calendar) */}
+          <View style={styles.dateRow} testID="sheet-date-row">
+            {primaryDates.map((date, i) => {
+              const isSelected = date.toDateString() === sheetDate.toDateString();
+              return (
                 <TouchableOpacity
-                  testID="sheet-date-more"
-                  style={[styles.sheetDateChip, selectedMoreDate ? styles.sheetDateChipActive : undefined]}
-                  onPress={() => setShowDateDropdown(v => !v)}
+                  key={i}
+                  testID={i === 0 ? 'sheet-date-today' : 'sheet-date-1'}
+                  style={[styles.sheetDateChip, styles.sheetDateChipFlex, isSelected && styles.sheetDateChipActive]}
+                  onPress={() => { onSheetDateChange(date); setShowCalendar(false); }}
                   activeOpacity={0.7}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <Text style={[styles.sheetDateChipText, selectedMoreDate ? styles.sheetDateChipTextActive : undefined]}>
-                      {selectedMoreDate ? formatDateLabel(selectedMoreDate, now) : 'More Dates'}
-                    </Text>
-                    <ChevronDown color={selectedMoreDate ? Colors.white : Colors.fg3} size={12} strokeWidth={1.5} />
-                  </View>
+                  <Text style={[styles.sheetDateChipText, isSelected && styles.sheetDateChipTextActive]}>
+                    {formatDateLabel(date, now)}
+                  </Text>
                 </TouchableOpacity>
-              )}
-            </ScrollView>
-            {showDateDropdown && moreDates.length > 0 && (
-              <View style={styles.dateDropdown} testID="sheet-date-dropdown">
-                {moreDates.map((date, i) => {
-                  const isSelected = date.toDateString() === sheetDate.toDateString();
-                  return (
-                    <TouchableOpacity
-                      key={i}
-                      testID={`sheet-date-${i + 2}`}
-                      style={[styles.dateDropdownItem, i < moreDates.length - 1 && styles.dateDropdownItemBorder, isSelected && styles.dateDropdownItemActive]}
-                      onPress={() => { onSheetDateChange(date); setShowDateDropdown(false); }}
-                      activeOpacity={0.7}>
-                      <Text style={[styles.dateDropdownItemText, isSelected && styles.dateDropdownItemTextActive]}>
-                        {formatDateLabel(date, now)}
-                      </Text>
-                      {isSelected && <Check color={Colors.blue} size={14} strokeWidth={2} />}
-                    </TouchableOpacity>
-                  );
-                })}
+              );
+            })}
+            <TouchableOpacity
+              testID="sheet-date-more"
+              style={[styles.sheetDateChip, styles.sheetDateChipFlex, (showCalendar || isMoreDate) && styles.sheetDateChipActive]}
+              onPress={() => setShowCalendar(v => !v)}
+              activeOpacity={0.7}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <CalendarDays
+                  color={(showCalendar || isMoreDate) ? Colors.white : Colors.fg3}
+                  size={13} strokeWidth={1.5} />
+                <Text style={[styles.sheetDateChipText, (showCalendar || isMoreDate) && styles.sheetDateChipTextActive]}>
+                  {isMoreDate ? formatDateLabel(sheetDate, now) : 'Dates'}
+                </Text>
               </View>
-            )}
+            </TouchableOpacity>
           </View>
 
-          {/* Conditions for selected date (outdoor only) */}
-          {outdoor && sheetPlayability && (
+          {/* Calendar picker (shows when Dates tapped, hides slots) */}
+          {showCalendar && (
+            <CalendarPicker
+              selectedDate={sheetDate}
+              onSelect={(d) => { onSheetDateChange(d); setShowCalendar(false); }}
+              minDate={calMinDate}
+              maxDate={calMaxDate}
+              theme={theme}
+              testID="booking-calendar"
+            />
+          )}
+
+          {/* Conditions strip (outdoor only, hidden when calendar open) */}
+          {!showCalendar && outdoor && sheetPlayability && (
             <View testID="sheet-conditions" style={styles.sheetConditionsRow}>
               <WeatherIcon type={sheetPlayability.icon} color={sheetPlayability.accentColor} size={13} />
-              <Text style={[styles.sheetConditionsText, { color: sheetPlayability.accentColor }]}>{sheetPlayability.verdict}</Text>
-              <Text style={styles.sheetConditionsDetail}>· {sheetPlayability.conditions}</Text>
+              <Text style={[styles.sheetConditionsData, { color: sheetPlayability.accentColor }]}>
+                {sheetPlayability.conditions}
+              </Text>
             </View>
           )}
 
-          {/* Play type */}
-          <View style={styles.playTypeRow}>
-            {(['singles', 'doubles'] as const).map(type => (
-              <TouchableOpacity key={type} testID={`play-type-${type}`}
-                style={[styles.playTypeChip, playType === type && styles.playTypeChipActive]}
-                onPress={() => onPlayTypeChange(type)} activeOpacity={0.7}>
-                <Text style={[styles.playTypeText, playType === type && styles.playTypeTextActive]}>
-                  {type === 'singles' ? 'Singles' : 'Doubles'}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Duration selector */}
-          <View testID="duration-selector" style={styles.durationRow}>
-            {availableDurations.map(d => (
-              <TouchableOpacity
-                key={d}
-                testID={`duration-${d}`}
-                style={[styles.durationChip, duration === d && styles.durationChipActive]}
-                onPress={() => onDurationChange(d)}
-                activeOpacity={0.7}>
-                <Text style={[styles.durationChipText, duration === d && styles.durationChipTextActive]}>
-                  {d} min
-                </Text>
-              </TouchableOpacity>
-            ))}
-            {availableDurations.length === 1 && (
-              <Text style={styles.durationHint}>Fixed duration</Text>
-            )}
-          </View>
-
-          {/* Vertical time slot list */}
-          {rulesLoading ? (
-            <ActivityIndicator color={Colors.cyan} style={{ marginVertical: 20 }} />
-          ) : timeSlots.length === 0 ? (
-            <View style={styles.noSlotsState} testID="no-slots-state">
-              <Text style={styles.noSlotsText}>
-                {sheetIsToday ? 'No remaining times today' : 'No available times for this date'}
-              </Text>
+          {/* Play type (hidden when calendar open) */}
+          {!showCalendar && (
+            <View style={styles.playTypeRow}>
+              {(['singles', 'doubles'] as const).map(type => (
+                <TouchableOpacity key={type} testID={`play-type-${type}`}
+                  style={[styles.playTypeChip, playType === type && styles.playTypeChipActive]}
+                  onPress={() => onPlayTypeChange(type)} activeOpacity={0.7}>
+                  <Text style={[styles.playTypeText, playType === type && styles.playTypeTextActive]}>
+                    {type === 'singles' ? 'Singles' : 'Doubles'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
-          ) : (
-            <ScrollView testID="time-slots-scroll" style={styles.slotsScroll} showsVerticalScrollIndicator={false}>
-              {timeSlots.map(slot => {
-                const [h] = slot.split(':').map(Number);
-                const weatherLabel = outdoor ? getSlotWeatherLabel(h, sheetDate, now, weather) : null;
-                const isSelected = slot === selectedSlot;
-                return (
+          )}
+
+          {/* Duration: informational for tennis, selector for non-tennis (hidden when calendar open) */}
+          {!showCalendar && (
+            isTennis ? (
+              <View testID="duration-info" style={styles.durationInfoRow}>
+                <Text style={styles.durationInfoText}>
+                  {playType === 'singles' ? 'Singles' : 'Doubles'} · {duration} min
+                </Text>
+              </View>
+            ) : availableDurations.length > 1 ? (
+              <View testID="duration-selector" style={styles.durationRow}>
+                {availableDurations.map(d => (
                   <TouchableOpacity
-                    key={slot}
-                    testID={`slot-${slot}`}
-                    style={[styles.slotRow, isSelected && styles.slotRowSelected]}
-                    onPress={() => onSelectSlot(isSelected ? null : slot)}
+                    key={d}
+                    testID={`duration-${d}`}
+                    style={[styles.durationChip, duration === d && styles.durationChipActive]}
+                    onPress={() => onDurationChange(d)}
                     activeOpacity={0.7}>
-                    <Text style={[styles.slotRowTime, isSelected && styles.slotRowTimeSelected]}>
-                      {formatTime(slot)}
+                    <Text style={[styles.durationChipText, duration === d && styles.durationChipTextActive]}>
+                      {d} min
                     </Text>
-                    {weatherLabel ? (
-                      <Text testID={`slot-weather-${slot}`} style={[styles.slotRowWeather, isSelected && styles.slotRowWeatherSelected]}>
-                        {weatherLabel}
-                      </Text>
-                    ) : <View style={{ flex: 1 }} />}
-                    <View style={[styles.slotRowSelectBtn, isSelected && styles.slotRowSelectBtnActive]}>
-                      {isSelected
-                        ? <Check color={Colors.cyan} size={14} strokeWidth={2} />
-                        : <Text style={styles.slotRowSelectText}>Select</Text>
-                      }
-                    </View>
                   </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
+                ))}
+              </View>
+            ) : null
+          )}
+
+          {/* Time slot list (hidden when calendar open) */}
+          {!showCalendar && (
+            rulesLoading ? (
+              <ActivityIndicator color={Colors.cyan} style={{ marginVertical: 20 }} />
+            ) : timeSlots.length === 0 ? (
+              <View style={styles.noSlotsState} testID="no-slots-state">
+                <Text style={styles.noSlotsText}>
+                  {sheetIsToday ? 'No remaining times today' : 'No available times for this date'}
+                </Text>
+              </View>
+            ) : (
+              <ScrollView
+                ref={slotsScrollRef}
+                testID="time-slots-scroll"
+                style={styles.slotsScroll}
+                showsVerticalScrollIndicator={false}>
+                {timeSlots.map(slot => {
+                  const [h] = slot.split(':').map(Number);
+                  const weatherLabel = outdoor ? getSlotWeatherLabel(h, sheetDate, now, weather) : null;
+                  const weatherIconType = outdoor ? getSlotWeatherIcon(h, sheetDate, now, weather) : null;
+                  const isSelected = slot === selectedSlot;
+                  return (
+                    <TouchableOpacity
+                      key={slot}
+                      testID={`slot-${slot}`}
+                      style={[styles.slotRow, isSelected && styles.slotRowSelected]}
+                      onPress={() => onSelectSlot(isSelected ? null : slot)}
+                      activeOpacity={0.7}>
+                      <Text style={[styles.slotRowTime, isSelected && styles.slotRowTimeSelected]}>
+                        {formatTime(slot)}
+                      </Text>
+                      {weatherLabel && weatherIconType ? (
+                        <View style={styles.slotRowWeatherWrap}>
+                          <WeatherIcon
+                            type={weatherIconType}
+                            color={isSelected ? theme.cyanOnLight : theme.textMuted}
+                            size={12} />
+                          <Text
+                            testID={`slot-weather-${slot}`}
+                            style={[styles.slotRowWeather, isSelected && styles.slotRowWeatherSelected]}>
+                            {weatherLabel}
+                          </Text>
+                        </View>
+                      ) : <View style={{ flex: 1 }} />}
+                      <View style={[styles.slotRowSelectBtn, isSelected && styles.slotRowSelectBtnActive]}>
+                        {isSelected
+                          ? <Check color={Colors.cyan} size={14} strokeWidth={2} />
+                          : <Text style={styles.slotRowSelectText}>Select</Text>
+                        }
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )
           )}
 
           <TouchableOpacity testID="confirm-booking-btn"
@@ -938,36 +1224,43 @@ function ScheduleSheet({ courtName, courtType, now, scheduleDate, onDateChange, 
 }) {
   const { theme } = useTheme();
   const styles = useStyles(theme);
-  const START_HOUR = 7;
-  const END_HOUR = 21;
-  const dateLabel = scheduleDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
-  const [showSchedDateDropdown, setShowSchedDateDropdown] = useState(false);
+  const [showSchedCalendar, setShowSchedCalendar] = useState(false);
 
-  const schedDateChips = useMemo(() => getAllowedBookingDates(rules, now, 3), [rules, now]);
-  const primarySchedDates = schedDateChips.slice(0, 2);
-  const moreSchedDates = schedDateChips.slice(2);
-  const selectedMoreSchedDate = moreSchedDates.find(d => d.toDateString() === scheduleDate.toDateString()) ?? null;
+  // Schedule calendar: 2 years back, advance_booking_days forward
+  const schedCalMinDate = useMemo(() => {
+    const d = new Date(now);
+    d.setFullYear(d.getFullYear() - 2);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, [now]);
+
+  const schedCalMaxDate = useMemo(() => {
+    const advDays = rules?.advance_booking_days ?? 7;
+    const d = new Date(now); d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + advDays);
+    return d;
+  }, [rules, now]);
+
+  const dateLabel = scheduleDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+  const START_HOUR = rules?.booking_start_time ? parseInt(rules.booking_start_time.split(':')[0]) : 7;
+  const END_HOUR = rules?.booking_end_time ? parseInt(rules.booking_end_time.split(':')[0]) : 21;
 
   const timeBlocks = useMemo(() => {
     const blocks: Array<{ slotStr: string; label: string; type: 'available' | 'booked' | 'mine' | 'maintenance' }> = [];
     for (let h = START_HOUR; h < END_HOUR; h++) {
-      for (let m = 0; m < 60; m += 60) {
-        const slotStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-        const slotEnd = `${(h + 1).toString().padStart(2, '0')}:00`;
-        const slotFull = slotStr + ':00';
-        const slotEndFull = slotEnd + ':00';
-        const isMaint = maintenance.some(mb => mb.start_time < slotEndFull && mb.end_time > slotFull);
-        const isMine = userId ? bookings.some(b => b.start_time < slotEndFull && b.end_time > slotFull && b.user_id === userId) : false;
-        const isBooked = bookings.some(b => b.start_time < slotEndFull && b.end_time > slotFull);
-        blocks.push({
-          slotStr,
-          label: `${formatTime(slotStr)} – ${formatTime(slotEnd)}`,
-          type: isMaint ? 'maintenance' : isMine ? 'mine' : isBooked ? 'booked' : 'available',
-        });
-      }
+      const slotStr = `${h.toString().padStart(2, '0')}:00`;
+      const slotEnd = `${(h + 1).toString().padStart(2, '0')}:00`;
+      const isMaint = maintenance.some(mb => slotsOverlap(slotStr, slotEnd, mb.start_time, mb.end_time));
+      const isMine = userId ? bookings.some(b => slotsOverlap(slotStr, slotEnd, b.start_time, b.end_time) && b.user_id === userId) : false;
+      const isBooked = bookings.some(b => slotsOverlap(slotStr, slotEnd, b.start_time, b.end_time));
+      blocks.push({
+        slotStr,
+        label: `${formatTime(slotStr)} – ${formatTime(slotEnd)}`,
+        type: isMaint ? 'maintenance' : isMine ? 'mine' : isBooked ? 'booked' : 'available',
+      });
     }
     return blocks;
-  }, [bookings, maintenance, userId]);
+  }, [bookings, maintenance, userId, START_HOUR, END_HOUR]);
 
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
@@ -979,117 +1272,93 @@ function ScheduleSheet({ courtName, courtType, now, scheduleDate, onDateChange, 
           <View style={styles.sheetHeader}>
             <View style={{ flex: 1 }}>
               <Text style={styles.sheetCourtName}>{courtName}</Text>
-              <Text style={styles.sheetDateLabel}>{dateLabel}</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.sheetCloseBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <X color={Colors.fg3} size={20} strokeWidth={1.5} />
             </TouchableOpacity>
           </View>
 
-          {/* Date picker — same window as booking */}
-          <View style={styles.dateRowContainer}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sheetDateScroll} contentContainerStyle={styles.sheetDateContent} testID="schedule-date-scroll">
-              {primarySchedDates.map((date, i) => {
-                const isSelected = date.toDateString() === scheduleDate.toDateString();
-                return (
-                  <TouchableOpacity
-                    key={i === 0 ? 'sched-today' : 'sched-1'}
-                    testID={i === 0 ? 'sched-date-today' : 'sched-date-1'}
-                    style={[styles.sheetDateChip, isSelected && styles.sheetDateChipActive]}
-                    onPress={() => { onDateChange(date); setShowSchedDateDropdown(false); }}
-                    activeOpacity={0.7}>
-                    <Text style={[styles.sheetDateChipText, isSelected && styles.sheetDateChipTextActive]}>
-                      {formatDateLabel(date, now)}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-              {moreSchedDates.length > 0 && (
-                <TouchableOpacity
-                  testID="sched-date-more"
-                  style={[styles.sheetDateChip, selectedMoreSchedDate ? styles.sheetDateChipActive : undefined]}
-                  onPress={() => setShowSchedDateDropdown(v => !v)}
-                  activeOpacity={0.7}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <Text style={[styles.sheetDateChipText, selectedMoreSchedDate ? styles.sheetDateChipTextActive : undefined]}>
-                      {selectedMoreSchedDate ? formatDateLabel(selectedMoreSchedDate, now) : 'More Dates'}
-                    </Text>
-                    <ChevronDown color={selectedMoreSchedDate ? Colors.white : Colors.fg3} size={12} strokeWidth={1.5} />
-                  </View>
-                </TouchableOpacity>
-              )}
-            </ScrollView>
-            {showSchedDateDropdown && moreSchedDates.length > 0 && (
-              <View style={styles.dateDropdown} testID="sched-date-dropdown">
-                {moreSchedDates.map((date, i) => {
-                  const isSelected = date.toDateString() === scheduleDate.toDateString();
+          {/* Date selector button → expands calendar */}
+          <TouchableOpacity
+            testID="sched-date-btn"
+            style={styles.schedDateBtn}
+            onPress={() => setShowSchedCalendar(v => !v)}
+            activeOpacity={0.7}>
+            <CalendarDays color={theme.cyanOnLight} size={16} strokeWidth={1.5} />
+            <Text style={styles.schedDateBtnText}>{dateLabel}</Text>
+            <ChevronDown
+              color={theme.textMuted}
+              size={14}
+              strokeWidth={1.5}
+              style={showSchedCalendar ? { transform: [{ rotate: '180deg' }] } : undefined}
+            />
+          </TouchableOpacity>
+
+          {/* Calendar (visible when date btn tapped; hides schedule) */}
+          {showSchedCalendar && (
+            <CalendarPicker
+              selectedDate={scheduleDate}
+              onSelect={(d) => { onDateChange(d); setShowSchedCalendar(false); }}
+              minDate={schedCalMinDate}
+              maxDate={schedCalMaxDate}
+              theme={theme}
+              testID="schedule-calendar"
+            />
+          )}
+
+          {/* Schedule blocks — hidden while calendar is open */}
+          {!showSchedCalendar && (loading ? (
+            <ActivityIndicator color={Colors.cyan} style={{ marginVertical: 24 }} />
+          ) : (
+            <ScrollView testID="schedule-blocks" showsVerticalScrollIndicator={false} style={{ maxHeight: 400 }}>
+              <View>
+                {timeBlocks.map((block, i) => {
+                  const isAvail = block.type === 'available';
+                  const isMaint = block.type === 'maintenance';
+                  const isMine = block.type === 'mine';
+                  const isBooked = block.type === 'booked';
                   return (
-                    <TouchableOpacity
-                      key={i}
-                      testID={`sched-date-${i + 2}`}
-                      style={[styles.dateDropdownItem, i < moreSchedDates.length - 1 && styles.dateDropdownItemBorder, isSelected && styles.dateDropdownItemActive]}
-                      onPress={() => { onDateChange(date); setShowSchedDateDropdown(false); }}
-                      activeOpacity={0.7}>
-                      <Text style={[styles.dateDropdownItemText, isSelected && styles.dateDropdownItemTextActive]}>
-                        {formatDateLabel(date, now)}
-                      </Text>
-                      {isSelected && <Check color={Colors.blue} size={14} strokeWidth={2} />}
-                    </TouchableOpacity>
+                    <View key={i} testID={`schedule-block-${block.type}`}
+                      style={[
+                        styles.scheduleRow,
+                        isAvail && styles.scheduleRowAvail,
+                        isBooked && styles.scheduleRowBooked,
+                        isMaint && styles.scheduleRowMaint,
+                        isMine && styles.scheduleRowMine,
+                      ]}>
+                      <Text style={[
+                        styles.scheduleRowLabel,
+                        isAvail && styles.scheduleRowLabelAvail,
+                        isMaint && styles.scheduleRowLabelMaint,
+                        isMine && styles.scheduleRowLabelMine,
+                      ]}>{block.label}</Text>
+                      {isAvail ? (
+                        <TouchableOpacity testID={`schedule-book-${block.slotStr}`} style={styles.scheduleBookBtn}
+                          onPress={() => onBook(block.slotStr)} activeOpacity={0.7}>
+                          <Text style={styles.scheduleBookBtnText}>Reserve →</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <Text style={[
+                          styles.scheduleBlockStatus,
+                          isMaint && { color: Colors.negative },
+                          isMine && { color: Colors.volt },
+                        ]}>
+                          {isMaint ? 'MAINTENANCE' : isMine ? 'MY RESERVATION' : 'BOOKED'}
+                        </Text>
+                      )}
+                    </View>
                   );
                 })}
               </View>
-            )}
-          </View>
-
-          {loading ? (
-            <ActivityIndicator color={Colors.cyan} style={{ marginVertical: 24 }} />
-          ) : (
-            <ScrollView testID="schedule-blocks" showsVerticalScrollIndicator={false} style={{ maxHeight: 480 }}>
-              {timeBlocks.map((block, i) => {
-                const isAvail = block.type === 'available';
-                const isMaint = block.type === 'maintenance';
-                const isMine = block.type === 'mine';
-                const isBooked = block.type === 'booked';
-                return (
-                  <View key={i} testID={`schedule-block-${block.type}`}
-                    style={[
-                      styles.scheduleRow,
-                      isAvail && styles.scheduleRowAvail,
-                      isBooked && styles.scheduleRowBooked,
-                      isMaint && styles.scheduleRowMaint,
-                      isMine && styles.scheduleRowMine,
-                    ]}>
-                    <Text style={[
-                      styles.scheduleRowLabel,
-                      isAvail && styles.scheduleRowLabelAvail,
-                      isMaint && styles.scheduleRowLabelMaint,
-                      isMine && styles.scheduleRowLabelMine,
-                    ]}>{block.label}</Text>
-                    {isAvail ? (
-                      <TouchableOpacity testID={`schedule-book-${block.slotStr}`} style={styles.scheduleBookBtn}
-                        onPress={() => onBook(block.slotStr)} activeOpacity={0.7}>
-                        <Text style={styles.scheduleBookBtnText}>Play Now →</Text>
-                      </TouchableOpacity>
-                    ) : (
-                      <Text style={[
-                        styles.scheduleBlockStatus,
-                        isMaint && { color: Colors.negative },
-                        isMine && { color: Colors.volt },
-                      ]}>{isMaint ? 'MAINTENANCE' : isMine ? 'MY RESERVATION' : 'RESERVED'}</Text>
-                    )}
-                  </View>
-                );
-              })}
+              {/* Legend */}
+              <View testID="schedule-legend" style={styles.scheduleLegend}>
+                <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: Colors.positive }]} /><Text style={styles.legendText}>Available</Text></View>
+                <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: Colors.volt }]} /><Text style={styles.legendText}>My Reservation</Text></View>
+                <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: theme.borderStrong }]} /><Text style={styles.legendText}>Booked</Text></View>
+                <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: Colors.negative }]} /><Text style={styles.legendText}>Maintenance</Text></View>
+              </View>
             </ScrollView>
-          )}
-
-          {/* Legend — distinct colors */}
-          <View testID="schedule-legend" style={styles.scheduleLegend}>
-            <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: Colors.cyan }]} /><Text style={styles.legendText}>Available</Text></View>
-            <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: Colors.volt }]} /><Text style={styles.legendText}>My Reservation</Text></View>
-            <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: Colors.borderStrong }]} /><Text style={styles.legendText}>Reserved</Text></View>
-            <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: Colors.negative }]} /><Text style={styles.legendText}>Maintenance</Text></View>
-          </View>
+          ))}
         </View>
       </View>
     </Modal>
@@ -1109,21 +1378,28 @@ function useStyles(theme: ThemeTokens) {
   heroConditionsDivider: { height: 1, backgroundColor: 'rgba(45,224,255,0.15)', marginVertical: 12 },
   conditionsSkeleton: { height: 14, width: 200, backgroundColor: theme.surface2, borderRadius: 7 },
   conditionsRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  conditionsVerdict: { fontFamily: FontFamily.manropeSemiBold, fontSize: 13 },
-  conditionsDetail: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: FontSize.eyebrow, color: theme.textMuted, letterSpacing: 0.3 },
+  conditionsData: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: 12, letterSpacing: 0.4 },
+
+  // Top-level HOA / Other selector
+  topTabControl: { flexDirection: 'row', paddingHorizontal: Spacing.pagePx, paddingVertical: 10, gap: 8, backgroundColor: theme.pageBg },
+  topTabBtn: { flex: 1, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: Radius.chip, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surface2 },
+  topTabBtnActive: { backgroundColor: Colors.blue, borderColor: Colors.blue },
+  topTabText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 14, color: theme.textSecondary },
+  topTabTextActive: { color: Colors.white },
 
   tabControl: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: theme.border, backgroundColor: theme.pageBg },
   tabBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabBtnActive: { borderBottomColor: Colors.cyan },
+  tabBtnActive: { borderBottomColor: theme.cyanOnLight },
   tabBtnText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 14, color: theme.textMuted },
-  tabBtnTextActive: { color: Colors.cyan },
+  tabBtnTextActive: { color: theme.cyanOnLight },
 
   contentWrap: { maxWidth: MaxWidth, width: '100%', alignSelf: 'center', paddingHorizontal: Spacing.pagePx, paddingTop: 16, gap: 12 },
+  otherEmpty: { alignItems: 'center', paddingTop: 48 },
   intelligenceSkeleton: { height: 14, width: 160, backgroundColor: theme.surface2, borderRadius: 7 },
-  intelligenceLine: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: FontSize.eyebrow, color: Colors.cyan, letterSpacing: 1.4 },
+  intelligenceLine: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: FontSize.eyebrow, color: theme.cyanOnLight, letterSpacing: 1.4 },
 
   courtCardSkeleton: { height: 104, backgroundColor: theme.surface2, borderRadius: Radius.card, borderLeftWidth: 3, borderLeftColor: theme.border },
-  courtCard: { backgroundColor: theme.cardBg, borderRadius: Radius.card, padding: 20, borderWidth: 1, borderColor: theme.border, borderLeftWidth: 3, gap: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 3 },
+  courtCard: { backgroundColor: theme.cardBg, borderRadius: Radius.card, padding: 20, borderWidth: 1, borderColor: theme.border, borderLeftWidth: 3, gap: 4, ...theme.shadowCard },
   courtCardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 },
   courtNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
   cyanDot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
@@ -1146,54 +1422,32 @@ function useStyles(theme: ThemeTokens) {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: theme.cardBg, borderRadius: Radius.card,
     paddingHorizontal: 20, paddingVertical: 16,
-    borderWidth: 1, borderColor: 'rgba(45,224,255,0.25)',
-    marginTop: 4,
+    borderWidth: 1, borderColor: theme.borderStrong,
+    marginTop: 4, ...theme.shadowCard,
   },
-  upcomingCardEyebrow: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: 10, color: Colors.cyan, letterSpacing: 1.4, marginBottom: 4 },
+  upcomingCardEyebrow: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: 10, color: theme.cyanOnLight, letterSpacing: 1.4, marginBottom: 4 },
   upcomingCardTitle: { fontFamily: FontFamily.spaceGroteskBold, fontSize: 18, color: theme.textPrimary, letterSpacing: -0.2 },
 
   // Sheets
   sheetOverlay: { flex: 1, justifyContent: 'flex-end' },
   sheetBackdrop: { ...StyleSheet.absoluteFill, backgroundColor: theme.backdrop },
-  sheetContainer: { backgroundColor: theme.sheetBg, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, borderTopWidth: 1, borderColor: theme.border, paddingHorizontal: Spacing.pagePx, paddingTop: 12, maxHeight: '85%' },
-  scheduleSheetContainer: { maxHeight: '80%' },
+  sheetContainer: { backgroundColor: theme.sheetBg, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, borderTopWidth: 1, borderColor: theme.border, paddingHorizontal: Spacing.pagePx, paddingTop: 12, maxHeight: '88%', ...theme.shadowSheet },
+  scheduleSheetContainer: { maxHeight: '85%' },
   sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: theme.border, alignSelf: 'center', marginBottom: 16 },
   sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 },
   sheetCourtName: { fontFamily: FontFamily.spaceGroteskBold, fontSize: 20, color: theme.textPrimary },
-  sheetDateLabel: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: FontSize.eyebrow, color: theme.textMuted, letterSpacing: 0.8, marginTop: 3 },
   sheetCloseBtn: { width: 36, height: 36, backgroundColor: theme.surface2, borderRadius: Radius.sm, alignItems: 'center', justifyContent: 'center' },
 
-  // Date chips
-  sheetDateScroll: { minHeight: 50 },
-  sheetDateContent: { gap: 8, alignItems: 'center', paddingVertical: 6 },
-  sheetDateChip: { height: 40, alignSelf: 'center', paddingHorizontal: 16, borderRadius: Radius.chip, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surface2, alignItems: 'center', justifyContent: 'center' },
+  // Date row: flex buttons (symmetrical, equal width)
+  dateRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+  sheetDateChip: { height: 40, alignSelf: 'center', paddingHorizontal: 12, borderRadius: Radius.chip, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surface2, alignItems: 'center', justifyContent: 'center' },
+  sheetDateChipFlex: { flex: 1 },
   sheetDateChipActive: { backgroundColor: Colors.blue, borderColor: Colors.blue },
   sheetDateChipText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 13, color: theme.textSecondary },
   sheetDateChipTextActive: { color: Colors.white },
-  dateRowContainer: { marginBottom: 8 },
-  dateDropdown: {
-    backgroundColor: theme.cardBg,
-    borderRadius: Radius.chip,
-    borderWidth: 1,
-    borderColor: theme.border,
-    marginTop: 4,
-    overflow: 'hidden',
-  },
-  dateDropdownItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  dateDropdownItemBorder: { borderBottomWidth: 1, borderBottomColor: theme.border },
-  dateDropdownItemActive: { backgroundColor: 'rgba(45,107,255,0.10)' },
-  dateDropdownItemText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 14, color: theme.textSecondary },
-  dateDropdownItemTextActive: { color: Colors.blue },
 
   sheetConditionsRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: theme.surface2, borderRadius: Radius.sm },
-  sheetConditionsText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 13 },
-  sheetConditionsDetail: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: FontSize.eyebrow, color: theme.textMuted, letterSpacing: 0.3 },
+  sheetConditionsData: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: 12, letterSpacing: 0.4 },
 
   // Play type
   playTypeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
@@ -1202,13 +1456,14 @@ function useStyles(theme: ThemeTokens) {
   playTypeText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 13, color: theme.textSecondary },
   playTypeTextActive: { color: Colors.white },
 
-  // Duration selector
+  // Duration
+  durationInfoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: theme.surface2, borderRadius: Radius.sm, borderWidth: 1, borderColor: theme.border },
+  durationInfoText: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: 12, color: theme.cyanOnLight, letterSpacing: 0.8 },
   durationRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
   durationChip: { height: 40, paddingHorizontal: 16, borderRadius: Radius.chip, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surface2, alignItems: 'center', justifyContent: 'center' },
-  durationChipActive: { backgroundColor: 'rgba(45,224,255,0.12)', borderColor: Colors.cyan },
+  durationChipActive: { backgroundColor: theme.selectedBg, borderColor: theme.selectedBorder },
   durationChipText: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: 12, color: theme.textSecondary, letterSpacing: 0.3 },
-  durationChipTextActive: { color: Colors.cyan },
-  durationHint: { fontFamily: FontFamily.manropeMedium, fontSize: 12, color: theme.textMuted, marginLeft: 4 },
+  durationChipTextActive: { color: theme.selectedBorder },
 
   slotsScroll: { maxHeight: 240, marginBottom: 14 },
 
@@ -1226,8 +1481,8 @@ function useStyles(theme: ThemeTokens) {
     borderColor: theme.border,
   },
   slotRowSelected: {
-    backgroundColor: 'rgba(45,224,255,0.10)',
-    borderColor: Colors.cyan,
+    backgroundColor: theme.selectedBg,
+    borderColor: theme.selectedBorder,
   },
   slotRowTime: {
     fontFamily: FontFamily.jetbrainsMonoSemiBold,
@@ -1236,16 +1491,22 @@ function useStyles(theme: ThemeTokens) {
     letterSpacing: 0.3,
     minWidth: 72,
   },
-  slotRowTimeSelected: { color: Colors.cyan },
-  slotRowWeather: {
+  slotRowTimeSelected: { color: theme.selectedBorder },
+  slotRowWeatherWrap: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 6,
+  },
+  slotRowWeather: {
     fontFamily: FontFamily.jetbrainsMonoSemiBold,
-    fontSize: 12,
+    fontSize: 11,
     color: theme.textMuted,
     letterSpacing: 0.2,
-    paddingHorizontal: 8,
+    flexShrink: 1,
   },
-  slotRowWeatherSelected: { color: 'rgba(45,224,255,0.7)' },
+  slotRowWeatherSelected: { color: theme.cyanOnLight },
   slotRowSelectBtn: {
     paddingHorizontal: 10,
     paddingVertical: 5,
@@ -1257,8 +1518,8 @@ function useStyles(theme: ThemeTokens) {
     alignItems: 'center',
   },
   slotRowSelectBtnActive: {
-    backgroundColor: 'rgba(45,224,255,0.12)',
-    borderColor: Colors.cyan,
+    backgroundColor: theme.selectedBg,
+    borderColor: theme.selectedBorder,
   },
   slotRowSelectText: {
     fontFamily: FontFamily.manropeSemiBold,
@@ -1274,21 +1535,40 @@ function useStyles(theme: ThemeTokens) {
   confirmBtnSuccess: { backgroundColor: Colors.positive },
   confirmBtnText: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label, color: Colors.white },
 
-  // Schedule sheet — distinct colors per state
+  // Schedule sheet
+  schedDateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: theme.surface2,
+    borderRadius: Radius.sm,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  schedDateBtnText: {
+    fontFamily: FontFamily.manropeSemiBold,
+    fontSize: 14,
+    color: theme.textPrimary,
+    flex: 1,
+  },
+
   scheduleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, paddingHorizontal: 4, borderBottomWidth: 1, borderBottomColor: theme.border, minHeight: 52 },
-  scheduleRowAvail: { borderLeftWidth: 3, borderLeftColor: Colors.cyan, paddingLeft: 10 },
-  scheduleRowBooked: { borderLeftWidth: 3, borderLeftColor: theme.borderStrong, paddingLeft: 10, opacity: 0.7 },
-  scheduleRowMaint: { borderLeftWidth: 3, borderLeftColor: Colors.negative, paddingLeft: 10, opacity: 0.7 },
-  scheduleRowMine: { borderLeftWidth: 3, borderLeftColor: Colors.volt, paddingLeft: 10 },
+  scheduleRowAvail: { borderLeftWidth: 3, borderLeftColor: Colors.positive, paddingLeft: 10, backgroundColor: theme.schedAvailBg },
+  scheduleRowBooked: { borderLeftWidth: 3, borderLeftColor: theme.border, paddingLeft: 10, opacity: 0.7 },
+  scheduleRowMaint: { borderLeftWidth: 3, borderLeftColor: Colors.negative, paddingLeft: 10, backgroundColor: theme.schedMaintBg, opacity: 0.85 },
+  scheduleRowMine: { borderLeftWidth: 3, borderLeftColor: Colors.volt, paddingLeft: 10, backgroundColor: theme.schedMineBg },
   scheduleRowLabel: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: 12, color: theme.textMuted, letterSpacing: 0.3 },
   scheduleRowLabelAvail: { color: theme.textPrimary },
   scheduleRowLabelMaint: { color: Colors.negative },
-  scheduleRowLabelMine: { color: Colors.volt },
-  scheduleBookBtn: { backgroundColor: 'rgba(45,224,255,0.12)', borderRadius: Radius.sm, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(45,224,255,0.3)' },
-  scheduleBookBtnText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 14, color: Colors.cyan },
+  scheduleRowLabelMine: { color: theme.textPrimary },
+  scheduleBookBtn: { backgroundColor: theme.selectedBg, borderRadius: Radius.sm, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: theme.selectedBorder },
+  scheduleBookBtnText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 14, color: theme.selectedBorder },
   scheduleBlockStatus: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: 10, color: theme.textMuted, letterSpacing: 1 },
 
-  scheduleLegend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingVertical: 14, paddingHorizontal: 4, borderTopWidth: 1, borderTopColor: theme.border },
+  scheduleLegend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingVertical: 14, paddingHorizontal: 4, borderTopWidth: 1, borderTopColor: theme.border, marginTop: 8 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
   legendText: { fontFamily: FontFamily.manropeMedium, fontSize: 12, color: theme.textMuted },

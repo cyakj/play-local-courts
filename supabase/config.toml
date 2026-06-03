@@ -10,7 +10,6 @@ max_rows = 1000
 
 [auth]
 enabled = true
-port = 54324
 site_url = "http://localhost:3000"
 additional_redirect_urls = ["https://localhost:3000"]
 jwt_expiry = 3600
@@ -21,8 +20,9 @@ enable_signup = true
 enable_confirmations = true
 
 [auth.hook.send_email]
-enabled = true
+enabled = false
 uri = "http://localhost:54321/functions/v1/send-auth-email"
+secrets = "v1,whsec_bG9jYWxkZXZzZWNyZXRrZXlmb3JjbGF1ZGU="
 
 [functions.send-booking-email]
 verify_jwt = true

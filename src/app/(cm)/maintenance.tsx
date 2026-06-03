@@ -40,14 +40,14 @@ const STATUS_OPTIONS = [
 ];
 
 const CATEGORY_OPTIONS = [
-  { value: 'all', label: 'All Categories' },
-  { value: 'plumbing', label: 'Plumbing' },
-  { value: 'electrical', label: 'Electrical' },
-  { value: 'structural', label: 'Structural' },
-  { value: 'cleanliness', label: 'Cleanliness' },
-  { value: 'equipment', label: 'Equipment' },
-  { value: 'safety', label: 'Safety' },
-  { value: 'other', label: 'Other' },
+  { value: 'all',                 label: 'All Categories' },
+  { value: 'plumbing',            label: 'Water & Plumbing' },
+  { value: 'electrical',          label: 'Lighting & Electrical' },
+  { value: 'structural',          label: 'Buildings & Structures' },
+  { value: 'grounds_landscaping', label: 'Grounds & Landscaping' },
+  { value: 'equipment',           label: 'Amenities & Equipment' },
+  { value: 'safety',              label: 'Safety' },
+  { value: 'other',               label: 'Other' },
 ];
 
 const DETAIL_STATUS_OPTIONS = [
@@ -56,6 +56,19 @@ const DETAIL_STATUS_OPTIONS = [
   { value: 'resolved', label: 'Resolved' },
   { value: 'closed', label: 'Closed' },
 ];
+
+function getCategoryLabel(cat: string): string {
+  const map: Record<string, string> = {
+    plumbing:            'Water & Plumbing',
+    electrical:          'Lighting & Electrical',
+    structural:          'Buildings & Structures',
+    grounds_landscaping: 'Grounds & Landscaping',
+    equipment:           'Amenities & Equipment',
+    safety:              'Safety',
+    other:               'Other',
+  };
+  return map[cat] ?? cat.charAt(0).toUpperCase() + cat.slice(1);
+}
 
 function getStatusPill(status: string): { bg: string; text: string; border: string; label: string } {
   const map: Record<string, { bg: string; text: string; border: string; label: string }> = {
@@ -166,7 +179,7 @@ export default function MaintenanceReportsScreen() {
       const locationText = r.location_text as string | undefined;
       const displayTitle = r.report_type === 'location'
         ? `${(locationText ?? 'Unknown location').slice(0, 30)}${(locationText ?? '').length > 30 ? '…' : ''}`
-        : (r.title ?? amenityName ?? (r.category.charAt(0).toUpperCase() + r.category.slice(1)));
+        : (r.title ?? amenityName ?? getCategoryLabel(r.category));
       return {
         id: r.id,
         community: hoaMap.get(r.hoa_id) ?? '',
@@ -392,7 +405,7 @@ export default function MaintenanceReportsScreen() {
                 Reported by {selected.reporter} · {selected.date}
               </Text>
               <Text style={styles.modalCategory}>
-                {selected.category.toUpperCase()}{selected.report_type ? ` · ${selected.report_type.toUpperCase()}` : ''}
+                {getCategoryLabel(selected.category).toUpperCase()}{selected.report_type ? ` · ${selected.report_type.toUpperCase()}` : ''}
               </Text>
 
               <Text style={styles.fieldLabel}>DESCRIPTION</Text>
