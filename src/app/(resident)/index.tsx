@@ -1,16 +1,12 @@
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Modal,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { CheckCircle } from 'lucide-react-native';
+import { Cloud, CloudLightning, CloudRain, Sun } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import {
@@ -18,24 +14,103 @@ import {
 } from '@/constants/design';
 import { Header } from '@/components/ui/Header';
 import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { EmptyState } from '@/components/ui/EmptyState';
 import { CardSkeleton } from '@/components/ui/Skeleton';
-import type { Database } from '@/lib/types';
 
-type Court = Database['public']['Tables']['courts']['Row'];
+// ─── Weather ──────────────────────────────────────────────────────
 
-interface Slot {
-  start: string;
-  end: string;
-  label: string;
+type WeatherCondition = 'sunny' | 'partly_cloudy' | 'cloudy' | 'rainy' | 'stormy';
+
+interface CurrentWeather {
+  temp: number;
+  condition: WeatherCondition;
+  description: string;
+  rainPct: number;
 }
 
-interface DateOption {
-  iso: string;
-  dayLabel: string;
-  dayNum: number;
+function mapWmoCode(code: number): WeatherCondition {
+  if (code <= 1) return 'sunny';
+  if (code === 2) return 'partly_cloudy';
+  if (code === 3) return 'cloudy';
+  if (code >= 45 && code <= 48) return 'cloudy';
+  if (code >= 51 && code <= 82) return 'rainy';
+  if (code >= 95) return 'stormy';
+  return 'cloudy';
 }
+
+function conditionLabel(c: WeatherCondition): string {
+  switch (c) {
+    case 'sunny': return 'Clear';
+    case 'partly_cloudy': return 'Partly Cloudy';
+    case 'cloudy': return 'Overcast';
+    case 'rainy': return 'Rain';
+    case 'stormy': return 'Thunderstorm';
+  }
+}
+
+function WeatherIcon({ condition, size = 28 }: { condition: WeatherCondition; size?: number }) {
+  switch (condition) {
+    case 'sunny':
+      return <Sun color={Colors.accentCyan} size={size} strokeWidth={1.5} />;
+    case 'partly_cloudy':
+      return <Cloud color={Colors.textMuted} size={size} strokeWidth={1.5} />;
+    case 'rainy':
+      return <CloudRain color='#5BB8E0' size={size} strokeWidth={1.5} />;
+    case 'stormy':
+      return <CloudLightning color={Colors.coral} size={size} strokeWidth={1.5} />;
+    default:
+      return <Cloud color={Colors.textMuted} size={size} strokeWidth={1.5} />;
+  }
+}
+
+async function fetchCurrentWeather(): Promise<CurrentWeather | null> {
+  try {
+    const res = await fetch(
+      'https://api.open-meteo.com/v1/forecast' +
+      '?latitude=18.4655&longitude=-66.1057' +
+      '&current=temperature_2m,weather_code,precipitation_probability' +
+      '&timezone=America%2FPuerto_Rico&temperature_unit=fahrenheit'
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const condition = mapWmoCode(data.current.weather_code);
+    return {
+      temp: Math.round(data.current.temperature_2m),
+      condition,
+      description: conditionLabel(condition),
+      rainPct: data.current.precipitation_probability ?? 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(' ').filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
+
+function formatTime(t: string): string {
+  const [h, m] = t.split(':');
+  const hour = parseInt(h, 10);
+  const suffix = hour < 12 ? 'AM' : 'PM';
+  const display = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+  return `${display}:${m} ${suffix}`;
+}
+
+function formatDate(iso: string): string {
+  const d = new Date(iso + 'T00:00:00');
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(now.getTime() + 86400000);
+  if (d.getTime() === now.getTime()) return 'Today';
+  if (d.getTime() === tomorrow.getTime()) return 'Tomorrow';
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+// ─── Types ────────────────────────────────────────────────────────
 
 interface UpcomingBooking {
   id: string;
@@ -45,94 +120,30 @@ interface UpcomingBooking {
   end_time: string;
 }
 
-const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-const SLOTS: Slot[] = Array.from({ length: 14 }, (_, i) => {
-  const h = i + 7;
-  const pad = (n: number) => String(n).padStart(2, '0');
-  const label = h < 12 ? `${h}:00 AM` : h === 12 ? '12:00 PM' : `${h - 12}:00 PM`;
-  return { start: `${pad(h)}:00:00`, end: `${pad(h + 1)}:00:00`, label };
-});
-
-function getDateOptions(): DateOption[] {
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() + i);
-    return {
-      iso: d.toISOString().split('T')[0],
-      dayLabel: DAY_NAMES[d.getDay()],
-      dayNum: d.getDate(),
-    };
-  });
-}
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(' ').filter(Boolean);
-  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
+// ─── Screen ───────────────────────────────────────────────────────
 
 export default function ResidentHomeScreen() {
-  const dateOptions = getDateOptions();
-
   const [userName, setUserName] = useState('');
   const [avatarInitials, setAvatarInitials] = useState('U');
-  const [userId, setUserId] = useState('');
-  const [courts, setCourts] = useState<Court[]>([]);
-  const [selectedCourtId, setSelectedCourtId] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState(dateOptions[0].iso);
-  const [bookedSlots, setBookedSlots] = useState<string[]>([]);
   const [upcomingBookings, setUpcomingBookings] = useState<UpcomingBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [slotLoading, setSlotLoading] = useState(false);
-  const [confirmSlot, setConfirmSlot] = useState<Slot | null>(null);
-  const [booking, setBooking] = useState(false);
-  const [bookingSuccess, setBookingSuccess] = useState(false);
-
-  async function loadSlots(courtId: string, date: string) {
-    setSlotLoading(true);
-    const { data } = await supabase
-      .from('bookings')
-      .select('start_time')
-      .eq('court_id', courtId)
-      .eq('date', date)
-      .neq('status', 'cancelled');
-    setBookedSlots((data ?? []).map((b) => b.start_time));
-    setSlotLoading(false);
-  }
+  const [weather, setWeather] = useState<CurrentWeather | null>(null);
 
   async function load() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
-    setUserId(user.id);
 
-    const [profileRes, membershipRes] = await Promise.all([
+    const [profileRes, weatherData] = await Promise.all([
       supabase.from('profiles').select('full_name').eq('id', user.id).single(),
-      supabase.from('hoa_memberships').select('hoa_id').eq('user_id', user.id).limit(1).single(),
+      fetchCurrentWeather(),
     ]);
 
     if (profileRes.data?.full_name) {
       setUserName(profileRes.data.full_name);
       setAvatarInitials(getInitials(profileRes.data.full_name));
     }
-
-    const hId = membershipRes.data?.hoa_id ?? '';
-
-    let firstCourtId: string | null = null;
-    if (hId) {
-      const { data: courtsData } = await supabase
-        .from('courts')
-        .select('*')
-        .eq('hoa_id', hId)
-        .order('name');
-      const c = courtsData ?? [];
-      setCourts(c);
-      if (c.length > 0) {
-        firstCourtId = c[0].id;
-        setSelectedCourtId((prev) => prev ?? c[0].id);
-      }
-    }
+    setWeather(weatherData);
 
     const today = new Date().toISOString().split('T')[0];
     const { data: upcoming } = await supabase
@@ -154,20 +165,10 @@ export default function ResidentHomeScreen() {
         end_time: b.end_time,
       }))
     );
-
-    // Load slots for first court + today if not already selected
-    if (firstCourtId) {
-      await loadSlots(firstCourtId, today);
-    }
-
     setLoading(false);
   }
 
   useEffect(() => { load(); }, []);
-
-  useEffect(() => {
-    if (selectedCourtId && selectedDate) loadSlots(selectedCourtId, selectedDate);
-  }, [selectedCourtId, selectedDate]);
 
   async function onRefresh() {
     setRefreshing(true);
@@ -175,59 +176,12 @@ export default function ResidentHomeScreen() {
     setRefreshing(false);
   }
 
-  async function confirmBooking() {
-    if (!confirmSlot || !selectedCourtId || !userId) return;
-    setBooking(true);
-    await supabase.from('bookings').insert({
-      court_id: selectedCourtId,
-      user_id: userId,
-      date: selectedDate,
-      start_time: confirmSlot.start,
-      end_time: confirmSlot.end,
-      status: 'confirmed',
-    });
-    setBooking(false);
-    setConfirmSlot(null);
-    setBookingSuccess(true);
-    setTimeout(() => setBookingSuccess(false), 3000);
-    await loadSlots(selectedCourtId, selectedDate);
-    const today = new Date().toISOString().split('T')[0];
-    const { data: upcoming } = await supabase
-      .from('bookings')
-      .select('id, date, start_time, end_time, courts(name)')
-      .eq('user_id', userId)
-      .gte('date', today)
-      .neq('status', 'cancelled')
-      .order('date', { ascending: true })
-      .order('start_time', { ascending: true })
-      .limit(5);
-    setUpcomingBookings(
-      (upcoming ?? []).map((b: any) => ({
-        id: b.id,
-        courtName: b.courts?.name ?? 'Court',
-        date: b.date,
-        start_time: b.start_time,
-        end_time: b.end_time,
-      }))
-    );
-  }
-
-  const selectedCourt = courts.find((c) => c.id === selectedCourtId);
-
-  function formatTime(t: string): string {
-    const [h, m] = t.split(':');
-    const hour = parseInt(h, 10);
-    const suffix = hour < 12 ? 'AM' : 'PM';
-    const display = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-    return `${display}:${m} ${suffix}`;
-  }
-
   return (
     <View style={styles.screen}>
       <Header
         variant="resident-home"
         greeting={`Hey${userName ? ', ' + userName.split(' ')[0] : ''}!`}
-        subCopy="Book a court or report an issue"
+        subCopy="Ready to play?"
         avatarInitials={avatarInitials}
       />
 
@@ -240,213 +194,108 @@ export default function ResidentHomeScreen() {
         showsVerticalScrollIndicator={false}>
         <View style={{ maxWidth: MaxWidth, width: '100%', alignSelf: 'center' }}>
 
-          {bookingSuccess && (
-            <View style={styles.successBanner}>
-              <CheckCircle color={Colors.accentCyan} size={18} strokeWidth={1.5} />
-              <Text style={styles.successText}>Court booked successfully!</Text>
-            </View>
+          {/* Weather Banner */}
+          {weather && (
+            <Card style={styles.weatherCard}>
+              <View style={styles.weatherRow}>
+                <View style={styles.weatherIconWrap}>
+                  <WeatherIcon condition={weather.condition} size={32} />
+                </View>
+                <View style={styles.weatherCenter}>
+                  <Text style={styles.weatherTemp}>{weather.temp}°F</Text>
+                  <Text style={styles.weatherDesc}>{weather.description}</Text>
+                </View>
+                {weather.rainPct > 0 && (
+                  <View style={styles.weatherRight}>
+                    <Text style={styles.weatherRainPct}>{weather.rainPct}%</Text>
+                    <Text style={styles.weatherRainLabel}>rain</Text>
+                  </View>
+                )}
+              </View>
+            </Card>
           )}
 
-          {/* Court selector */}
-          <Text style={styles.sectionLabel}>SELECT COURT</Text>
+          {/* Upcoming Reservations */}
+          <Text style={styles.sectionTitle}>Upcoming Reservations</Text>
           {loading ? (
             <CardSkeleton />
-          ) : courts.length === 0 ? (
-            <EmptyState
-              icon={null}
-              title="No courts available"
-              subtitle="Contact your HOA admin to add courts."
-            />
-          ) : (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.pillScroll}
-              contentContainerStyle={styles.pillScrollContent}>
-              {courts.map((c) => (
-                <TouchableOpacity
-                  key={c.id}
-                  style={[styles.courtPill, selectedCourtId === c.id && styles.courtPillActive]}
-                  onPress={() => setSelectedCourtId(c.id)}>
-                  <Text style={[styles.courtPillLabel, selectedCourtId === c.id && styles.courtPillLabelActive]}>
-                    {c.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          )}
-
-          {/* Date selector */}
-          <Text style={[styles.sectionLabel, { marginTop: Spacing.sectionGap }]}>SELECT DATE</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.pillScroll}
-            contentContainerStyle={styles.pillScrollContent}>
-            {dateOptions.map((d) => (
-              <TouchableOpacity
-                key={d.iso}
-                style={[styles.datePill, selectedDate === d.iso && styles.datePillActive]}
-                onPress={() => setSelectedDate(d.iso)}>
-                <Text style={[styles.dateDayLabel, selectedDate === d.iso && styles.dateLabelActive]}>
-                  {d.dayLabel}
-                </Text>
-                <Text style={[styles.dateDayNum, selectedDate === d.iso && styles.dateLabelActive]}>
-                  {d.dayNum}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-
-          {/* Time slots */}
-          {selectedCourtId && !loading && (
-            <>
-              <Text style={[styles.sectionLabel, { marginTop: Spacing.sectionGap }]}>
-                AVAILABLE TIMES{selectedCourt ? ` — ${selectedCourt.name}` : ''}
-              </Text>
-              {slotLoading ? (
-                <ActivityIndicator color={Colors.accentCyan} style={styles.slotSpinner} />
-              ) : (
-                <View style={styles.slotsGrid}>
-                  {SLOTS.map((slot) => {
-                    const isBooked = bookedSlots.includes(slot.start);
-                    return (
-                      <TouchableOpacity
-                        key={slot.start}
-                        style={[
-                          styles.slotPill,
-                          isBooked ? styles.slotBooked : styles.slotAvailable,
-                        ]}
-                        onPress={() => { if (!isBooked) setConfirmSlot(slot); }}
-                        disabled={isBooked}
-                        activeOpacity={0.75}>
-                        <Text style={[styles.slotLabel, { color: isBooked ? Colors.textMuted : Colors.navy }]}>
-                          {slot.label}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
-            </>
-          )}
-
-          {/* Upcoming bookings */}
-          <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Upcoming Bookings</Text>
-          {upcomingBookings.length === 0 ? (
-            <Text style={styles.emptyText}>No upcoming bookings yet.</Text>
+          ) : upcomingBookings.length === 0 ? (
+            <Text style={styles.emptyText}>No upcoming reservations.</Text>
           ) : (
             upcomingBookings.map((b) => (
               <Card key={b.id} style={styles.bookingCard}>
                 <Text style={styles.bookingCourt}>{b.courtName}</Text>
                 <Text style={styles.bookingTime}>
-                  {b.date} · {formatTime(b.start_time)} – {formatTime(b.end_time)}
+                  {formatDate(b.date)} · {formatTime(b.start_time)} – {formatTime(b.end_time)}
                 </Text>
               </Card>
             ))
           )}
         </View>
       </ScrollView>
-
-      {/* Confirmation modal */}
-      <Modal
-        visible={!!confirmSlot}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setConfirmSlot(null)}>
-        <SafeAreaView style={styles.modal}>
-          <Text style={styles.modalTitle}>Confirm Booking</Text>
-          <View style={styles.modalDetails}>
-            <Text style={styles.modalDetailLabel}>COURT</Text>
-            <Text style={styles.modalDetailValue}>{selectedCourt?.name ?? '—'}</Text>
-            <Text style={[styles.modalDetailLabel, { marginTop: 12 }]}>DATE</Text>
-            <Text style={styles.modalDetailValue}>{selectedDate}</Text>
-            <Text style={[styles.modalDetailLabel, { marginTop: 12 }]}>TIME</Text>
-            <Text style={styles.modalDetailValue}>{confirmSlot?.label}</Text>
-          </View>
-          <View style={styles.modalActions}>
-            <Button variant="accent" label="Confirm Booking" onPress={confirmBooking} loading={booking} fullWidth />
-            <Button variant="ghost" label="Cancel" onPress={() => setConfirmSlot(null)} fullWidth />
-          </View>
-        </SafeAreaView>
-      </Modal>
     </View>
   );
 }
+
+// ─── Styles ───────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.pageBg },
   scroll: { flex: 1 },
   content: { padding: Spacing.pagePx, paddingBottom: 100 },
-  sectionLabel: {
+
+  weatherCard: {
+    marginBottom: Spacing.sectionGap,
+    padding: 16,
+  },
+  weatherRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  weatherIconWrap: {
+    width: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  weatherCenter: {
+    flex: 1,
+    paddingLeft: 8,
+  },
+  weatherTemp: {
+    fontFamily: FontFamily.manropeBold,
+    fontSize: 28,
+    color: Colors.navy,
+    lineHeight: 32,
+  },
+  weatherDesc: {
     fontFamily: FontFamily.interSemiBold,
+    fontSize: FontSize.uiLabel,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  weatherRight: {
+    alignItems: 'center',
+    paddingLeft: 12,
+  },
+  weatherRainPct: {
+    fontFamily: FontFamily.manropeBold,
+    fontSize: 18,
+    color: Colors.textSubtle,
+  },
+  weatherRainLabel: {
+    fontFamily: FontFamily.interRegular,
     fontSize: FontSize.metadata,
     color: Colors.textMuted,
-    letterSpacing: 1.2,
-    marginBottom: 10,
+    letterSpacing: 0.5,
   },
+
   sectionTitle: {
     fontFamily: FontFamily.manropeExtraBold,
     fontSize: FontSize.sectionTitle,
     color: Colors.navy,
     marginBottom: 8,
   },
-  pillScroll: { marginBottom: 4 },
-  pillScrollContent: { paddingRight: Spacing.pagePx },
-  courtPill: {
-    borderRadius: Radius.pill,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    backgroundColor: Colors.cardBg,
-    marginRight: 8,
-  },
-  courtPillActive: { backgroundColor: Colors.navy, borderColor: Colors.navy },
-  courtPillLabel: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: FontSize.uiLabel,
-    color: Colors.textMuted,
-  },
-  courtPillLabelActive: { color: Colors.white },
-  datePill: {
-    alignItems: 'center',
-    borderRadius: Radius.button,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    backgroundColor: Colors.cardBg,
-    marginRight: 8,
-    minWidth: 52,
-  },
-  datePillActive: { backgroundColor: Colors.navy, borderColor: Colors.navy },
-  dateDayLabel: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: FontSize.metadata,
-    color: Colors.textMuted,
-    letterSpacing: 0.5,
-  },
-  dateDayNum: {
-    fontFamily: FontFamily.manropeBold,
-    fontSize: 18,
-    color: Colors.navy,
-    marginTop: 2,
-  },
-  dateLabelActive: { color: Colors.white },
-  slotSpinner: { marginVertical: 20 },
-  slotsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
-  slotPill: {
-    borderRadius: Radius.button,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    minWidth: '30%',
-    alignItems: 'center',
-  },
-  slotAvailable: { backgroundColor: Colors.optimalBg },
-  slotBooked: { backgroundColor: Colors.attentionBg },
-  slotLabel: { fontFamily: FontFamily.interSemiBold, fontSize: FontSize.uiLabel },
-  bookingCard: { marginBottom: 8, padding: 16, gap: 4 },
+  bookingCard: { marginBottom: Spacing.cardGap, padding: 16, gap: 4 },
   bookingCourt: {
     fontFamily: FontFamily.manropeBold,
     fontSize: FontSize.cardTitle,
@@ -462,42 +311,4 @@ const styles = StyleSheet.create({
     fontSize: FontSize.body,
     color: Colors.textMuted,
   },
-  successBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(0,212,255,0.1)',
-    borderRadius: Radius.button,
-    padding: 12,
-    marginBottom: 16,
-  },
-  successText: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: FontSize.body,
-    color: Colors.navy,
-  },
-  modal: {
-    flex: 1,
-    backgroundColor: Colors.cardBg,
-    padding: Spacing.pagePx,
-  },
-  modalTitle: {
-    fontFamily: FontFamily.manropeExtraBold,
-    fontSize: 22,
-    color: Colors.navy,
-    marginBottom: 24,
-  },
-  modalDetails: { gap: 2 },
-  modalDetailLabel: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: FontSize.metadata,
-    color: Colors.textMuted,
-    letterSpacing: 1.2,
-  },
-  modalDetailValue: {
-    fontFamily: FontFamily.manropeBold,
-    fontSize: FontSize.sectionTitle,
-    color: Colors.navy,
-  },
-  modalActions: { marginTop: 32, gap: 12 },
 });
