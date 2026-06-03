@@ -269,21 +269,24 @@ function CalendarPicker({
   theme: ThemeTokens;
   testID?: string;
 }) {
-  const clampedInit = selectedDate < minDate ? minDate : selectedDate > maxDate ? maxDate : selectedDate;
-  const [viewYear, setViewYear] = useState(clampedInit.getFullYear());
-  const [viewMonth, setViewMonth] = useState(clampedInit.getMonth());
+  // Single state object avoids two-setter batching issues (React bails out when
+  // one value is unchanged, which can drop the paired update in the same flush).
+  const [view, setView] = useState<{ year: number; month: number }>(() => {
+    const init = selectedDate < minDate ? minDate : selectedDate > maxDate ? maxDate : selectedDate;
+    return { year: init.getFullYear(), month: init.getMonth() };
+  });
+  const { year: viewYear, month: viewMonth } = view;
 
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const firstDow = new Date(viewYear, viewMonth, 1).getDay();
   const today = new Date();
 
-  const thisMonthStart = new Date(viewYear, viewMonth, 1);
-  const nextMonthStart = new Date(viewYear, viewMonth + 1, 1);
   const minMonthStart = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
   const maxMonthEnd = new Date(maxDate.getFullYear(), maxDate.getMonth() + 1, 0);
 
-  const canGoPrev = thisMonthStart > minMonthStart;
-  const canGoNext = nextMonthStart <= maxMonthEnd;
+  // Compare milliseconds to avoid object-reference issues
+  const canGoPrev = new Date(viewYear, viewMonth, 1) > minMonthStart;
+  const canGoNext = new Date(viewYear, viewMonth + 1, 1) <= maxMonthEnd;
 
   const cells: (number | null)[] = Array(firstDow).fill(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
@@ -354,9 +357,11 @@ function CalendarPicker({
         <TouchableOpacity
           style={[s.navBtn, !canGoPrev && { opacity: 0.3 }]}
           onPress={() => {
-            if (!canGoPrev) return;
-            const d = new Date(viewYear, viewMonth - 1, 1);
-            setViewYear(d.getFullYear()); setViewMonth(d.getMonth());
+            // Functional updater guarantees latest state, not a stale closure value.
+            setView(cur => {
+              const d = new Date(cur.year, cur.month - 1, 1);
+              return { year: d.getFullYear(), month: d.getMonth() };
+            });
           }}
           disabled={!canGoPrev}
           activeOpacity={0.7}
@@ -367,9 +372,10 @@ function CalendarPicker({
         <TouchableOpacity
           style={[s.navBtn, !canGoNext && { opacity: 0.3 }]}
           onPress={() => {
-            if (!canGoNext) return;
-            const d = new Date(viewYear, viewMonth + 1, 1);
-            setViewYear(d.getFullYear()); setViewMonth(d.getMonth());
+            setView(cur => {
+              const d = new Date(cur.year, cur.month + 1, 1);
+              return { year: d.getFullYear(), month: d.getMonth() };
+            });
           }}
           disabled={!canGoNext}
           activeOpacity={0.7}
@@ -1241,6 +1247,13 @@ function ScheduleSheet({ courtName, courtType, now, scheduleDate, onDateChange, 
     return d;
   }, [rules, now]);
 
+  // Past dates are view-only — suppress Reserve CTA
+  const isPastDate = useMemo(() => {
+    const midnight = new Date(now); midnight.setHours(0, 0, 0, 0);
+    const sel = new Date(scheduleDate); sel.setHours(0, 0, 0, 0);
+    return sel < midnight;
+  }, [scheduleDate, now]);
+
   const dateLabel = scheduleDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
   const START_HOUR = rules?.booking_start_time ? parseInt(rules.booking_start_time.split(':')[0]) : 7;
   const END_HOUR = rules?.booking_end_time ? parseInt(rules.booking_end_time.split(':')[0]) : 21;
@@ -1333,10 +1346,14 @@ function ScheduleSheet({ courtName, courtType, now, scheduleDate, onDateChange, 
                         isMine && styles.scheduleRowLabelMine,
                       ]}>{block.label}</Text>
                       {isAvail ? (
-                        <TouchableOpacity testID={`schedule-book-${block.slotStr}`} style={styles.scheduleBookBtn}
-                          onPress={() => onBook(block.slotStr)} activeOpacity={0.7}>
-                          <Text style={styles.scheduleBookBtnText}>Reserve →</Text>
-                        </TouchableOpacity>
+                        isPastDate ? (
+                          <Text style={styles.scheduleBlockStatus}>OPEN</Text>
+                        ) : (
+                          <TouchableOpacity testID={`schedule-book-${block.slotStr}`} style={styles.scheduleBookBtn}
+                            onPress={() => onBook(block.slotStr)} activeOpacity={0.7}>
+                            <Text style={styles.scheduleBookBtnText}>Reserve →</Text>
+                          </TouchableOpacity>
+                        )
                       ) : (
                         <Text style={[
                           styles.scheduleBlockStatus,

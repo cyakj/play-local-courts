@@ -1,0 +1,12 @@
+
+> tenisx-native@1.0.0 dev
+> expo start
+
+env: load .env
+env: export EXPO_PUBLIC_SUPABASE_ANON_KEY EXPO_PUBLIC_SUPABASE_URL TEST_ADMIN_EMAIL TEST_ADMIN_PASSWORD TEST_EMAIL TEST_PASSWORD VITE_PUBLIC_SITE_URL VITE_SUPABASE_PROJECT_ID VITE_SUPABASE_PUBLISHABLE_KEY VITE_SUPABASE_URL VITE_TENNIS_FEATURES_ENABLED
+Starting project at C:\Users\info\tenisx-native
+› Port 8081 is being used by another process
+Input is required, but 'npx expo' is in non-interactive mode.
+Required input:
+> Use port 8082 instead?
+› Skipping dev server

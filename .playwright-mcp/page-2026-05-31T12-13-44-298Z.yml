@@ -1,0 +1,192 @@
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - img [ref=e6]
+        - generic [ref=e31]: TenisX
+      - link "Brand" [ref=e32] [cursor=pointer]:
+        - /url: "#brand"
+      - link "Color" [ref=e33] [cursor=pointer]:
+        - /url: "#color"
+      - link "Type" [ref=e34] [cursor=pointer]:
+        - /url: "#type"
+      - link "Spacing" [ref=e35] [cursor=pointer]:
+        - /url: "#space"
+      - link "Components" [ref=e36] [cursor=pointer]:
+        - /url: "#comp"
+  - banner [ref=e37]:
+    - generic [ref=e38]: The Operating System for Tennis
+    - heading "The design language of connected tennis." [level=1] [ref=e39]:
+      - text: The design language
+      - text: of connected tennis.
+    - paragraph [ref=e40]: A dark-first, AI-native system derived from the TenisX logo — segmented chrome, circuit traces, and glowing nodes that imply everything in tennis is connected.
+    - generic [ref=e41]:
+      - generic [ref=e42]: v1.0 · DARK
+      - generic [ref=e44]: SPACE GROTESK · MANROPE · JETBRAINS MONO
+  - generic [ref=e46]:
+    - generic [ref=e47]: 01 · Brand
+    - heading "Logo & app icon" [level=2] [ref=e48]
+    - paragraph [ref=e49]: The wordmark pairs a clean humanist set with the technological segmented X. The X — chrome packets crossing through illuminated nodes — is the seed of the whole system.
+    - generic [ref=e50]:
+      - img [ref=e52]
+      - generic [ref=e53]:
+        - img [ref=e56]
+        - generic [ref=e81]:
+          - generic [ref=e82]: APP ICON · TX
+          - generic [ref=e83]: The ℞ ligature, reborn — the X crosses a segmented T-leg.
+  - generic [ref=e85]:
+    - generic [ref=e86]: 02 · Color
+    - heading "Palette" [level=2] [ref=e87]
+    - paragraph [ref=e88]: Midnight navy is the canvas — never pure black. Two brand blues carry interaction; electric cyan is the signature glow; tennis volt is the rare athletic spark.
+    - generic [ref=e89]:
+      - generic [ref=e90]:
+        - generic [ref=e91]: Midnight
+        - generic [ref=e92]: "#0C0F18"
+      - generic [ref=e93]:
+        - generic [ref=e94]: Court Blue
+        - generic [ref=e95]: "#0F2A57"
+      - generic [ref=e96]:
+        - generic [ref=e97]: Intelligent Blue
+        - generic [ref=e98]: "#2D6BFF"
+      - generic [ref=e99]:
+        - generic [ref=e100]: Electric Cyan
+        - generic [ref=e101]: "#2DE0FF"
+      - generic [ref=e102]:
+        - generic [ref=e103]: AI Glow
+        - generic [ref=e104]: "#BFFCFF"
+      - generic [ref=e105]:
+        - generic [ref=e106]: Tennis Volt
+        - generic [ref=e107]: "#D6FF3D"
+      - generic [ref=e108]:
+        - generic [ref=e109]: Positive
+        - generic [ref=e110]: "#2FD98B"
+      - generic [ref=e111]:
+        - generic [ref=e112]: Negative
+        - generic [ref=e113]: "#FF5C6B"
+    - generic [ref=e114]: Neutral ramp · cool navy-tinted
+    - generic [ref=e115]:
+      - generic [ref=e117]: "850"
+      - generic [ref=e119]: "800"
+      - generic [ref=e121]: "750"
+      - generic [ref=e123]: "700"
+      - generic [ref=e125]: "600"
+      - generic [ref=e127]: "500"
+      - generic [ref=e129]: "400"
+      - generic [ref=e131]: "300"
+      - generic [ref=e133]: "200"
+      - generic [ref=e135]: "100"
+  - generic [ref=e137]:
+    - generic [ref=e138]: 03 · Type
+    - heading "Typography" [level=2] [ref=e139]
+    - paragraph [ref=e140]: Space Grotesk for display and big numbers; Manrope for body and UI; JetBrains Mono for labels, telemetry, and status. Headlines are tight-tracked and never all-caps.
+    - generic [ref=e141]:
+      - generic [ref=e142]:
+        - generic [ref=e143]:
+          - generic [ref=e144]: Display
+          - generic [ref=e145]: The future of tennis
+        - generic [ref=e146]:
+          - generic [ref=e147]: H2 · 28
+          - generic [ref=e148]: Match found nearby
+        - generic [ref=e149]:
+          - generic [ref=e150]: Body · 16
+          - generic [ref=e151]: Manrope drives all body copy and UI — clean, premium, humanist.
+        - generic [ref=e152]:
+          - generic [ref=e153]: Mono
+          - generic [ref=e154]:
+            - generic [ref=e155]: LIVE
+            - generic [ref=e157]: COURT 04
+            - generic [ref=e158]: NTRP 4.0
+      - generic [ref=e159]:
+        - generic [ref=e160]:
+          - generic [ref=e161]: SERVE
+          - generic [ref=e162]: 112 MPH
+        - generic [ref=e163]:
+          - generic [ref=e164]: RALLY AVG
+          - generic [ref=e165]: "8.4"
+        - generic [ref=e166]:
+          - generic [ref=e167]: WIN RATE
+          - generic [ref=e168]: 68%
+  - generic [ref=e170]:
+    - generic [ref=e171]: 04 · Spacing & Form
+    - heading "Grid, radii, elevation" [level=2] [ref=e172]
+    - paragraph [ref=e173]: A 4px base grid. House radius is 14–20px; pills for chips and buttons. Depth comes from soft ambient shadow — and, more importantly, from glow.
+    - generic [ref=e174]:
+      - generic [ref=e175]:
+        - generic [ref=e176]: Spacing · 4px base
+        - generic [ref=e177]:
+          - generic [ref=e178]: "1"
+          - generic [ref=e180]: 4px
+        - generic [ref=e181]:
+          - generic [ref=e182]: "2"
+          - generic [ref=e184]: 8px
+        - generic [ref=e185]:
+          - generic [ref=e186]: "3"
+          - generic [ref=e188]: 12px
+        - generic [ref=e189]:
+          - generic [ref=e190]: "4"
+          - generic [ref=e192]: 16px
+        - generic [ref=e193]:
+          - generic [ref=e194]: "5"
+          - generic [ref=e196]: 20px
+        - generic [ref=e197]:
+          - generic [ref=e198]: "6"
+          - generic [ref=e200]: 24px
+        - generic [ref=e201]:
+          - generic [ref=e202]: "8"
+          - generic [ref=e204]: 32px
+        - generic [ref=e205]:
+          - generic [ref=e206]: "10"
+          - generic [ref=e208]: 40px
+        - generic [ref=e209]:
+          - generic [ref=e210]: "12"
+          - generic [ref=e212]: 48px
+        - generic [ref=e213]:
+          - generic [ref=e214]: "16"
+          - generic [ref=e216]: 64px
+      - generic [ref=e217]:
+        - generic [ref=e218]:
+          - generic [ref=e219]: Corner radii
+          - generic [ref=e220]:
+            - generic [ref=e223]: xs
+            - generic [ref=e226]: sm
+            - generic [ref=e229]: md
+            - generic [ref=e232]: lg
+            - generic [ref=e235]: xl
+            - generic [ref=e238]: pill
+        - generic [ref=e239]:
+          - generic [ref=e240]: Elevation = glow
+          - generic [ref=e241]:
+            - generic [ref=e244]: ambient
+            - generic [ref=e247]: cyan
+            - generic [ref=e250]: blue
+  - generic [ref=e252]:
+    - generic [ref=e253]: 05 · Components
+    - heading "Building blocks" [level=2] [ref=e254]
+    - paragraph [ref=e255]: Buttons, chips, and cards — the connected card earns a cyan glow ring to signal live, active, or synced.
+    - generic [ref=e256]:
+      - generic [ref=e257]: Buttons
+      - generic [ref=e258]:
+        - button "Find a match" [ref=e259] [cursor=pointer]
+        - button "Open court" [ref=e260] [cursor=pointer]
+        - button "Connect" [ref=e261] [cursor=pointer]
+        - button "Go live" [ref=e262] [cursor=pointer]
+        - button "Ghost" [ref=e263] [cursor=pointer]
+    - generic [ref=e264]:
+      - generic [ref=e265]:
+        - generic [ref=e266]: COURT 04 · OPEN
+        - generic [ref=e267]: Riverside Club
+        - generic [ref=e268]: Hard · Outdoor · 0.8 mi
+        - generic [ref=e269]:
+          - generic [ref=e270]: 3 OPEN
+          - generic [ref=e271]: $24/HR
+      - generic [ref=e272]:
+        - generic [ref=e273]: CONNECTED
+        - generic [ref=e275]: Live session
+        - generic [ref=e276]: Active state · cyan glow ring
+        - generic [ref=e277]:
+          - generic [ref=e278]: NEW PR
+          - generic [ref=e279]: LIVE
+  - contentinfo [ref=e281]:
+    - generic [ref=e282]:
+      - generic [ref=e283]: TENISX DESIGN SYSTEM · v1.0
+      - generic [ref=e284]: THE OPERATING SYSTEM FOR TENNIS
