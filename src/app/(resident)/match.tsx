@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Dimensions,
   FlatList,
+  Image,
   Modal,
   ScrollView,
   StyleSheet,
@@ -11,7 +13,10 @@ import {
   View,
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
+  Bell,
+  Menu,
   User,
   MessageCircle,
   CheckCircle2,
@@ -28,11 +33,11 @@ import {
 } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
-import { Header } from '@/components/ui/Header';
+// Header not used — MatchPageHeader is inlined below for light-mode treatment
 import { WeatherMini } from '@/components/ui/WeatherMini';
 import { Skeleton } from '@/components/ui/Skeleton';
 import {
-  Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing,
+  Colors, FontFamily, FontSize, Radius, Spacing,
 } from '@/constants/design';
 import { useTheme } from '@/context/ThemeContext';
 import { useWeather, getWeatherForDate } from '@/hooks/useWeather';
@@ -91,6 +96,76 @@ interface MatchFilters {
   timeLabel: string;
   distanceMiles: number;
 }
+
+// ─── Match Page Header (light — replaces dark resident header on this screen) ──
+
+interface MatchPageHeaderProps {
+  avatarInitials: string;
+  onBell?: () => void;
+  onMenu?: () => void;
+}
+
+function MatchPageHeader({ avatarInitials, onBell, onMenu }: MatchPageHeaderProps) {
+  const insets = useSafeAreaInsets();
+  const { theme } = useTheme();
+  return (
+    <View style={[
+      mpHeaderStyles.container,
+      {
+        paddingTop: insets.top + 6,
+        backgroundColor: theme.cardBg,
+        borderBottomColor: theme.border,
+      },
+      theme.shadowNav,
+    ]}>
+      <Image
+        source={require('@/assets/images/TenisX_logo-removebg-preview.png')}
+        style={mpHeaderStyles.logo}
+        resizeMode="contain"
+      />
+      <View style={mpHeaderStyles.right}>
+        <TouchableOpacity
+          style={mpHeaderStyles.iconBtn}
+          onPress={onBell ?? (() => router.push('/notifications'))}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+          <Bell size={22} color={theme.textPrimary} strokeWidth={1.5} />
+        </TouchableOpacity>
+        <View style={[mpHeaderStyles.avatar, { backgroundColor: theme.selectedBg, borderColor: theme.selectedBorder }]}>
+          <Text style={[mpHeaderStyles.avatarText, { color: Colors.blue }]}>{avatarInitials}</Text>
+        </View>
+        <TouchableOpacity
+          style={mpHeaderStyles.iconBtn}
+          onPress={onMenu ?? (() => router.push('/settings'))}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+          <Menu size={22} color={theme.textPrimary} strokeWidth={1.5} />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+const mpHeaderStyles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.pagePx,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+  },
+  logo: { width: 110, height: 44 },
+  right: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  iconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  avatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 12 },
+});
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -187,15 +262,26 @@ function useMatchData(userId: string) {
 
     // Single batch profile fetch
     const allIds = [...profilesNeeded];
-    const { data: profiles } = allIds.length > 0
-      ? await supabase
-          .from('profiles')
-          .select('id, full_name, avatar_url, utr_rating, ntrp_rating, preferred_court_locations')
-          .in('id', allIds)
-      : { data: [] as { id: string; full_name: string | null; avatar_url: string | null; utr_rating: number | null; ntrp_rating: number | null; preferred_court_locations: string | null }[] };
+    type ProfileRow = {
+      id: string;
+      full_name: string | null;
+      avatar_url: string | null;
+      utr_rating: number | null;
+      ntrp_rating: number | null;
+      preferred_court_locations: string | null;
+    };
 
-    const profileMap = new Map<string, typeof profiles[number]>();
-    (profiles ?? []).forEach((p) => profileMap.set(p.id, p));
+    let profileRows: ProfileRow[] = [];
+    if (allIds.length > 0) {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url, utr_rating, ntrp_rating, preferred_court_locations')
+        .in('id', allIds);
+      profileRows = (data ?? []) as ProfileRow[];
+    }
+
+    const profileMap = new Map<string, ProfileRow>();
+    profileRows.forEach((p) => profileMap.set(p.id, p));
 
     function toPlayer(id: string): MatchPlayer {
       const p = profileMap.get(id);
@@ -800,14 +886,18 @@ function RecommendedPlayerCard({
   );
 }
 
+const SCREEN_W = Dimensions.get('window').width;
+// Show ~1.8 cards so user can see there are more to scroll — min 240 for readability
+const REC_CARD_W = Math.max(240, Math.min(280, SCREEN_W * 0.68));
+
 const recStyles = StyleSheet.create({
   card: {
-    width: 230,
+    width: REC_CARD_W,
     borderRadius: Radius.card,
     borderWidth: 1,
-    padding: 16,
+    padding: 14,
     gap: 8,
-    marginRight: 12,
+    marginRight: 10,
   },
   top: { flexDirection: 'row', gap: 12, alignItems: 'center' },
   info: { flex: 1 },
@@ -1043,14 +1133,16 @@ function IncomingRequestCard({
   );
 }
 
+const INC_CARD_W = Math.max(270, Math.min(300, SCREEN_W * 0.78));
+
 const incStyles = StyleSheet.create({
   card: {
-    width: 264,
+    width: INC_CARD_W,
     borderRadius: Radius.card,
     borderWidth: 1,
     overflow: 'hidden',
     flexDirection: 'row',
-    marginRight: 12,
+    marginRight: 10,
   },
   rail: { width: 4, flexShrink: 0 },
   body: { flex: 1, padding: 14, gap: 8 },
@@ -1440,9 +1532,9 @@ interface FilterCardProps {
 function FilterCard({ filters, onEdit, theme }: FilterCardProps) {
   const items = [
     { label: 'Format', value: matchTypeLabel(filters.format) },
-    { label: 'Skill Level', value: `UTR ${filters.utrMin}–${filters.utrMax}` },
+    { label: 'Skill Level', value: `${filters.utrMin}–${filters.utrMax}` },
     { label: 'Date', value: filters.dateLabel },
-    { label: 'Time', value: filters.timeLabel },
+    { label: 'Time', value: '5–8 PM' },
     { label: 'Distance', value: `≤${filters.distanceMiles} mi` },
   ];
 
@@ -1452,10 +1544,7 @@ function FilterCard({ filters, onEdit, theme }: FilterCardProps) {
       { backgroundColor: theme.cardBg, borderColor: theme.border },
       theme.shadowCard,
     ]}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={filterStyles.scroll}>
+      <View style={filterStyles.row}>
         {items.map((item, idx) => (
           <View
             key={item.label}
@@ -1463,18 +1552,22 @@ function FilterCard({ filters, onEdit, theme }: FilterCardProps) {
               filterStyles.item,
               idx < items.length - 1 && { borderRightWidth: 1, borderRightColor: theme.border },
             ]}>
-            <Text style={[filterStyles.itemValue, { color: theme.textPrimary }]}>{item.value}</Text>
-            <Text style={[filterStyles.itemLabel, { color: theme.textMuted }]}>{item.label}</Text>
+            <Text style={[filterStyles.itemValue, { color: theme.textPrimary }]} numberOfLines={1}>
+              {item.value}
+            </Text>
+            <Text style={[filterStyles.itemLabel, { color: theme.textMuted }]} numberOfLines={1}>
+              {item.label}
+            </Text>
           </View>
         ))}
         <TouchableOpacity
           style={[filterStyles.editBtn, { borderColor: Colors.blue }]}
           onPress={onEdit}
           activeOpacity={0.8}>
-          <SlidersHorizontal size={13} color={Colors.blue} strokeWidth={1.5} />
-          <Text style={[filterStyles.editText, { color: Colors.blue }]}>Edit Filters</Text>
+          <SlidersHorizontal size={11} color={Colors.blue} strokeWidth={1.5} />
+          <Text style={[filterStyles.editText, { color: Colors.blue }]}>Edit</Text>
         </TouchableOpacity>
-      </ScrollView>
+      </View>
     </View>
   );
 }
@@ -1487,35 +1580,39 @@ const filterStyles = StyleSheet.create({
     marginBottom: Spacing.sectionGap,
     overflow: 'hidden',
   },
-  scroll: { paddingHorizontal: 4, paddingVertical: 4, alignItems: 'center' },
-  item: {
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+  row: {
+    flexDirection: 'row',
     alignItems: 'center',
-    minWidth: 72,
+  },
+  item: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    alignItems: 'center',
   },
   itemValue: {
     fontFamily: FontFamily.manropeSemiBold,
-    fontSize: 13,
+    fontSize: 11,
     textAlign: 'center',
   },
   itemLabel: {
     fontFamily: FontFamily.manropeMedium,
-    fontSize: 11,
+    fontSize: 9,
     textAlign: 'center',
     marginTop: 2,
   },
   editBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 3,
     borderWidth: 1.5,
     borderRadius: Radius.button,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginHorizontal: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    marginHorizontal: 6,
+    flexShrink: 0,
   },
-  editText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 13 },
+  editText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 11 },
 });
 
 // ─── Player Lookup Modal ──────────────────────────────────────────────────────
@@ -1724,6 +1821,7 @@ const lookupStyles = StyleSheet.create({
 export default function MatchScreen() {
   const { theme } = useTheme();
   const [userId, setUserId] = useState('');
+  const [avatarInitials, setAvatarInitials] = useState('ME');
   const { recommended, incoming, upcoming, loading, reload } = useMatchData(userId);
   const [filters] = useState<MatchFilters>(DEFAULT_FILTERS);
 
@@ -1737,8 +1835,15 @@ export default function MatchScreen() {
   const [showLookup, setShowLookup] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) setUserId(user.id);
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return;
+      setUserId(user.id);
+      const { data: p } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .single();
+      if (p?.full_name) setAvatarInitials(getInitials(p.full_name));
     });
   }, []);
 
@@ -1749,14 +1854,18 @@ export default function MatchScreen() {
 
   return (
     <View style={[matchStyles.screen, { backgroundColor: theme.pageBg }]}>
-      <Header variant="resident" />
+      <MatchPageHeader
+        avatarInitials={avatarInitials}
+        onBell={() => router.push('/notifications')}
+        onMenu={() => router.push('/settings')}
+      />
 
       <ScrollView
-        contentContainerStyle={[matchStyles.scrollContent, { maxWidth: MaxWidth, alignSelf: 'center', width: '100%' }]}
+        contentContainerStyle={matchStyles.scrollContent}
         showsVerticalScrollIndicator={false}>
 
         {/* Page title + Player Lookup button */}
-        <View style={[matchStyles.hero, { backgroundColor: theme.heroBg }]}>
+        <View style={[matchStyles.hero, { backgroundColor: theme.pageBg }]}>
           <View style={matchStyles.heroLeft}>
             <Text style={[matchStyles.pageTitle, { color: theme.textPrimary }]}>Match</Text>
             <Text style={[matchStyles.pageSub, { color: theme.textSecondary }]}>

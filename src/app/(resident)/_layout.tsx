@@ -17,7 +17,7 @@ export default function ResidentLayout() {
       <Tabs.Screen
         name="courts"
         options={{
-          title: 'Courts',
+          title: 'Reserve',
           tabBarIcon: ({ color, size }) => <MapPin color={color} size={size} strokeWidth={1.5} />,
         }}
       />
@@ -25,6 +25,7 @@ export default function ResidentLayout() {
         name="match"
         options={{
           title: 'Match',
+          tabBarLabel: 'VS',
           tabBarIcon: ({ color, size }) => <Swords color={color} size={size} strokeWidth={1.5} />,
         }}
       />

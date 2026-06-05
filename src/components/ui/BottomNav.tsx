@@ -38,8 +38,12 @@ export function BottomNav(props: BottomTabBarProps) {
             }}
             activeOpacity={0.7}>
             {icon}
-            <Text style={[styles.label, { color: isFocused ? activeColor : Colors.fg3 }]}>
-              {label.toUpperCase()}
+            <Text style={[
+              styles.label,
+              label === 'VS' && styles.labelVS,
+              { color: isFocused ? activeColor : Colors.fg3 },
+            ]}>
+              {label === 'VS' ? label : label.toUpperCase()}
             </Text>
             {isFocused && <View style={[styles.dot, { backgroundColor: activeColor }]} />}
           </TouchableOpacity>
@@ -67,6 +71,11 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.jetbrainsMonoSemiBold,
     fontSize: 10,
     letterSpacing: 0.8,
+  },
+  labelVS: {
+    fontFamily: FontFamily.spaceGroteskBold,
+    fontSize: 13,
+    letterSpacing: 0,
   },
   dot: {
     width: 4,
