@@ -175,8 +175,8 @@ const DEFAULT_FILTERS: MatchFilters = {
   utrMin: 7.5,
   utrMax: 9.0,
   dateLabel: 'Today',
-  timeLabel: '5–8 PM',
-  distanceMiles: 10,
+  timeLabel: '6:00 – 8:00 PM',
+  distanceMiles: 5,
 };
 
 // Fallback mock: shown when match_preferences table returns no rows
@@ -836,73 +836,73 @@ function RecommendedPlayerCard({
 
   return (
     <View style={[recStyles.card, { backgroundColor: theme.cardBg, borderColor: theme.border }, theme.shadowCard]}>
-      <View style={recStyles.top}>
-        <PlayerAvatar player={player} size={56} theme={theme} />
-        <View style={recStyles.info}>
-          <Text style={[recStyles.name, { color: theme.textPrimary }]} numberOfLines={1}>
-            {player.name}
-          </Text>
-          <View style={recStyles.ratings}>
-            {player.utrRating != null && (
-              <Text style={recStyles.utr}>UTR {player.utrRating.toFixed(1)}</Text>
-            )}
-            {player.ntrpRating != null && (
-              <Text style={[recStyles.ntrp, { color: theme.textSecondary }]}>
-                · {player.ntrpRating.toFixed(1)} NTRP
-              </Text>
-            )}
-          </View>
-        </View>
+      {/* Centered avatar */}
+      <View style={recStyles.avatarRow}>
+        <PlayerAvatar player={player} size={44} theme={theme} />
       </View>
 
+      {/* Name — 2 lines allowed */}
+      <Text style={[recStyles.name, { color: theme.textPrimary }]} numberOfLines={2}>
+        {player.name}
+      </Text>
+
+      {/* UTR + NTRP */}
+      <View style={recStyles.ratings}>
+        {player.utrRating != null && (
+          <Text style={recStyles.utr} numberOfLines={1}>UTR {player.utrRating.toFixed(1)}</Text>
+        )}
+        {player.ntrpRating != null && (
+          <Text style={[recStyles.ntrp, { color: theme.textSecondary }]} numberOfLines={1}>
+            · {player.ntrpRating.toFixed(1)} NTRP
+          </Text>
+        )}
+      </View>
+
+      {/* Time */}
       {player.preferredTimes.length > 0 && (
         <View style={recStyles.metaRow}>
-          <Clock size={13} color={theme.textMuted} strokeWidth={1.5} />
+          <Clock size={11} color={theme.textMuted} strokeWidth={1.5} />
           <Text style={[recStyles.metaText, { color: theme.textSecondary }]} numberOfLines={1}>
-            {player.preferredTimes.join(', ')}
+            {player.preferredTimes[0]}
           </Text>
         </View>
       )}
+
+      {/* Location */}
       {player.preferredCourt != null && (
         <View style={recStyles.metaRow}>
-          <MapPin size={13} color={theme.textMuted} strokeWidth={1.5} />
+          <MapPin size={11} color={theme.textMuted} strokeWidth={1.5} />
           <Text style={[recStyles.metaText, { color: theme.textSecondary }]} numberOfLines={1}>
             {player.preferredCourt}
           </Text>
         </View>
       )}
 
-      <View style={recStyles.btns}>
-        <TouchableOpacity
-          style={[recStyles.btn, { borderColor: requested ? theme.border : Colors.positive }]}
-          onPress={handleRequest}
-          disabled={requested}
-          activeOpacity={0.8}>
-          <Swords
-            size={13}
-            color={requested ? theme.textDisabled : Colors.positive}
-            strokeWidth={1.5}
-          />
-          <Text style={[recStyles.btnText, { color: requested ? theme.textDisabled : Colors.positive }]}>
-            {requested ? 'Requested' : 'Request to Play'}
-          </Text>
-        </TouchableOpacity>
+      {/* Request to Play — full width */}
+      <TouchableOpacity
+        style={[recStyles.btnFull, { borderColor: requested ? theme.border : Colors.positive }]}
+        onPress={handleRequest}
+        disabled={requested}
+        activeOpacity={0.8}>
+        <Text style={[recStyles.btnText, { color: requested ? theme.textDisabled : Colors.positive }]} numberOfLines={1}>
+          {requested ? 'Requested' : 'Request to Play'}
+        </Text>
+      </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[recStyles.btn, { borderColor: Colors.blue }]}
-          onPress={() => onMessage(player.id)}
-          activeOpacity={0.8}>
-          <MessageCircle size={13} color={Colors.blue} strokeWidth={1.5} />
-          <Text style={[recStyles.btnText, { color: Colors.blue }]}>Message</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Message — full width */}
+      <TouchableOpacity
+        style={[recStyles.btnFull, { borderColor: Colors.blue }]}
+        onPress={() => onMessage(player.id)}
+        activeOpacity={0.8}>
+        <Text style={[recStyles.btnText, { color: Colors.blue }]}>Message</Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
 const SCREEN_W = Dimensions.get('window').width;
-// 80% of screen width — shows ~1.2 cards, clear peek of next card
-const REC_CARD_W = Math.max(270, Math.min(340, SCREEN_W * 0.80));
+// ~33% of screen width — shows 3 cards simultaneously
+const REC_CARD_W = Math.max(115, Math.min(140, SCREEN_W * 0.33));
 const INC_CARD_W_COMPUTED = Math.max(290, Math.min(350, SCREEN_W * 0.84));
 
 const recStyles = StyleSheet.create({
@@ -910,45 +910,48 @@ const recStyles = StyleSheet.create({
     width: REC_CARD_W,
     borderRadius: Radius.card,
     borderWidth: 1,
-    padding: 16,
-    gap: 10,
-    marginRight: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 14,
+    gap: 6,
+    marginRight: 8,
+    alignItems: 'center',
   },
-  top: { flexDirection: 'row', gap: 12, alignItems: 'center' },
-  info: { flex: 1 },
-  name: { fontFamily: FontFamily.spaceGroteskBold, fontSize: FontSize.cardTitle },
+  avatarRow: { marginBottom: 2 },
+  name: {
+    fontFamily: FontFamily.spaceGroteskBold,
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 16,
+    alignSelf: 'stretch',
+  },
   ratings: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginTop: 2,
-    flexWrap: 'wrap',
+    gap: 2,
+    flexWrap: 'nowrap',
   },
   utr: {
     fontFamily: FontFamily.jetbrainsMonoSemiBold,
-    fontSize: 12,
+    fontSize: 10,
     color: Colors.blue,
   },
-  ntrp: { fontFamily: FontFamily.manropeMedium, fontSize: 12 },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  ntrp: { fontFamily: FontFamily.manropeMedium, fontSize: 10 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'stretch' },
   metaText: {
     fontFamily: FontFamily.manropeMedium,
-    fontSize: FontSize.label,
+    fontSize: 10,
     flex: 1,
   },
-  btns: { flexDirection: 'row', gap: 8, marginTop: 4 },
-  btn: {
-    flex: 1,
-    flexDirection: 'row',
+  btnFull: {
+    alignSelf: 'stretch',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
     borderWidth: 1.5,
     borderRadius: Radius.button,
-    paddingVertical: 9,
-    minHeight: 40,
+    paddingVertical: 6,
+    minHeight: 30,
   },
-  btnText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 12 },
+  btnText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 10 },
 });
 
 // ─── Recommended Players Section ──────────────────────────────────────────────
@@ -1556,10 +1559,10 @@ interface FilterCardProps {
 function FilterCard({ filters, onEdit, theme }: FilterCardProps) {
   const items = [
     { label: 'Format', value: matchTypeLabel(filters.format) },
-    { label: 'Skill Level', value: `${filters.utrMin}–${filters.utrMax}` },
+    { label: 'Skill Level', value: `UTR ${filters.utrMin.toFixed(1)} – ${filters.utrMax.toFixed(1)}` },
     { label: 'Date', value: filters.dateLabel },
     { label: 'Time', value: filters.timeLabel },
-    { label: 'Distance', value: `≤${filters.distanceMiles} mi` },
+    { label: 'Distance', value: `Within ${filters.distanceMiles} Miles` },
   ];
 
   return (
@@ -1568,7 +1571,10 @@ function FilterCard({ filters, onEdit, theme }: FilterCardProps) {
       { backgroundColor: theme.cardBg, borderColor: theme.border },
       theme.shadowCard,
     ]}>
-      <View style={filterStyles.row}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={filterStyles.row}>
         {items.map((item, idx) => (
           <View
             key={item.label}
@@ -1579,7 +1585,7 @@ function FilterCard({ filters, onEdit, theme }: FilterCardProps) {
             <Text style={[filterStyles.itemValue, { color: theme.textPrimary }]} numberOfLines={1}>
               {item.value}
             </Text>
-            <Text style={[filterStyles.itemLabel, { color: theme.textMuted }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+            <Text style={[filterStyles.itemLabel, { color: theme.textMuted }]} numberOfLines={1}>
               {item.label}
             </Text>
           </View>
@@ -1591,7 +1597,7 @@ function FilterCard({ filters, onEdit, theme }: FilterCardProps) {
           <SlidersHorizontal size={12} color={Colors.blue} strokeWidth={1.5} />
           <Text style={[filterStyles.editText, { color: Colors.blue }]}>Edit Filters</Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -1610,11 +1616,11 @@ const filterStyles = StyleSheet.create({
     alignItems: 'stretch',
   },
   item: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 2,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
     alignItems: 'center',
     justifyContent: 'center',
+    minWidth: 52,
   },
   itemValue: {
     fontFamily: FontFamily.manropeSemiBold,
@@ -1631,14 +1637,13 @@ const filterStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 3,
+    gap: 4,
     borderLeftWidth: 1,
     backgroundColor: '#EEF3FF',
-    paddingHorizontal: 8,
-    paddingVertical: 12,
-    flexShrink: 0,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
-  editText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 11 },
+  editText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 12 },
 });
 
 // ─── Player Lookup Modal ──────────────────────────────────────────────────────
