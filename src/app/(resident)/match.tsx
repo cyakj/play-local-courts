@@ -26,6 +26,7 @@ import {
   Clock,
   Users,
   Swords,
+  CircleDot,
   Search,
   SlidersHorizontal,
   ChevronRight,
@@ -107,20 +108,11 @@ interface MatchPageHeaderProps {
 
 function MatchPageHeader({ avatarInitials, onBell, onMenu }: MatchPageHeaderProps) {
   const insets = useSafeAreaInsets();
-  const { theme } = useTheme();
   return (
-    <View style={[
-      mpHeaderStyles.container,
-      {
-        paddingTop: insets.top + 6,
-        backgroundColor: theme.cardBg,
-        borderBottomColor: theme.border,
-      },
-      theme.shadowNav,
-    ]}>
+    <View style={[mpHeaderStyles.container, { paddingTop: insets.top + 6 }]}>
       <Image
         source={require('@/assets/images/TenisX_logo-removebg-preview.png')}
-        style={[mpHeaderStyles.logo, { tintColor: '#0C0F18' }]}
+        style={mpHeaderStyles.logo}
         resizeMode="contain"
       />
       <View style={mpHeaderStyles.right}>
@@ -128,16 +120,16 @@ function MatchPageHeader({ avatarInitials, onBell, onMenu }: MatchPageHeaderProp
           style={mpHeaderStyles.iconBtn}
           onPress={onBell ?? (() => router.push('/notifications'))}
           hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-          <Bell size={22} color={theme.textPrimary} strokeWidth={1.5} />
+          <Bell size={22} color="#FFFFFF" strokeWidth={1.5} />
         </TouchableOpacity>
-        <View style={[mpHeaderStyles.avatar, { backgroundColor: theme.selectedBg, borderColor: theme.selectedBorder }]}>
-          <Text style={[mpHeaderStyles.avatarText, { color: Colors.blue }]}>{avatarInitials}</Text>
+        <View style={mpHeaderStyles.avatar}>
+          <Text style={mpHeaderStyles.avatarText}>{avatarInitials}</Text>
         </View>
         <TouchableOpacity
           style={mpHeaderStyles.iconBtn}
           onPress={onMenu ?? (() => router.push('/settings'))}
           hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-          <Menu size={22} color={theme.textPrimary} strokeWidth={1.5} />
+          <Menu size={22} color="#FFFFFF" strokeWidth={1.5} />
         </TouchableOpacity>
       </View>
     </View>
@@ -151,7 +143,7 @@ const mpHeaderStyles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.pagePx,
     paddingBottom: 10,
-    borderBottomWidth: 1,
+    backgroundColor: '#0F2A57',
   },
   logo: { width: 110, height: 44 },
   right: { flexDirection: 'row', alignItems: 'center', gap: 2 },
@@ -161,10 +153,12 @@ const mpHeaderStyles = StyleSheet.create({
     height: 34,
     borderRadius: 17,
     borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.35)',
+    backgroundColor: 'rgba(255,255,255,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 12 },
+  avatarText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 12, color: '#FFFFFF' },
 });
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -174,7 +168,7 @@ const DEFAULT_FILTERS: MatchFilters = {
   utrMin: 7.5,
   utrMax: 9.0,
   dateLabel: 'Today',
-  timeLabel: '5:00 – 8:00 PM',
+  timeLabel: '5–8 PM',
   distanceMiles: 10,
 };
 
@@ -466,7 +460,7 @@ function MatchTypeIcon({
   const props = { size, color, strokeWidth: 1.5 };
   switch (type) {
     case 'singles':         return <User {...props} />;
-    case 'hitting_session': return <Swords {...props} />;
+    case 'hitting_session': return <CircleDot {...props} />;
     case 'doubles':
     case 'mixed_doubles':   return <Users {...props} />;
   }
@@ -847,7 +841,7 @@ function RecommendedPlayerCard({
             )}
             {player.ntrpRating != null && (
               <Text style={[recStyles.ntrp, { color: theme.textSecondary }]}>
-                • {player.ntrpRating.toFixed(1)} NTRP
+                · {player.ntrpRating.toFixed(1)} NTRP
               </Text>
             )}
           </View>
@@ -857,7 +851,7 @@ function RecommendedPlayerCard({
       {player.preferredTimes.length > 0 && (
         <View style={recStyles.metaRow}>
           <Clock size={13} color={theme.textMuted} strokeWidth={1.5} />
-          <Text style={[recStyles.metaText, { color: theme.textSecondary }]}>
+          <Text style={[recStyles.metaText, { color: theme.textSecondary }]} numberOfLines={1}>
             {player.preferredTimes.join(', ')}
           </Text>
         </View>
@@ -1557,7 +1551,7 @@ function FilterCard({ filters, onEdit, theme }: FilterCardProps) {
     { label: 'Format', value: matchTypeLabel(filters.format) },
     { label: 'Skill Level', value: `${filters.utrMin}–${filters.utrMax}` },
     { label: 'Date', value: filters.dateLabel },
-    { label: 'Time', value: '5–8 PM' },
+    { label: 'Time', value: filters.timeLabel },
     { label: 'Distance', value: `≤${filters.distanceMiles} mi` },
   ];
 
@@ -1578,7 +1572,7 @@ function FilterCard({ filters, onEdit, theme }: FilterCardProps) {
             <Text style={[filterStyles.itemValue, { color: theme.textPrimary }]} numberOfLines={1}>
               {item.value}
             </Text>
-            <Text style={[filterStyles.itemLabel, { color: theme.textMuted }]} numberOfLines={1}>
+            <Text style={[filterStyles.itemLabel, { color: theme.textMuted }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
               {item.label}
             </Text>
           </View>
@@ -1588,7 +1582,7 @@ function FilterCard({ filters, onEdit, theme }: FilterCardProps) {
           onPress={onEdit}
           activeOpacity={0.8}>
           <SlidersHorizontal size={12} color={Colors.blue} strokeWidth={1.5} />
-          <Text style={[filterStyles.editText, { color: Colors.blue }]}>Edit</Text>
+          <Text style={[filterStyles.editText, { color: Colors.blue }]}>Edit Filters</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -1630,15 +1624,14 @@ const filterStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    gap: 3,
     borderLeftWidth: 1,
     backgroundColor: '#EEF3FF',
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     paddingVertical: 12,
     flexShrink: 0,
-    minWidth: 56,
   },
-  editText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 12 },
+  editText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 11 },
 });
 
 // ─── Player Lookup Modal ──────────────────────────────────────────────────────
@@ -1891,7 +1884,7 @@ export default function MatchScreen() {
         showsVerticalScrollIndicator={false}>
 
         {/* Page title + Player Lookup button */}
-        <View style={[matchStyles.hero, { backgroundColor: theme.heroBg, borderBottomColor: theme.border }]}>
+        <View style={[matchStyles.hero, { backgroundColor: theme.pageBg }]}>
           <View style={matchStyles.heroLeft}>
             <Text style={[matchStyles.pageTitle, { color: theme.textPrimary }]}>Match</Text>
             <Text style={[matchStyles.pageSub, { color: theme.textSecondary }]}>
@@ -2072,10 +2065,9 @@ const matchStyles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     paddingHorizontal: Spacing.pagePx,
-    paddingTop: 28,
-    paddingBottom: 28,
+    paddingTop: 20,
+    paddingBottom: 20,
     marginBottom: 0,
-    borderBottomWidth: 1,
   },
   heroLeft: { flex: 1, paddingRight: 12 },
   pageTitle: {
