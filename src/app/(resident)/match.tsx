@@ -108,11 +108,20 @@ interface MatchPageHeaderProps {
 
 function MatchPageHeader({ avatarInitials, onBell, onMenu }: MatchPageHeaderProps) {
   const insets = useSafeAreaInsets();
+  const { theme } = useTheme();
   return (
-    <View style={[mpHeaderStyles.container, { paddingTop: insets.top + 6 }]}>
+    <View style={[
+      mpHeaderStyles.container,
+      {
+        paddingTop: insets.top + 6,
+        backgroundColor: theme.cardBg,
+        borderBottomColor: theme.border,
+      },
+      theme.shadowNav,
+    ]}>
       <Image
         source={require('@/assets/images/TenisX_logo-removebg-preview.png')}
-        style={mpHeaderStyles.logo}
+        style={[mpHeaderStyles.logo, { tintColor: '#0C0F18' }]}
         resizeMode="contain"
       />
       <View style={mpHeaderStyles.right}>
@@ -120,16 +129,16 @@ function MatchPageHeader({ avatarInitials, onBell, onMenu }: MatchPageHeaderProp
           style={mpHeaderStyles.iconBtn}
           onPress={onBell ?? (() => router.push('/notifications'))}
           hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-          <Bell size={22} color="#FFFFFF" strokeWidth={1.5} />
+          <Bell size={22} color={theme.textPrimary} strokeWidth={1.5} />
         </TouchableOpacity>
-        <View style={mpHeaderStyles.avatar}>
-          <Text style={mpHeaderStyles.avatarText}>{avatarInitials}</Text>
+        <View style={[mpHeaderStyles.avatar, { backgroundColor: theme.selectedBg, borderColor: theme.selectedBorder }]}>
+          <Text style={[mpHeaderStyles.avatarText, { color: Colors.blue }]}>{avatarInitials}</Text>
         </View>
         <TouchableOpacity
           style={mpHeaderStyles.iconBtn}
           onPress={onMenu ?? (() => router.push('/settings'))}
           hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-          <Menu size={22} color="#FFFFFF" strokeWidth={1.5} />
+          <Menu size={22} color={theme.textPrimary} strokeWidth={1.5} />
         </TouchableOpacity>
       </View>
     </View>
@@ -143,7 +152,7 @@ const mpHeaderStyles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.pagePx,
     paddingBottom: 10,
-    backgroundColor: '#0F2A57',
+    borderBottomWidth: 1,
   },
   logo: { width: 110, height: 44 },
   right: { flexDirection: 'row', alignItems: 'center', gap: 2 },
@@ -153,12 +162,10 @@ const mpHeaderStyles = StyleSheet.create({
     height: 34,
     borderRadius: 17,
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.35)',
-    backgroundColor: 'rgba(255,255,255,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 12, color: '#FFFFFF' },
+  avatarText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 12 },
 });
 
 // ─── Constants ────────────────────────────────────────────────────────────────
