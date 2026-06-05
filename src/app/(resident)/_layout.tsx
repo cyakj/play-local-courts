@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
-import { Home, MapPin, Swords, GraduationCap, UserCircle } from 'lucide-react-native';
+import { Text } from 'react-native';
+import { Home, MapPin, GraduationCap, UserCircle } from 'lucide-react-native';
 import { BottomNav } from '@/components/ui/BottomNav';
 
 export default function ResidentLayout() {
@@ -26,7 +27,11 @@ export default function ResidentLayout() {
         options={{
           title: 'Match',
           tabBarLabel: 'VS',
-          tabBarIcon: ({ color, size }) => <Swords color={color} size={size} strokeWidth={1.5} />,
+          tabBarIcon: ({ color }) => (
+            <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 17, color, letterSpacing: -0.5, lineHeight: 22 }}>
+              VS
+            </Text>
+          ),
         }}
       />
       <Tabs.Screen

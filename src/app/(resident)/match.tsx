@@ -120,7 +120,7 @@ function MatchPageHeader({ avatarInitials, onBell, onMenu }: MatchPageHeaderProp
     ]}>
       <Image
         source={require('@/assets/images/TenisX_logo-removebg-preview.png')}
-        style={mpHeaderStyles.logo}
+        style={[mpHeaderStyles.logo, { tintColor: '#0C0F18' }]}
         resizeMode="contain"
       />
       <View style={mpHeaderStyles.right}>
@@ -588,11 +588,24 @@ const sectionStyles = StyleSheet.create({
     fontSize: 11,
     color: '#FFF',
   },
+  emptyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 4,
+  },
+  emptyRowPadded: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: Spacing.pagePx,
+    paddingVertical: 4,
+  },
   emptyText: {
     fontFamily: FontFamily.manropeMedium,
-    fontSize: FontSize.body,
-    lineHeight: 22,
-    paddingHorizontal: Spacing.pagePx,
+    fontSize: FontSize.label,
+    lineHeight: 20,
+    flex: 1,
   },
 });
 
@@ -823,7 +836,7 @@ function RecommendedPlayerCard({
   return (
     <View style={[recStyles.card, { backgroundColor: theme.cardBg, borderColor: theme.border }, theme.shadowCard]}>
       <View style={recStyles.top}>
-        <PlayerAvatar player={player} size={52} theme={theme} />
+        <PlayerAvatar player={player} size={56} theme={theme} />
         <View style={recStyles.info}>
           <Text style={[recStyles.name, { color: theme.textPrimary }]} numberOfLines={1}>
             {player.name}
@@ -887,17 +900,18 @@ function RecommendedPlayerCard({
 }
 
 const SCREEN_W = Dimensions.get('window').width;
-// Show ~1.8 cards so user can see there are more to scroll — min 240 for readability
-const REC_CARD_W = Math.max(240, Math.min(280, SCREEN_W * 0.68));
+// 80% of screen width — shows ~1.2 cards, clear peek of next card
+const REC_CARD_W = Math.max(270, Math.min(340, SCREEN_W * 0.80));
+const INC_CARD_W_COMPUTED = Math.max(290, Math.min(350, SCREEN_W * 0.84));
 
 const recStyles = StyleSheet.create({
   card: {
     width: REC_CARD_W,
     borderRadius: Radius.card,
     borderWidth: 1,
-    padding: 14,
-    gap: 8,
-    marginRight: 10,
+    padding: 16,
+    gap: 10,
+    marginRight: 12,
   },
   top: { flexDirection: 'row', gap: 12, alignItems: 'center' },
   info: { flex: 1 },
@@ -972,9 +986,12 @@ function RecommendedPlayersSection({
           <Skeleton width={230} height={160} borderRadius={Radius.card} />
         </View>
       ) : players.length === 0 ? (
-        <Text style={[sectionStyles.emptyText, { color: theme.textMuted }]}>
-          No matching players yet.{'\n'}Try widening your filters or use Player Lookup.
-        </Text>
+        <View style={sectionStyles.emptyRowPadded}>
+          <Search size={15} color={theme.textMuted} strokeWidth={1.5} />
+          <Text style={[sectionStyles.emptyText, { color: theme.textMuted }]}>
+            No matches yet — try Player Lookup.
+          </Text>
+        </View>
       ) : (
         <FlatList
           data={players}
@@ -1133,7 +1150,7 @@ function IncomingRequestCard({
   );
 }
 
-const INC_CARD_W = Math.max(270, Math.min(300, SCREEN_W * 0.78));
+const INC_CARD_W = INC_CARD_W_COMPUTED;
 
 const incStyles = StyleSheet.create({
   card: {
@@ -1257,9 +1274,12 @@ function IncomingRequestsSection({
           <Skeleton width={264} height={200} borderRadius={Radius.card} />
         </View>
       ) : requests.length === 0 ? (
-        <Text style={[sectionStyles.emptyText, { color: theme.textMuted }]}>
-          No incoming requests.
-        </Text>
+        <View style={sectionStyles.emptyRowPadded}>
+          <CheckCircle2 size={15} color={theme.textMuted} strokeWidth={1.5} />
+          <Text style={[sectionStyles.emptyText, { color: theme.textMuted }]}>
+            No pending requests.
+          </Text>
+        </View>
       ) : (
         <FlatList
           data={requests}
@@ -1497,9 +1517,12 @@ function UpcomingMatchesSection({
           <Skeleton width="100%" height={140} borderRadius={Radius.card} />
         </View>
       ) : matches.length === 0 ? (
-        <Text style={[sectionStyles.emptyText, { color: theme.textMuted, paddingHorizontal: 0 }]}>
-          No upcoming matches yet.{'\n'}Request a player or reserve a court.
-        </Text>
+        <View style={sectionStyles.emptyRow}>
+          <Calendar size={15} color={theme.textMuted} strokeWidth={1.5} />
+          <Text style={[sectionStyles.emptyText, { color: theme.textMuted }]}>
+            No upcoming matches — request a player to start.
+          </Text>
+        </View>
       ) : (
         matches.map((m) => (
           <UpcomingMatchCard
@@ -1561,10 +1584,10 @@ function FilterCard({ filters, onEdit, theme }: FilterCardProps) {
           </View>
         ))}
         <TouchableOpacity
-          style={[filterStyles.editBtn, { borderColor: Colors.blue }]}
+          style={[filterStyles.editBtn, { borderLeftColor: theme.border }]}
           onPress={onEdit}
           activeOpacity={0.8}>
-          <SlidersHorizontal size={11} color={Colors.blue} strokeWidth={1.5} />
+          <SlidersHorizontal size={12} color={Colors.blue} strokeWidth={1.5} />
           <Text style={[filterStyles.editText, { color: Colors.blue }]}>Edit</Text>
         </TouchableOpacity>
       </View>
@@ -1577,42 +1600,45 @@ const filterStyles = StyleSheet.create({
     borderRadius: Radius.card,
     borderWidth: 1,
     marginHorizontal: Spacing.pagePx,
+    marginTop: Spacing.sectionGap,
     marginBottom: Spacing.sectionGap,
     overflow: 'hidden',
   },
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'stretch',
   },
   item: {
     flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 4,
+    paddingVertical: 12,
+    paddingHorizontal: 2,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   itemValue: {
     fontFamily: FontFamily.manropeSemiBold,
-    fontSize: 11,
+    fontSize: 12,
     textAlign: 'center',
   },
   itemLabel: {
     fontFamily: FontFamily.manropeMedium,
-    fontSize: 9,
+    fontSize: 10,
     textAlign: 'center',
     marginTop: 2,
   },
   editBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    borderWidth: 1.5,
-    borderRadius: Radius.button,
-    paddingHorizontal: 8,
-    paddingVertical: 7,
-    marginHorizontal: 6,
+    justifyContent: 'center',
+    gap: 4,
+    borderLeftWidth: 1,
+    backgroundColor: '#EEF3FF',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
     flexShrink: 0,
+    minWidth: 56,
   },
-  editText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 11 },
+  editText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 12 },
 });
 
 // ─── Player Lookup Modal ──────────────────────────────────────────────────────
@@ -1865,7 +1891,7 @@ export default function MatchScreen() {
         showsVerticalScrollIndicator={false}>
 
         {/* Page title + Player Lookup button */}
-        <View style={[matchStyles.hero, { backgroundColor: theme.pageBg }]}>
+        <View style={[matchStyles.hero, { backgroundColor: theme.heroBg, borderBottomColor: theme.border }]}>
           <View style={matchStyles.heroLeft}>
             <Text style={[matchStyles.pageTitle, { color: theme.textPrimary }]}>Match</Text>
             <Text style={[matchStyles.pageSub, { color: theme.textSecondary }]}>
@@ -2046,9 +2072,10 @@ const matchStyles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     paddingHorizontal: Spacing.pagePx,
-    paddingTop: 24,
-    paddingBottom: 24,
-    marginBottom: Spacing.sectionGap,
+    paddingTop: 28,
+    paddingBottom: 28,
+    marginBottom: 0,
+    borderBottomWidth: 1,
   },
   heroLeft: { flex: 1, paddingRight: 12 },
   pageTitle: {
