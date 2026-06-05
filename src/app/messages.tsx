@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, Check, CheckCheck, Search, Send } from 'lucide-react-native';
 
@@ -66,6 +66,8 @@ export default function MessagesScreen() {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const flatRef = useRef<FlatList>(null);
+  const { partner: partnerParam } = useLocalSearchParams<{ partner?: string }>();
+  const didDeepLink = useRef(false);
 
   async function load(uid: string) {
     const { data: msgs } = await supabase
@@ -152,6 +154,29 @@ export default function MessagesScreen() {
       load(user.id);
     });
   }, []);
+
+  // Deep-link: open a specific conversation when ?partner=<id> is in the URL
+  useEffect(() => {
+    if (!partnerParam || !userId || didDeepLink.current) return;
+    didDeepLink.current = true;
+    (async () => {
+      const { data: p } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .eq('id', partnerParam)
+        .single();
+      if (p) {
+        const convo: Conversation = {
+          partnerId: p.id,
+          partnerName: p.full_name ?? 'Player',
+          lastMessage: '',
+          lastAt: new Date().toISOString(),
+          unread: 0,
+        };
+        openConvo(convo);
+      }
+    })();
+  }, [userId, partnerParam]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalUnread = conversations.reduce((sum, c) => sum + c.unread, 0);
   const filtered = conversations.filter((c) =>

@@ -1,3 +1,192 @@
+# Match Screen Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Replace the placeholder match.tsx with a fully functional Match screen supporting player lookup, singles/hitting-session request/accept/decline flows, and upcoming match management.
+
+**Architecture:** Single screen file (`match.tsx`) containing all section components as local functions, plus two extracted files: `WeatherMini.tsx` (reusable mini weather card) and a DB migration. Messages deep-link handled by adding a `?partner` param to the existing `messages.tsx`. The screen reads real data from `match_requests`, `matches`, `profiles`, and `match_preferences` via Supabase. A mock adapter provides fallback recommended players when `match_preferences` is empty.
+
+**Tech Stack:** React Native, Expo Router, Supabase JS client, Lucide React Native, existing ThemeContext / design tokens.
+
+---
+
+## File Map
+
+| File | Change |
+|---|---|
+| `src/app/(resident)/match.tsx` | Full rewrite — all screen sections + action sheets |
+| `src/components/ui/WeatherMini.tsx` | New component — vector icon + temp + condition + wind |
+| `supabase/migrations/20260604000000_extend_match_type.sql` | Extend enum with mixed_doubles + hitting_session |
+| `src/app/messages.tsx` | Add partner deep-link param support (additive, ~15 lines) |
+
+---
+
+## Task 1: Extend match_type enum
+
+**Files:**
+- Create: `supabase/migrations/20260604000000_extend_match_type.sql`
+
+- [ ] Create the migration file:
+
+```sql
+-- Extend match_type enum for mixed doubles and hitting sessions
+ALTER TYPE match_type ADD VALUE IF NOT EXISTS 'mixed_doubles';
+ALTER TYPE match_type ADD VALUE IF NOT EXISTS 'hitting_session';
+```
+
+- [ ] Apply with Supabase CLI or MCP tool. Verify enum values include all four types.
+
+- [ ] Commit:
+```
+git add supabase/migrations/20260604000000_extend_match_type.sql
+git commit -m "feat(db): extend match_type enum with mixed_doubles, hitting_session"
+```
+
+---
+
+## Task 2: WeatherMini component
+
+**Files:**
+- Create: `src/components/ui/WeatherMini.tsx`
+
+- [ ] Create the component. Use Lucide vector icons — no emoji. The `condition` string comes from `useWeather`:
+
+```tsx
+import { StyleSheet, Text, View } from 'react-native';
+import { Sun, Cloud, CloudSun, CloudRain, CloudSnow, Zap } from 'lucide-react-native';
+import { Colors, FontFamily, FontSize, Radius } from '@/constants/design';
+import { useTheme } from '@/context/ThemeContext';
+
+export type WeatherCondition = 'sunny' | 'partly_cloudy' | 'cloudy' | 'rainy' | 'stormy';
+
+interface WeatherMiniProps {
+  temperature: number;
+  condition: WeatherCondition;
+  description: string;
+  windSpeed?: number;
+}
+
+function WeatherIcon({ condition, size = 20 }: { condition: WeatherCondition; size?: number }) {
+  const color = Colors.volt;  // warm yellow-volt for weather icons
+  const props = { size, color, strokeWidth: 1.5 };
+  switch (condition) {
+    case 'sunny':        return <Sun {...props} />;
+    case 'partly_cloudy':return <CloudSun {...props} />;
+    case 'cloudy':       return <Cloud {...props} />;
+    case 'rainy':        return <CloudRain {...props} />;
+    case 'stormy':       return <Zap {...props} />;
+    default:             return <Cloud {...props} />;
+  }
+}
+
+export function WeatherMini({ temperature, condition, description, windSpeed }: WeatherMiniProps) {
+  const { theme } = useTheme();
+  return (
+    <View style={[styles.card, { backgroundColor: theme.bgElevated, borderColor: theme.border }]}>
+      <WeatherIcon condition={condition} size={20} />
+      <Text style={[styles.temp, { color: theme.textPrimary }]}>{temperature}°F</Text>
+      <Text style={[styles.desc, { color: theme.textMuted }]}>{description}</Text>
+      {windSpeed != null && (
+        <Text style={[styles.wind, { color: theme.textMuted }]}>Wind {windSpeed} mph</Text>
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    alignItems: 'center',
+    gap: 2,
+    minWidth: 72,
+  },
+  temp: {
+    fontFamily: FontFamily.spaceGroteskBold,
+    fontSize: 15,
+  },
+  desc: {
+    fontFamily: FontFamily.manropeMedium,
+    fontSize: FontSize.eyebrow,
+    textAlign: 'center',
+  },
+  wind: {
+    fontFamily: FontFamily.manropeMedium,
+    fontSize: FontSize.eyebrow,
+    textAlign: 'center',
+  },
+});
+```
+
+- [ ] Commit:
+```
+git add src/components/ui/WeatherMini.tsx
+git commit -m "feat(ui): add WeatherMini component with vector icons"
+```
+
+---
+
+## Task 3: Add partner deep-link to messages.tsx
+
+**Files:**
+- Modify: `src/app/messages.tsx` — read `?partner` search param on mount, auto-open conversation
+
+- [ ] Add useLocalSearchParams import and deep-link logic at the top of `MessagesScreen`. Insert after existing imports and before the `useState` declarations:
+
+In `messages.tsx`, add at the top:
+```tsx
+import { useLocalSearchParams } from 'expo-router';
+```
+
+Inside `MessagesScreen()`, add after existing state declarations:
+```tsx
+const { partner: partnerParam } = useLocalSearchParams<{ partner?: string }>();
+const didDeepLink = useRef(false);
+```
+
+Inside the `useEffect` that calls `supabase.auth.getUser()`, after `load(user.id)` completes, add:
+```tsx
+// Deep-link: if ?partner=<id> is present, auto-open that conversation
+if (partnerParam && !didDeepLink.current) {
+  didDeepLink.current = true;
+  const { data: pProfile } = await supabase
+    .from('profiles')
+    .select('id, full_name')
+    .eq('id', partnerParam)
+    .single();
+  if (pProfile) {
+    const convo: Conversation = {
+      partnerId: pProfile.id,
+      partnerName: pProfile.full_name ?? 'Player',
+      lastMessage: '',
+      lastAt: new Date().toISOString(),
+      unread: 0,
+    };
+    openConvo(convo);
+  }
+}
+```
+
+- [ ] Verify the existing `openConvo` function is declared before the `useEffect` (it is — it's a named async function, safe to call here).
+
+- [ ] Commit:
+```
+git add src/app/messages.tsx
+git commit -m "feat(messages): support ?partner=<id> deep-link to open conversation"
+```
+
+---
+
+## Task 4: Local types and data hooks in match.tsx
+
+**Files:**
+- Create: `src/app/(resident)/match.tsx` (start with types + hooks, no UI yet)
+
+- [ ] Write the file scaffold with all types, local extended MatchType, and data-fetching hooks. This is the foundation all later tasks build on:
+
+```tsx
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,31 +201,20 @@ import {
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import {
-  User,
-  MessageCircle,
-  CheckCircle2,
-  XCircle,
-  Calendar,
-  MapPin,
-  Clock,
-  Users,
-  Swords,
-  Search,
-  SlidersHorizontal,
-  ChevronRight,
-  X,
+  User, MessageCircle, CheckCircle2, XCircle, Calendar,
+  MapPin, Clock, Users, Swords, Search, SlidersHorizontal,
+  ChevronRight, X,
 } from 'lucide-react-native';
-
 import { supabase } from '@/lib/supabase';
 import { Header } from '@/components/ui/Header';
-import { WeatherMini } from '@/components/ui/WeatherMini';
+import { WeatherMini, type WeatherCondition } from '@/components/ui/WeatherMini';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { Skeleton } from '@/components/ui/Skeleton';
 import {
   Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing,
 } from '@/constants/design';
 import { useTheme } from '@/context/ThemeContext';
 import { useWeather, getWeatherForDate } from '@/hooks/useWeather';
-import type { WeatherCondition } from '@/components/ui/WeatherMini';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -65,8 +243,8 @@ interface IncomingRequest {
   location: string | null;
   challenger: MatchPlayer;
   status: 'pending' | 'accepted' | 'declined' | 'cancelled';
-  // TODO(doubles): replace with match_request_participants rows once that table exists
-  // Currently only 2 participants (challenger + current user) — real data, not faked
+  // TODO(doubles): replace with match_request_participants rows
+  // Currently only challenger + current user — real data, not faked
 }
 
 interface UpcomingMatch {
@@ -78,7 +256,7 @@ interface UpcomingMatch {
   location: string;
   player1: MatchPlayer;
   player2: MatchPlayer;
-  // TODO(doubles): player3 + player4 fully reliable once match_request_participants is implemented
+  // TODO(doubles): player3 + player4 when match_request_participants is implemented
   player3: MatchPlayer | null;
   player4: MatchPlayer | null;
 }
@@ -92,8 +270,6 @@ interface MatchFilters {
   distanceMiles: number;
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
 const DEFAULT_FILTERS: MatchFilters = {
   format: 'singles',
   utrMin: 7.5,
@@ -103,35 +279,22 @@ const DEFAULT_FILTERS: MatchFilters = {
   distanceMiles: 10,
 };
 
-// Fallback mock: shown when match_preferences table returns no rows
-// Replace this data by populating match_preferences.looking_to_play = true
+// ─── Mock adapter (swap out when match_preferences data populates) ─────────────
 const MOCK_RECOMMENDED: RecommendedPlayer[] = [
   {
-    id: 'mock-1',
-    name: 'Alex Rodriguez',
-    avatarUrl: null,
-    utrRating: 8.3,
-    ntrpRating: 4.5,
-    preferredTimes: ['Evenings'],
-    preferredCourt: 'Riverside Courts',
+    id: 'mock-1', name: 'Alex Rodriguez', avatarUrl: null,
+    utrRating: 8.3, ntrpRating: 4.5,
+    preferredTimes: ['Evenings'], preferredCourt: 'Riverside Courts',
   },
   {
-    id: 'mock-2',
-    name: 'Ethan Lee',
-    avatarUrl: null,
-    utrRating: 8.1,
-    ntrpRating: 4.0,
-    preferredTimes: ['Weekends'],
-    preferredCourt: 'Bayview Courts',
+    id: 'mock-2', name: 'Ethan Lee', avatarUrl: null,
+    utrRating: 8.1, ntrpRating: 4.0,
+    preferredTimes: ['Weekends'], preferredCourt: 'Bayview Courts',
   },
   {
-    id: 'mock-3',
-    name: 'Marcus Kim',
-    avatarUrl: null,
-    utrRating: 7.8,
-    ntrpRating: 3.5,
-    preferredTimes: ['Mornings'],
-    preferredCourt: 'Central Park TC',
+    id: 'mock-3', name: 'Marcus Kim', avatarUrl: null,
+    utrRating: 7.8, ntrpRating: 3.5,
+    preferredTimes: ['Mornings'], preferredCourt: 'Central Park TC',
   },
 ];
 
@@ -149,7 +312,7 @@ function useMatchData(userId: string) {
 
     const profilesNeeded = new Set<string>();
 
-    // Incoming requests where current user is the opponent
+    // ── Incoming requests ──────────────────────────────────────────────────
     const { data: rawRequests } = await supabase
       .from('match_requests')
       .select('id, match_type, date, time_start, time_end, location, challenger_id, status')
@@ -159,7 +322,7 @@ function useMatchData(userId: string) {
 
     (rawRequests ?? []).forEach((r) => profilesNeeded.add(r.challenger_id));
 
-    // Upcoming matches where current user is any player slot
+    // ── Upcoming matches ───────────────────────────────────────────────────
     const today = new Date().toISOString().split('T')[0];
     const { data: rawMatches } = await supabase
       .from('matches')
@@ -174,7 +337,8 @@ function useMatchData(userId: string) {
       });
     });
 
-    // Recommended: players with looking_to_play = true, excluding current user
+    // ── Recommended players ────────────────────────────────────────────────
+    // Query users with looking_to_play=true excluding current user
     const { data: prefs } = await supabase
       .from('match_preferences')
       .select('user_id')
@@ -185,16 +349,16 @@ function useMatchData(userId: string) {
     const prefUserIds = (prefs ?? []).map((p) => p.user_id);
     prefUserIds.forEach((id) => profilesNeeded.add(id));
 
-    // Single batch profile fetch
+    // ── Fetch all profiles in one query ────────────────────────────────────
     const allIds = [...profilesNeeded];
     const { data: profiles } = allIds.length > 0
       ? await supabase
           .from('profiles')
           .select('id, full_name, avatar_url, utr_rating, ntrp_rating, preferred_court_locations')
           .in('id', allIds)
-      : { data: [] as { id: string; full_name: string | null; avatar_url: string | null; utr_rating: number | null; ntrp_rating: number | null; preferred_court_locations: string | null }[] };
+      : { data: [] };
 
-    const profileMap = new Map<string, typeof profiles[number]>();
+    const profileMap = new Map<string, (typeof profiles)[number]>();
     (profiles ?? []).forEach((p) => profileMap.set(p.id, p));
 
     function toPlayer(id: string): MatchPlayer {
@@ -208,34 +372,33 @@ function useMatchData(userId: string) {
       };
     }
 
-    // Build recommended list
+    // ── Build recommended list ─────────────────────────────────────────────
     if (prefUserIds.length > 0) {
       const { data: prefDetails } = await supabase
         .from('match_preferences')
-        .select('user_id, preferred_times')
+        .select('user_id, preferred_times, preferred_days')
         .in('user_id', prefUserIds);
       const prefMap = new Map((prefDetails ?? []).map((p) => [p.user_id, p]));
 
-      setRecommended(
-        prefUserIds.map((uid) => {
-          const profile = profileMap.get(uid);
-          const pref = prefMap.get(uid);
-          return {
-            id: uid,
-            name: profile?.full_name ?? 'Unknown',
-            avatarUrl: profile?.avatar_url ?? null,
-            utrRating: profile?.utr_rating ?? null,
-            ntrpRating: profile?.ntrp_rating ?? null,
-            preferredTimes: pref?.preferred_times ?? [],
-            preferredCourt: profile?.preferred_court_locations ?? null,
-          };
-        })
-      );
+      setRecommended(prefUserIds.map((uid) => {
+        const profile = profileMap.get(uid);
+        const pref = prefMap.get(uid);
+        return {
+          id: uid,
+          name: profile?.full_name ?? 'Unknown',
+          avatarUrl: profile?.avatar_url ?? null,
+          utrRating: profile?.utr_rating ?? null,
+          ntrpRating: profile?.ntrp_rating ?? null,
+          preferredTimes: pref?.preferred_times ?? [],
+          preferredCourt: profile?.preferred_court_locations ?? null,
+        };
+      }));
     } else {
-      // Fallback mock until match_preferences data populates
+      // Fallback mock until real match_preferences data populates
       setRecommended(MOCK_RECOMMENDED);
     }
 
+    // ── Build incoming requests ────────────────────────────────────────────
     setIncoming(
       (rawRequests ?? []).map((r) => ({
         id: r.id,
@@ -249,6 +412,7 @@ function useMatchData(userId: string) {
       }))
     );
 
+    // ── Build upcoming matches ─────────────────────────────────────────────
     setUpcoming(
       (rawMatches ?? []).map((m) => ({
         id: m.id,
@@ -272,86 +436,30 @@ function useMatchData(userId: string) {
   return { recommended, incoming, upcoming, loading, reload: load };
 }
 
-// ─── Supabase action helpers ──────────────────────────────────────────────────
-
-async function sendMatchRequest(
-  currentUserId: string,
-  opponentId: string,
-  matchType: MatchType,
-) {
-  await supabase.from('match_requests').insert({
-    challenger_id: currentUserId,
-    opponent_id: opponentId,
-    match_type: matchType as any, // cast until types.ts regenerated after migration
-    status: 'pending',
-  });
+export default function MatchScreen() {
+  return <View style={{ flex: 1 }} />;
 }
+```
 
-async function acceptRequest(
-  requestId: string,
-  challengerId: string,
-  currentUserId: string,
-  message: string,
-) {
-  await supabase.from('match_requests').update({ status: 'accepted' }).eq('id', requestId);
-  if (message) {
-    await supabase.from('messages').insert({
-      sender_id: currentUserId,
-      receiver_id: challengerId,
-      content: `Match accepted — ${message}`,
-    });
-  }
-}
+- [ ] Verify the file compiles (run `npm run lint` or check for TS errors). No UI rendered yet — empty View.
 
-async function declineRequest(
-  requestId: string,
-  challengerId: string,
-  currentUserId: string,
-  message: string,
-) {
-  await supabase.from('match_requests').update({ status: 'declined' }).eq('id', requestId);
-  if (message) {
-    await supabase.from('messages').insert({
-      sender_id: currentUserId,
-      receiver_id: challengerId,
-      content: `Request declined — ${message}`,
-    });
-  }
-}
+- [ ] Commit:
+```
+git add src/app/(resident)/match.tsx
+git commit -m "feat(match): scaffold types, data hooks, mock adapter"
+```
 
-async function rescheduleMatch(
-  _matchId: string,
-  opponentId: string,
-  currentUserId: string,
-  message: string,
-) {
-  // TODO: add reschedule_requests table or a separate flow in follow-up
-  if (message) {
-    await supabase.from('messages').insert({
-      sender_id: currentUserId,
-      receiver_id: opponentId,
-      content: `Reschedule request — ${message}`,
-    });
-  }
-}
+---
 
-async function cancelMatch(
-  _matchId: string,
-  opponentId: string,
-  currentUserId: string,
-  message: string,
-) {
-  // TODO: add status column to matches table in a follow-up migration
-  if (message) {
-    await supabase.from('messages').insert({
-      sender_id: currentUserId,
-      receiver_id: opponentId,
-      content: `Match cancelled — ${message}`,
-    });
-  }
-}
+## Task 5: PlayerAvatar helper + WeatherMini integration
 
-// ─── Utility helpers ──────────────────────────────────────────────────────────
+**Files:**
+- Modify: `src/app/(resident)/match.tsx` — add PlayerAvatar helper component + weather hook utility
+
+- [ ] Add `PlayerAvatar` as a local component in match.tsx (above `MatchScreen`). Add `useMatchWeather` hook. Insert before the default export:
+
+```tsx
+// ─── PlayerAvatar ─────────────────────────────────────────────────────────────
 
 function getInitials(name: string): string {
   const parts = name.trim().split(' ').filter(Boolean);
@@ -359,24 +467,52 @@ function getInitials(name: string): string {
   return name.slice(0, 2).toUpperCase();
 }
 
+interface AvatarProps {
+  player: MatchPlayer;
+  size?: number;
+  theme: ReturnType<typeof useTheme>['theme'];
+}
+
+function PlayerAvatar({ player, size = 48, theme }: AvatarProps) {
+  return (
+    <View style={[avatarStyles.wrap, {
+      width: size, height: size, borderRadius: size / 2,
+      backgroundColor: theme.selectedBg,
+      borderColor: theme.border,
+    }]}>
+      <Text style={[avatarStyles.initials, {
+        fontSize: size * 0.33,
+        color: Colors.blue,
+        fontFamily: FontFamily.manropeSemiBold,
+      }]}>
+        {getInitials(player.name)}
+      </Text>
+    </View>
+  );
+}
+
+const avatarStyles = StyleSheet.create({
+  wrap: {
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  initials: {},
+});
+
+// ─── Match type display ───────────────────────────────────────────────────────
+
 function matchTypeLabel(type: MatchType): string {
   switch (type) {
-    case 'singles':         return 'Singles';
-    case 'doubles':         return 'Doubles';
-    case 'mixed_doubles':   return 'Mixed Doubles';
+    case 'singles':       return 'Singles';
+    case 'doubles':       return 'Doubles';
+    case 'mixed_doubles': return 'Mixed Doubles';
     case 'hitting_session': return 'Hitting Session';
   }
 }
 
-function MatchTypeIcon({
-  type,
-  color,
-  size = 16,
-}: {
-  type: MatchType;
-  color: string;
-  size?: number;
-}) {
+function MatchTypeIcon({ type, color, size = 16 }: { type: MatchType; color: string; size?: number }) {
   const props = { size, color, strokeWidth: 1.5 };
   switch (type) {
     case 'singles':         return <User {...props} />;
@@ -385,6 +521,8 @@ function MatchTypeIcon({
     case 'mixed_doubles':   return <Users {...props} />;
   }
 }
+
+// ─── Date/time formatting ─────────────────────────────────────────────────────
 
 function formatMatchDate(date: string | null): string {
   if (!date) return '—';
@@ -402,127 +540,34 @@ function formatMatchTime(timeStart: string | null, timeEnd: string | null): stri
   };
   return timeEnd ? `${fmt(timeStart)} – ${fmt(timeEnd)}` : fmt(timeStart);
 }
+```
 
-// ─── PlayerAvatar ─────────────────────────────────────────────────────────────
+- [ ] Commit:
+```
+git add src/app/(resident)/match.tsx
+git commit -m "feat(match): add PlayerAvatar, MatchTypeIcon, date/time formatters"
+```
 
-type ThemeType = ReturnType<typeof useTheme>['theme'];
+---
 
-interface AvatarProps {
-  player: MatchPlayer;
-  size?: number;
-  theme: ThemeType;
+## Task 6: Action bottom sheets (Accept, Decline, Reschedule, Cancel)
+
+**Files:**
+- Modify: `src/app/(resident)/match.tsx` — add four action sheet components + state wiring
+
+- [ ] Add the four action sheet components as local functions in match.tsx. Insert before the default export:
+
+```tsx
+// ─── Quick-reply chips ────────────────────────────────────────────────────────
+
+interface QuickReply {
+  label: string;
+  text: string;
 }
-
-function PlayerAvatar({ player, size = 48, theme }: AvatarProps) {
-  return (
-    <View style={[
-      avatarStyles.wrap,
-      {
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        backgroundColor: theme.selectedBg,
-        borderColor: theme.border,
-      },
-    ]}>
-      <Text style={[
-        avatarStyles.initials,
-        { fontSize: size * 0.33, color: Colors.blue },
-      ]}>
-        {getInitials(player.name)}
-      </Text>
-    </View>
-  );
-}
-
-const avatarStyles = StyleSheet.create({
-  wrap: {
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    flexShrink: 0,
-  },
-  initials: {
-    fontFamily: FontFamily.manropeSemiBold,
-  },
-});
-
-// ─── WeatherForCard ───────────────────────────────────────────────────────────
-// Hook wrapper: each card manages its own weather fetch by location.
-// Multiple cards with the same location will each make a fetch.
-// TODO: add a shared weather cache to deduplicate requests when many cards share a location.
-
-function WeatherForCard({ location, date }: { location: string | null; date: string | null }) {
-  const { forecast } = useWeather(location ?? undefined);
-  if (!location || !date) return null;
-  const w = getWeatherForDate(forecast, date);
-  if (!w) return null;
-  return (
-    <WeatherMini
-      temperature={w.temperature}
-      condition={w.condition as WeatherCondition}
-      description={w.description}
-      windSpeed={w.windSpeed}
-    />
-  );
-}
-
-// ─── Shared section styles ────────────────────────────────────────────────────
-
-const sectionStyles = StyleSheet.create({
-  section: { marginBottom: Spacing.sectionGap },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.pagePx,
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontFamily: FontFamily.spaceGroteskBold,
-    fontSize: FontSize.sectionTitle,
-  },
-  viewAll: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  viewAllText: {
-    fontFamily: FontFamily.manropeSemiBold,
-    fontSize: FontSize.label,
-    color: Colors.blue,
-  },
-  badge: {
-    minWidth: 22,
-    height: 22,
-    borderRadius: 11,
-    paddingHorizontal: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badgeText: {
-    fontFamily: FontFamily.jetbrainsMonoSemiBold,
-    fontSize: 11,
-    color: '#FFF',
-  },
-  emptyText: {
-    fontFamily: FontFamily.manropeMedium,
-    fontSize: FontSize.body,
-    lineHeight: 22,
-    paddingHorizontal: Spacing.pagePx,
-  },
-});
-
-// ─── Quick Replies ────────────────────────────────────────────────────────────
-
-interface QuickReply { label: string; text: string }
 
 function QuickReplies({
-  replies,
-  onSelect,
-  theme,
-}: {
-  replies: QuickReply[];
-  onSelect: (t: string) => void;
-  theme: ThemeType;
-}) {
+  replies, onSelect, theme,
+}: { replies: QuickReply[]; onSelect: (t: string) => void; theme: ReturnType<typeof useTheme>['theme'] }) {
   return (
     <View style={chipStyles.row}>
       {replies.map((r) => (
@@ -544,32 +589,24 @@ const chipStyles = StyleSheet.create({
   chipText: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label },
 });
 
-// ─── ActionSheet ──────────────────────────────────────────────────────────────
+// ─── Generic action sheet ─────────────────────────────────────────────────────
 
 interface ActionSheetProps {
   visible: boolean;
   title: string;
-  primaryLabel: string;
-  secondaryLabel: string;
+  primaryLabel: string;       // e.g. "Send & Accept"
+  secondaryLabel: string;     // e.g. "Accept Only"
   primaryColor: string;
   quickReplies: QuickReply[];
   onPrimary: (msg: string) => Promise<void>;
   onSecondary: () => Promise<void>;
   onDismiss: () => void;
-  theme: ThemeType;
+  theme: ReturnType<typeof useTheme>['theme'];
 }
 
 function ActionSheet({
-  visible,
-  title,
-  primaryLabel,
-  secondaryLabel,
-  primaryColor,
-  quickReplies,
-  onPrimary,
-  onSecondary,
-  onDismiss,
-  theme,
+  visible, title, primaryLabel, secondaryLabel, primaryColor,
+  quickReplies, onPrimary, onSecondary, onDismiss, theme,
 }: ActionSheetProps) {
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
@@ -591,32 +628,24 @@ function ActionSheet({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onDismiss}>
       <View style={[sheetStyles.backdrop, { backgroundColor: theme.backdrop }]}>
-        <TouchableOpacity style={{ flex: 1 }} onPress={onDismiss} activeOpacity={1} />
-        <View style={[sheetStyles.sheet, { backgroundColor: theme.sheetBg }, theme.shadowSheet]}>
+        <TouchableOpacity style={{ flex: 1 }} onPress={onDismiss} />
+        <View style={[sheetStyles.sheet, { backgroundColor: theme.sheetBg, ...theme.shadowSheet }]}>
+          {/* Handle */}
           <View style={[sheetStyles.handle, { backgroundColor: theme.border }]} />
+
+          {/* Header */}
           <View style={sheetStyles.header}>
             <Text style={[sheetStyles.title, { color: theme.textPrimary }]}>{title}</Text>
-            <TouchableOpacity
-              onPress={onDismiss}
-              style={sheetStyles.closeBtn}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TouchableOpacity onPress={onDismiss} style={sheetStyles.closeBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <X size={20} color={theme.textMuted} strokeWidth={1.5} />
             </TouchableOpacity>
           </View>
 
-          <Text style={[sheetStyles.label, { color: theme.textSecondary }]}>
-            Add a message (optional)
-          </Text>
+          {/* Optional message */}
+          <Text style={[sheetStyles.label, { color: theme.textSecondary }]}>Add a message (optional)</Text>
           <QuickReplies replies={quickReplies} onSelect={setMsg} theme={theme} />
           <TextInput
-            style={[
-              sheetStyles.input,
-              {
-                backgroundColor: theme.inputBg,
-                borderColor: theme.border,
-                color: theme.textPrimary,
-              },
-            ]}
+            style={[sheetStyles.input, { backgroundColor: theme.inputBg, borderColor: theme.border, color: theme.textPrimary }]}
             value={msg}
             onChangeText={setMsg}
             placeholder="Write a note…"
@@ -625,6 +654,7 @@ function ActionSheet({
             numberOfLines={3}
           />
 
+          {/* CTAs */}
           <View style={sheetStyles.ctaRow}>
             <TouchableOpacity
               style={[sheetStyles.cta, { backgroundColor: primaryColor, flex: 2 }]}
@@ -640,9 +670,7 @@ function ActionSheet({
               onPress={handleSecondary}
               disabled={busy}
               activeOpacity={0.85}>
-              <Text style={[sheetStyles.ctaSecondaryText, { color: primaryColor }]}>
-                {secondaryLabel}
-              </Text>
+              <Text style={[sheetStyles.ctaSecondaryText, { color: primaryColor }]}>{secondaryLabel}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -660,22 +688,11 @@ const sheetStyles = StyleSheet.create({
     paddingBottom: 40,
     paddingTop: 12,
   },
-  handle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 16,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
+  handle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   title: { fontFamily: FontFamily.spaceGroteskBold, fontSize: 20 },
   closeBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
-  label: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label },
+  label: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label, marginBottom: 4 },
   input: {
     borderWidth: 1.5,
     borderRadius: Radius.sm,
@@ -693,11 +710,7 @@ const sheetStyles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: Spacing.tapTarget,
   },
-  ctaText: {
-    fontFamily: FontFamily.manropeSemiBold,
-    fontSize: FontSize.body,
-    color: '#FFF',
-  },
+  ctaText: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.body, color: '#FFF' },
   ctaSecondary: {
     borderRadius: Radius.button,
     borderWidth: 1.5,
@@ -706,11 +719,40 @@ const sheetStyles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: Spacing.tapTarget,
   },
-  ctaSecondaryText: {
-    fontFamily: FontFamily.manropeSemiBold,
-    fontSize: FontSize.body,
-  },
+  ctaSecondaryText: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.body },
 });
+```
+
+- [ ] Commit:
+```
+git add src/app/(resident)/match.tsx
+git commit -m "feat(match): add ActionSheet component with quick replies"
+```
+
+---
+
+## Task 7: Recommended Players section
+
+**Files:**
+- Modify: `src/app/(resident)/match.tsx` — add RecommendedPlayerCard + section component
+
+- [ ] Add `RecommendedPlayerCard` and `RecommendedPlayersSection`. Insert before the default export:
+
+```tsx
+// ─── Request to Play action ───────────────────────────────────────────────────
+
+async function sendMatchRequest(
+  currentUserId: string,
+  opponentId: string,
+  matchType: MatchType,
+) {
+  await supabase.from('match_requests').insert({
+    challenger_id: currentUserId,
+    opponent_id: opponentId,
+    match_type: matchType as any,  // cast until types.ts regenerated
+    status: 'pending',
+  });
+}
 
 // ─── Recommended Player Card ──────────────────────────────────────────────────
 
@@ -718,15 +760,10 @@ interface RecommendedCardProps {
   player: RecommendedPlayer;
   currentUserId: string;
   onMessage: (id: string) => void;
-  theme: ThemeType;
+  theme: ReturnType<typeof useTheme>['theme'];
 }
 
-function RecommendedPlayerCard({
-  player,
-  currentUserId,
-  onMessage,
-  theme,
-}: RecommendedCardProps) {
+function RecommendedPlayerCard({ player, currentUserId, onMessage, theme }: RecommendedCardProps) {
   const [requested, setRequested] = useState(false);
 
   async function handleRequest() {
@@ -735,7 +772,7 @@ function RecommendedPlayerCard({
   }
 
   return (
-    <View style={[recStyles.card, { backgroundColor: theme.cardBg, borderColor: theme.border }, theme.shadowCard]}>
+    <View style={[recStyles.card, { backgroundColor: theme.cardBg, borderColor: theme.border, ...theme.shadowCard }]}>
       <View style={recStyles.top}>
         <PlayerAvatar player={player} size={52} theme={theme} />
         <View style={recStyles.info}>
@@ -747,9 +784,7 @@ function RecommendedPlayerCard({
               <Text style={recStyles.utr}>UTR {player.utrRating.toFixed(1)}</Text>
             )}
             {player.ntrpRating != null && (
-              <Text style={[recStyles.ntrp, { color: theme.textSecondary }]}>
-                • {player.ntrpRating.toFixed(1)} NTRP
-              </Text>
+              <Text style={[recStyles.ntrp, { color: theme.textSecondary }]}>• {player.ntrpRating.toFixed(1)} NTRP</Text>
             )}
           </View>
         </View>
@@ -774,15 +809,11 @@ function RecommendedPlayerCard({
 
       <View style={recStyles.btns}>
         <TouchableOpacity
-          style={[recStyles.btn, { borderColor: requested ? theme.border : Colors.positive }]}
+          style={[recStyles.btn, { borderColor: Colors.positive }]}
           onPress={handleRequest}
           disabled={requested}
           activeOpacity={0.8}>
-          <Swords
-            size={13}
-            color={requested ? theme.textDisabled : Colors.positive}
-            strokeWidth={1.5}
-          />
+          <Swords size={14} color={requested ? theme.textDisabled : Colors.positive} strokeWidth={1.5} />
           <Text style={[recStyles.btnText, { color: requested ? theme.textDisabled : Colors.positive }]}>
             {requested ? 'Requested' : 'Request to Play'}
           </Text>
@@ -792,7 +823,7 @@ function RecommendedPlayerCard({
           style={[recStyles.btn, { borderColor: Colors.blue }]}
           onPress={() => onMessage(player.id)}
           activeOpacity={0.8}>
-          <MessageCircle size={13} color={Colors.blue} strokeWidth={1.5} />
+          <MessageCircle size={14} color={Colors.blue} strokeWidth={1.5} />
           <Text style={[recStyles.btnText, { color: Colors.blue }]}>Message</Text>
         </TouchableOpacity>
       </View>
@@ -812,25 +843,11 @@ const recStyles = StyleSheet.create({
   top: { flexDirection: 'row', gap: 12, alignItems: 'center' },
   info: { flex: 1 },
   name: { fontFamily: FontFamily.spaceGroteskBold, fontSize: FontSize.cardTitle },
-  ratings: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 2,
-    flexWrap: 'wrap',
-  },
-  utr: {
-    fontFamily: FontFamily.jetbrainsMonoSemiBold,
-    fontSize: 12,
-    color: Colors.blue,
-  },
+  ratings: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2, flexWrap: 'wrap' },
+  utr: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: 12, color: Colors.blue },
   ntrp: { fontFamily: FontFamily.manropeMedium, fontSize: 12 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  metaText: {
-    fontFamily: FontFamily.manropeMedium,
-    fontSize: FontSize.label,
-    flex: 1,
-  },
+  metaText: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label, flex: 1 },
   btns: { flexDirection: 'row', gap: 8, marginTop: 4 },
   btn: {
     flex: 1,
@@ -852,15 +869,10 @@ interface RecSectionProps {
   players: RecommendedPlayer[];
   loading: boolean;
   currentUserId: string;
-  theme: ThemeType;
+  theme: ReturnType<typeof useTheme>['theme'];
 }
 
-function RecommendedPlayersSection({
-  players,
-  loading,
-  currentUserId,
-  theme,
-}: RecSectionProps) {
+function RecommendedPlayersSection({ players, loading, currentUserId, theme }: RecSectionProps) {
   function handleMessage(partnerId: string) {
     router.push(`/messages?partner=${partnerId}`);
   }
@@ -868,9 +880,7 @@ function RecommendedPlayersSection({
   return (
     <View style={sectionStyles.section}>
       <View style={sectionStyles.headerRow}>
-        <Text style={[sectionStyles.sectionTitle, { color: theme.textPrimary }]}>
-          Recommended Players
-        </Text>
+        <Text style={[sectionStyles.sectionTitle, { color: theme.textPrimary }]}>Recommended Players</Text>
         <TouchableOpacity style={sectionStyles.viewAll} activeOpacity={0.7}>
           <Text style={sectionStyles.viewAllText}>View all</Text>
           <ChevronRight size={14} color={Colors.blue} strokeWidth={1.5} />
@@ -878,13 +888,15 @@ function RecommendedPlayersSection({
       </View>
 
       {loading ? (
-        <View style={{ paddingHorizontal: Spacing.pagePx }}>
+        <View style={{ paddingHorizontal: Spacing.pagePx, gap: 12 }}>
           <Skeleton width={230} height={160} borderRadius={Radius.card} />
         </View>
       ) : players.length === 0 ? (
-        <Text style={[sectionStyles.emptyText, { color: theme.textMuted }]}>
-          No matching players yet.{'\n'}Try widening your filters or use Player Lookup.
-        </Text>
+        <View style={{ paddingHorizontal: Spacing.pagePx }}>
+          <Text style={[sectionStyles.emptyText, { color: theme.textMuted }]}>
+            No matching players yet.{'\n'}Try widening your filters or use Player Lookup.
+          </Text>
+        </View>
       ) : (
         <FlatList
           data={players}
@@ -905,6 +917,42 @@ function RecommendedPlayersSection({
     </View>
   );
 }
+```
+
+- [ ] Commit:
+```
+git add src/app/(resident)/match.tsx
+git commit -m "feat(match): add RecommendedPlayers section with request/message actions"
+```
+
+---
+
+## Task 8: Incoming Requests section
+
+**Files:**
+- Modify: `src/app/(resident)/match.tsx` — add IncomingRequestCard + section + wired accept/decline/message actions
+
+- [ ] Add weather hook helper and IncomingRequestCard. Insert before default export:
+
+```tsx
+// ─── Weather lookup by location ───────────────────────────────────────────────
+// Each card fetches weather for its own location. useWeather is a hook so it
+// must be called at the component level, not in a map loop.
+
+function WeatherForCard({ location, date }: { location: string | null; date: string | null }) {
+  const { forecast } = useWeather(location ?? undefined);
+  if (!location || !date) return null;
+  const w = getWeatherForDate(forecast, date);
+  if (!w) return null;
+  return (
+    <WeatherMini
+      temperature={w.temperature}
+      condition={w.condition as WeatherCondition}
+      description={w.description}
+      windSpeed={w.windSpeed}
+    />
+  );
+}
 
 // ─── Incoming Request Card ────────────────────────────────────────────────────
 
@@ -914,34 +962,27 @@ interface IncomingCardProps {
   onAccept: (request: IncomingRequest) => void;
   onDecline: (request: IncomingRequest) => void;
   onMessage: (partnerId: string) => void;
-  theme: ThemeType;
+  theme: ReturnType<typeof useTheme>['theme'];
 }
 
 function IncomingRequestCard({
-  request,
-  currentUserId,
-  onAccept,
-  onDecline,
-  onMessage,
-  theme,
+  request, currentUserId, onAccept, onDecline, onMessage, theme,
 }: IncomingCardProps) {
-  const isDoubles =
-    request.matchType === 'doubles' || request.matchType === 'mixed_doubles';
+  const isDoubles = request.matchType === 'doubles' || request.matchType === 'mixed_doubles';
 
   return (
     <View style={[
       incStyles.card,
-      { backgroundColor: theme.cardBg, borderColor: theme.border },
-      theme.shadowCard,
+      { backgroundColor: theme.cardBg, borderColor: theme.border, ...theme.shadowCard },
     ]}>
-      {/* Blue left rail — signals incoming / needs response */}
+      {/* Blue left rail */}
       <View style={[incStyles.rail, { backgroundColor: Colors.blue }]} />
 
       <View style={incStyles.body}>
-        {/* Row: match type + weather */}
+        {/* Header row: match type icon + weather */}
         <View style={incStyles.topRow}>
           <View style={incStyles.matchTypeRow}>
-            <MatchTypeIcon type={request.matchType} color={theme.textMuted} size={14} />
+            <MatchTypeIcon type={request.matchType} color={theme.textMuted} size={15} />
             <Text style={[incStyles.matchTypeLabel, { color: theme.textSecondary }]}>
               {matchTypeLabel(request.matchType)}
             </Text>
@@ -972,7 +1013,7 @@ function IncomingRequestCard({
         {/* Date / location */}
         {request.date && (
           <View style={incStyles.metaRow}>
-            <Calendar size={12} color={theme.textMuted} strokeWidth={1.5} />
+            <Calendar size={13} color={theme.textMuted} strokeWidth={1.5} />
             <Text style={[incStyles.metaText, { color: theme.textSecondary }]}>
               {formatMatchDate(request.date)} · {formatMatchTime(request.timeStart, request.timeEnd)}
             </Text>
@@ -980,53 +1021,47 @@ function IncomingRequestCard({
         )}
         {request.location && (
           <View style={incStyles.metaRow}>
-            <MapPin size={12} color={theme.textMuted} strokeWidth={1.5} />
+            <MapPin size={13} color={theme.textMuted} strokeWidth={1.5} />
             <Text style={[incStyles.metaText, { color: theme.textSecondary }]} numberOfLines={1}>
               {request.location}
             </Text>
           </View>
         )}
 
-        {/* Doubles participant slots
-            TODO(doubles): replace with match_request_participants query.
-            Currently shows challenger + current user as confirmed, 2 open slots.
-            Do NOT show "3 OF 4 CONFIRMED" — the schema only confirms 2 people. */}
+        {/* Doubles participant slots */}
         {isDoubles && (
           <View style={incStyles.doublesRow}>
+            {/* Slot 1: challenger */}
             <PlayerAvatar player={request.challenger} size={32} theme={theme} />
-            <View style={[
-              incStyles.youSlot,
-              { borderColor: Colors.blue, backgroundColor: theme.selectedBg },
-            ]}>
-              <Text style={[incStyles.youLabel, { color: Colors.blue }]}>YOU</Text>
+            {/* Slot 2: current user (you) */}
+            <View style={[incStyles.youSlot, { borderColor: Colors.blue, backgroundColor: theme.selectedBg }]}>
+              <Text style={{ fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: 9, color: Colors.blue }}>YOU</Text>
             </View>
-            {/* Open slots — awaiting match_request_participants */}
+            {/* Slots 3–4: placeholder — TODO(doubles): replace with match_request_participants */}
             <View style={[incStyles.emptySlot, { borderColor: theme.border }]} />
             <View style={[incStyles.emptySlot, { borderColor: theme.border }]} />
-            <Text style={[incStyles.doublesStatus, { color: theme.textMuted }]}>
-              2 OF 4
-            </Text>
+            <Text style={[incStyles.doublesLabel, { color: theme.textMuted }]}>2 OF 4 CONFIRMED</Text>
           </View>
         )}
 
-        {/* Buttons: Accept · Message · Decline */}
+        {/* Action buttons */}
         <View style={incStyles.btns}>
           <TouchableOpacity
             style={[incStyles.btn, { borderColor: Colors.positive }]}
             onPress={() => onAccept(request)}
             activeOpacity={0.8}>
-            <CheckCircle2 size={13} color={Colors.positive} strokeWidth={1.5} />
+            <CheckCircle2 size={14} color={Colors.positive} strokeWidth={1.5} />
             <Text style={[incStyles.btnText, { color: Colors.positive }]}>Accept</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[incStyles.btn, { borderColor: Colors.blue }]}
             onPress={() => {
-              // TODO(group-chat): open group conversation once conversations table exists
+              // TODO(group-chat): open group conversation when conversations table exists
               onMessage(request.challenger.id);
             }}
             activeOpacity={0.8}>
-            <MessageCircle size={13} color={Colors.blue} strokeWidth={1.5} />
+            <MessageCircle size={14} color={Colors.blue} strokeWidth={1.5} />
             <Text style={[incStyles.btnText, { color: Colors.blue }]}>Message</Text>
           </TouchableOpacity>
 
@@ -1034,7 +1069,7 @@ function IncomingRequestCard({
             style={[incStyles.btn, { borderColor: Colors.negative }]}
             onPress={() => onDecline(request)}
             activeOpacity={0.8}>
-            <XCircle size={13} color={Colors.negative} strokeWidth={1.5} />
+            <XCircle size={14} color={Colors.negative} strokeWidth={1.5} />
             <Text style={[incStyles.btnText, { color: Colors.negative }]}>Decline</Text>
           </TouchableOpacity>
         </View>
@@ -1054,12 +1089,7 @@ const incStyles = StyleSheet.create({
   },
   rail: { width: 4, flexShrink: 0 },
   body: { flex: 1, padding: 14, gap: 8 },
-  topRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 8,
-  },
+  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   matchTypeRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   matchTypeLabel: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label },
   challengerRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
@@ -1069,35 +1099,17 @@ const incStyles = StyleSheet.create({
   ntrp: { fontFamily: FontFamily.manropeMedium, fontSize: 11 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   metaText: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label, flex: 1 },
-  doublesRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flexWrap: 'wrap',
-    marginTop: 4,
-  },
+  doublesRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 4 },
   youSlot: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  youLabel: {
-    fontFamily: FontFamily.jetbrainsMonoSemiBold,
-    fontSize: 9,
-    letterSpacing: 0.5,
+    width: 32, height: 32, borderRadius: 16,
+    borderWidth: 1.5, borderStyle: 'dashed',
+    alignItems: 'center', justifyContent: 'center',
   },
   emptySlot: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
+    width: 32, height: 32, borderRadius: 16,
+    borderWidth: 1.5, borderStyle: 'dashed',
   },
-  doublesStatus: {
+  doublesLabel: {
     fontFamily: FontFamily.jetbrainsMonoSemiBold,
     fontSize: 9,
     letterSpacing: 0.5,
@@ -1126,16 +1138,11 @@ interface IncomingSectionProps {
   currentUserId: string;
   onAccept: (r: IncomingRequest) => void;
   onDecline: (r: IncomingRequest) => void;
-  theme: ThemeType;
+  theme: ReturnType<typeof useTheme>['theme'];
 }
 
 function IncomingRequestsSection({
-  requests,
-  loading,
-  currentUserId,
-  onAccept,
-  onDecline,
-  theme,
+  requests, loading, currentUserId, onAccept, onDecline, theme,
 }: IncomingSectionProps) {
   function handleMessage(partnerId: string) {
     router.push(`/messages?partner=${partnerId}`);
@@ -1145,9 +1152,7 @@ function IncomingRequestsSection({
     <View style={sectionStyles.section}>
       <View style={sectionStyles.headerRow}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text style={[sectionStyles.sectionTitle, { color: theme.textPrimary }]}>
-            Incoming Requests
-          </Text>
+          <Text style={[sectionStyles.sectionTitle, { color: theme.textPrimary }]}>Incoming Requests</Text>
           {requests.length > 0 && (
             <View style={[sectionStyles.badge, { backgroundColor: Colors.blue }]}>
               <Text style={sectionStyles.badgeText}>{requests.length}</Text>
@@ -1165,9 +1170,9 @@ function IncomingRequestsSection({
           <Skeleton width={264} height={200} borderRadius={Radius.card} />
         </View>
       ) : requests.length === 0 ? (
-        <Text style={[sectionStyles.emptyText, { color: theme.textMuted }]}>
-          No incoming requests.
-        </Text>
+        <View style={{ paddingHorizontal: Spacing.pagePx }}>
+          <Text style={[sectionStyles.emptyText, { color: theme.textMuted }]}>No incoming requests.</Text>
+        </View>
       ) : (
         <FlatList
           data={requests}
@@ -1190,7 +1195,24 @@ function IncomingRequestsSection({
     </View>
   );
 }
+```
 
+- [ ] Commit:
+```
+git add src/app/(resident)/match.tsx
+git commit -m "feat(match): add IncomingRequests section with accept/decline/message"
+```
+
+---
+
+## Task 9: Upcoming Matches section
+
+**Files:**
+- Modify: `src/app/(resident)/match.tsx` — add UpcomingMatchCard + section + reschedule/cancel actions
+
+- [ ] Add `UpcomingMatchCard` and `UpcomingMatchesSection`. Insert before default export:
+
+```tsx
 // ─── Upcoming Match Card ──────────────────────────────────────────────────────
 
 interface UpcomingCardProps {
@@ -1199,33 +1221,26 @@ interface UpcomingCardProps {
   onMessage: (partnerId: string) => void;
   onReschedule: (match: UpcomingMatch) => void;
   onCancel: (match: UpcomingMatch) => void;
-  theme: ThemeType;
+  theme: ReturnType<typeof useTheme>['theme'];
 }
 
 function UpcomingMatchCard({
-  match,
-  currentUserId,
-  onMessage,
-  onReschedule,
-  onCancel,
-  theme,
+  match, currentUserId, onMessage, onReschedule, onCancel, theme,
 }: UpcomingCardProps) {
-  const isDoubles =
-    match.matchType === 'doubles' || match.matchType === 'mixed_doubles';
-  const opponent =
-    match.player1.id === currentUserId ? match.player2 : match.player1;
+  const isDoubles = match.matchType === 'doubles' || match.matchType === 'mixed_doubles';
+  const opponent = match.player1.id === currentUserId ? match.player2 : match.player1;
 
   return (
     <View style={[
       upStyles.card,
-      { backgroundColor: theme.cardBg, borderColor: theme.border },
-      theme.shadowCard,
+      { backgroundColor: theme.cardBg, borderColor: theme.border, ...theme.shadowCard },
     ]}>
-      {/* Green left rail — signals confirmed / upcoming */}
+      {/* Green left rail */}
       <View style={[upStyles.rail, { backgroundColor: Colors.positive }]} />
 
       <View style={upStyles.body}>
         <View style={upStyles.topRow}>
+          {/* Left: opponent / match info */}
           <View style={upStyles.leftCol}>
             {isDoubles ? (
               <>
@@ -1235,7 +1250,7 @@ function UpcomingMatchCard({
                     {matchTypeLabel(match.matchType)}
                   </Text>
                 </View>
-                {/* TODO(doubles): replace with real team data from match_request_participants */}
+                {/* Doubles avatar row — TODO(doubles): use real team data from match_request_participants */}
                 <View style={upStyles.doublesAvatars}>
                   <PlayerAvatar player={match.player1} size={32} theme={theme} />
                   <PlayerAvatar player={match.player2} size={32} theme={theme} />
@@ -1249,20 +1264,22 @@ function UpcomingMatchCard({
                 </View>
               </>
             ) : (
-              <View style={upStyles.opponentRow}>
-                <PlayerAvatar player={opponent} size={40} theme={theme} />
-                <View style={{ flex: 1 }}>
-                  <Text style={[upStyles.opponentName, { color: theme.textPrimary }]} numberOfLines={1}>
-                    {opponent.name}
-                  </Text>
-                  <View style={upStyles.matchTypeRow}>
-                    <MatchTypeIcon type={match.matchType} color={theme.textMuted} size={13} />
-                    <Text style={[upStyles.matchTypeSub, { color: theme.textSecondary }]}>
-                      {matchTypeLabel(match.matchType)}
+              <>
+                <View style={upStyles.opponentRow}>
+                  <PlayerAvatar player={opponent} size={40} theme={theme} />
+                  <View>
+                    <Text style={[upStyles.opponentName, { color: theme.textPrimary }]} numberOfLines={1}>
+                      {opponent.name}
                     </Text>
+                    <View style={upStyles.matchTypeRow}>
+                      <MatchTypeIcon type={match.matchType} color={theme.textMuted} size={13} />
+                      <Text style={[upStyles.matchTypeSub, { color: theme.textSecondary }]}>
+                        {matchTypeLabel(match.matchType)}
+                      </Text>
+                    </View>
                   </View>
                 </View>
-              </View>
+              </>
             )}
 
             <View style={upStyles.metaRow}>
@@ -1279,15 +1296,16 @@ function UpcomingMatchCard({
             </View>
           </View>
 
+          {/* Right: weather */}
           <WeatherForCard location={match.location} date={match.date} />
         </View>
 
-        {/* Buttons: Message · Reschedule · Cancel */}
+        {/* Action buttons */}
         <View style={upStyles.btns}>
           <TouchableOpacity
             style={[upStyles.btn, { borderColor: Colors.blue }]}
             onPress={() => {
-              // TODO(group-chat): open group conversation once conversations table exists
+              // TODO(group-chat): open group conversation when conversations table exists
               onMessage(opponent.id);
             }}
             activeOpacity={0.8}>
@@ -1334,18 +1352,10 @@ const upStyles = StyleSheet.create({
   matchLabel: { fontFamily: FontFamily.spaceGroteskBold, fontSize: 15 },
   matchTypeSub: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label },
   doublesAvatars: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  vsText: {
-    fontFamily: FontFamily.jetbrainsMonoSemiBold,
-    fontSize: 11,
-    marginHorizontal: 2,
-  },
+  vsText: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: 11, marginHorizontal: 2 },
   emptySlot: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    flexShrink: 0,
+    width: 32, height: 32, borderRadius: 16,
+    borderWidth: 1.5, borderStyle: 'dashed',
   },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   metaText: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label, flex: 1 },
@@ -1372,27 +1382,20 @@ interface UpcomingSectionProps {
   currentUserId: string;
   onReschedule: (m: UpcomingMatch) => void;
   onCancel: (m: UpcomingMatch) => void;
-  theme: ThemeType;
+  theme: ReturnType<typeof useTheme>['theme'];
 }
 
 function UpcomingMatchesSection({
-  matches,
-  loading,
-  currentUserId,
-  onReschedule,
-  onCancel,
-  theme,
+  matches, loading, currentUserId, onReschedule, onCancel, theme,
 }: UpcomingSectionProps) {
   function handleMessage(partnerId: string) {
     router.push(`/messages?partner=${partnerId}`);
   }
 
   return (
-    <View style={[sectionStyles.section, upSectionStyles.padded]}>
+    <View style={[sectionStyles.section, { paddingHorizontal: Spacing.pagePx }]}>
       <View style={sectionStyles.headerRow}>
-        <Text style={[sectionStyles.sectionTitle, { color: theme.textPrimary }]}>
-          My Upcoming Matches
-        </Text>
+        <Text style={[sectionStyles.sectionTitle, { color: theme.textPrimary }]}>My Upcoming Matches</Text>
         <TouchableOpacity style={sectionStyles.viewAll} activeOpacity={0.7}>
           <Text style={sectionStyles.viewAllText}>View all</Text>
           <ChevronRight size={14} color={Colors.blue} strokeWidth={1.5} />
@@ -1405,7 +1408,7 @@ function UpcomingMatchesSection({
           <Skeleton width="100%" height={140} borderRadius={Radius.card} />
         </View>
       ) : matches.length === 0 ? (
-        <Text style={[sectionStyles.emptyText, { color: theme.textMuted, paddingHorizontal: 0 }]}>
+        <Text style={[sectionStyles.emptyText, { color: theme.textMuted }]}>
           No upcoming matches yet.{'\n'}Request a player or reserve a court.
         </Text>
       ) : (
@@ -1424,9 +1427,54 @@ function UpcomingMatchesSection({
     </View>
   );
 }
+```
 
-const upSectionStyles = StyleSheet.create({
-  padded: { paddingHorizontal: Spacing.pagePx },
+- [ ] Commit:
+```
+git add src/app/(resident)/match.tsx
+git commit -m "feat(match): add UpcomingMatches section with reschedule/cancel/message"
+```
+
+---
+
+## Task 10: Filter card + Player Lookup modal
+
+**Files:**
+- Modify: `src/app/(resident)/match.tsx` — add FilterCard component and PlayerLookupModal
+
+- [ ] Add filter card and player lookup modal. Insert before default export:
+
+```tsx
+// ─── Shared section styles ────────────────────────────────────────────────────
+// (Referenced by Task 7, 8, 9 — define ONCE here, reference above in the file)
+
+const sectionStyles = StyleSheet.create({
+  section: { marginBottom: Spacing.sectionGap },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.pagePx,
+    marginBottom: 12,
+  },
+  sectionTitle: { fontFamily: FontFamily.spaceGroteskBold, fontSize: FontSize.sectionTitle },
+  viewAll: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  viewAllText: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label, color: Colors.blue },
+  badge: {
+    minWidth: 22, height: 22, borderRadius: 11,
+    paddingHorizontal: 6,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  badgeText: {
+    fontFamily: FontFamily.jetbrainsMonoSemiBold,
+    fontSize: 11,
+    color: '#FFF',
+  },
+  emptyText: {
+    fontFamily: FontFamily.manropeMedium,
+    fontSize: FontSize.body,
+    lineHeight: 22,
+  },
 });
 
 // ─── Filter Card ──────────────────────────────────────────────────────────────
@@ -1434,35 +1482,23 @@ const upSectionStyles = StyleSheet.create({
 interface FilterCardProps {
   filters: MatchFilters;
   onEdit: () => void;
-  theme: ThemeType;
+  theme: ReturnType<typeof useTheme>['theme'];
 }
 
 function FilterCard({ filters, onEdit, theme }: FilterCardProps) {
   const items = [
     { label: 'Format', value: matchTypeLabel(filters.format) },
-    { label: 'Skill Level', value: `UTR ${filters.utrMin}–${filters.utrMax}` },
+    { label: 'Skill Level', value: `UTR ${filters.utrMin} – ${filters.utrMax}` },
     { label: 'Date', value: filters.dateLabel },
     { label: 'Time', value: filters.timeLabel },
-    { label: 'Distance', value: `≤${filters.distanceMiles} mi` },
+    { label: 'Distance', value: `Within ${filters.distanceMiles} Miles` },
   ];
 
   return (
-    <View style={[
-      filterStyles.card,
-      { backgroundColor: theme.cardBg, borderColor: theme.border },
-      theme.shadowCard,
-    ]}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={filterStyles.scroll}>
-        {items.map((item, idx) => (
-          <View
-            key={item.label}
-            style={[
-              filterStyles.item,
-              idx < items.length - 1 && { borderRightWidth: 1, borderRightColor: theme.border },
-            ]}>
+    <View style={[filterStyles.card, { backgroundColor: theme.cardBg, borderColor: theme.border, ...theme.shadowCard }]}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={filterStyles.scroll}>
+        {items.map((item) => (
+          <View key={item.label} style={[filterStyles.item, { borderRightColor: theme.border }]}>
             <Text style={[filterStyles.itemValue, { color: theme.textPrimary }]}>{item.value}</Text>
             <Text style={[filterStyles.itemLabel, { color: theme.textMuted }]}>{item.label}</Text>
           </View>
@@ -1487,24 +1523,16 @@ const filterStyles = StyleSheet.create({
     marginBottom: Spacing.sectionGap,
     overflow: 'hidden',
   },
-  scroll: { paddingHorizontal: 4, paddingVertical: 4, alignItems: 'center' },
+  scroll: { paddingHorizontal: 4, paddingVertical: 4, alignItems: 'center', gap: 0 },
   item: {
     paddingHorizontal: 12,
     paddingVertical: 12,
+    borderRightWidth: 1,
     alignItems: 'center',
     minWidth: 72,
   },
-  itemValue: {
-    fontFamily: FontFamily.manropeSemiBold,
-    fontSize: 13,
-    textAlign: 'center',
-  },
-  itemLabel: {
-    fontFamily: FontFamily.manropeMedium,
-    fontSize: 11,
-    textAlign: 'center',
-    marginTop: 2,
-  },
+  itemValue: { fontFamily: FontFamily.manropeSemiBold, fontSize: 13, textAlign: 'center' },
+  itemLabel: { fontFamily: FontFamily.manropeMedium, fontSize: 11, textAlign: 'center', marginTop: 2 },
   editBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1524,15 +1552,10 @@ interface PlayerLookupProps {
   visible: boolean;
   currentUserId: string;
   onDismiss: () => void;
-  theme: ThemeType;
+  theme: ReturnType<typeof useTheme>['theme'];
 }
 
-function PlayerLookupModal({
-  visible,
-  currentUserId,
-  onDismiss,
-  theme,
-}: PlayerLookupProps) {
+function PlayerLookupModal({ visible, currentUserId, onDismiss, theme }: PlayerLookupProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<MatchPlayer[]>([]);
   const [searching, setSearching] = useState(false);
@@ -1574,14 +1597,12 @@ function PlayerLookupModal({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onDismiss}>
       <View style={[lookupStyles.backdrop, { backgroundColor: theme.backdrop }]}>
-        <TouchableOpacity style={{ flex: 1 }} onPress={onDismiss} activeOpacity={1} />
-        <View style={[lookupStyles.sheet, { backgroundColor: theme.sheetBg }, theme.shadowSheet]}>
+        <TouchableOpacity style={{ flex: 1 }} onPress={onDismiss} />
+        <View style={[lookupStyles.sheet, { backgroundColor: theme.sheetBg, ...theme.shadowSheet }]}>
           <View style={[lookupStyles.handle, { backgroundColor: theme.border }]} />
           <View style={lookupStyles.header}>
             <Text style={[lookupStyles.title, { color: theme.textPrimary }]}>Player Lookup</Text>
-            <TouchableOpacity
-              onPress={onDismiss}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TouchableOpacity onPress={onDismiss} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <X size={20} color={theme.textMuted} strokeWidth={1.5} />
             </TouchableOpacity>
           </View>
@@ -1589,10 +1610,7 @@ function PlayerLookupModal({
             Search players who have made themselves discoverable.
           </Text>
 
-          <View style={[lookupStyles.searchBar, {
-            backgroundColor: theme.inputBg,
-            borderColor: theme.border,
-          }]}>
+          <View style={[lookupStyles.searchBar, { backgroundColor: theme.inputBg, borderColor: theme.border }]}>
             <Search size={16} color={theme.textMuted} strokeWidth={1.5} />
             <TextInput
               style={[lookupStyles.searchInput, { color: theme.textPrimary }]}
@@ -1610,15 +1628,15 @@ function PlayerLookupModal({
               <View key={p.id} style={[lookupStyles.resultRow, { borderBottomColor: theme.border }]}>
                 <PlayerAvatar player={p} size={40} theme={theme} />
                 <View style={{ flex: 1 }}>
-                  <Text style={[lookupStyles.resultName, { color: theme.textPrimary }]}>
-                    {p.name}
-                  </Text>
-                  <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}>
+                  <Text style={[lookupStyles.resultName, { color: theme.textPrimary }]}>{p.name}</Text>
+                  <View style={{ flexDirection: 'row', gap: 4 }}>
                     {p.utrRating != null && (
-                      <Text style={lookupStyles.utr}>UTR {p.utrRating.toFixed(1)}</Text>
+                      <Text style={{ fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: 11, color: Colors.blue }}>
+                        UTR {p.utrRating.toFixed(1)}
+                      </Text>
                     )}
                     {p.ntrpRating != null && (
-                      <Text style={[lookupStyles.ntrp, { color: theme.textSecondary }]}>
+                      <Text style={{ fontFamily: FontFamily.manropeMedium, fontSize: 11, color: theme.textSecondary }}>
                         · {p.ntrpRating.toFixed(1)} NTRP
                       </Text>
                     )}
@@ -1626,17 +1644,11 @@ function PlayerLookupModal({
                 </View>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   <TouchableOpacity
-                    style={[
-                      lookupStyles.actionBtn,
-                      { borderColor: requested.has(p.id) ? theme.border : Colors.positive },
-                    ]}
+                    style={[lookupStyles.actionBtn, { borderColor: Colors.positive }]}
                     onPress={() => handleRequest(p)}
                     disabled={requested.has(p.id)}
                     activeOpacity={0.8}>
-                    <Text style={[
-                      lookupStyles.actionText,
-                      { color: requested.has(p.id) ? theme.textDisabled : Colors.positive },
-                    ]}>
+                    <Text style={{ fontFamily: FontFamily.manropeSemiBold, fontSize: 12, color: requested.has(p.id) ? theme.textDisabled : Colors.positive }}>
                       {requested.has(p.id) ? 'Sent' : 'Request'}
                     </Text>
                   </TouchableOpacity>
@@ -1644,14 +1656,13 @@ function PlayerLookupModal({
                     style={[lookupStyles.actionBtn, { borderColor: Colors.blue }]}
                     onPress={() => handleMessage(p)}
                     activeOpacity={0.8}>
-                    <Text style={[lookupStyles.actionText, { color: Colors.blue }]}>Message</Text>
+                    <Text style={{ fontFamily: FontFamily.manropeSemiBold, fontSize: 12, color: Colors.blue }}>Message</Text>
                   </TouchableOpacity>
                 </View>
               </View>
             ))}
-
             {query.length >= 2 && !searching && results.length === 0 && (
-              <Text style={[lookupStyles.noResults, { color: theme.textMuted }]}>
+              <Text style={{ fontFamily: FontFamily.manropeMedium, fontSize: FontSize.body, color: theme.textMuted, padding: 20, textAlign: 'center' }}>
                 No discoverable players found for "{query}".
               </Text>
             )}
@@ -1672,12 +1683,7 @@ const lookupStyles = StyleSheet.create({
     paddingTop: 12,
   },
   handle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
   title: { fontFamily: FontFamily.spaceGroteskBold, fontSize: 20 },
   sub: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.body, marginBottom: 16 },
   searchBar: {
@@ -1691,16 +1697,8 @@ const lookupStyles = StyleSheet.create({
     marginBottom: 8,
   },
   searchInput: { flex: 1, fontFamily: FontFamily.manropeMedium, fontSize: FontSize.body },
-  resultRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
+  resultRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1 },
   resultName: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.cardTitle },
-  utr: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: 11, color: Colors.blue },
-  ntrp: { fontFamily: FontFamily.manropeMedium, fontSize: 11 },
   actionBtn: {
     borderWidth: 1.5,
     borderRadius: Radius.button,
@@ -1710,14 +1708,91 @@ const lookupStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  actionText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 12 },
-  noResults: {
-    fontFamily: FontFamily.manropeMedium,
-    fontSize: FontSize.body,
-    padding: 20,
-    textAlign: 'center',
-  },
 });
+```
+
+- [ ] Commit:
+```
+git add src/app/(resident)/match.tsx
+git commit -m "feat(match): add FilterCard and PlayerLookup modal"
+```
+
+---
+
+## Task 11: Wire everything into MatchScreen default export
+
+**Files:**
+- Modify: `src/app/(resident)/match.tsx` — replace placeholder `export default function MatchScreen`
+
+- [ ] Replace the placeholder `MatchScreen` with the full wired implementation:
+
+```tsx
+// ─── Supabase action helpers ──────────────────────────────────────────────────
+
+async function acceptRequest(
+  requestId: string,
+  challengerId: string,
+  currentUserId: string,
+  message: string,
+) {
+  await supabase.from('match_requests').update({ status: 'accepted' }).eq('id', requestId);
+  if (message) {
+    await supabase.from('messages').insert({
+      sender_id: currentUserId,
+      receiver_id: challengerId,
+      content: `✓ Match accepted — ${message}`,
+    });
+  }
+}
+
+async function declineRequest(
+  requestId: string,
+  challengerId: string,
+  currentUserId: string,
+  message: string,
+) {
+  await supabase.from('match_requests').update({ status: 'declined' }).eq('id', requestId);
+  if (message) {
+    await supabase.from('messages').insert({
+      sender_id: currentUserId,
+      receiver_id: challengerId,
+      content: `Request declined — ${message}`,
+    });
+  }
+}
+
+async function cancelMatch(
+  matchId: string,
+  opponentId: string,
+  currentUserId: string,
+  message: string,
+) {
+  // matches table has no status column — update via match_request if linked, or just notify via message
+  // TODO: add a status column to matches table in a follow-up migration
+  if (message) {
+    await supabase.from('messages').insert({
+      sender_id: currentUserId,
+      receiver_id: opponentId,
+      content: `Match cancelled — ${message}`,
+    });
+  }
+}
+
+async function rescheduleMatch(
+  matchId: string,
+  opponentId: string,
+  currentUserId: string,
+  message: string,
+) {
+  // TODO: add reschedule_requests table or update match date in a follow-up flow
+  if (message) {
+    await supabase.from('messages').insert({
+      sender_id: currentUserId,
+      receiver_id: opponentId,
+      content: `Reschedule request — ${message}`,
+    });
+  }
+}
 
 // ─── MatchScreen ──────────────────────────────────────────────────────────────
 
@@ -1725,16 +1800,18 @@ export default function MatchScreen() {
   const { theme } = useTheme();
   const [userId, setUserId] = useState('');
   const { recommended, incoming, upcoming, loading, reload } = useMatchData(userId);
-  const [filters] = useState<MatchFilters>(DEFAULT_FILTERS);
 
-  // Action sheet targets
+  const [filters, setFilters] = useState<MatchFilters>(DEFAULT_FILTERS);
+
+  // Action sheet state
   const [acceptTarget, setAcceptTarget] = useState<IncomingRequest | null>(null);
   const [declineTarget, setDeclineTarget] = useState<IncomingRequest | null>(null);
   const [rescheduleTarget, setRescheduleTarget] = useState<UpcomingMatch | null>(null);
   const [cancelTarget, setCancelTarget] = useState<UpcomingMatch | null>(null);
 
-  // Modal visibility
+  // Modal state
   const [showLookup, setShowLookup] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -1742,20 +1819,15 @@ export default function MatchScreen() {
     });
   }, []);
 
-  // Opponent helper used in cancel/reschedule sheets
-  function getOpponent(match: UpcomingMatch): MatchPlayer {
-    return match.player1.id === userId ? match.player2 : match.player1;
-  }
-
   return (
     <View style={[matchStyles.screen, { backgroundColor: theme.pageBg }]}>
       <Header variant="resident" />
 
       <ScrollView
-        contentContainerStyle={[matchStyles.scrollContent, { maxWidth: MaxWidth, alignSelf: 'center', width: '100%' }]}
+        contentContainerStyle={matchStyles.scrollContent}
         showsVerticalScrollIndicator={false}>
 
-        {/* Page title + Player Lookup button */}
+        {/* Page title + Player Lookup */}
         <View style={[matchStyles.hero, { backgroundColor: theme.heroBg }]}>
           <View style={matchStyles.heroLeft}>
             <Text style={[matchStyles.pageTitle, { color: theme.textPrimary }]}>Match</Text>
@@ -1767,13 +1839,13 @@ export default function MatchScreen() {
             style={[matchStyles.lookupBtn, { borderColor: Colors.blue }]}
             onPress={() => setShowLookup(true)}
             activeOpacity={0.8}>
-            <User size={14} color={Colors.blue} strokeWidth={1.5} />
+            <User size={15} color={Colors.blue} strokeWidth={1.5} />
             <Text style={[matchStyles.lookupBtnText, { color: Colors.blue }]}>Player Lookup</Text>
           </TouchableOpacity>
         </View>
 
         {/* Filter summary */}
-        <FilterCard filters={filters} onEdit={() => {}} theme={theme} />
+        <FilterCard filters={filters} onEdit={() => setShowFilters(true)} theme={theme} />
 
         {/* Recommended players */}
         <RecommendedPlayersSection
@@ -1868,21 +1940,27 @@ export default function MatchScreen() {
         secondaryLabel="Just Notify"
         primaryColor={Colors.positive}
         quickReplies={[
-          { label: 'Suggest new time', text: "Could we reschedule? I'll suggest a new time." },
+          { label: 'Propose new time', text: "Could we reschedule? I'll suggest a new time." },
           { label: 'Work conflict', text: "Something came up at work — can we find another slot?" },
           { label: 'Weather concern', text: "Weather isn't looking great — want to reschedule?" },
         ]}
         onPrimary={async (msg) => {
           if (!rescheduleTarget) return;
-          const opp = getOpponent(rescheduleTarget);
-          await rescheduleMatch(rescheduleTarget.id, opp.id, userId, msg);
+          const opponent = rescheduleTarget.player1.id === userId
+            ? rescheduleTarget.player2
+            : rescheduleTarget.player1;
+          await rescheduleMatch(rescheduleTarget.id, opponent.id, userId, msg);
           setRescheduleTarget(null);
+          reload();
         }}
         onSecondary={async () => {
           if (!rescheduleTarget) return;
-          const opp = getOpponent(rescheduleTarget);
-          await rescheduleMatch(rescheduleTarget.id, opp.id, userId, '');
+          const opponent = rescheduleTarget.player1.id === userId
+            ? rescheduleTarget.player2
+            : rescheduleTarget.player1;
+          await rescheduleMatch(rescheduleTarget.id, opponent.id, userId, '');
           setRescheduleTarget(null);
+          reload();
         }}
         onDismiss={() => setRescheduleTarget(null)}
         theme={theme}
@@ -1902,15 +1980,19 @@ export default function MatchScreen() {
         ]}
         onPrimary={async (msg) => {
           if (!cancelTarget) return;
-          const opp = getOpponent(cancelTarget);
-          await cancelMatch(cancelTarget.id, opp.id, userId, msg);
+          const opponent = cancelTarget.player1.id === userId
+            ? cancelTarget.player2
+            : cancelTarget.player1;
+          await cancelMatch(cancelTarget.id, opponent.id, userId, msg);
           setCancelTarget(null);
           reload();
         }}
         onSecondary={async () => {
           if (!cancelTarget) return;
-          const opp = getOpponent(cancelTarget);
-          await cancelMatch(cancelTarget.id, opp.id, userId, '');
+          const opponent = cancelTarget.player1.id === userId
+            ? cancelTarget.player2
+            : cancelTarget.player1;
+          await cancelMatch(cancelTarget.id, opponent.id, userId, '');
           setCancelTarget(null);
           reload();
         }}
@@ -1946,7 +2028,7 @@ const matchStyles = StyleSheet.create({
     fontFamily: FontFamily.spaceGroteskBold,
     fontSize: FontSize.display,
     letterSpacing: -0.5,
-    lineHeight: 42,
+    lineHeight: 40,
   },
   pageSub: {
     fontFamily: FontFamily.manropeMedium,
@@ -1965,8 +2047,72 @@ const matchStyles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginTop: 6,
   },
-  lookupBtnText: {
-    fontFamily: FontFamily.manropeSemiBold,
-    fontSize: FontSize.label,
-  },
+  lookupBtnText: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label },
 });
+```
+
+- [ ] Run `npm run lint` or check TypeScript. Fix any type errors (mainly `as any` casts for match_type).
+
+- [ ] Commit:
+```
+git add src/app/(resident)/match.tsx
+git commit -m "feat(match): wire full MatchScreen with all sections and action sheets"
+```
+
+---
+
+## Task 12: Final verification
+
+- [ ] Start the dev server: `npm run dev`
+
+- [ ] Navigate to the Match tab. Verify:
+  - Header renders (logo + bell + menu)
+  - "Match" title + subtitle visible
+  - "Player Lookup" button visible, opens modal
+  - Filter card visible with 5 filter chips + Edit Filters button
+  - Recommended Players section shows (mock data or real data if match_preferences populated)
+  - Incoming Requests section shows (empty state if no pending requests)
+  - Upcoming Matches section shows (empty state if no upcoming matches)
+  - Mock recommended player cards: avatar, name, UTR, NTRP, time, court, two buttons
+
+- [ ] Test Accept flow:
+  - Tap Accept on an incoming request (requires test data in match_requests with opponent_id = current user)
+  - Accept sheet rises, quick replies visible
+  - Tap "Send & Accept" — sheet dismisses, request disappears from list
+
+- [ ] Test Decline flow:
+  - Tap Decline — sheet rises with red CTA
+  - Tap "Decline Only" — sheet dismisses
+
+- [ ] Test Player Lookup:
+  - Tap Player Lookup button
+  - Type at least 2 characters
+  - Results appear (players with location_visible=true)
+  - Request button sends to Supabase
+
+- [ ] Test Message button:
+  - Tap Message on any card
+  - Navigates to `/messages?partner=<id>`
+  - Correct conversation opens (if deep-link wired in Task 3)
+
+- [ ] Commit:
+```
+git add -A
+git commit -m "feat(match): complete Match screen — singles/hitting-session fully functional"
+```
+
+---
+
+## Follow-up items (NOT this build)
+
+These are explicitly out of scope and have TODO comments in the code:
+
+1. **`match_request_participants` table** — Track all 4 players in a doubles request. Required for "3 OF 4 CONFIRMED" display and proper doubles invite flow. Migration proposed in spec doc.
+
+2. **Group conversations** — `conversations`, `conversation_participants`, `conversation_messages` tables. Required for doubles/mixed doubles group messaging. Migration proposed in spec doc.
+
+3. **Filter persistence + apply** — Filter sheet writes to Supabase `match_preferences` table. Filter changes reload recommended players.
+
+4. **Match status column** — `matches` table needs a `status` column to support proper cancel flow (currently only sends a message).
+
+5. **Reschedule proposal flow** — Full date/time picker for rescheduling. Currently sends a message only.
