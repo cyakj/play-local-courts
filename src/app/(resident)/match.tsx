@@ -551,7 +551,7 @@ function matchTypeLabel(type: MatchType): string {
     case 'singles':         return 'Singles';
     case 'doubles':         return 'Doubles';
     case 'mixed_doubles':   return 'Mixed Doubles';
-    case 'hitting_session': return 'Hitting Session';
+    case 'hitting_session': return 'Practice Session';
   }
 }
 
@@ -908,7 +908,7 @@ function MatchFiltersSheet({ visible, filters, onApply, onDismiss }: {
     { label: 'Singles',         value: 'singles' },
     { label: 'Doubles',         value: 'doubles' },
     { label: 'Mixed Doubles',   value: 'mixed_doubles' },
-    { label: 'Hitting Session', value: 'hitting_session' },
+    { label: 'Practice Session', value: 'hitting_session' },
   ];
 
   return (
@@ -1083,7 +1083,7 @@ function RecommendedPlayerCard({
     <View style={[rcS.card, { backgroundColor: theme.cardBg, borderColor: theme.border }, theme.shadowCard]}>
       {/* Avatar + name */}
       <View style={rcS.topRow}>
-        <PlayerAvatar player={player} size={52} square />
+        <PlayerAvatar player={player} size={52} />
         <View style={rcS.nameCol}>
           <Text style={[rcS.name, { color: theme.textPrimary }]} numberOfLines={2}>{player.name}</Text>
           <RatingLine player={player} />
