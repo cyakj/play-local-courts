@@ -287,6 +287,7 @@ function useMatchData(userId: string) {
         .select('id, match_type, date, time_start, time_end, location, challenger_id, status')
         .eq('opponent_id', userId)
         .eq('status', 'pending')
+        .gt('expires_at', new Date().toISOString())
         .order('date', { ascending: true }),
 
       supabase
