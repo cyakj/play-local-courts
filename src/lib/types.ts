@@ -2164,13 +2164,17 @@ export type Database = {
       }
       match_requests: {
         Row: {
+          availability_type: string
           challenger_id: string
           court_type: Database["public"]["Enums"]["court_type"] | null
           created_at: string | null
           date: string | null
+          duration: number | null
+          expires_at: string
           id: string
           location: string | null
           match_type: Database["public"]["Enums"]["match_type"] | null
+          message: string | null
           opponent_id: string
           status: Database["public"]["Enums"]["match_status"] | null
           time_end: string | null
@@ -2178,13 +2182,17 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          availability_type?: string
           challenger_id: string
           court_type?: Database["public"]["Enums"]["court_type"] | null
           created_at?: string | null
           date?: string | null
+          duration?: number | null
+          expires_at?: string
           id?: string
           location?: string | null
           match_type?: Database["public"]["Enums"]["match_type"] | null
+          message?: string | null
           opponent_id: string
           status?: Database["public"]["Enums"]["match_status"] | null
           time_end?: string | null
@@ -2192,13 +2200,17 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          availability_type?: string
           challenger_id?: string
           court_type?: Database["public"]["Enums"]["court_type"] | null
           created_at?: string | null
           date?: string | null
+          duration?: number | null
+          expires_at?: string
           id?: string
           location?: string | null
           match_type?: Database["public"]["Enums"]["match_type"] | null
+          message?: string | null
           opponent_id?: string
           status?: Database["public"]["Enums"]["match_status"] | null
           time_end?: string | null
