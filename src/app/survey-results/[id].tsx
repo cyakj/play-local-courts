@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -10,8 +10,9 @@ import { router, useLocalSearchParams } from 'expo-router';
 
 import { supabase } from '@/lib/supabase';
 import {
-  Colors, FontFamily, FontSize, MaxWidth, Radius, Shadow, Spacing,
+  Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing,
 } from '@/constants/design';
+import { useTheme } from '@/context/ThemeContext';
 import { Header } from '@/components/ui/Header';
 
 interface SurveyQuestion {
@@ -40,6 +41,8 @@ interface Survey {
 }
 
 export default function SurveyResultsScreen() {
+  const { theme } = useTheme();
+  const styles = useStyles(theme);
   const { id } = useLocalSearchParams<{ id: string }>();
   const [survey, setSurvey] = useState<Survey | null>(null);
   const [results, setResults] = useState<TallyResult[]>([]);
@@ -139,7 +142,7 @@ export default function SurveyResultsScreen() {
 
           {loading ? (
             <View style={styles.loadingBox}>
-              <ActivityIndicator color={Colors.accentCyan} size="large" testID="results-loading" />
+              <ActivityIndicator color={Colors.cyan} size="large" testID="results-loading" />
             </View>
           ) : error ? (
             <View testID="results-error" style={styles.errorBox}>
@@ -214,117 +217,104 @@ export default function SurveyResultsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.pageBg },
-  content: { padding: Spacing.pagePx, paddingBottom: 60 },
+function useStyles(theme: ReturnType<typeof useTheme>['theme']) {
+  return useMemo(() => StyleSheet.create({
+    screen: { flex: 1, backgroundColor: theme.pageBg },
+    content: { padding: Spacing.pagePx, paddingBottom: 60 },
 
-  loadingBox: { alignItems: 'center', paddingVertical: 60 },
-  errorBox: { alignItems: 'center', paddingVertical: 60 },
-  errorText: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.body,
-    color: '#EF4444',
-    textAlign: 'center',
-  },
+    loadingBox: { alignItems: 'center', paddingVertical: 60 },
+    errorBox: { alignItems: 'center', paddingVertical: 60 },
+    errorText: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.body,
+      color: Colors.negative,
+      textAlign: 'center' as const,
+    },
 
-  metaCard: {
-    backgroundColor: Colors.white,
-    borderRadius: Radius.card,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    ...Shadow,
-  },
-  metaDesc: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.body,
-    color: Colors.textMuted,
-    marginBottom: 10,
-    lineHeight: 20,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  metaLabel: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: FontSize.metadata,
-    color: Colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
+    metaCard: {
+      backgroundColor: theme.cardBg,
+      borderRadius: Radius.card,
+      padding: 16,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: theme.border,
+      ...theme.shadowCard,
+    },
+    metaDesc: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.body,
+      color: theme.textSecondary,
+      marginBottom: 10,
+      lineHeight: 20,
+    },
+    metaRow: { flexDirection: 'row' as const, justifyContent: 'space-between' as const, alignItems: 'center' as const },
+    metaLabel: {
+      fontFamily: FontFamily.jetbrainsMonoSemiBold,
+      fontSize: FontSize.metadata,
+      color: theme.textMuted,
+      textTransform: 'uppercase' as const,
+      letterSpacing: 0.8,
+    },
 
-  emptyBox: { alignItems: 'center', paddingVertical: 48, gap: 8 },
-  emptyTitle: {
-    fontFamily: FontFamily.manropeBold,
-    fontSize: FontSize.sectionTitle,
-    color: Colors.navy,
-  },
-  emptySubtitle: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.body,
-    color: Colors.textMuted,
-    textAlign: 'center',
-    paddingHorizontal: 24,
-  },
+    emptyBox: { alignItems: 'center' as const, paddingVertical: 48, gap: 8 },
+    emptyTitle: {
+      fontFamily: FontFamily.spaceGroteskBold,
+      fontSize: FontSize.sectionTitle,
+      color: theme.textPrimary,
+    },
+    emptySubtitle: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.body,
+      color: theme.textMuted,
+      textAlign: 'center' as const,
+      paddingHorizontal: 24,
+    },
 
-  questionCard: {
-    backgroundColor: Colors.white,
-    borderRadius: Radius.card,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    ...Shadow,
-  },
-  questionText: {
-    fontFamily: FontFamily.manropeExtraBold,
-    fontSize: 15,
-    color: Colors.navy,
-    marginBottom: 14,
-    lineHeight: 20,
-  },
+    questionCard: {
+      backgroundColor: theme.cardBg,
+      borderRadius: Radius.card,
+      padding: 16,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: theme.border,
+      ...theme.shadowCard,
+    },
+    questionText: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: 15,
+      color: theme.textPrimary,
+      marginBottom: 14,
+      lineHeight: 20,
+    },
 
-  optionRow: {
-    marginBottom: 12,
-  },
-  optionLabelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    marginBottom: 5,
-  },
-  optionLabel: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: 13,
-    color: Colors.textPrimary,
-    flex: 1,
-    paddingRight: 8,
-  },
-  optionPct: {
-    fontFamily: FontFamily.manropeBold,
-    fontSize: 13,
-    color: Colors.accentCyan,
-    minWidth: 36,
-    textAlign: 'right',
-  },
-  barTrack: {
-    height: 6,
-    backgroundColor: Colors.pageBg,
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginBottom: 3,
-  },
-  barFill: {
-    height: '100%',
-    backgroundColor: Colors.accentCyan,
-    borderRadius: 3,
-  },
-  optionCount: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: 11,
-    color: Colors.textMuted,
-  },
-});
+    optionRow: { marginBottom: 12 },
+    optionLabelRow: { flexDirection: 'row' as const, justifyContent: 'space-between' as const, alignItems: 'flex-end' as const, marginBottom: 5 },
+    optionLabel: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: 13,
+      color: theme.textPrimary,
+      flex: 1,
+      paddingRight: 8,
+    },
+    optionPct: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: 13,
+      color: Colors.cyan,
+      minWidth: 36,
+      textAlign: 'right' as const,
+    },
+    barTrack: {
+      height: 6,
+      backgroundColor: theme.surface2,
+      borderRadius: 3,
+      overflow: 'hidden' as const,
+      marginBottom: 3,
+    },
+    barFill: { height: '100%' as any, backgroundColor: Colors.cyan, borderRadius: 3 },
+    optionCount: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: 11,
+      color: theme.textMuted,
+    },
+  }), [theme]);
+}
