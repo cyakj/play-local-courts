@@ -4,7 +4,9 @@ import {
   Dimensions,
   FlatList,
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,6 +21,7 @@ import {
   Bell,
   Calendar,
   CheckCircle2,
+  ChevronLeft,
   ChevronRight,
   CircleDot,
   Clock,
@@ -138,6 +141,37 @@ const DEFAULT_FILTERS: MatchFilters = {
 const NTRP_LEVELS = [3.0, 3.5, 4.0, 4.5, 5.0];
 
 const DISTANCE_OPTIONS = [5, 10, 25, 50];
+
+const REQUEST_MATCH_TYPES: { value: MatchType; label: string }[] = [
+  { value: 'singles',         label: 'Singles' },
+  { value: 'doubles',         label: 'Doubles' },
+  { value: 'mixed_doubles',   label: 'Mixed Doubles' },
+  { value: 'hitting_session', label: 'Practice Session' },
+];
+
+const REQUEST_AVAILABILITY: { value: string; label: string }[] = [
+  { value: 'one_time',   label: 'One Time Match' },
+  { value: 'recurring',  label: 'Recurring Hitting Partner' },
+];
+
+const REQUEST_DURATIONS = [60, 90, 120];
+
+const REQUEST_COURT_TYPES: { value: string | null; label: string }[] = [
+  { value: 'hard',  label: 'Hard' },
+  { value: 'clay',  label: 'Clay' },
+  { value: 'grass', label: 'Grass' },
+  { value: null,    label: 'Any' },
+];
+
+const REQUEST_TIME_SLOTS: string[] = Array.from({ length: 33 }, (_, i) => {
+  const totalMins = 6 * 60 + i * 30;
+  const h = Math.floor(totalMins / 60);
+  const m = totalMins % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+});
+
+const REQ_MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const REQ_DAY_LABELS  = ['Su','Mo','Tu','We','Th','Fr','Sa'];
 
 // ─── Mock data (dev/preview only — never shown in production runtime) ─────────
 
@@ -411,16 +445,6 @@ function useMatchData(userId: string) {
 
 // ─── Action helpers ───────────────────────────────────────────────────────────
 
-async function sendMatchRequest(currentUserId: string, opponentId: string, matchType: MatchType) {
-  if (opponentId.startsWith('mock-')) return;
-  await supabase.from('match_requests').insert({
-    challenger_id: currentUserId,
-    opponent_id:   opponentId,
-    match_type:    matchType as any,
-    status:        'pending',
-  });
-}
-
 async function acceptRequest(requestId: string, challengerId: string, currentUserId: string, message: string) {
   if (requestId.startsWith('mock-')) return;
 
@@ -571,6 +595,23 @@ function formatMatchTime(start: string | null, end: string | null): string {
   return end ? `${fmt(start)} – ${fmt(end)}` : fmt(start);
 }
 
+function formatRequestDate(d: Date): string {
+  return `${REQ_DAY_LABELS[d.getDay()]} ${REQ_MONTH_NAMES[d.getMonth()]} ${d.getDate()}`;
+}
+
+function formatRequestTime(slot: string): string {
+  const [h, m] = slot.split(':').map(Number);
+  const period = h >= 12 ? 'PM' : 'AM';
+  const hour   = h % 12 || 12;
+  return m === 0 ? `${hour} ${period}` : `${hour}:${String(m).padStart(2, '0')} ${period}`;
+}
+
+function addMinutes(slot: string, mins: number): string {
+  const [h, m] = slot.split(':').map(Number);
+  const total  = h * 60 + m + mins;
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+}
+
 function conditionLabel(c: WeatherCondition): string {
   switch (c) {
     case 'sunny':         return 'Sunny';
@@ -581,6 +622,116 @@ function conditionLabel(c: WeatherCondition): string {
     default:              return c;
   }
 }
+
+// ─── MatchRequestDatePicker ───────────────────────────────────────────────────
+
+function MatchRequestDatePicker({
+  selected,
+  onSelect,
+}: {
+  selected: Date | null;
+  onSelect: (d: Date) => void;
+}) {
+  const { theme } = useTheme();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const [viewYear,  setViewYear]  = useState(today.getFullYear());
+  const [viewMonth, setViewMonth] = useState(today.getMonth());
+
+  const firstOfMonth = new Date(viewYear, viewMonth, 1);
+  const startPad     = firstOfMonth.getDay(); // 0=Sun
+  const daysInMonth  = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+  const cells: (Date | null)[] = [
+    ...Array(startPad).fill(null),
+    ...Array.from({ length: daysInMonth }, (_, i) => new Date(viewYear, viewMonth, i + 1)),
+  ];
+
+  function prevMonth() {
+    if (viewMonth === 0) { setViewYear(y => y - 1); setViewMonth(11); }
+    else { setViewMonth(m => m - 1); }
+  }
+  function nextMonth() {
+    if (viewMonth === 11) { setViewYear(y => y + 1); setViewMonth(0); }
+    else { setViewMonth(m => m + 1); }
+  }
+
+  const weeks: (Date | null)[][] = [];
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+
+  return (
+    <View>
+      {/* Month navigation */}
+      <View style={dpS.navRow}>
+        <TouchableOpacity onPress={prevMonth} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <ChevronLeft size={18} color={theme.textSecondary} strokeWidth={1.5} />
+        </TouchableOpacity>
+        <Text style={[dpS.monthLabel, { color: theme.textPrimary }]}>
+          {REQ_MONTH_NAMES[viewMonth]} {viewYear}
+        </Text>
+        <TouchableOpacity onPress={nextMonth} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <ChevronRight size={18} color={theme.textSecondary} strokeWidth={1.5} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Day labels */}
+      <View style={dpS.weekRow}>
+        {REQ_DAY_LABELS.map(d => (
+          <Text key={d} style={[dpS.dayLabel, { color: theme.textMuted }]}>{d}</Text>
+        ))}
+      </View>
+
+      {/* Week rows */}
+      {weeks.map((week, wi) => (
+        <View key={wi} style={dpS.weekRow}>
+          {week.map((day, di) => {
+            if (!day) return <View key={di} style={dpS.dayCell} />;
+            const isPast     = day < today;
+            const isToday    = day.getTime() === today.getTime();
+            const isSelected = selected != null && day.getTime() === new Date(
+              selected.getFullYear(), selected.getMonth(), selected.getDate()
+            ).getTime();
+
+            return (
+              <TouchableOpacity
+                key={di}
+                style={[
+                  dpS.dayCell,
+                  isToday    && !isSelected && { borderWidth: 1.5, borderColor: BLUE, borderRadius: 18 },
+                  isSelected && { backgroundColor: BLUE, borderRadius: 18 },
+                  isPast     && { opacity: 0.3 },
+                ]}
+                onPress={() => !isPast && onSelect(day)}
+                disabled={isPast}
+                activeOpacity={0.7}>
+                <Text style={[
+                  dpS.dayNum,
+                  { color: isSelected ? '#FFF' : isToday ? BLUE : theme.textPrimary },
+                ]}>
+                  {day.getDate()}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+          {/* Pad remaining cells to fill 7 columns */}
+          {Array.from({ length: 7 - week.length }, (_, i) => (
+            <View key={`pad-${i}`} style={dpS.dayCell} />
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+const dpS = StyleSheet.create({
+  navRow:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  monthLabel: { fontFamily: FontFamily.manropeSemiBold, fontSize: 15 },
+  weekRow:    { flexDirection: 'row', marginBottom: 2 },
+  dayLabel:   { flex: 1, textAlign: 'center', fontFamily: FontFamily.manropeMedium, fontSize: 11, paddingBottom: 6 },
+  dayCell:    { flex: 1, height: 36, alignItems: 'center', justifyContent: 'center' },
+  dayNum:     { fontFamily: FontFamily.manropeMedium, fontSize: 13 },
+});
 
 // ─── PlayerAvatar ─────────────────────────────────────────────────────────────
 
@@ -1084,20 +1235,14 @@ const secS = StyleSheet.create({
 
 function RecommendedPlayerCard({
   player,
-  currentUserId,
+  onRequest,
   onMessage,
 }: {
   player: RecommendedPlayer;
-  currentUserId: string;
+  onRequest: () => void;
   onMessage: (id: string) => void;
 }) {
-  const { theme }     = useTheme();
-  const [sent, setSent] = useState(false);
-
-  async function handleRequest() {
-    setSent(true);
-    await sendMatchRequest(currentUserId, player.id, 'singles');
-  }
+  const { theme } = useTheme();
 
   return (
     <View style={[rcS.card, { backgroundColor: theme.cardBg, borderColor: theme.border }, theme.shadowCard]}>
@@ -1133,13 +1278,10 @@ function RecommendedPlayerCard({
       {/* Actions */}
       <View style={rcS.actions}>
         <TouchableOpacity
-          style={[rcS.btn, { borderColor: sent ? theme.border : GREEN }]}
-          onPress={handleRequest}
-          disabled={sent}
+          style={[rcS.btn, { borderColor: GREEN }]}
+          onPress={onRequest}
           activeOpacity={0.8}>
-          <Text style={[rcS.btnText, { color: sent ? theme.textDisabled : GREEN }]}>
-            {sent ? 'Sent' : 'Request'}
-          </Text>
+          <Text style={[rcS.btnText, { color: GREEN }]}>Request</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[rcS.btn, { borderColor: BLUE }]}
@@ -1171,8 +1313,8 @@ const rcS = StyleSheet.create({
 
 // ─── Recommended Players Section ──────────────────────────────────────────────
 
-function RecommendedPlayersSection({ players, loading, currentUserId }: {
-  players: RecommendedPlayer[]; loading: boolean; currentUserId: string;
+function RecommendedPlayersSection({ players, loading, currentUserId, onRequest }: {
+  players: RecommendedPlayer[]; loading: boolean; currentUserId: string; onRequest: (player: RecommendedPlayer) => void;
 }) {
   const { theme } = useTheme();
   return (
@@ -1197,7 +1339,7 @@ function RecommendedPlayersSection({ players, loading, currentUserId }: {
           renderItem={({ item }) => (
             <RecommendedPlayerCard
               player={item}
-              currentUserId={currentUserId}
+              onRequest={() => onRequest(item)}
               onMessage={(id) => router.push(`/messages?partner=${id}`)}
             />
           )}
@@ -1692,10 +1834,292 @@ const asS = StyleSheet.create({
   ctaSecText: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.body },
 });
 
+// ─── Match Request Sheet ──────────────────────────────────────────────────────
+
+function MatchRequestSheet({
+  visible,
+  opponent,
+  currentUserId,
+  onSend,
+  onDismiss,
+}: {
+  visible: boolean;
+  opponent: RecommendedPlayer | MatchPlayer | null;
+  currentUserId: string;
+  onSend: () => void;
+  onDismiss: () => void;
+}) {
+  const { theme } = useTheme();
+
+  const [matchType,  setMatchType]  = useState<MatchType>('singles');
+  const [availType,  setAvailType]  = useState<string>('one_time');
+  const [date,       setDate]       = useState<Date | null>(null);
+  const [timeSlot,   setTimeSlot]   = useState<string | null>(null);
+  const [duration,   setDuration]   = useState<number>(90);
+  const [courtType,  setCourtType]  = useState<string | null>(null);
+  const [message,    setMessage]    = useState<string>('');
+  const [showCal,    setShowCal]    = useState(false);
+  const [sending,    setSending]    = useState(false);
+
+  // Reset form whenever sheet opens for a new opponent
+  useEffect(() => {
+    if (visible) {
+      setMatchType('singles');
+      setAvailType('one_time');
+      setDate(null);
+      setTimeSlot(null);
+      setDuration(90);
+      setCourtType(null);
+      setMessage('');
+      setShowCal(false);
+      setSending(false);
+    }
+  }, [visible, opponent?.id]);
+
+  const canSend = date != null && timeSlot != null && !sending;
+
+  async function handleSend() {
+    if (!opponent || !date || !timeSlot) return;
+    setSending(true);
+    if (!opponent.id.startsWith('mock-')) {
+      const dateStr  = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      const timeEnd  = addMinutes(timeSlot, duration);
+      await supabase.from('match_requests').insert({
+        challenger_id:    currentUserId,
+        opponent_id:      opponent.id,
+        match_type:       matchType as any,
+        court_type:       courtType as any,
+        date:             dateStr,
+        time_start:       timeSlot,
+        time_end:         timeEnd,
+        duration,
+        availability_type: availType,
+        message:          message.trim() || null,
+        status:           'pending',
+      });
+    }
+    setSending(false);
+    onSend();
+    onDismiss();
+  }
+
+  const dateLabel    = date     ? formatRequestDate(date)    : null;
+  const timeLabel    = timeSlot ? formatRequestTime(timeSlot) : null;
+  const availLabel   = REQUEST_AVAILABILITY.find(a => a.value === availType)?.label ?? '';
+  const mtLabel      = REQUEST_MATCH_TYPES.find(t => t.value === matchType)?.label ?? '';
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onDismiss}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <View style={[mrS.backdrop, { backgroundColor: theme.backdrop }]}>
+          <TouchableOpacity style={{ flex: 1 }} onPress={onDismiss} activeOpacity={1} />
+          <View style={[mrS.sheet, { backgroundColor: theme.sheetBg }, theme.shadowSheet]}>
+            <View style={[mrS.handle, { backgroundColor: theme.border }]} />
+            <View style={mrS.sheetHeader}>
+              <Text style={[mrS.sheetTitle, { color: theme.textPrimary }]}>
+                Request Match
+                {opponent ? ` — ${opponent.name.split(' ')[0]}` : ''}
+              </Text>
+              <TouchableOpacity onPress={onDismiss} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <X size={20} color={theme.textMuted} strokeWidth={1.5} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+
+              {/* Match Type */}
+              <Text style={[mrS.sectionLabel, { color: theme.textSecondary }]}>Match Type</Text>
+              <View style={mrS.pillRow}>
+                {REQUEST_MATCH_TYPES.map(t => {
+                  const active = matchType === t.value;
+                  return (
+                    <TouchableOpacity
+                      key={t.value}
+                      style={[mrS.pill, { borderColor: active ? BLUE : theme.border, backgroundColor: active ? BLUE + '22' : 'transparent' }]}
+                      onPress={() => setMatchType(t.value)}
+                      activeOpacity={0.8}>
+                      <Text style={[mrS.pillText, { color: active ? BLUE : theme.textSecondary }]}>{t.label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Availability Type */}
+              <Text style={[mrS.sectionLabel, { color: theme.textSecondary }]}>Availability</Text>
+              <View style={mrS.pillRow}>
+                {REQUEST_AVAILABILITY.map(a => {
+                  const active = availType === a.value;
+                  return (
+                    <TouchableOpacity
+                      key={a.value}
+                      style={[mrS.pill, { borderColor: active ? BLUE : theme.border, backgroundColor: active ? BLUE + '22' : 'transparent' }]}
+                      onPress={() => setAvailType(a.value)}
+                      activeOpacity={0.8}>
+                      <Text style={[mrS.pillText, { color: active ? BLUE : theme.textSecondary }]}>{a.label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Date */}
+              <Text style={[mrS.sectionLabel, { color: theme.textSecondary }]}>Date</Text>
+              <TouchableOpacity
+                style={[mrS.fieldRow, { borderColor: theme.border, backgroundColor: theme.inputBg }]}
+                onPress={() => setShowCal(c => !c)}
+                activeOpacity={0.8}>
+                <Calendar size={16} color={theme.textMuted} strokeWidth={1.5} />
+                <Text style={[mrS.fieldText, { color: dateLabel ? theme.textPrimary : theme.textDisabled }]}>
+                  {dateLabel ?? 'Select date'}
+                </Text>
+                <ChevronRight size={14} color={theme.textMuted} strokeWidth={1.5} />
+              </TouchableOpacity>
+              {showCal && (
+                <View style={[mrS.calBox, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
+                  <MatchRequestDatePicker
+                    selected={date}
+                    onSelect={(d) => { setDate(d); setShowCal(false); }}
+                  />
+                </View>
+              )}
+
+              {/* Start Time */}
+              <Text style={[mrS.sectionLabel, { color: theme.textSecondary }]}>Start Time</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={mrS.timeScroll}>
+                <View style={mrS.pillRow}>
+                  {REQUEST_TIME_SLOTS.map(slot => {
+                    const active = timeSlot === slot;
+                    return (
+                      <TouchableOpacity
+                        key={slot}
+                        style={[mrS.pill, { borderColor: active ? BLUE : theme.border, backgroundColor: active ? BLUE + '22' : 'transparent' }]}
+                        onPress={() => setTimeSlot(slot)}
+                        activeOpacity={0.8}>
+                        <Text style={[mrS.pillText, { color: active ? BLUE : theme.textSecondary }]}>
+                          {formatRequestTime(slot)}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+
+              {/* Duration */}
+              <Text style={[mrS.sectionLabel, { color: theme.textSecondary }]}>Duration</Text>
+              <View style={mrS.pillRow}>
+                {REQUEST_DURATIONS.map(d => {
+                  const active = duration === d;
+                  return (
+                    <TouchableOpacity
+                      key={d}
+                      style={[mrS.pill, { borderColor: active ? BLUE : theme.border, backgroundColor: active ? BLUE + '22' : 'transparent' }]}
+                      onPress={() => setDuration(d)}
+                      activeOpacity={0.8}>
+                      <Text style={[mrS.pillText, { color: active ? BLUE : theme.textSecondary }]}>{d} min</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Court Surface */}
+              <Text style={[mrS.sectionLabel, { color: theme.textSecondary }]}>Preferred Surface</Text>
+              <View style={mrS.pillRow}>
+                {REQUEST_COURT_TYPES.map(ct => {
+                  const active = courtType === ct.value;
+                  return (
+                    <TouchableOpacity
+                      key={ct.label}
+                      style={[mrS.pill, { borderColor: active ? BLUE : theme.border, backgroundColor: active ? BLUE + '22' : 'transparent' }]}
+                      onPress={() => setCourtType(ct.value)}
+                      activeOpacity={0.8}>
+                      <Text style={[mrS.pillText, { color: active ? BLUE : theme.textSecondary }]}>{ct.label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Message */}
+              <Text style={[mrS.sectionLabel, { color: theme.textSecondary }]}>Message (optional)</Text>
+              <TextInput
+                style={[mrS.messageInput, { borderColor: theme.border, backgroundColor: theme.inputBg, color: theme.textPrimary }]}
+                value={message}
+                onChangeText={setMessage}
+                placeholder="Looking for competitive practice. Available evenings."
+                placeholderTextColor={theme.textDisabled}
+                multiline
+                numberOfLines={3}
+                maxLength={300}
+                textAlignVertical="top"
+              />
+
+              {/* Summary */}
+              <View style={[mrS.summary, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
+                <Text style={[mrS.summaryTitle, { color: theme.textPrimary }]}>Summary</Text>
+                {[
+                  { label: 'Playing with', value: opponent?.name ?? '—' },
+                  { label: 'Date',         value: dateLabel  ?? '—' },
+                  { label: 'Time',         value: timeLabel  ?? '—' },
+                  { label: 'Duration',     value: duration ? `${duration} min` : '—' },
+                  { label: 'Type',         value: mtLabel },
+                  { label: 'Availability', value: availLabel },
+                ].map(row => (
+                  <View key={row.label} style={mrS.summaryRow}>
+                    <Text style={[mrS.summaryKey, { color: theme.textMuted }]}>{row.label}</Text>
+                    <Text style={[mrS.summaryVal, { color: theme.textPrimary }]} numberOfLines={1}>{row.value}</Text>
+                  </View>
+                ))}
+              </View>
+
+              {/* CTA */}
+              <TouchableOpacity
+                style={[mrS.cta, { backgroundColor: canSend ? BLUE : theme.border }]}
+                onPress={handleSend}
+                disabled={!canSend}
+                activeOpacity={0.85}>
+                {sending
+                  ? <ActivityIndicator size="small" color="#FFF" />
+                  : <Text style={mrS.ctaText}>Send Match Request</Text>
+                }
+              </TouchableOpacity>
+
+              <View style={{ height: 32 }} />
+            </ScrollView>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+const mrS = StyleSheet.create({
+  backdrop:     { flex: 1, justifyContent: 'flex-end' },
+  sheet:        { height: '90%', borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, padding: Spacing.pagePx, paddingTop: 12 },
+  handle:       { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
+  sheetHeader:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  sheetTitle:   { fontFamily: FontFamily.spaceGroteskBold, fontSize: 20 },
+  sectionLabel: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label, marginBottom: 8, marginTop: 16 },
+  pillRow:      { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  pill:         { borderWidth: 1.5, borderRadius: Radius.button, paddingHorizontal: 14, paddingVertical: 9 },
+  pillText:     { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label },
+  fieldRow:     { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1.5, borderRadius: Radius.sm, paddingHorizontal: 14, paddingVertical: 13 },
+  fieldText:    { flex: 1, fontFamily: FontFamily.manropeMedium, fontSize: FontSize.body },
+  calBox:       { borderWidth: 1, borderRadius: Radius.sm, padding: 12, marginTop: 8, borderColor: '#232838' },
+  timeScroll:   { marginBottom: 4 },
+  messageInput: { borderWidth: 1.5, borderRadius: Radius.sm, padding: 14, fontFamily: FontFamily.manropeMedium, fontSize: FontSize.body, minHeight: 80, textAlignVertical: 'top', marginBottom: 4 },
+  summary:      { borderWidth: 1, borderRadius: Radius.sm, padding: 14, marginTop: 20, gap: 8 },
+  summaryTitle: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label, marginBottom: 4 },
+  summaryRow:   { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
+  summaryKey:   { fontFamily: FontFamily.manropeMedium, fontSize: 12 },
+  summaryVal:   { fontFamily: FontFamily.manropeSemiBold, fontSize: 12, flex: 1, textAlign: 'right' },
+  cta:          { borderRadius: Radius.button, paddingVertical: 16, alignItems: 'center', justifyContent: 'center', marginTop: 16, minHeight: 52 },
+  ctaText:      { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.body, color: '#FFF' },
+});
+
 // ─── Player Lookup Modal ──────────────────────────────────────────────────────
 
-function PlayerLookupModal({ visible, currentUserId, onDismiss }: {
-  visible: boolean; currentUserId: string; onDismiss: () => void;
+function PlayerLookupModal({ visible, currentUserId, onDismiss, onRequestPlayer }: {
+  visible: boolean; currentUserId: string; onDismiss: () => void; onRequestPlayer: (player: MatchPlayer) => void;
 }) {
   const { theme }           = useTheme();
   const [query, setQuery]   = useState('');
@@ -1723,9 +2147,9 @@ function PlayerLookupModal({ visible, currentUserId, onDismiss }: {
     setSearching(false);
   }
 
-  async function handleRequest(player: MatchPlayer) {
-    setRequested((prev) => new Set([...prev, player.id]));
-    await sendMatchRequest(currentUserId, player.id, 'singles');
+  function handleRequest(player: MatchPlayer) {
+    setRequested(prev => new Set([...prev, player.id]));
+    onRequestPlayer(player);
   }
 
   return (
@@ -1837,6 +2261,7 @@ export default function MatchScreen() {
     return (p.ntrpRating == null || filters.selectedNtrpLevels.includes(p.ntrpRating));
   });
 
+  const [requestTarget,         setRequestTarget]         = useState<RecommendedPlayer | MatchPlayer | null>(null);
   const [acceptTarget,          setAcceptTarget]          = useState<IncomingRequest | null>(null);
   const [declineTarget,         setDeclineTarget]          = useState<IncomingRequest | null>(null);
   const [rescheduleTarget,      setRescheduleTarget]       = useState<UpcomingMatch | null>(null);
@@ -1910,7 +2335,7 @@ export default function MatchScreen() {
         )}
 
         {/* Sections */}
-        <RecommendedPlayersSection players={filteredRecommended} loading={loading} currentUserId={userId} />
+        <RecommendedPlayersSection players={filteredRecommended} loading={loading} currentUserId={userId} onRequest={setRequestTarget} />
         <IncomingRequestsSection
           requests={incoming} loading={loading} currentUserId={userId}
           onAccept={setAcceptTarget} onDecline={setDeclineTarget}
@@ -2084,7 +2509,19 @@ export default function MatchScreen() {
         onDismiss={() => setDeclineReschTarget(null)}
       />
 
-      <PlayerLookupModal visible={showLookup} currentUserId={userId} onDismiss={() => setShowLookup(false)} />
+      <PlayerLookupModal
+        visible={showLookup}
+        currentUserId={userId}
+        onDismiss={() => setShowLookup(false)}
+        onRequestPlayer={(p) => { setShowLookup(false); setRequestTarget(p); }}
+      />
+      <MatchRequestSheet
+        visible={requestTarget != null}
+        opponent={requestTarget}
+        currentUserId={userId}
+        onSend={reload}
+        onDismiss={() => setRequestTarget(null)}
+      />
     </View>
   );
 }
