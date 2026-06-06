@@ -26,25 +26,28 @@ Full Match screen implementation at `src/app/(resident)/match.tsx`:
 
 ## Visual QA Status
 
-### ✅ Fixed
+### ✅ Fixed (All sessions)
 | Item | Fix applied |
 |---|---|
 | Dark header → light header | `MatchPageHeader` inline component in match.tsx |
 | No profile avatar in header | Avatar with initials fetched from profiles |
 | Filter card cut off | Flex-row layout, "Edit" button always visible |
 | "COURTS" label | Changed to "RESERVE" in `_layout.tsx` |
-| Match tab "MATCH" label | Changed to bold "VS" via `tabBarLabel: 'VS'` + `BottomNav.tsx` special case |
+| Match tab "MATCH" label | VS text (now the icon itself is bold "VS" text, no label) |
 | MaxWidth 480px centering constraint | Removed — full screen width now |
-| Card too narrow (name truncating) | `REC_CARD_W = Math.max(240, Math.min(280, SCREEN_W * 0.68))` |
+| Card too narrow (name truncating) | `REC_CARD_W` → 80% of screen width |
 | UTR + NTRP on separate lines | Fixed by wider card; both fit on one line now |
+| Logo invisible on white header | Added `tintColor: '#0C0F18'` to Image in MatchPageHeader |
+| Match tab icon (swords) | Replaced with bold Text "VS" in `_layout.tsx` |
+| BottomNav duplicate VS label | BottomNav hides text label when `tabBarLabel === 'VS'` |
+| Large dead space in empty states | Compact icon+text rows for all 3 empty states |
+| Filter card visual quality | Taller items, bigger fonts, blue-tinted Edit button with separator |
 
-### ⚠️ Minor Remaining (Low Priority)
+### ⚠️ Minor Remaining (Acceptable)
 | Item | Detail |
 |---|---|
-| Logo faintness on white header | The logo PNG has white marks on transparent; appears faint on white bg. Consider adding `tintColor: theme.textPrimary` OR using a dark version of the logo. Currently readable enough — the "X" mark is visible. |
-| Subtitle wraps to 2 lines | "Find the right players. Play more tennis." wraps on 390px; reference shows 1 line. Font metric difference. Acceptable. |
-| Filter chip "Skill Level" label truncates slightly | Shows "7.5–9" value (not "UTR 7.5–9.0") — acceptable, label says "Skill Level" |
-| Empty state sections below fold | No incoming requests / upcoming matches in test account. Correct behavior. |
+| Subtitle wraps to 2 lines | "Find the right players. Play more tennis." wraps on 390px. Acceptable. |
+| Filter chip shows "7.5–9" | Label says "Skill Level" — acceptable abbreviation |
 
 ---
 
@@ -79,10 +82,7 @@ Search `// TODO` in `match.tsx`:
 
 ## Next Session Priorities
 
-### 1. Finish the logo fix (5 min)
-Decide: accept faint logo OR pass `tintColor: '#0C0F18'` to the Image in `MatchPageHeader`. Test both options, pick one.
-
-### 2. Final visual QA pass (30 min)
+### 1. Final visual QA pass (30 min)
 - Test with a real `match_request` row in DB to see Incoming Request card + Accept/Decline sheets
 - Test with a real future `matches` row to see Upcoming Match card + Reschedule/Cancel sheets
 - Verify weather cards appear when locations are set

@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -2250,6 +2250,59 @@ export type Database = {
           },
         ]
       }
+      match_reschedule_requests: {
+        Row: {
+          created_at: string
+          id: string
+          match_id: string
+          message: string | null
+          proposed_date: string | null
+          proposed_end_time: string | null
+          proposed_start_time: string | null
+          reason: string | null
+          requester_user_id: string
+          resolved_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          match_id: string
+          message?: string | null
+          proposed_date?: string | null
+          proposed_end_time?: string | null
+          proposed_start_time?: string | null
+          reason?: string | null
+          requester_user_id: string
+          resolved_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          match_id?: string
+          message?: string | null
+          proposed_date?: string | null
+          proposed_end_time?: string | null
+          proposed_start_time?: string | null
+          reason?: string | null
+          requester_user_id?: string
+          resolved_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_reschedule_requests_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       matches: {
         Row: {
           court_type: Database["public"]["Enums"]["court_type"]
@@ -2264,6 +2317,7 @@ export type Database = {
           player3_id: string | null
           player4_id: string | null
           score: string | null
+          status: Database["public"]["Enums"]["match_lifecycle_status"]
           time_end: string | null
           time_start: string
           updated_at: string | null
@@ -2282,6 +2336,7 @@ export type Database = {
           player3_id?: string | null
           player4_id?: string | null
           score?: string | null
+          status?: Database["public"]["Enums"]["match_lifecycle_status"]
           time_end?: string | null
           time_start: string
           updated_at?: string | null
@@ -2300,6 +2355,7 @@ export type Database = {
           player3_id?: string | null
           player4_id?: string | null
           score?: string | null
+          status?: Database["public"]["Enums"]["match_lifecycle_status"]
           time_end?: string | null
           time_start?: string
           updated_at?: string | null
@@ -3376,8 +3432,13 @@ export type Database = {
       court_type: "hard" | "clay" | "grass" | "indoor"
       ladder_format: "singles" | "doubles"
       ladder_status: "setup" | "active" | "completed"
+      match_lifecycle_status:
+        | "scheduled"
+        | "reschedule_requested"
+        | "cancelled"
+        | "completed"
       match_status: "pending" | "accepted" | "declined" | "cancelled"
-      match_type: "singles" | "doubles"
+      match_type: "singles" | "doubles" | "mixed_doubles" | "hitting_session"
       playoff_stage: "semifinals" | "final" | "third_place"
       registration_status: "registered" | "confirmed" | "withdrawn"
       user_role: "player" | "coach" | "parent" | "club" | "recruiter"
@@ -3519,8 +3580,14 @@ export const Constants = {
       court_type: ["hard", "clay", "grass", "indoor"],
       ladder_format: ["singles", "doubles"],
       ladder_status: ["setup", "active", "completed"],
+      match_lifecycle_status: [
+        "scheduled",
+        "reschedule_requested",
+        "cancelled",
+        "completed",
+      ],
       match_status: ["pending", "accepted", "declined", "cancelled"],
-      match_type: ["singles", "doubles"],
+      match_type: ["singles", "doubles", "mixed_doubles", "hitting_session"],
       playoff_stage: ["semifinals", "final", "third_place"],
       registration_status: ["registered", "confirmed", "withdrawn"],
       user_role: ["player", "coach", "parent", "club", "recruiter"],

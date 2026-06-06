@@ -41,3 +41,10 @@ example
 # generated native folders
 /ios
 /android
+
+# Playwright MCP session artifacts
+.playwright-mcp/
+
+# Root-level development screenshots
+/*.png
+/Reference UI/

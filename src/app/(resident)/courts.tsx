@@ -23,6 +23,7 @@ import {
   Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing,
 } from '@/constants/design';
 import { Header } from '@/components/ui/Header';
+import { TimeSlotWheel } from '@/components/ui/TimeSlotWheel';
 import { useTheme } from '@/context/ThemeContext';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 
@@ -463,6 +464,7 @@ export default function CourtsScreen() {
   const [sheetSelectedSlot, setSheetSelectedSlot] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(false);
+  const [bookingError, setBookingError] = useState<string | null>(null);
 
   // ── Schedule sheet state ──────────────────────────────────────────────────────
   const [scheduleSheet, setScheduleSheet] = useState<{ courtId: string; courtName: string; courtType: string } | null>(null);
@@ -682,6 +684,7 @@ export default function CourtsScreen() {
   async function handleConfirm() {
     if (!userId || !bookingSheet || !sheetSelectedSlot) return;
     setConfirming(true);
+    setBookingError(null);
     const dateStr = sheetDate.toISOString().split('T')[0];
     const endTime = getEndTime(sheetSelectedSlot, sheetDuration);
     const { error } = await supabase.from('bookings').insert({
@@ -694,7 +697,9 @@ export default function CourtsScreen() {
       setBookingSuccess(true);
       await fetchBookingsForDate(dateStr);
       await loadCourts();
-      setTimeout(() => { setBookingSheet(null); setBookingSuccess(false); }, 1200);
+      setTimeout(() => { setBookingSheet(null); setBookingSuccess(false); setBookingError(null); }, 1400);
+    } else {
+      setBookingError(error.message ?? 'Booking failed. Please try again.');
     }
   }
 
@@ -897,8 +902,9 @@ export default function CourtsScreen() {
           weather={weather}
           confirming={confirming}
           success={bookingSuccess}
+          bookingError={bookingError}
           onConfirm={handleConfirm}
-          onClose={() => setBookingSheet(null)}
+          onClose={() => { setBookingSheet(null); setBookingError(null); }}
           insets={insets}
         />
       )}
@@ -951,10 +957,21 @@ function CourtCard({ court, status, isMyBooking, onBook, onSchedule, onReport }:
           </Text>
         </TouchableOpacity>
       </View>
-      <Text style={styles.courtStatusText}>
-        {isMine ? `MY RESERVATION · ${formatTime(isMyBooking!.start_time)}–${formatTime(isMyBooking!.end_time)}` : s.statusText}
-      </Text>
-      {!isMine && s.detailText ? <Text style={styles.courtDetailText}>{s.detailText}</Text> : null}
+      {isMine ? (
+        <View style={styles.myResBadgeRow}>
+          <View style={styles.myResBadgePill}>
+            <Text style={styles.myResBadgeText}>MY RESERVATION</Text>
+          </View>
+          <Text style={styles.myResBadgeTime}>
+            {formatTime(isMyBooking!.start_time)}–{formatTime(isMyBooking!.end_time)}
+          </Text>
+        </View>
+      ) : (
+        <>
+          <Text style={styles.courtStatusText}>{s.statusText}</Text>
+          {s.detailText ? <Text style={styles.courtDetailText}>{s.detailText}</Text> : null}
+        </>
+      )}
 
       <View style={styles.courtSecondaryDivider} />
       <View style={styles.courtSecondaryRow}>
@@ -977,7 +994,7 @@ const BookingSheet = memo(function BookingSheet({
   playType, onPlayTypeChange, rules, rulesLoading,
   timeSlots, selectedSlot, onSelectSlot,
   duration, availableDurations, isTennis, onDurationChange,
-  weather, confirming, success, onConfirm, onClose, insets,
+  weather, confirming, success, bookingError, onConfirm, onClose, insets,
 }: {
   courtName: string; courtType: string; now: Date;
   sheetDate: Date; onSheetDateChange: (d: Date) => void;
@@ -986,19 +1003,13 @@ const BookingSheet = memo(function BookingSheet({
   timeSlots: string[]; selectedSlot: string | null; onSelectSlot: (s: string | null) => void;
   duration: number; availableDurations: number[]; isTennis: boolean; onDurationChange: (d: number) => void;
   weather: WeatherData | null;
-  confirming: boolean; success: boolean; onConfirm: () => void; onClose: () => void;
+  confirming: boolean; success: boolean; bookingError: string | null; onConfirm: () => void; onClose: () => void;
   insets: { bottom: number };
 }) {
   const { theme } = useTheme();
   const styles = useStyles(theme);
   const outdoor = isOutdoor(courtType);
   const [showCalendar, setShowCalendar] = useState(false);
-  const slotsScrollRef = useRef<ScrollView>(null);
-
-  // Reset slot scroll when time slots change (date/play-type/duration change)
-  useEffect(() => {
-    slotsScrollRef.current?.scrollTo({ y: 0, animated: false });
-  }, [timeSlots]);
 
   // Primary date buttons: Today + Tomorrow
   const primaryDates = useMemo(() => {
@@ -1025,23 +1036,23 @@ const BookingSheet = memo(function BookingSheet({
     [sheetDate, primaryDates]
   );
 
-  // Conditions for selected date (outdoor only, 9am proxy)
-  const sheetPlayability = useMemo(() => {
-    if (!weather || !outdoor) return null;
-    return getPlayability(weather, 9, sheetDate, now);
-  }, [weather, outdoor, sheetDate, now]);
-
   const sheetIsToday = sheetDate.toDateString() === new Date().toDateString();
 
-  const confirmLabel = selectedSlot
-    ? `Confirm · ${formatTime(selectedSlot)} → ${formatTime(getEndTime(selectedSlot, duration))}`
-    : 'Select a time slot';
+  // Weather data for the selected slot — shown in summary row
+  const selectedSlotWx = useMemo(() => {
+    if (!selectedSlot || !outdoor || !weather) return null;
+    const [h] = selectedSlot.split(':').map(Number);
+    return {
+      icon: getSlotWeatherIcon(h, sheetDate, now, weather),
+      label: getSlotWeatherLabel(h, sheetDate, now, weather),
+    };
+  }, [selectedSlot, outdoor, weather, sheetDate, now]);
 
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.sheetOverlay}>
         <Pressable style={styles.sheetBackdrop} onPress={onClose} />
-        <View testID="booking-sheet" style={[styles.sheetContainer, { paddingBottom: Math.max(insets.bottom, 24) }]}>
+        <View testID="booking-sheet" style={styles.sheetContainer}>
           <View style={styles.sheetHandle} />
 
           {/* Header */}
@@ -1053,6 +1064,9 @@ const BookingSheet = memo(function BookingSheet({
               <X color={Colors.fg3} size={20} strokeWidth={1.5} />
             </TouchableOpacity>
           </View>
+
+          {/* Scrollable content */}
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.sheetScrollContent}>
 
           {/* Date row: Today · Tomorrow · Dates (opens calendar) */}
           <View style={styles.dateRow} testID="sheet-date-row">
@@ -1099,16 +1113,6 @@ const BookingSheet = memo(function BookingSheet({
             />
           )}
 
-          {/* Conditions strip (outdoor only, hidden when calendar open) */}
-          {!showCalendar && outdoor && sheetPlayability && (
-            <View testID="sheet-conditions" style={styles.sheetConditionsRow}>
-              <WeatherIcon type={sheetPlayability.icon} color={sheetPlayability.accentColor} size={13} />
-              <Text style={[styles.sheetConditionsData, { color: sheetPlayability.accentColor }]}>
-                {sheetPlayability.conditions}
-              </Text>
-            </View>
-          )}
-
           {/* Play type (hidden when calendar open) */}
           {!showCalendar && (
             <View style={styles.playTypeRow}>
@@ -1150,7 +1154,7 @@ const BookingSheet = memo(function BookingSheet({
             ) : null
           )}
 
-          {/* Time slot list (hidden when calendar open) */}
+          {/* Carousel wheel time-slot selector (hidden when calendar open) */}
           {!showCalendar && (
             rulesLoading ? (
               <ActivityIndicator color={Colors.cyan} style={{ marginVertical: 20 }} />
@@ -1161,59 +1165,55 @@ const BookingSheet = memo(function BookingSheet({
                 </Text>
               </View>
             ) : (
-              <ScrollView
-                ref={slotsScrollRef}
-                testID="time-slots-scroll"
-                style={styles.slotsScroll}
-                showsVerticalScrollIndicator={false}>
-                {timeSlots.map(slot => {
-                  const [h] = slot.split(':').map(Number);
-                  const weatherLabel = outdoor ? getSlotWeatherLabel(h, sheetDate, now, weather) : null;
-                  const weatherIconType = outdoor ? getSlotWeatherIcon(h, sheetDate, now, weather) : null;
-                  const isSelected = slot === selectedSlot;
-                  return (
-                    <TouchableOpacity
-                      key={slot}
-                      testID={`slot-${slot}`}
-                      style={[styles.slotRow, isSelected && styles.slotRowSelected]}
-                      onPress={() => onSelectSlot(isSelected ? null : slot)}
-                      activeOpacity={0.7}>
-                      <Text style={[styles.slotRowTime, isSelected && styles.slotRowTimeSelected]}>
-                        {formatTime(slot)}
-                      </Text>
-                      {weatherLabel && weatherIconType ? (
-                        <View style={styles.slotRowWeatherWrap}>
-                          <WeatherIcon
-                            type={weatherIconType}
-                            color={isSelected ? theme.cyanOnLight : theme.textMuted}
-                            size={12} />
-                          <Text
-                            testID={`slot-weather-${slot}`}
-                            style={[styles.slotRowWeather, isSelected && styles.slotRowWeatherSelected]}>
-                            {weatherLabel}
-                          </Text>
-                        </View>
-                      ) : <View style={{ flex: 1 }} />}
-                      <View style={[styles.slotRowSelectBtn, isSelected && styles.slotRowSelectBtnActive]}>
-                        {isSelected
-                          ? <Check color={Colors.cyan} size={14} strokeWidth={2} />
-                          : <Text style={styles.slotRowSelectText}>Select</Text>
-                        }
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
+              <TimeSlotWheel
+                slots={timeSlots}
+                selectedSlot={selectedSlot}
+                onSelectSlot={onSelectSlot}
+                weather={weather}
+                outdoor={outdoor}
+                sheetDate={sheetDate}
+                now={now}
+                theme={theme}
+              />
             )
           )}
 
-          <TouchableOpacity testID="confirm-booking-btn"
-            style={[styles.confirmBtn, (!selectedSlot || confirming) && styles.confirmBtnDisabled, success && styles.confirmBtnSuccess]}
-            onPress={onConfirm} disabled={!selectedSlot || confirming || success} activeOpacity={0.85}>
-            {confirming ? <ActivityIndicator color={Colors.white} size="small" /> : (
-              <Text style={styles.confirmBtnText}>{success ? '✓ Booked!' : confirmLabel}</Text>
+          </ScrollView>
+
+          {/* Sticky confirm area — always visible at bottom of sheet */}
+          <View style={[styles.sheetConfirmArea, { paddingBottom: Math.max(insets.bottom, 24) }]}>
+            {selectedSlot && !showCalendar && (
+              <View testID="selected-time-summary" style={styles.selectedSummary}>
+                <View style={styles.selectedSummaryContent}>
+                  <Text style={styles.selectedSummaryMain} numberOfLines={1}>
+                    {courtName} · {playType === 'singles' ? 'Singles' : 'Doubles'} · {duration} min
+                  </Text>
+                  <Text style={styles.selectedSummaryTime} numberOfLines={1}>
+                    {sheetDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                    {'  ·  '}{formatTime(selectedSlot)}{' – '}{formatTime(getEndTime(selectedSlot, duration))}
+                  </Text>
+                  {selectedSlotWx?.icon && selectedSlotWx?.label && (
+                    <View style={styles.selectedSummaryWx}>
+                      <WeatherIcon type={selectedSlotWx.icon} color={theme.cyanOnLight} size={12} />
+                      <Text style={styles.selectedSummaryWxText}>{selectedSlotWx.label}</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
             )}
-          </TouchableOpacity>
+            {!!bookingError && (
+              <Text testID="booking-error" style={styles.bookingErrorText}>{bookingError}</Text>
+            )}
+            <TouchableOpacity testID="confirm-booking-btn"
+              style={[styles.confirmBtn, (!selectedSlot || confirming) && styles.confirmBtnDisabled, success && styles.confirmBtnSuccess]}
+              onPress={onConfirm} disabled={!selectedSlot || confirming || success} activeOpacity={0.85}>
+              {confirming ? <ActivityIndicator color={Colors.white} size="small" /> : (
+                <Text style={styles.confirmBtnText}>
+                  {success ? '✓ Booked!' : selectedSlot ? 'Confirm Reservation' : 'Select a time slot'}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </Modal>
@@ -1424,6 +1424,17 @@ function useStyles(theme: ThemeTokens) {
   courtCta: { fontFamily: FontFamily.manropeSemiBold, fontSize: 14 },
   courtStatusText: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: FontSize.eyebrow, color: theme.textSecondary, letterSpacing: 1.2 },
   courtDetailText: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: FontSize.eyebrow, color: theme.textMuted, letterSpacing: 0.4, marginTop: 2 },
+  myResBadgeRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 8, flexWrap: 'wrap' as const },
+  myResBadgePill: {
+    backgroundColor: Colors.positive + '22',
+    borderWidth: 1,
+    borderColor: Colors.positive + '60',
+    borderRadius: 99,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  myResBadgeText: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: FontSize.eyebrow, color: Colors.positive, letterSpacing: 1.2, overflow: 'hidden' as const },
+  myResBadgeTime: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: FontSize.eyebrow, color: theme.textMuted, letterSpacing: 0.4 },
   courtSecondaryDivider: { height: 1, backgroundColor: theme.border, marginTop: 10, marginBottom: 8 },
   courtSecondaryRow: { flexDirection: 'row', justifyContent: 'space-between' },
   secondaryAction: { flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 44, paddingHorizontal: 2 },
@@ -1448,10 +1459,13 @@ function useStyles(theme: ThemeTokens) {
   // Sheets
   sheetOverlay: { flex: 1, justifyContent: 'flex-end' },
   sheetBackdrop: { ...StyleSheet.absoluteFill, backgroundColor: theme.backdrop },
-  sheetContainer: { backgroundColor: theme.sheetBg, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, borderTopWidth: 1, borderColor: theme.border, paddingHorizontal: Spacing.pagePx, paddingTop: 12, maxHeight: '88%', ...theme.shadowSheet },
+  sheetContainer: { backgroundColor: theme.sheetBg, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, borderTopWidth: 1, borderColor: theme.border, paddingTop: 12, maxHeight: '88%', ...theme.shadowSheet },
+  sheetScrollContent: { paddingHorizontal: Spacing.pagePx, paddingBottom: 4 },
+  sheetConfirmArea: { paddingHorizontal: Spacing.pagePx, paddingTop: 12, borderTopWidth: 1, borderTopColor: theme.border, gap: 8 },
+  bookingErrorText: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.body, color: Colors.negative, textAlign: 'center' as const },
   scheduleSheetContainer: { maxHeight: '85%' },
   sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: theme.border, alignSelf: 'center', marginBottom: 16 },
-  sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 },
+  sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14, paddingHorizontal: Spacing.pagePx },
   sheetCourtName: { fontFamily: FontFamily.spaceGroteskBold, fontSize: 20, color: theme.textPrimary },
   sheetCloseBtn: { width: 36, height: 36, backgroundColor: theme.surface2, borderRadius: Radius.sm, alignItems: 'center', justifyContent: 'center' },
 
@@ -1463,12 +1477,9 @@ function useStyles(theme: ThemeTokens) {
   sheetDateChipText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 13, color: theme.textSecondary },
   sheetDateChipTextActive: { color: Colors.white },
 
-  sheetConditionsRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: theme.surface2, borderRadius: Radius.sm },
-  sheetConditionsData: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: 12, letterSpacing: 0.4 },
-
-  // Play type
+  // Play type — equal-width chips
   playTypeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  playTypeChip: { height: 40, paddingHorizontal: 16, borderRadius: Radius.chip, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surface2, alignItems: 'center', justifyContent: 'center' },
+  playTypeChip: { flex: 1, height: 40, paddingHorizontal: 16, borderRadius: Radius.chip, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surface2, alignItems: 'center', justifyContent: 'center' },
   playTypeChipActive: { backgroundColor: Colors.blue, borderColor: Colors.blue },
   playTypeText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 13, color: theme.textSecondary },
   playTypeTextActive: { color: Colors.white },
@@ -1482,70 +1493,43 @@ function useStyles(theme: ThemeTokens) {
   durationChipText: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: 12, color: theme.textSecondary, letterSpacing: 0.3 },
   durationChipTextActive: { color: theme.selectedBorder },
 
-  slotsScroll: { maxHeight: 240, marginBottom: 14 },
-
-  // Vertical slot rows
-  slotRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    minHeight: 52,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: Radius.sm,
-    marginBottom: 4,
-    backgroundColor: theme.surface2,
-    borderWidth: 1,
-    borderColor: theme.border,
-  },
-  slotRowSelected: {
-    backgroundColor: theme.selectedBg,
-    borderColor: theme.selectedBorder,
-  },
-  slotRowTime: {
-    fontFamily: FontFamily.jetbrainsMonoSemiBold,
-    fontSize: 14,
-    color: theme.textSecondary,
-    letterSpacing: 0.3,
-    minWidth: 72,
-  },
-  slotRowTimeSelected: { color: theme.selectedBorder },
-  slotRowWeatherWrap: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 6,
-  },
-  slotRowWeather: {
-    fontFamily: FontFamily.jetbrainsMonoSemiBold,
-    fontSize: 11,
-    color: theme.textMuted,
-    letterSpacing: 0.2,
-    flexShrink: 1,
-  },
-  slotRowWeatherSelected: { color: theme.cyanOnLight },
-  slotRowSelectBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: Radius.xs,
-    backgroundColor: theme.surface2,
-    borderWidth: 1,
-    borderColor: theme.border,
-    minWidth: 60,
-    alignItems: 'center',
-  },
-  slotRowSelectBtnActive: {
-    backgroundColor: theme.selectedBg,
-    borderColor: theme.selectedBorder,
-  },
-  slotRowSelectText: {
-    fontFamily: FontFamily.manropeSemiBold,
-    fontSize: 12,
-    color: theme.textMuted,
-  },
-
   noSlotsState: { alignItems: 'center', paddingVertical: 24, marginBottom: 14 },
   noSlotsText: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.body, color: theme.textMuted },
+
+  // Selected time summary row
+  selectedSummary: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: theme.surface2,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  selectedSummaryContent: {
+    gap: 3,
+  },
+  selectedSummaryMain: {
+    fontFamily: FontFamily.manropeSemiBold,
+    fontSize: FontSize.label,
+    color: theme.textPrimary,
+  },
+  selectedSummaryTime: {
+    fontFamily: FontFamily.manropeSemiBold,
+    fontSize: FontSize.label,
+    color: theme.textSecondary,
+  },
+  selectedSummaryWx: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 5,
+    marginTop: 2,
+  },
+  selectedSummaryWxText: {
+    fontFamily: FontFamily.jetbrainsMonoSemiBold,
+    fontSize: 11,
+    color: theme.cyanOnLight,
+    letterSpacing: 0.3,
+  },
 
   confirmBtn: { backgroundColor: Colors.blue, borderRadius: Radius.button, minHeight: 52, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
   confirmBtnDisabled: { backgroundColor: theme.surface2 },
