@@ -617,23 +617,23 @@ function useStyles(theme: ReturnType<typeof useTheme>['theme']) {
     screen: { flex: 1, backgroundColor: theme.pageBg },
 
     hero: {
-      backgroundColor: theme.headerBg,
       paddingHorizontal: Spacing.pagePx,
-      paddingTop: 16,
-      paddingBottom: 24,
+      paddingTop: 24,
+      paddingBottom: 20,
     },
     heroTitle: {
       fontFamily: FontFamily.spaceGroteskBold,
-      fontSize: 32,
-      color: '#F5F8FF',
-      letterSpacing: -0.5,
-      lineHeight: 36,
+      fontSize: FontSize.display,
+      color: theme.textPrimary,
+      letterSpacing: -0.8,
+      lineHeight: 42,
     },
     heroSub: {
       fontFamily: FontFamily.manropeMedium,
-      fontSize: FontSize.body,
-      color: 'rgba(245,248,255,0.70)',
-      marginTop: 6,
+      fontSize: FontSize.label,
+      color: theme.textSecondary,
+      marginTop: 4,
+      lineHeight: 20,
     },
 
     content: { padding: Spacing.pagePx, paddingBottom: 100, gap: 12 },
