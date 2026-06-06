@@ -119,8 +119,7 @@ interface UpcomingMatch {
 
 interface MatchFilters {
   format: MatchType;
-  ntrpMin: number;
-  ntrpMax: number;
+  selectedNtrpLevels: number[];
   dateLabel: string;
   timeLabel: string;
   distanceMiles: number;
@@ -130,21 +129,13 @@ interface MatchFilters {
 
 const DEFAULT_FILTERS: MatchFilters = {
   format: 'singles',
-  ntrpMin: 3.5,
-  ntrpMax: 4.5,
+  selectedNtrpLevels: [3.5, 4.0, 4.5],
   dateLabel: 'Today',
   timeLabel: '5 – 8 PM',
   distanceMiles: 10,
 };
 
-const NTRP_RANGES: { label: string; min: number; max: number }[] = [
-  { label: '2.5 – 3.0', min: 2.5, max: 3.0 },
-  { label: '3.0 – 3.5', min: 3.0, max: 3.5 },
-  { label: '3.5 – 4.0', min: 3.5, max: 4.0 },
-  { label: '4.0 – 4.5', min: 4.0, max: 4.5 },
-  { label: '4.5 – 5.0', min: 4.5, max: 5.0 },
-  { label: '5.0+',      min: 5.0, max: 8.0  },
-];
+const NTRP_LEVELS = [3.0, 3.5, 4.0, 4.5, 5.0];
 
 const DISTANCE_OPTIONS = [5, 10, 25, 50];
 
@@ -792,9 +783,8 @@ function FilterBar({ filters, onEdit }: { filters: MatchFilters; onEdit: () => v
     }
   }
 
-  const chips: FilterChip[] = [
+  const staticChips: FilterChip[] = [
     { icon: <CircleDot size={12} color="#FFF" strokeWidth={1.5} />, label: matchTypeLabel(filters.format) },
-    { icon: <BarChart2 size={12} color="#FFF" strokeWidth={1.5} />, label: `NTRP ${filters.ntrpMin.toFixed(1)}–${filters.ntrpMax.toFixed(1)}` },
     { icon: <Calendar  size={12} color="#FFF" strokeWidth={1.5} />, label: filters.dateLabel },
     { icon: <Clock     size={12} color="#FFF" strokeWidth={1.5} />, label: filters.timeLabel },
     { icon: <MapPin    size={12} color="#FFF" strokeWidth={1.5} />, label: `≤${filters.distanceMiles} mi` },
@@ -812,7 +802,7 @@ function FilterBar({ filters, onEdit }: { filters: MatchFilters; onEdit: () => v
         onScroll={(e) => setScrollX(e.nativeEvent.contentOffset.x)}
         scrollEventThrottle={16}
         onContentSizeChange={(w) => setContentW(w)}>
-        {chips.map((chip) => (
+        {staticChips.map((chip) => (
           <TouchableOpacity
             key={chip.label}
             style={[fbS.chip, { backgroundColor: theme.chipActiveBg }]}
@@ -822,6 +812,26 @@ function FilterBar({ filters, onEdit }: { filters: MatchFilters; onEdit: () => v
             <Text style={fbS.chipLabel} numberOfLines={1}>{chip.label}</Text>
           </TouchableOpacity>
         ))}
+        {/* NTRP chips */}
+        {filters.selectedNtrpLevels.slice(0, 2).map(level => (
+          <TouchableOpacity
+            key={level}
+            style={[fbS.chip, { backgroundColor: theme.chipActiveBg }]}
+            onPress={onEdit}
+            activeOpacity={0.75}>
+            <BarChart2 size={12} color="#FFF" strokeWidth={1.5} />
+            <Text style={fbS.chipLabel} numberOfLines={1}>NTRP {level.toFixed(1)}</Text>
+          </TouchableOpacity>
+        ))}
+        {filters.selectedNtrpLevels.length > 2 && (
+          <TouchableOpacity
+            style={[fbS.chip, { backgroundColor: theme.chipActiveBg }]}
+            onPress={onEdit}
+            activeOpacity={0.75}>
+            <BarChart2 size={12} color="#FFF" strokeWidth={1.5} />
+            <Text style={fbS.chipLabel} numberOfLines={1}>+{filters.selectedNtrpLevels.length - 2} more</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity
           style={[fbS.filtersBtn, { borderColor: theme.border, backgroundColor: theme.cardBg }]}
           onPress={onEdit}
@@ -871,7 +881,9 @@ function ResultsContext({ filters, matchingCount, loading }: {
 }) {
   const { theme } = useTheme();
   if (loading) return null;
-  const ntrpLabel   = `NTRP ${filters.ntrpMin.toFixed(1)}–${filters.ntrpMax.toFixed(1)}`;
+  const ntrpLabel   = filters.selectedNtrpLevels.length === 5
+    ? 'Any NTRP'
+    : `NTRP ${filters.selectedNtrpLevels.map(l => l.toFixed(1)).join(', ')}`;
   const countLabel  = matchingCount === 0 ? 'No players match' : `${matchingCount} player${matchingCount !== 1 ? 's' : ''} match`;
   return (
     <View style={rcxS.row}>
@@ -937,17 +949,25 @@ function MatchFiltersSheet({ visible, filters, onApply, onDismiss }: {
             ))}
           </View>
 
-          <Text style={[mfS.sectionLabel, { color: theme.textSecondary }]}>NTRP Range</Text>
+          <Text style={[mfS.sectionLabel, { color: theme.textSecondary }]}>NTRP Level</Text>
           <View style={mfS.optionRow}>
-            {NTRP_RANGES.map((r) => {
-              const active = draft.ntrpMin === r.min && draft.ntrpMax === r.max;
+            {NTRP_LEVELS.map(level => {
+              const active = draft.selectedNtrpLevels.includes(level);
               return (
                 <TouchableOpacity
-                  key={r.label}
+                  key={level}
                   style={[mfS.option, { borderColor: active ? BLUE : theme.border, backgroundColor: active ? theme.selectedBg : theme.cardBg }]}
-                  onPress={() => setDraft((d) => ({ ...d, ntrpMin: r.min, ntrpMax: r.max }))}
+                  onPress={() => {
+                    if (active && draft.selectedNtrpLevels.length === 1) return; // keep at least one
+                    setDraft(d => ({
+                      ...d,
+                      selectedNtrpLevels: active
+                        ? d.selectedNtrpLevels.filter(l => l !== level)
+                        : [...d.selectedNtrpLevels, level],
+                    }));
+                  }}
                   activeOpacity={0.7}>
-                  <Text style={[mfS.optionText, { color: active ? BLUE : theme.textSecondary }]}>{r.label}</Text>
+                  <Text style={[mfS.optionText, { color: active ? BLUE : theme.textSecondary }]}>{level.toFixed(1)}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -1812,10 +1832,9 @@ export default function MatchScreen() {
   const [filters, setFilters] = useState<MatchFilters>(DEFAULT_FILTERS);
   const [showFilters, setShowFilters] = useState(false);
 
-  // Client-side filter recommended players by NTRP range and format
+  // Client-side filter recommended players by NTRP level and format
   const filteredRecommended = recommended.filter((p) => {
-    if (p.ntrpRating == null) return true; // show unrated players always
-    return p.ntrpRating >= filters.ntrpMin && p.ntrpRating <= filters.ntrpMax;
+    return (p.ntrpRating == null || filters.selectedNtrpLevels.includes(p.ntrpRating));
   });
 
   const [acceptTarget,          setAcceptTarget]          = useState<IncomingRequest | null>(null);
