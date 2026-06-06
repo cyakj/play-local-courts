@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -12,9 +12,10 @@ import { BarChart2 } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import {
-  Colors, FontFamily, FontSize, MaxWidth, Radius, Shadow, Spacing,
+  Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing,
 } from '@/constants/design';
 import { Header } from '@/components/ui/Header';
+import { useTheme } from '@/context/ThemeContext';
 
 interface AnnouncementItem {
   id: string;
@@ -38,6 +39,8 @@ function timeAgo(iso: string): string {
 }
 
 export default function AnnouncementsScreen() {
+  const { theme } = useTheme();
+  const styles = useStyles(theme);
   const [items, setItems] = useState<AnnouncementItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -119,7 +122,7 @@ export default function AnnouncementsScreen() {
 
           {loading ? (
             <View style={styles.loadingBox}>
-              <ActivityIndicator color={Colors.accentCyan} size="large" />
+              <ActivityIndicator color={Colors.cyan} size="large" />
             </View>
           ) : items.length === 0 ? (
             <View testID="announcements-empty" style={styles.emptyBox}>
@@ -148,7 +151,7 @@ export default function AnnouncementsScreen() {
                       testID="survey-view-results-btn"
                       style={styles.viewResultsBtn}
                       onPress={() => router.push({ pathname: '/survey-results/[id]', params: { id: item.surveyId } } as any)}>
-                      <BarChart2 color={Colors.accentCyan} size={15} strokeWidth={1.75} />
+                      <BarChart2 color={Colors.cyan} size={15} strokeWidth={1.75} />
                       <Text style={styles.viewResultsBtnText}>View Results →</Text>
                     </TouchableOpacity>
                   )}
@@ -163,75 +166,71 @@ export default function AnnouncementsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.pageBg },
-  content: { padding: Spacing.pagePx, paddingBottom: 60 },
+function useStyles(theme: ReturnType<typeof useTheme>['theme']) {
+  return useMemo(() => StyleSheet.create({
+    screen:  { flex: 1, backgroundColor: theme.pageBg },
+    content: { padding: Spacing.pagePx, paddingBottom: 60 },
 
-  loadingBox: {
-    alignItems: 'center',
-    paddingVertical: 60,
-  },
-  emptyBox: {
-    alignItems: 'center',
-    paddingVertical: 60,
-    gap: 8,
-  },
-  emptyTitle: {
-    fontFamily: FontFamily.manropeBold,
-    fontSize: FontSize.sectionTitle,
-    color: Colors.navy,
-  },
-  emptySubtitle: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.body,
-    color: Colors.textMuted,
-    textAlign: 'center',
-    paddingHorizontal: 24,
-  },
+    loadingBox: { alignItems: 'center', paddingVertical: 60 },
 
-  card: {
-    backgroundColor: Colors.white,
-    borderRadius: Radius.card,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    ...Shadow,
-  },
-  itemTitle: {
-    fontFamily: FontFamily.manropeExtraBold,
-    fontSize: 15,
-    color: Colors.navy,
-    marginBottom: 6,
-  },
-  itemBody: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.body,
-    color: Colors.textMuted,
-    lineHeight: 20,
-  },
-  itemTime: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: 11,
-    color: Colors.textMuted,
-    marginTop: 8,
-  },
-  viewResultsBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(0,212,255,0.1)',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(0,212,255,0.25)',
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    marginTop: 12,
-    alignSelf: 'flex-start',
-  },
-  viewResultsBtnText: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: 13,
-    color: Colors.accentCyan,
-  },
-});
+    emptyBox: { alignItems: 'center', paddingVertical: 60, gap: 8 },
+    emptyTitle: {
+      fontFamily: FontFamily.spaceGroteskBold,
+      fontSize: FontSize.sectionTitle,
+      color: theme.textPrimary,
+    },
+    emptySubtitle: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.body,
+      color: theme.textMuted,
+      textAlign: 'center' as const,
+      paddingHorizontal: 24,
+    },
+
+    card: {
+      backgroundColor: theme.cardBg,
+      borderRadius: Radius.card,
+      padding: 16,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: theme.border,
+      ...theme.shadowCard,
+    },
+    itemTitle: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: 15,
+      color: theme.textPrimary,
+      marginBottom: 6,
+    },
+    itemBody: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.body,
+      color: theme.textSecondary,
+      lineHeight: 20,
+    },
+    itemTime: {
+      fontFamily: FontFamily.jetbrainsMonoSemiBold,
+      fontSize: 11,
+      color: theme.textMuted,
+      marginTop: 8,
+    },
+    viewResultsBtn: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: 6,
+      backgroundColor: theme.selectedBg,
+      borderRadius: Radius.button,
+      borderWidth: 1.5,
+      borderColor: theme.selectedBorder,
+      paddingHorizontal: 14,
+      paddingVertical: 9,
+      marginTop: 12,
+      alignSelf: 'flex-start' as const,
+    },
+    viewResultsBtnText: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: 13,
+      color: theme.selectedBorder,
+    },
+  }), [theme]);
+}
