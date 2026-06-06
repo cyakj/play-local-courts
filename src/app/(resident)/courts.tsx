@@ -1183,19 +1183,18 @@ const BookingSheet = memo(function BookingSheet({
           {/* Sticky confirm area — always visible at bottom of sheet */}
           <View style={[styles.sheetConfirmArea, { paddingBottom: Math.max(insets.bottom, 24) }]}>
             {selectedSlot && !showCalendar && (
-              <View testID="selected-time-summary" style={styles.selectedSummary}>
-                <View style={styles.selectedSummaryContent}>
-                  <Text style={styles.selectedSummaryMain} numberOfLines={1}>
-                    {courtName} · {playType === 'singles' ? 'Singles' : 'Doubles'} · {duration} min
-                  </Text>
-                  <Text style={styles.selectedSummaryTime} numberOfLines={1}>
+              <View testID="selected-time-summary" style={styles.slotSummary}>
+                <Text style={styles.slotSummaryLine1} numberOfLines={1}>
+                  {courtName} · {playType === 'singles' ? 'Singles' : 'Doubles'} · {duration} min
+                </Text>
+                <View style={styles.slotSummaryRow2}>
+                  <Text style={styles.slotSummaryLine2} numberOfLines={1}>
                     {sheetDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                     {'  ·  '}{formatTime(selectedSlot)}{' – '}{formatTime(getEndTime(selectedSlot, duration))}
                   </Text>
                   {selectedSlotWx?.icon && selectedSlotWx?.label && (
-                    <View style={styles.selectedSummaryWx}>
+                    <View style={styles.slotSummaryWx}>
                       <WeatherIcon type={selectedSlotWx.icon} color={theme.cyanOnLight} size={12} />
-                      <Text style={styles.selectedSummaryWxText}>{selectedSlotWx.label}</Text>
                     </View>
                   )}
                 </View>
@@ -1496,40 +1495,22 @@ function useStyles(theme: ThemeTokens) {
   noSlotsState: { alignItems: 'center', paddingVertical: 24, marginBottom: 14 },
   noSlotsText: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.body, color: theme.textMuted },
 
-  // Selected time summary row
-  selectedSummary: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    backgroundColor: theme.surface2,
-    borderRadius: Radius.sm,
-    borderWidth: 1,
-    borderColor: theme.border,
-  },
-  selectedSummaryContent: {
-    gap: 3,
-  },
-  selectedSummaryMain: {
+  // Selected time summary — compact inline two-line
+  slotSummary: { marginBottom: 8 },
+  slotSummaryLine1: {
     fontFamily: FontFamily.manropeSemiBold,
-    fontSize: FontSize.label,
+    fontSize: 13,
     color: theme.textPrimary,
+    lineHeight: 18,
   },
-  selectedSummaryTime: {
-    fontFamily: FontFamily.manropeSemiBold,
-    fontSize: FontSize.label,
+  slotSummaryRow2: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6, marginTop: 2 },
+  slotSummaryLine2: {
+    fontFamily: FontFamily.manropeMedium,
+    fontSize: 12,
     color: theme.textSecondary,
+    flex: 1,
   },
-  selectedSummaryWx: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 5,
-    marginTop: 2,
-  },
-  selectedSummaryWxText: {
-    fontFamily: FontFamily.jetbrainsMonoSemiBold,
-    fontSize: 11,
-    color: theme.cyanOnLight,
-    letterSpacing: 0.3,
-  },
+  slotSummaryWx: { flexShrink: 0 },
 
   confirmBtn: { backgroundColor: Colors.blue, borderRadius: Radius.button, minHeight: 52, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
   confirmBtnDisabled: { backgroundColor: theme.surface2 },
