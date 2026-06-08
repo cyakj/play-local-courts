@@ -574,11 +574,13 @@ export type Database = {
           cancellation_policy_hours: number | null
           created_at: string | null
           credentials: string | null
+          default_location_mode: string | null
           home_base: string | null
           hourly_rate: number | null
           id: string
           is_active: boolean | null
           latitude: number | null
+          lesson_types_offered: string[] | null
           levels_served: string[] | null
           longitude: number | null
           max_advance_booking_days: number | null
@@ -599,11 +601,13 @@ export type Database = {
           cancellation_policy_hours?: number | null
           created_at?: string | null
           credentials?: string | null
+          default_location_mode?: string | null
           home_base?: string | null
           hourly_rate?: number | null
           id?: string
           is_active?: boolean | null
           latitude?: number | null
+          lesson_types_offered?: string[] | null
           levels_served?: string[] | null
           longitude?: number | null
           max_advance_booking_days?: number | null
@@ -624,11 +628,13 @@ export type Database = {
           cancellation_policy_hours?: number | null
           created_at?: string | null
           credentials?: string | null
+          default_location_mode?: string | null
           home_base?: string | null
           hourly_rate?: number | null
           id?: string
           is_active?: boolean | null
           latitude?: number | null
+          lesson_types_offered?: string[] | null
           levels_served?: string[] | null
           longitude?: number | null
           max_advance_booking_days?: number | null
