@@ -11,13 +11,20 @@ import { X } from 'lucide-react-native';
 import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/design';
 import { useTheme } from '@/context/ThemeContext';
 import type { ThemeTokens } from '@/constants/theme-tokens';
-import type { DistanceFilterKm, LevelFilter, PriceRange, AvailabilityFilter } from '@/hooks/useCoachData';
+import type {
+  DistanceFilterKm, LevelFilter, PriceRange, AvailabilityFilter,
+  RatingFilter, ExperienceFilter, LocationModeFilter, GenderFilter,
+} from '@/hooks/useCoachData';
 
 export const LESSON_TYPE_OPTIONS = [
   'Private Lesson',
   'Semi-Private Lesson',
-  'Group Clinic',
-  'Practice Session',
+  'Group Lesson',
+  'Hitting Partner',
+  'Match Play',
+  'Junior Development',
+  'Adult Beginner',
+  'Advanced Training',
 ] as const;
 
 const DISTANCE_OPTIONS: { label: string; value: DistanceFilterKm }[] = [
@@ -48,12 +55,44 @@ const AVAILABILITY_OPTIONS: { label: string; value: AvailabilityFilter }[] = [
   { label: 'Weekend',   value: 'weekend'   },
 ];
 
+const RATING_OPTIONS: { label: string; value: RatingFilter }[] = [
+  { label: 'Any',  value: null  },
+  { label: '4.0+', value: '4.0' },
+  { label: '4.5+', value: '4.5' },
+  { label: '4.8+', value: '4.8' },
+];
+
+const EXPERIENCE_OPTIONS: { label: string; value: ExperienceFilter }[] = [
+  { label: 'Any',      value: null     },
+  { label: '0–2 yrs',  value: '0to2'   },
+  { label: '3–5 yrs',  value: '3to5'   },
+  { label: '5–10 yrs', value: '5to10'  },
+  { label: '10+ yrs',  value: '10plus' },
+];
+
+const LOCATION_FILTER_OPTIONS: { label: string; value: LocationModeFilter }[] = [
+  { label: 'Either',         value: null             },
+  { label: 'Coach Facility', value: 'coach_facility' },
+  { label: 'Travels to You', value: 'traveling'      },
+];
+
+const GENDER_OPTIONS: { label: string; value: GenderFilter }[] = [
+  { label: 'Any',         value: null          },
+  { label: 'Male',        value: 'male'        },
+  { label: 'Female',      value: 'female'      },
+  { label: 'Unspecified', value: 'unspecified' },
+];
+
 export interface CoachFiltersState {
-  distanceKm:         DistanceFilterKm;
-  levels:             LevelFilter[];
-  priceRange:         PriceRange;
-  lessonTypes:        string[];
-  availability:       AvailabilityFilter;
+  distanceKm:   DistanceFilterKm;
+  levels:       LevelFilter[];
+  priceRange:   PriceRange;
+  lessonTypes:  string[];
+  availability: AvailabilityFilter;
+  rating:       RatingFilter;
+  experience:   ExperienceFilter;
+  locationMode: LocationModeFilter;
+  gender:       GenderFilter;
 }
 
 export const DEFAULT_FILTERS: CoachFiltersState = {
@@ -62,15 +101,23 @@ export const DEFAULT_FILTERS: CoachFiltersState = {
   priceRange:   null,
   lessonTypes:  [],
   availability: null,
+  rating:       null,
+  experience:   null,
+  locationMode: null,
+  gender:       null,
 };
 
 export function activeFilterCount(f: CoachFiltersState): number {
   let n = 0;
-  if (f.distanceKm   != null)      n++;
-  if (f.levels.length > 0)         n += f.levels.length;
-  if (f.priceRange   != null)      n++;
-  if (f.lessonTypes.length > 0)    n += f.lessonTypes.length;
-  if (f.availability != null)      n++;
+  if (f.distanceKm   != null)   n++;
+  if (f.levels.length > 0)      n += f.levels.length;
+  if (f.priceRange   != null)   n++;
+  if (f.lessonTypes.length > 0) n += f.lessonTypes.length;
+  if (f.availability != null)   n++;
+  if (f.rating       != null)   n++;
+  if (f.experience   != null)   n++;
+  if (f.locationMode != null)   n++;
+  if (f.gender       != null)   n++;
   return n;
 }
 
@@ -224,6 +271,86 @@ export function CoachFiltersSheet({ visible, onClose, filters, onApply, playerHa
                     key={opt.value}
                     style={[styles.chip, active && styles.chipActive]}
                     onPress={() => setDraft(d => ({ ...d, availability: d.availability === opt.value ? null : opt.value }))}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[styles.chipLabel, active && styles.chipLabelActive]}>{opt.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* ── Rating ── */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Rating</Text>
+            <View style={styles.chipRow}>
+              {RATING_OPTIONS.map(opt => {
+                const active = draft.rating === opt.value;
+                return (
+                  <TouchableOpacity
+                    key={String(opt.value)}
+                    style={[styles.chip, active && styles.chipActive]}
+                    onPress={() => setDraft(d => ({ ...d, rating: opt.value }))}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[styles.chipLabel, active && styles.chipLabelActive]}>{opt.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* ── Years of Experience ── */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Years of Experience</Text>
+            <View style={styles.chipRow}>
+              {EXPERIENCE_OPTIONS.map(opt => {
+                const active = draft.experience === opt.value;
+                return (
+                  <TouchableOpacity
+                    key={String(opt.value)}
+                    style={[styles.chip, active && styles.chipActive]}
+                    onPress={() => setDraft(d => ({ ...d, experience: opt.value }))}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[styles.chipLabel, active && styles.chipLabelActive]}>{opt.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* ── Location Mode ── */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Location</Text>
+            <View style={styles.chipRow}>
+              {LOCATION_FILTER_OPTIONS.map(opt => {
+                const active = draft.locationMode === opt.value;
+                return (
+                  <TouchableOpacity
+                    key={String(opt.value)}
+                    style={[styles.chip, active && styles.chipActive]}
+                    onPress={() => setDraft(d => ({ ...d, locationMode: opt.value }))}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[styles.chipLabel, active && styles.chipLabelActive]}>{opt.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* ── Gender ── */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Coach Gender</Text>
+            <View style={styles.chipRow}>
+              {GENDER_OPTIONS.map(opt => {
+                const active = draft.gender === opt.value;
+                return (
+                  <TouchableOpacity
+                    key={String(opt.value)}
+                    style={[styles.chip, active && styles.chipActive]}
+                    onPress={() => setDraft(d => ({ ...d, gender: opt.value }))}
                     activeOpacity={0.75}
                   >
                     <Text style={[styles.chipLabel, active && styles.chipLabelActive]}>{opt.label}</Text>
