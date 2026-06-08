@@ -9,7 +9,9 @@ import {
   View,
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
-import { GraduationCap, Heart, SlidersHorizontal, X } from 'lucide-react-native';
+import { ArrowUpDown, GraduationCap, Heart, SlidersHorizontal, X } from 'lucide-react-native';
+import { CoachSortSheet, SORT_LABELS } from '@/components/coaching/CoachSortSheet';
+import type { SortOption } from '@/hooks/useCoachData';
 import { Header } from '@/components/ui/Header';
 import { CoachCard, CoachCardSkeleton } from '@/components/coaching/CoachCard';
 import { CoachSearchBar } from '@/components/coaching/CoachSearchBar';
@@ -65,6 +67,8 @@ export default function CoachesScreen() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filtersVisible,  setFiltersVisible]  = useState(false);
   const [appliedFilters,  setAppliedFilters]  = useState<CoachFiltersState>(DEFAULT_FILTERS);
+  const [sort,        setSort]        = useState<SortOption>('best_match');
+  const [sortVisible, setSortVisible] = useState(false);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const filters: CoachFilters = useMemo(() => ({
@@ -74,7 +78,12 @@ export default function CoachesScreen() {
     priceRange:   appliedFilters.priceRange,
     lessonTypes:  appliedFilters.lessonTypes,
     availability: appliedFilters.availability,
-  }), [debouncedSearch, appliedFilters]);
+    rating:       appliedFilters.rating,
+    experience:   appliedFilters.experience,
+    locationMode: appliedFilters.locationMode,
+    gender:       appliedFilters.gender,
+    sort,
+  }), [debouncedSearch, appliedFilters, sort]);
 
   const { coaches, loading, error, refresh, favoriteIds, toggleFavorite, playerHasCoordinates } =
     useCoachData(filters);
@@ -124,6 +133,21 @@ export default function CoachesScreen() {
           />
           <Text style={[styles.filtersBtnLabel, activeCount > 0 && styles.filtersBtnLabelActive]}>
             Filters{activeCount > 0 ? ` (${activeCount})` : ''}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.filtersBtn, sort !== 'best_match' && styles.filtersBtnActive]}
+          onPress={() => setSortVisible(true)}
+          activeOpacity={0.8}
+        >
+          <ArrowUpDown
+            size={14}
+            strokeWidth={2}
+            color={sort !== 'best_match' ? Colors.cyan : theme.textSecondary}
+          />
+          <Text style={[styles.filtersBtnLabel, sort !== 'best_match' && styles.filtersBtnLabelActive]}>
+            {sort === 'best_match' ? 'Sort' : SORT_LABELS[sort]}
           </Text>
         </TouchableOpacity>
 
@@ -252,6 +276,13 @@ export default function CoachesScreen() {
         onApply={setAppliedFilters}
         playerHasCoords={playerHasCoordinates}
         resultCount={coaches.length}
+      />
+
+      <CoachSortSheet
+        visible={sortVisible}
+        onClose={() => setSortVisible(false)}
+        sort={sort}
+        onSelect={setSort}
       />
     </View>
   );
