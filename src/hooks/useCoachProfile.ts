@@ -7,6 +7,8 @@ type CoachUpdate = Database['public']['Tables']['coaches']['Update'];
 export interface CoachProfileData {
   id: string;
   userId: string;
+  fullName: string | null;
+  gender: string | null;
   businessName: string | null;
   bio: string | null;
   credentials: string | null;
@@ -24,6 +26,14 @@ export interface CoachProfileData {
   isActive: boolean | null;
   lessonTypesOffered: string[] | null;
   defaultLocationMode: string | null;
+  itfCertification: string | null;
+  coachingLocationType: string;
+  travelRadiusKm: number | null;
+  travelAreas: string | null;
+  travelNotes: string | null;
+  facilityAddress: string | null;
+  facilityNotes: string | null;
+  courtType: string | null;
 }
 
 interface UseCoachProfileResult {
@@ -51,18 +61,20 @@ export function useCoachProfile(): UseCoachProfileResult {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setLoading(false); return; }
 
-      const { data } = await supabase
-        .from('coaches')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
+      const [coachRes, profileRes] = await Promise.all([
+        supabase.from('coaches').select('*').eq('user_id', user.id).single(),
+        supabase.from('profiles').select('full_name, gender').eq('id', user.id).single(),
+      ]);
 
       if (cancelled) return;
+      const data = coachRes.data;
       if (!data) { setLoading(false); return; }
 
       setProfile({
         id:                     data.id as string,
         userId:                 data.user_id as string,
+        fullName:               (profileRes.data?.full_name as string | null) ?? null,
+        gender:                 (profileRes.data?.gender as string | null) ?? null,
         businessName:           data.business_name as string | null,
         bio:                    data.bio as string | null,
         credentials:            data.credentials as string | null,
@@ -75,11 +87,19 @@ export function useCoachProfile(): UseCoachProfileResult {
         maxAdvanceBookingDays:  data.max_advance_booking_days as number | null,
         primeTimeStart:         data.prime_time_start as string | null,
         primeTimeEnd:           data.prime_time_end as string | null,
-        cancellationPolicyHours:data.cancellation_policy_hours as number | null,
+        cancellationPolicyHours: data.cancellation_policy_hours as number | null,
         profileImageUrl:        data.profile_image_url as string | null,
         isActive:               data.is_active as boolean | null,
         lessonTypesOffered:     data.lesson_types_offered as string[] | null,
         defaultLocationMode:    data.default_location_mode as string | null,
+        itfCertification:       data.itf_certification as string | null,
+        coachingLocationType:   (data.coaching_location_type as string) ?? 'facility_coach',
+        travelRadiusKm:         data.travel_radius_km as number | null,
+        travelAreas:            data.travel_areas as string | null,
+        travelNotes:            data.travel_notes as string | null,
+        facilityAddress:        data.facility_address as string | null,
+        facilityNotes:          data.facility_notes as string | null,
+        courtType:              data.court_type as string | null,
       });
       setLoading(false);
     }
@@ -111,11 +131,26 @@ export function useCoachProfile(): UseCoachProfileResult {
     if (updates.isActive !== undefined)               dbUpdates.is_active               = updates.isActive;
     if (updates.lessonTypesOffered !== undefined)     dbUpdates.lesson_types_offered    = updates.lessonTypesOffered;
     if (updates.defaultLocationMode !== undefined)    dbUpdates.default_location_mode   = updates.defaultLocationMode;
+    if (updates.itfCertification !== undefined)       dbUpdates.itf_certification       = updates.itfCertification;
+    if (updates.coachingLocationType !== undefined)   dbUpdates.coaching_location_type  = updates.coachingLocationType;
+    if (updates.travelRadiusKm !== undefined)         dbUpdates.travel_radius_km        = updates.travelRadiusKm;
+    if (updates.travelAreas !== undefined)            dbUpdates.travel_areas            = updates.travelAreas;
+    if (updates.travelNotes !== undefined)            dbUpdates.travel_notes            = updates.travelNotes;
+    if (updates.facilityAddress !== undefined)        dbUpdates.facility_address        = updates.facilityAddress;
+    if (updates.facilityNotes !== undefined)          dbUpdates.facility_notes          = updates.facilityNotes;
+    if (updates.courtType !== undefined)              dbUpdates.court_type              = updates.courtType;
 
     const { error } = await supabase
       .from('coaches')
       .update(dbUpdates)
       .eq('user_id', user.id);
+
+    if (!error && (updates.gender !== undefined || updates.fullName !== undefined)) {
+      const profileUpdate: { gender?: string | null; full_name?: string | null } = {};
+      if (updates.gender   !== undefined) profileUpdate.gender    = updates.gender;
+      if (updates.fullName !== undefined) profileUpdate.full_name = updates.fullName;
+      await supabase.from('profiles').update(profileUpdate).eq('id', user.id);
+    }
 
     setSaving(false);
     if (error) return error.message;
