@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -572,13 +572,18 @@ export type Database = {
           bio: string | null
           business_name: string | null
           cancellation_policy_hours: number | null
+          coaching_location_type: string
+          court_type: string | null
           created_at: string | null
           credentials: string | null
           default_location_mode: string | null
+          facility_address: string | null
+          facility_notes: string | null
           home_base: string | null
           hourly_rate: number | null
           id: string
           is_active: boolean | null
+          itf_certification: string | null
           latitude: number | null
           lesson_types_offered: string[] | null
           levels_served: string[] | null
@@ -590,6 +595,9 @@ export type Database = {
           profile_image_url: string | null
           sports_offered: string[] | null
           timezone: string | null
+          travel_areas: string | null
+          travel_notes: string | null
+          travel_radius_km: number | null
           updated_at: string | null
           user_id: string
           willing_to_travel: boolean | null
@@ -599,13 +607,18 @@ export type Database = {
           bio?: string | null
           business_name?: string | null
           cancellation_policy_hours?: number | null
+          coaching_location_type?: string
+          court_type?: string | null
           created_at?: string | null
           credentials?: string | null
           default_location_mode?: string | null
+          facility_address?: string | null
+          facility_notes?: string | null
           home_base?: string | null
           hourly_rate?: number | null
           id?: string
           is_active?: boolean | null
+          itf_certification?: string | null
           latitude?: number | null
           lesson_types_offered?: string[] | null
           levels_served?: string[] | null
@@ -617,6 +630,9 @@ export type Database = {
           profile_image_url?: string | null
           sports_offered?: string[] | null
           timezone?: string | null
+          travel_areas?: string | null
+          travel_notes?: string | null
+          travel_radius_km?: number | null
           updated_at?: string | null
           user_id: string
           willing_to_travel?: boolean | null
@@ -626,13 +642,18 @@ export type Database = {
           bio?: string | null
           business_name?: string | null
           cancellation_policy_hours?: number | null
+          coaching_location_type?: string
+          court_type?: string | null
           created_at?: string | null
           credentials?: string | null
           default_location_mode?: string | null
+          facility_address?: string | null
+          facility_notes?: string | null
           home_base?: string | null
           hourly_rate?: number | null
           id?: string
           is_active?: boolean | null
+          itf_certification?: string | null
           latitude?: number | null
           lesson_types_offered?: string[] | null
           levels_served?: string[] | null
@@ -644,6 +665,9 @@ export type Database = {
           profile_image_url?: string | null
           sports_offered?: string[] | null
           timezone?: string | null
+          travel_areas?: string | null
+          travel_notes?: string | null
+          travel_radius_km?: number | null
           updated_at?: string | null
           user_id?: string
           willing_to_travel?: boolean | null
