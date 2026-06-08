@@ -35,18 +35,26 @@ interface ResidentHeaderProps {
   onMenu?: () => void;
 }
 
+interface CoachHeaderProps {
+  variant: 'coach';
+  onBell?: () => void;
+  onSettings?: () => void;
+}
+
 type HeaderProps =
   | CMPortfolioHeaderProps
   | ResidentHomeHeaderProps
   | InnerScreenHeaderProps
-  | ResidentHeaderProps;
+  | ResidentHeaderProps
+  | CoachHeaderProps;
 
 export function Header(props: HeaderProps) {
   const insets = useSafeAreaInsets();
   const topPad = Math.max(insets.top, 24);
   const { theme } = useTheme();
 
-  if (props.variant === 'resident') {
+  if (props.variant === 'resident' || props.variant === 'coach') {
+    const isCoach = props.variant === 'coach';
     return (
       <View style={[styles.base, styles.residentBase, { paddingTop: topPad + 8, backgroundColor: theme.headerBg, borderBottomColor: theme.headerBorder }]}>
         <View style={[styles.topBar, styles.residentTopBar]}>
@@ -68,7 +76,11 @@ export function Header(props: HeaderProps) {
             <TouchableOpacity
               testID="menu-icon"
               style={styles.iconBtn}
-              onPress={props.onMenu ?? (() => router.push('/settings'))}
+              onPress={
+                isCoach
+                  ? ((props as CoachHeaderProps).onSettings ?? (() => router.push('/(coach)/me' as any)))
+                  : ((props as ResidentHeaderProps).onMenu ?? (() => router.push('/settings')))
+              }
               hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
               <Menu color="#FFFFFF" size={24} strokeWidth={1.5} />
             </TouchableOpacity>

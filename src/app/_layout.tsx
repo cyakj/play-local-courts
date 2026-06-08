@@ -13,7 +13,7 @@ import {
 } from '@expo-google-fonts/inter';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { setBackgroundColorAsync } from 'expo-system-ui';
 import { useEffect, useState } from 'react';
@@ -69,6 +69,13 @@ export default function RootLayout() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Redirect to login whenever session is cleared (sign-out or expiry)
+  useEffect(() => {
+    if (!authLoading && !session) {
+      router.replace('/(auth)/login');
+    }
+  }, [session, authLoading]);
+
   useEffect(() => {
     if ((fontsLoaded || fontError) && !authLoading) {
       SplashScreen.hideAsync();
@@ -86,6 +93,7 @@ export default function RootLayout() {
       <Stack.Screen name="(cm)" />
       <Stack.Screen name="(admin)" />
       <Stack.Screen name="(resident)" />
+      <Stack.Screen name="(coach)" />
       <Stack.Screen name="notifications" />
       <Stack.Screen name="settings" />
       <Stack.Screen name="messages" />

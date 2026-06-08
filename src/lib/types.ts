@@ -507,6 +507,30 @@ export type Database = {
           },
         ]
       }
+      coach_student_notes: {
+        Row: {
+          coach_user_id: string
+          id: string
+          notes: string | null
+          player_user_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          coach_user_id: string
+          id?: string
+          notes?: string | null
+          player_user_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          coach_user_id?: string
+          id?: string
+          notes?: string | null
+          player_user_id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       coach_unavailability: {
         Row: {
           coach_id: string
@@ -557,6 +581,10 @@ export type Database = {
           latitude: number | null
           levels_served: string[] | null
           longitude: number | null
+          max_advance_booking_days: number | null
+          minimum_notice_hours: number | null
+          prime_time_end: string | null
+          prime_time_start: string | null
           profile_image_url: string | null
           sports_offered: string[] | null
           timezone: string | null
@@ -578,6 +606,10 @@ export type Database = {
           latitude?: number | null
           levels_served?: string[] | null
           longitude?: number | null
+          max_advance_booking_days?: number | null
+          minimum_notice_hours?: number | null
+          prime_time_end?: string | null
+          prime_time_start?: string | null
           profile_image_url?: string | null
           sports_offered?: string[] | null
           timezone?: string | null
@@ -599,6 +631,10 @@ export type Database = {
           latitude?: number | null
           levels_served?: string[] | null
           longitude?: number | null
+          max_advance_booking_days?: number | null
+          minimum_notice_hours?: number | null
+          prime_time_end?: string | null
+          prime_time_start?: string | null
           profile_image_url?: string | null
           sports_offered?: string[] | null
           timezone?: string | null
@@ -2067,6 +2103,7 @@ export type Database = {
           preferred_time_end: string
           preferred_time_start: string
           recurring_series_id: string | null
+          responded_at: string | null
           review_eligible_at: string | null
           skill_level: string
           sport: string
@@ -2105,6 +2142,7 @@ export type Database = {
           preferred_time_end: string
           preferred_time_start: string
           recurring_series_id?: string | null
+          responded_at?: string | null
           review_eligible_at?: string | null
           skill_level: string
           sport: string
@@ -2143,6 +2181,7 @@ export type Database = {
           preferred_time_end?: string
           preferred_time_start?: string
           recurring_series_id?: string | null
+          responded_at?: string | null
           review_eligible_at?: string | null
           skill_level?: string
           sport?: string
@@ -2637,6 +2676,7 @@ export type Database = {
           content: string
           created_at: string
           id: string
+          lesson_request_id: string | null
           read_at: string | null
           receiver_id: string
           sender_id: string
@@ -2646,6 +2686,7 @@ export type Database = {
           content: string
           created_at?: string
           id?: string
+          lesson_request_id?: string | null
           read_at?: string | null
           receiver_id: string
           sender_id: string
@@ -2655,12 +2696,21 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          lesson_request_id?: string | null
           read_at?: string | null
           receiver_id?: string
           sender_id?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "messages_lesson_request_id_fkey"
+            columns: ["lesson_request_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_requests"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payouts: {
         Row: {
@@ -3763,4 +3813,3 @@ export const Constants = {
     },
   },
 } as const
-

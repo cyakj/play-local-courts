@@ -71,7 +71,7 @@ export default function SettingsScreen() {
         text: 'Sign Out',
         style: 'destructive',
         onPress: async () => {
-          await supabase.auth.signOut();
+          try { await supabase.auth.signOut(); } catch { /* ignore */ }
           router.replace('/(auth)/login');
         },
       },

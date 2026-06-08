@@ -37,7 +37,7 @@ export default function CoachFavoritesScreen() {
   if (loading) {
     return (
       <View style={{ flex: 1, backgroundColor: theme.pageBg }}>
-        <Header variant="inner" title="Favourite Coaches" />
+        <Header variant="inner" title="Favourite Coaches" onBack={() => router.back()} />
         <View style={styles.skeletonList}>
           <CoachCardSkeleton />
           <CoachCardSkeleton />
@@ -49,7 +49,7 @@ export default function CoachFavoritesScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.pageBg }}>
-      <Header variant="inner" title="Favourite Coaches" />
+      <Header variant="inner" title="Favourite Coaches" onBack={() => router.back()} />
       <FlatList
         data={favoriteCoaches}
         keyExtractor={item => item.id}

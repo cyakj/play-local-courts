@@ -233,11 +233,20 @@ export function BookLessonSheet({
     return weeks;
   }, [calCells]);
 
-  // Time slots for selected date + duration
+  const isSelectedToday = useMemo(
+    () => selectedDate ? selectedDate.getTime() === today.getTime() : false,
+    [selectedDate, today],
+  );
+
+  // Time slots for selected date + duration, filtered to future-only when today
   const timeSlots = useMemo((): TimeSlotOption[] => {
     if (!selectedDate || !duration) return [];
-    return generateTimeSlots(selectedDate, duration, weeklySlots);
-  }, [selectedDate, duration, weeklySlots]);
+    const all = generateTimeSlots(selectedDate, duration, weeklySlots);
+    if (!isSelectedToday) return all;
+    const now = new Date();
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    return all.filter(s => timeToMin(s.start) > nowMin);
+  }, [selectedDate, duration, weeklySlots, isSelectedToday]);
 
   // Location options for selected slot
   const locationOptions = useMemo(
@@ -555,7 +564,9 @@ export function BookLessonSheet({
                 {timeSlots.length === 0 ? (
                   <View style={styles.noSlotsBanner}>
                     <Text style={styles.noSlotsTxt}>
-                      No scheduled slots on this date. You can still send the request — the coach will coordinate a time.
+                      {isSelectedToday
+                        ? 'No remaining times available today.'
+                        : 'No scheduled slots on this date. You can still send the request — the coach will coordinate a time.'}
                     </Text>
                   </View>
                 ) : (

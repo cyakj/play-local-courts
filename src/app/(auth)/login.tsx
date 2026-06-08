@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { Eye, EyeOff } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import { Colors, FontFamily, FontSize, Radius, Shadow, Spacing } from '@/constants/design';
@@ -70,6 +71,7 @@ export default function LoginScreen() {
   const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
   const [mfaCode, setMfaCode] = useState('');
   const [mfaVerifying, setMfaVerifying] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function signIn() {
     if (!email.trim() || !password.trim()) return;
@@ -103,9 +105,12 @@ export default function LoginScreen() {
       .select('role')
       .eq('user_id', uid);
     const roles = (rolesData ?? []).map((r: { role: string }) => r.role);
-    const isCM = roles.some((r) => ['admin', 'condo_manager', 'manager'].includes(r));
+    const isCM    = roles.some((r) => ['admin', 'condo_manager', 'manager'].includes(r));
+    const isCoach = roles.includes('coach');
     setLoading(false);
-    router.replace(isCM ? '/(cm)' : '/(resident)');
+    if (isCM)         router.replace('/(cm)');
+    else if (isCoach) router.replace('/(coach)');
+    else              router.replace('/(resident)');
   }
 
   async function handleForgotPassword() {
@@ -235,17 +240,30 @@ export default function LoginScreen() {
             {/* Password */}
             <View style={[styles.fieldGroup, { marginBottom: 24 }]}>
               <Text style={styles.fieldLabel}>Password</Text>
-              <TextInput
-                style={[styles.input, focused === 'password' && styles.inputFocused]}
-                placeholder="••••••••"
-                placeholderTextColor={Colors.textPlaceholder}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                editable={!loading}
-                onFocus={() => setFocused('password')}
-                onBlur={() => setFocused(null)}
-              />
+              <View style={styles.passwordWrap}>
+                <TextInput
+                  style={[styles.input, styles.passwordInput, focused === 'password' && styles.inputFocused]}
+                  placeholder="••••••••"
+                  placeholderTextColor={Colors.textPlaceholder}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  editable={!loading}
+                  onFocus={() => setFocused('password')}
+                  onBlur={() => setFocused(null)}
+                />
+                <TouchableOpacity
+                  style={styles.eyeBtn}
+                  onPress={() => setShowPassword(v => !v)}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  {showPassword
+                    ? <EyeOff size={18} color={Colors.textMuted} strokeWidth={1.8} />
+                    : <Eye size={18} color={Colors.textMuted} strokeWidth={1.8} />
+                  }
+                </TouchableOpacity>
+              </View>
             </View>
 
             <TouchableOpacity
@@ -374,9 +392,23 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     fontSize: 15,
     fontFamily: FontFamily.interRegular,
-    color: Colors.textPrimary,
+    color: Colors.navy,
     backgroundColor: Colors.white,
     minHeight: 52,
+  },
+  passwordWrap: {
+    position: 'relative',
+  },
+  passwordInput: {
+    paddingRight: 48,
+  },
+  eyeBtn: {
+    position: 'absolute',
+    right: 14,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   inputFocused: {
     borderColor: Colors.accentCyan,
