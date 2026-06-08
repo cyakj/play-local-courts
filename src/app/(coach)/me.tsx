@@ -27,10 +27,20 @@ const LEVEL_OPTIONS = [
 ];
 
 const LESSON_TYPES = [
-  { value: 'private_lesson',       label: 'Private' },
-  { value: 'semi_private_lesson',  label: 'Semi-Private' },
-  { value: 'group_clinic',         label: 'Group Clinic' },
-  { value: 'practice_session',     label: 'Practice' },
+  { value: 'private_lesson',      label: 'Private'        },
+  { value: 'semi_private_lesson', label: 'Semi-Private'   },
+  { value: 'group_lesson',        label: 'Group'          },
+  { value: 'hitting_partner',     label: 'Hitting Partner'},
+  { value: 'match_play',          label: 'Match Play'     },
+  { value: 'junior_development',  label: 'Junior Dev'     },
+  { value: 'adult_beginner',      label: 'Adult Beginner' },
+  { value: 'advanced_training',   label: 'Advanced'       },
+];
+
+const LOCATION_MODE_OPTIONS = [
+  { value: 'coach_facility', label: 'My Facility'   },
+  { value: 'traveling',      label: 'Travels to You'},
+  { value: 'both',           label: 'Either'        },
 ];
 
 export default function CoachMeScreen() {
@@ -38,11 +48,12 @@ export default function CoachMeScreen() {
   const styles = useStyles(theme);
   const { profile, loading, saving, save } = useCoachProfile();
 
-  const [businessName, setBusinessName] = useState('');
-  const [bio, setBio]                   = useState('');
-  const [hourlyRate, setHourlyRate]     = useState('');
-  const [homeBase, setHomeBase]         = useState('');
-  const [initialized, setInitialized]   = useState(false);
+  const [businessName, setBusinessName]     = useState('');
+  const [bio, setBio]                       = useState('');
+  const [hourlyRate, setHourlyRate]         = useState('');
+  const [homeBase, setHomeBase]             = useState('');
+  const [yearsExperience, setYearsExperience] = useState('');
+  const [initialized, setInitialized]       = useState(false);
 
   useMemo(() => {
     if (profile && !initialized) {
@@ -50,17 +61,20 @@ export default function CoachMeScreen() {
       setBio(profile.bio ?? '');
       setHourlyRate(profile.hourlyRate != null ? String(profile.hourlyRate) : '');
       setHomeBase(profile.homeBase ?? '');
+      setYearsExperience(profile.yearsExperience != null ? String(profile.yearsExperience) : '');
       setInitialized(true);
     }
   }, [profile, initialized]);
 
   async function handleSaveProfile() {
-    const rate = parseFloat(hourlyRate);
+    const rate  = parseFloat(hourlyRate);
+    const years = parseInt(yearsExperience, 10);
     const err = await save({
-      businessName: businessName.trim() || null,
-      bio: bio.trim() || null,
-      hourlyRate: isNaN(rate) ? null : rate,
-      homeBase: homeBase.trim() || null,
+      businessName:    businessName.trim() || null,
+      bio:             bio.trim() || null,
+      hourlyRate:      isNaN(rate)  ? null : rate,
+      homeBase:        homeBase.trim() || null,
+      yearsExperience: isNaN(years) ? null : years,
     });
     if (err) Alert.alert('Error', err);
     else Alert.alert('Saved', 'Profile updated.');
@@ -75,9 +89,9 @@ export default function CoachMeScreen() {
 
   async function toggleLessonType(val: string) {
     if (!profile) return;
-    const current = profile.sportsOffered ?? [];
+    const current = profile.lessonTypesOffered ?? [];
     const next = current.includes(val) ? current.filter(v => v !== val) : [...current, val];
-    await save({ sportsOffered: next });
+    await save({ lessonTypesOffered: next });
   }
 
   async function handleSignOut() {
@@ -153,6 +167,16 @@ export default function CoachMeScreen() {
             keyboardType="numeric"
           />
 
+          <Text style={styles.fieldLabel}>Years of Experience</Text>
+          <TextInput
+            style={styles.input}
+            value={yearsExperience}
+            onChangeText={setYearsExperience}
+            placeholder="e.g. 5"
+            placeholderTextColor={Colors.fgDisabled}
+            keyboardType="numeric"
+          />
+
           <TouchableOpacity
             style={[styles.saveBtn, saving && styles.btnDisabled]}
             onPress={handleSaveProfile}
@@ -183,7 +207,7 @@ export default function CoachMeScreen() {
         <Text style={styles.sectionLabel}>LESSON TYPES</Text>
         <View style={styles.chipWrap}>
           {LESSON_TYPES.map(t => {
-            const active = (profile.sportsOffered ?? []).includes(t.value);
+            const active = (profile.lessonTypesOffered ?? []).includes(t.value);
             return (
               <TouchableOpacity
                 key={t.value}
@@ -191,6 +215,23 @@ export default function CoachMeScreen() {
                 onPress={() => toggleLessonType(t.value)}
                 activeOpacity={0.7}>
                 <Text style={[styles.chipText, active && styles.chipTextActive]}>{t.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Default location */}
+        <Text style={styles.sectionLabel}>DEFAULT LOCATION</Text>
+        <View style={styles.chipWrap}>
+          {LOCATION_MODE_OPTIONS.map(m => {
+            const active = (profile.defaultLocationMode ?? 'coach_facility') === m.value;
+            return (
+              <TouchableOpacity
+                key={m.value}
+                style={[styles.chip, active && styles.chipActive]}
+                onPress={() => save({ defaultLocationMode: m.value })}
+                activeOpacity={0.7}>
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>{m.label}</Text>
               </TouchableOpacity>
             );
           })}
