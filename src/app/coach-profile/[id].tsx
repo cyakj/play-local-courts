@@ -12,6 +12,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Heart, MapPin, MessageCircle, Star } from 'lucide-react-native';
 import { Header } from '@/components/ui/Header';
 import { CoachAvailabilityGrid } from '@/components/coaching/CoachAvailabilityGrid';
+import { BookLessonSheet } from '@/components/coaching/BookLessonSheet';
 import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/design';
 import { useTheme } from '@/context/ThemeContext';
 import type { ThemeTokens } from '@/constants/theme-tokens';
@@ -68,6 +69,7 @@ export default function CoachProfileScreen() {
   const [isFavorited, setIsFavorited] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [bookSheetVisible, setBookSheetVisible] = useState(false);
 
   const { weeklySlots, unavailabilityBlocks } = useCoachAvailability(
     coach?.userId ?? null,
@@ -208,9 +210,7 @@ export default function CoachProfileScreen() {
   }
 
   function handleSendRequest() {
-    // BookLessonSheet wired in Phase 4
-    // Navigate back to coaches for now (temporary)
-    router.push(`/coach-profile/${id}/book` as any);
+    setBookSheetVisible(true);
   }
 
   if (loading) {
@@ -401,6 +401,18 @@ export default function CoachProfileScreen() {
           <Text style={styles.footerPrimaryLabel}>Send Lesson Request</Text>
         </TouchableOpacity>
       </View>
+
+      {/* ── Book Lesson Sheet ── */}
+      <BookLessonSheet
+        visible={bookSheetVisible}
+        onClose={() => setBookSheetVisible(false)}
+        onSuccess={() => router.push('/my-coaching' as any)}
+        coachUserId={coach.userId}
+        coachName={displayName}
+        homeBase={coach.homeBase}
+        weeklySlots={weeklySlots}
+        unavailabilityBlocks={unavailabilityBlocks}
+      />
     </View>
   );
 }
