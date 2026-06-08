@@ -107,6 +107,12 @@ export function CoachCard({ coach, isFavorited, onToggleFavorite, onViewCoach }:
             ) : (
               <Text style={styles.noRating}>No reviews yet</Text>
             )}
+            {coach.yearsExperience != null && (
+              <>
+                <View style={styles.dot} />
+                <Text style={styles.rate}>{coach.yearsExperience} yrs</Text>
+              </>
+            )}
             <View style={styles.dot} />
             <Text style={styles.rate}>
               {coach.hourlyRate != null ? `$${Math.round(coach.hourlyRate)}/hr` : 'Rate TBD'}
