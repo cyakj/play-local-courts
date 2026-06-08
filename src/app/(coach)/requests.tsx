@@ -19,26 +19,18 @@ export default function CoachRequestsScreen() {
   const { pending, upcoming, past, loading, error, accept, decline, markComplete, markNoShow, cancelLesson } =
     useCoachRequests();
 
-  function handleAccept(req: CoachLessonRequest) {
-    Alert.alert(
-      'Accept Request',
-      `Accept lesson with ${req.playerName ?? 'this player'} on ${req.preferredDate}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Accept',
-          onPress: async () => {
-            const err = await accept(
-              req.id,
-              req.preferredDate,
-              req.preferredTimeStart,
-              req.preferredTimeEnd,
-            );
-            if (err) Alert.alert('Error', err);
-          },
-        },
-      ],
+  const [acceptingId, setAcceptingId] = useState<string | null>(null);
+
+  async function handleAccept(req: CoachLessonRequest) {
+    setAcceptingId(req.id);
+    const err = await accept(
+      req.id,
+      req.preferredDate,
+      req.preferredTimeStart,
+      req.preferredTimeEnd,
     );
+    setAcceptingId(null);
+    if (err) Alert.alert('Error', err);
   }
 
   async function handleDecline(id: string, reason?: string) {
@@ -115,6 +107,7 @@ export default function CoachRequestsScreen() {
                   request={req}
                   onAccept={handleAccept}
                   onDecline={handleDecline}
+                  accepting={acceptingId === req.id}
                 />
               ))
             )}

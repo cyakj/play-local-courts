@@ -35,9 +35,10 @@ interface Props {
   request: CoachLessonRequest;
   onAccept: (req: CoachLessonRequest) => void;
   onDecline: (id: string, reason?: string) => Promise<void>;
+  accepting?: boolean;
 }
 
-export function CoachRequestCard({ request, onAccept, onDecline }: Props) {
+export function CoachRequestCard({ request, onAccept, onDecline, accepting = false }: Props) {
   const { theme } = useTheme();
   const styles = useStyles(theme);
   const [expanded, setExpanded] = useState(false);
@@ -138,10 +139,11 @@ export function CoachRequestCard({ request, onAccept, onDecline }: Props) {
         {/* Actions */}
         <View style={styles.actionRow}>
           <TouchableOpacity
-            style={styles.acceptBtn}
+            style={[styles.acceptBtn, accepting && styles.btnDisabled]}
             onPress={() => onAccept(request)}
+            disabled={accepting}
             activeOpacity={0.85}>
-            <Text style={styles.acceptBtnText}>Accept</Text>
+            <Text style={styles.acceptBtnText}>{accepting ? 'Accepting…' : 'Accept'}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -293,6 +295,7 @@ function useStyles(theme: ThemeTokens) {
       fontSize: FontSize.label,
       color: Colors.negative,
     },
+    btnDisabled: { opacity: 0.55 },
     messageBtn: {
       flexDirection: 'row',
       alignItems: 'center',
