@@ -13,13 +13,15 @@ export const TIME_BANDS: TimeBand[] = [
   { label: 'EVENING',   start: '17:00', end: '21:00' },
 ];
 
+export type CellMode = 'coach_facility' | 'traveling' | 'both';
+
 export interface CoachAvailabilitySlot {
   id: string;
   coach_id: string;
   day_of_week: number;
   start_time: string;
   end_time: string;
-  location_mode: 'coach_facility' | 'traveling' | 'both' | null;
+  location_mode: CellMode | null;
 }
 
 export interface CoachUnavailabilityBlock {

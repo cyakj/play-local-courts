@@ -19,6 +19,8 @@ export interface CoachProfileData {
   cancellationPolicyHours: number | null;
   profileImageUrl: string | null;
   isActive: boolean | null;
+  lessonTypesOffered: string[] | null;
+  defaultLocationMode: string | null;
 }
 
 interface UseCoachProfileResult {
@@ -73,6 +75,8 @@ export function useCoachProfile(): UseCoachProfileResult {
         cancellationPolicyHours:data.cancellation_policy_hours as number | null,
         profileImageUrl:        data.profile_image_url as string | null,
         isActive:               data.is_active as boolean | null,
+        lessonTypesOffered:     data.lesson_types_offered as string[] | null,
+        defaultLocationMode:    data.default_location_mode as string | null,
       });
       setLoading(false);
     }
@@ -102,6 +106,8 @@ export function useCoachProfile(): UseCoachProfileResult {
     if (updates.primeTimeEnd !== undefined)           dbUpdates.prime_time_end          = updates.primeTimeEnd;
     if (updates.cancellationPolicyHours !== undefined)dbUpdates.cancellation_policy_hours = updates.cancellationPolicyHours;
     if (updates.isActive !== undefined)               dbUpdates.is_active               = updates.isActive;
+    if (updates.lessonTypesOffered !== undefined)     dbUpdates.lesson_types_offered    = updates.lessonTypesOffered;
+    if (updates.defaultLocationMode !== undefined)    dbUpdates.default_location_mode   = updates.defaultLocationMode;
 
     const { error } = await supabase
       .from('coaches')
