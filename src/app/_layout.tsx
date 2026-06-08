@@ -93,6 +93,10 @@ export default function RootLayout() {
       <Stack.Screen name="my-reports" />
       <Stack.Screen name="hoa-application" />
       <Stack.Screen name="amenity-book" />
+      <Stack.Screen name="coach-profile/[id]" />
+      <Stack.Screen name="my-coaching" />
+      <Stack.Screen name="coach-favorites" />
+      <Stack.Screen name="coach-packages" />
     </Stack>
     </ThemeProvider>
   );

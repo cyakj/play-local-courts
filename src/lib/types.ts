@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -439,6 +439,27 @@ export type Database = {
         }
         Relationships: []
       }
+      coach_favorites: {
+        Row: {
+          coach_id: string
+          created_at: string | null
+          id: string
+          player_id: string
+        }
+        Insert: {
+          coach_id: string
+          created_at?: string | null
+          id?: string
+          player_id: string
+        }
+        Update: {
+          coach_id?: string
+          created_at?: string | null
+          id?: string
+          player_id?: string
+        }
+        Relationships: []
+      }
       coach_reviews: {
         Row: {
           coach_id: string
@@ -483,17 +504,59 @@ export type Database = {
           },
         ]
       }
+      coach_unavailability: {
+        Row: {
+          coach_id: string
+          created_at: string | null
+          end_date: string
+          id: string
+          notes: string | null
+          recurs_annually: boolean | null
+          start_date: string
+          title: string | null
+          type: string
+        }
+        Insert: {
+          coach_id: string
+          created_at?: string | null
+          end_date: string
+          id?: string
+          notes?: string | null
+          recurs_annually?: boolean | null
+          start_date: string
+          title?: string | null
+          type: string
+        }
+        Update: {
+          coach_id?: string
+          created_at?: string | null
+          end_date?: string
+          id?: string
+          notes?: string | null
+          recurs_annually?: boolean | null
+          start_date?: string
+          title?: string | null
+          type?: string
+        }
+        Relationships: []
+      }
       coaches: {
         Row: {
           bio: string | null
           business_name: string | null
+          cancellation_policy_hours: number | null
           created_at: string | null
           credentials: string | null
           home_base: string | null
           hourly_rate: number | null
           id: string
+          is_active: boolean | null
+          latitude: number | null
+          levels_served: string[] | null
+          longitude: number | null
           profile_image_url: string | null
           sports_offered: string[] | null
+          timezone: string | null
           updated_at: string | null
           user_id: string
           willing_to_travel: boolean | null
@@ -502,13 +565,19 @@ export type Database = {
         Insert: {
           bio?: string | null
           business_name?: string | null
+          cancellation_policy_hours?: number | null
           created_at?: string | null
           credentials?: string | null
           home_base?: string | null
           hourly_rate?: number | null
           id?: string
+          is_active?: boolean | null
+          latitude?: number | null
+          levels_served?: string[] | null
+          longitude?: number | null
           profile_image_url?: string | null
           sports_offered?: string[] | null
+          timezone?: string | null
           updated_at?: string | null
           user_id: string
           willing_to_travel?: boolean | null
@@ -517,13 +586,19 @@ export type Database = {
         Update: {
           bio?: string | null
           business_name?: string | null
+          cancellation_policy_hours?: number | null
           created_at?: string | null
           credentials?: string | null
           home_base?: string | null
           hourly_rate?: number | null
           id?: string
+          is_active?: boolean | null
+          latitude?: number | null
+          levels_served?: string[] | null
+          longitude?: number | null
           profile_image_url?: string | null
           sports_offered?: string[] | null
+          timezone?: string | null
           updated_at?: string | null
           user_id?: string
           willing_to_travel?: boolean | null
@@ -1958,48 +2033,105 @@ export type Database = {
       }
       lesson_requests: {
         Row: {
+          attendance_marked_at: string | null
+          attendance_marked_by: string | null
+          attendance_status: string | null
+          cancellation_reason: string | null
+          cancelled_by: string | null
           coach_id: string
+          confirmed_date: string | null
+          confirmed_time_end: string | null
+          confirmed_time_start: string | null
+          counter_proposed_date: string | null
+          counter_proposed_notes: string | null
+          counter_proposed_time_end: string | null
+          counter_proposed_time_start: string | null
           created_at: string | null
+          duration_minutes: number | null
+          expires_at: string | null
           id: string
           lesson_type: string
           location: string | null
+          no_show_by: string | null
           notes: string | null
+          package_hold_id: string | null
           player_id: string
           preferred_date: string
+          preferred_dates: string[] | null
           preferred_time_end: string
           preferred_time_start: string
+          recurring_series_id: string | null
+          review_eligible_at: string | null
           skill_level: string
           sport: string
           status: string | null
           updated_at: string | null
         }
         Insert: {
+          attendance_marked_at?: string | null
+          attendance_marked_by?: string | null
+          attendance_status?: string | null
+          cancellation_reason?: string | null
+          cancelled_by?: string | null
           coach_id: string
+          confirmed_date?: string | null
+          confirmed_time_end?: string | null
+          confirmed_time_start?: string | null
+          counter_proposed_date?: string | null
+          counter_proposed_notes?: string | null
+          counter_proposed_time_end?: string | null
+          counter_proposed_time_start?: string | null
           created_at?: string | null
+          duration_minutes?: number | null
+          expires_at?: string | null
           id?: string
           lesson_type: string
           location?: string | null
+          no_show_by?: string | null
           notes?: string | null
+          package_hold_id?: string | null
           player_id: string
           preferred_date: string
+          preferred_dates?: string[] | null
           preferred_time_end: string
           preferred_time_start: string
+          recurring_series_id?: string | null
+          review_eligible_at?: string | null
           skill_level: string
           sport: string
           status?: string | null
           updated_at?: string | null
         }
         Update: {
+          attendance_marked_at?: string | null
+          attendance_marked_by?: string | null
+          attendance_status?: string | null
+          cancellation_reason?: string | null
+          cancelled_by?: string | null
           coach_id?: string
+          confirmed_date?: string | null
+          confirmed_time_end?: string | null
+          confirmed_time_start?: string | null
+          counter_proposed_date?: string | null
+          counter_proposed_notes?: string | null
+          counter_proposed_time_end?: string | null
+          counter_proposed_time_start?: string | null
           created_at?: string | null
+          duration_minutes?: number | null
+          expires_at?: string | null
           id?: string
           lesson_type?: string
           location?: string | null
+          no_show_by?: string | null
           notes?: string | null
+          package_hold_id?: string | null
           player_id?: string
           preferred_date?: string
+          preferred_dates?: string[] | null
           preferred_time_end?: string
           preferred_time_start?: string
+          recurring_series_id?: string | null
+          review_eligible_at?: string | null
           skill_level?: string
           sport?: string
           status?: string | null
@@ -2629,8 +2761,10 @@ export type Database = {
           home_court_id: string | null
           id: string
           is_verified: boolean | null
+          latitude: number | null
           location: string | null
           location_visible: boolean | null
+          longitude: number | null
           notification_preferences: Json | null
           ntrp_rating: number | null
           phone_number: string | null
@@ -2662,8 +2796,10 @@ export type Database = {
           home_court_id?: string | null
           id: string
           is_verified?: boolean | null
+          latitude?: number | null
           location?: string | null
           location_visible?: boolean | null
+          longitude?: number | null
           notification_preferences?: Json | null
           ntrp_rating?: number | null
           phone_number?: string | null
@@ -2695,8 +2831,10 @@ export type Database = {
           home_court_id?: string | null
           id?: string
           is_verified?: boolean | null
+          latitude?: number | null
           location?: string | null
           location_visible?: boolean | null
+          longitude?: number | null
           notification_preferences?: Json | null
           ntrp_rating?: number | null
           phone_number?: string | null
@@ -3351,6 +3489,13 @@ export type Database = {
         Args: { ladder_id_param: string }
         Returns: number
       }
+      get_coaches_near: {
+        Args: { player_lat: number; player_lng: number; radius_km?: number }
+        Returns: {
+          coach_user_id: string
+          distance_km: number
+        }[]
+      }
       get_email_preferences: {
         Args: { target_user_id: string }
         Returns: {
@@ -3606,3 +3751,4 @@ export const Constants = {
     },
   },
 } as const
+
