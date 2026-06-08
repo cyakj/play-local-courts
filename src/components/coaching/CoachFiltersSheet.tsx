@@ -16,16 +16,12 @@ import type {
   RatingFilter, ExperienceFilter, LocationModeFilter, GenderFilter,
 } from '@/hooks/useCoachData';
 
-export const LESSON_TYPE_OPTIONS = [
-  'Private Lesson',
-  'Semi-Private Lesson',
-  'Group Lesson',
-  'Hitting Partner',
-  'Match Play',
-  'Junior Development',
-  'Adult Beginner',
-  'Advanced Training',
-] as const;
+export const LESSON_TYPE_OPTIONS: { value: string; label: string }[] = [
+  { value: 'private_lesson',      label: 'Private Lesson'  },
+  { value: 'semi_private_lesson', label: 'Semi-Private'    },
+  { value: 'group_lesson',        label: 'Group Lesson'    },
+  { value: 'hitting_partner',     label: 'Hitting Partner' },
+];
 
 const DISTANCE_OPTIONS: { label: string; value: DistanceFilterKm }[] = [
   { label: '5 mi',  value: 8  },
@@ -244,16 +240,20 @@ export function CoachFiltersSheet({ visible, onClose, filters, onApply, playerHa
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>Lesson Type</Text>
             <View style={styles.chipRow}>
-              {LESSON_TYPE_OPTIONS.map(lt => {
-                const active = draft.lessonTypes.includes(lt);
+              {LESSON_TYPE_OPTIONS.map(o => {
+                const active = draft.lessonTypes.includes(o.value);
                 return (
                   <TouchableOpacity
-                    key={lt}
+                    key={o.value}
                     style={[styles.chip, active && styles.chipActive]}
-                    onPress={() => setDraft(d => ({ ...d, lessonTypes: toggle(d.lessonTypes, lt) }))}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={[styles.chipLabel, active && styles.chipLabelActive]}>{lt}</Text>
+                    onPress={() => setDraft(s => ({
+                      ...s,
+                      lessonTypes: active
+                        ? s.lessonTypes.filter(v => v !== o.value)
+                        : [...s.lessonTypes, o.value],
+                    }))}
+                    activeOpacity={0.7}>
+                    <Text style={[styles.chipLabel, active && styles.chipLabelActive]}>{o.label}</Text>
                   </TouchableOpacity>
                 );
               })}

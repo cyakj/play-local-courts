@@ -23,11 +23,13 @@ import type { ThemeTokens } from '@/constants/theme-tokens';
 const LESSON_TYPE_LABELS: Record<string, string> = {
   private_lesson:      'Private Lesson',
   semi_private_lesson: 'Semi-Private',
-  group_clinic:        'Group Clinic',
-  practice_session:    'Practice Session',
+  group_lesson:        'Group Lesson',
+  hitting_partner:     'Hitting Partner',
+  group_clinic:        'Group Lesson',    // legacy
+  practice_session:    'Hitting Partner', // legacy
   private:             'Private Lesson',
   'semi-private':      'Semi-Private',
-  group:               'Group Clinic',
+  group:               'Group Lesson',
 };
 
 interface Conversation {

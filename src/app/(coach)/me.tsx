@@ -27,14 +27,10 @@ const LEVEL_OPTIONS = [
 ];
 
 const LESSON_TYPES = [
-  { value: 'private_lesson',      label: 'Private'        },
-  { value: 'semi_private_lesson', label: 'Semi-Private'   },
-  { value: 'group_lesson',        label: 'Group'          },
-  { value: 'hitting_partner',     label: 'Hitting Partner'},
-  { value: 'match_play',          label: 'Match Play'     },
-  { value: 'junior_development',  label: 'Junior Dev'     },
-  { value: 'adult_beginner',      label: 'Adult Beginner' },
-  { value: 'advanced_training',   label: 'Advanced'       },
+  { value: 'private_lesson',      label: 'Private Lesson'  },
+  { value: 'semi_private_lesson', label: 'Semi-Private'    },
+  { value: 'group_lesson',        label: 'Group Lesson'    },
+  { value: 'hitting_partner',     label: 'Hitting Partner' },
 ];
 
 const LOCATION_MODE_OPTIONS = [
