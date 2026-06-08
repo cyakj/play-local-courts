@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -15,11 +15,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, Check, CheckCheck, Search, Send } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
-import {
-  Colors, FontFamily, FontSize, MaxWidth, Radius, Shadow, Spacing,
-} from '@/constants/design';
+import { Colors, FontFamily, FontSize, MaxWidth, Spacing } from '@/constants/design';
 import { CardSkeleton } from '@/components/ui/Skeleton';
-import { EmptyState } from '@/components/ui/EmptyState';
+import { useTheme } from '@/context/ThemeContext';
+import type { ThemeTokens } from '@/constants/theme-tokens';
 
 interface Conversation {
   partnerId: string;
@@ -56,6 +55,8 @@ function formatMessageTime(iso: string): string {
 
 export default function MessagesScreen() {
   const insets = useSafeAreaInsets();
+  const { theme } = useTheme();
+  const styles = useStyles(theme);
   const [userId, setUserId] = useState('');
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -155,7 +156,6 @@ export default function MessagesScreen() {
     });
   }, []);
 
-  // Deep-link: open a specific conversation when ?partner=<id> is in the URL
   useEffect(() => {
     if (!partnerParam || !userId || didDeepLink.current) return;
     didDeepLink.current = true;
@@ -255,7 +255,7 @@ export default function MessagesScreen() {
               value={draft}
               onChangeText={setDraft}
               placeholder="Type a message…"
-              placeholderTextColor={Colors.textPlaceholder}
+              placeholderTextColor={theme.textMuted}
               multiline
             />
             <TouchableOpacity
@@ -274,6 +274,12 @@ export default function MessagesScreen() {
   return (
     <View style={styles.screen}>
       <View style={[styles.listHeader, { paddingTop: Math.max(insets.top, 24) + 8 }]}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backBtn}
+          hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+          <ArrowLeft color={Colors.white} size={22} strokeWidth={1.5} />
+        </TouchableOpacity>
         <View style={styles.listHeaderTop}>
           <Text style={styles.inboxTag}>INBOX</Text>
           {totalUnread > 0 && (
@@ -283,8 +289,6 @@ export default function MessagesScreen() {
           )}
         </View>
         <Text style={styles.headerTitle}>Messages</Text>
-
-        {/* Search bar */}
         <View style={styles.searchBar}>
           <Search color="rgba(255,255,255,0.5)" size={15} strokeWidth={2} />
           <TextInput
@@ -343,154 +347,164 @@ export default function MessagesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.pageBg },
+function useStyles(theme: ThemeTokens) {
+  return useMemo(() => StyleSheet.create({
+    screen: { flex: 1, backgroundColor: theme.pageBg },
 
-  listHeader: {
-    backgroundColor: Colors.navy,
-    paddingHorizontal: Spacing.pagePx,
-    paddingBottom: 20,
-  },
-  listHeaderTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  inboxTag: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: 13,
-    color: Colors.accentCyan,
-    letterSpacing: 2.4,
-  },
-  unreadBadge: {
-    backgroundColor: Colors.coral,
-    borderRadius: 99,
-    paddingHorizontal: 10,
-    paddingVertical: 2,
-  },
-  unreadBadgeText: {
-    fontFamily: FontFamily.manropeBold,
-    fontSize: 12,
-    color: Colors.white,
-  },
-  headerTitle: {
-    fontFamily: FontFamily.manropeBlack,
-    fontSize: 28,
-    color: Colors.white,
-    lineHeight: 32,
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginTop: 14,
-  },
-  searchInput: {
-    flex: 1,
-    fontFamily: FontFamily.interRegular,
-    fontSize: 14,
-    color: Colors.white,
-  },
+    // ── List header ──
+    listHeader: {
+      backgroundColor: Colors.navy,
+      paddingHorizontal: Spacing.pagePx,
+      paddingBottom: 20,
+    },
+    backBtn: {
+      width: 44, height: 44,
+      alignItems: 'center', justifyContent: 'center',
+      marginLeft: -4, marginBottom: 4,
+    },
+    listHeaderTop: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 4,
+    },
+    inboxTag: {
+      fontFamily: FontFamily.jetbrainsMonoSemiBold,
+      fontSize: 11,
+      color: Colors.accentCyan,
+      letterSpacing: 2.4,
+    },
+    unreadBadge: {
+      backgroundColor: Colors.negative,
+      borderRadius: 99,
+      paddingHorizontal: 10,
+      paddingVertical: 2,
+    },
+    unreadBadgeText: { fontFamily: FontFamily.manropeBold, fontSize: 12, color: Colors.white },
+    headerTitle: {
+      fontFamily: FontFamily.spaceGroteskBold,
+      fontSize: 28,
+      color: Colors.white,
+      lineHeight: 32,
+    },
+    searchBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      backgroundColor: 'rgba(255,255,255,0.10)',
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.15)',
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      marginTop: 14,
+    },
+    searchInput: {
+      flex: 1,
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.body,
+      color: Colors.white,
+    },
 
-  threadHeader: {
-    backgroundColor: Colors.navy,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.pagePx,
-    paddingBottom: 16,
-    gap: 12,
-  },
-  frostedBack: {
-    width: 44, height: 44,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center', justifyContent: 'center',
-    flexShrink: 0,
-  },
-  threadAvatar: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: 'rgba(0,212,255,0.2)',
-    borderWidth: 2, borderColor: 'rgba(0,212,255,0.5)',
-    alignItems: 'center', justifyContent: 'center',
-    flexShrink: 0,
-  },
-  threadAvatarText: { fontFamily: FontFamily.manropeBold, fontSize: 13, color: Colors.accentCyan },
-  threadName: { fontFamily: FontFamily.manropeBold, fontSize: 16, color: Colors.white },
-  threadSub: { fontFamily: FontFamily.interRegular, fontSize: 12, color: 'rgba(255,255,255,0.55)', marginTop: 1 },
+    // ── Thread header ──
+    threadHeader: {
+      backgroundColor: Colors.navy,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: Spacing.pagePx,
+      paddingBottom: 16,
+      gap: 12,
+    },
+    frostedBack: {
+      width: 44, height: 44,
+      borderRadius: 10,
+      backgroundColor: 'rgba(255,255,255,0.12)',
+      alignItems: 'center', justifyContent: 'center',
+      flexShrink: 0,
+    },
+    threadAvatar: {
+      width: 40, height: 40, borderRadius: 20,
+      backgroundColor: 'rgba(45,224,255,0.15)',
+      borderWidth: 2, borderColor: 'rgba(45,224,255,0.40)',
+      alignItems: 'center', justifyContent: 'center',
+      flexShrink: 0,
+    },
+    threadAvatarText: { fontFamily: FontFamily.manropeBold, fontSize: 13, color: Colors.accentCyan },
+    threadName: { fontFamily: FontFamily.manropeBold, fontSize: 16, color: Colors.white },
+    threadSub: { fontFamily: FontFamily.manropeMedium, fontSize: 12, color: 'rgba(255,255,255,0.55)', marginTop: 1 },
 
-  threadContent: { padding: Spacing.pagePx, paddingBottom: 20, gap: 6 },
-  newDivider: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
-  newDividerLine: { flex: 1, height: 1, backgroundColor: 'rgba(0,212,255,0.3)' },
-  newDividerLabel: {
-    fontFamily: FontFamily.manropeBold,
-    fontSize: 11,
-    color: Colors.accentCyan,
-    letterSpacing: 1.2,
-  },
-  bubble: { maxWidth: '75%', borderRadius: 14, padding: 12, gap: 2 },
-  bubbleMe: { backgroundColor: Colors.navy, alignSelf: 'flex-end', borderBottomRightRadius: 4 },
-  bubbleThem: {
-    backgroundColor: Colors.cardBg,
-    alignSelf: 'flex-start',
-    borderBottomLeftRadius: 4,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    ...Shadow,
-  },
-  bubbleText: { fontFamily: FontFamily.interRegular, fontSize: FontSize.body, lineHeight: 21 },
-  bubbleTextMe: { color: Colors.white },
-  bubbleTextThem: { color: Colors.textPrimary },
-  bubbleFooter: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  bubbleTime: { fontFamily: FontFamily.interRegular, fontSize: 10 },
-  bubbleTimeMe: { color: 'rgba(255,255,255,0.5)' },
-  bubbleTimeThem: { color: Colors.textMuted },
+    // ── Thread messages ──
+    threadContent: { padding: Spacing.pagePx, paddingBottom: 20, gap: 6 },
+    newDivider: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
+    newDividerLine: { flex: 1, height: 1, backgroundColor: 'rgba(45,224,255,0.25)' },
+    newDividerLabel: {
+      fontFamily: FontFamily.jetbrainsMonoSemiBold,
+      fontSize: 11,
+      color: Colors.accentCyan,
+      letterSpacing: 1.2,
+    },
+    bubble: { maxWidth: '75%', borderRadius: 14, padding: 12, gap: 2 },
+    bubbleMe:   { backgroundColor: Colors.blue, alignSelf: 'flex-end', borderBottomRightRadius: 4 },
+    bubbleThem: {
+      backgroundColor: theme.cardBg,
+      alignSelf: 'flex-start',
+      borderBottomLeftRadius: 4,
+      borderWidth: 1,
+      borderColor: theme.border,
+      ...theme.shadowCard,
+    },
+    bubbleText:     { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.body, lineHeight: 21 },
+    bubbleTextMe:   { color: Colors.white },
+    bubbleTextThem: { color: theme.textPrimary },
+    bubbleFooter:   { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    bubbleTime:     { fontFamily: FontFamily.manropeMedium, fontSize: 10 },
+    bubbleTimeMe:   { color: 'rgba(255,255,255,0.5)' },
+    bubbleTimeThem: { color: theme.textMuted },
 
-  inputRow: {
-    flexDirection: 'row', alignItems: 'flex-end', gap: 10,
-    padding: Spacing.pagePx, borderTopWidth: 1, borderTopColor: Colors.border,
-    backgroundColor: Colors.cardBg,
-  },
-  input: {
-    flex: 1, borderWidth: 1, borderColor: Colors.border, borderRadius: 24,
-    paddingHorizontal: 16, paddingVertical: 12,
-    fontFamily: FontFamily.interRegular, fontSize: FontSize.body,
-    color: Colors.textPrimary, backgroundColor: Colors.pageBg, maxHeight: 100,
-  },
-  sendBtn: {
-    width: 48, height: 48, borderRadius: 24,
-    backgroundColor: Colors.navy, alignItems: 'center', justifyContent: 'center',
-  },
-  sendBtnDisabled: { backgroundColor: '#E5E7EB' },
+    // ── Input row ──
+    inputRow: {
+      flexDirection: 'row', alignItems: 'flex-end', gap: 10,
+      padding: Spacing.pagePx, borderTopWidth: 1, borderTopColor: theme.border,
+      backgroundColor: theme.cardBg,
+    },
+    input: {
+      flex: 1, borderWidth: 1, borderColor: theme.border, borderRadius: 24,
+      paddingHorizontal: 16, paddingVertical: 12,
+      fontFamily: FontFamily.manropeMedium, fontSize: FontSize.body,
+      color: theme.textPrimary, backgroundColor: theme.inputBg, maxHeight: 100,
+    },
+    sendBtn: {
+      width: 48, height: 48, borderRadius: 24,
+      backgroundColor: Colors.blue, alignItems: 'center', justifyContent: 'center',
+    },
+    sendBtnDisabled: { backgroundColor: theme.surface2 },
 
-  convoRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    paddingHorizontal: Spacing.pagePx, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: 'rgba(15,31,61,0.06)',
-    backgroundColor: Colors.white,
-  },
-  convoAvatar: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: Colors.navy, alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-  },
-  convoAvatarText: { fontFamily: FontFamily.manropeBold, fontSize: 15, color: Colors.white },
-  convoMeta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  convoName: { fontFamily: FontFamily.manropeBold, fontSize: FontSize.cardTitle, color: Colors.textPrimary },
-  convoTime: { fontFamily: FontFamily.interRegular, fontSize: FontSize.metadata, color: Colors.textMuted },
-  convoPreview: { fontFamily: FontFamily.interRegular, fontSize: FontSize.uiLabel, color: Colors.textMuted, marginTop: 2 },
-  unreadDot: {
-    width: 20, height: 20, borderRadius: 10, backgroundColor: Colors.accentCyan,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  unreadDotText: { fontFamily: FontFamily.interSemiBold, fontSize: 11, color: Colors.navy },
+    // ── Conversation list ──
+    convoRow: {
+      flexDirection: 'row', alignItems: 'center', gap: 14,
+      paddingHorizontal: Spacing.pagePx, paddingVertical: 14,
+      borderBottomWidth: 1, borderBottomColor: theme.border,
+      backgroundColor: theme.cardBg,
+    },
+    convoAvatar: {
+      width: 44, height: 44, borderRadius: 22,
+      backgroundColor: 'rgba(45,107,255,0.20)',
+      borderWidth: 1, borderColor: 'rgba(45,107,255,0.35)',
+      alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+    },
+    convoAvatarText: { fontFamily: FontFamily.manropeBold, fontSize: 15, color: Colors.blue },
+    convoMeta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    convoName: { fontFamily: FontFamily.manropeBold, fontSize: FontSize.cardTitle, color: theme.textPrimary },
+    convoTime: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.metadata, color: theme.textMuted },
+    convoPreview: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.uiLabel, color: theme.textSecondary, marginTop: 2 },
+    unreadDot: {
+      width: 20, height: 20, borderRadius: 10, backgroundColor: Colors.accentCyan,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    unreadDotText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 11, color: Colors.navy },
 
-  emptyState: { paddingVertical: 60, paddingHorizontal: 32, alignItems: 'center' },
-  emptyTitle: { fontFamily: FontFamily.manropeBold, fontSize: 15, color: Colors.navy, textAlign: 'center' },
-  emptySub: { fontFamily: FontFamily.interRegular, fontSize: 13, color: Colors.textMuted, marginTop: 6, textAlign: 'center' },
-});
+    emptyState: { paddingVertical: 60, paddingHorizontal: 32, alignItems: 'center' },
+    emptyTitle: { fontFamily: FontFamily.spaceGroteskBold, fontSize: FontSize.sectionTitle, color: theme.textPrimary, textAlign: 'center' },
+    emptySub: { fontFamily: FontFamily.manropeMedium, fontSize: 13, color: theme.textMuted, marginTop: 6, textAlign: 'center' },
+  }), [theme]);
+}

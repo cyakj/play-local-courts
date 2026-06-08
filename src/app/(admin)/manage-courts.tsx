@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   ScrollView,
@@ -8,15 +8,16 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react-native';
+import { Plus, Trash2 } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import {
-  Colors, FontFamily, FontSize, Radius, Shadow, Spacing, MaxWidth,
+  Colors, FontFamily, FontSize, Radius, Spacing, MaxWidth,
 } from '@/constants/design';
-import { EmptyState } from '@/components/ui/EmptyState';
+import { Header } from '@/components/ui/Header';
+import { useTheme } from '@/context/ThemeContext';
+import type { ThemeTokens } from '@/constants/theme-tokens';
 import type { Database } from '@/lib/types';
 
 type Court = Database['public']['Tables']['courts']['Row'];
@@ -69,14 +70,10 @@ function slotToHour(slot: string): number {
 }
 
 type SlotStatus = 'available' | 'booked' | 'maintenance';
-const SLOT_COLORS: Record<SlotStatus, { bg: string; border: string; text: string }> = {
-  available: { bg: '#F9FAFB', border: '#E5E7EB', text: '#0F1F3D' },
-  booked: { bg: '#FEF2F2', border: '#EF4444', text: '#991B1B' },
-  maintenance: { bg: '#FFFBEB', border: '#F59E0B', text: '#B45309' },
-};
 
 export default function ManageCourtsScreen() {
-  const insets = useSafeAreaInsets();
+  const { theme } = useTheme();
+  const styles = useStyles(theme);
   const { hoaId } = useLocalSearchParams<{ hoaId: string }>();
 
   const [courts, setCourts] = useState<Court[]>([]);
@@ -91,6 +88,12 @@ export default function ManageCourtsScreen() {
   const [maintenance, setMaintenance] = useState<CourtMaintenance[]>([]);
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(startOfDay(new Date()), i));
+
+  const slotColors = useMemo<Record<SlotStatus, { bg: string; border: string; text: string }>>(() => ({
+    available: { bg: 'rgba(154,163,184,0.08)', border: 'rgba(154,163,184,0.20)', text: theme.textSecondary },
+    booked: { bg: 'rgba(255,92,107,0.12)', border: 'rgba(255,92,107,0.40)', text: Colors.negative },
+    maintenance: { bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.40)', text: '#F59E0B' },
+  }), [theme]);
 
   async function loadCourts() {
     let query = supabase.from('courts').select('*').order('name', { ascending: true });
@@ -178,16 +181,13 @@ export default function ManageCourtsScreen() {
 
   return (
     <View style={styles.screen}>
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 8 }]}>
-        <View style={styles.headerTopRow}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <ArrowLeft color={Colors.white} size={20} strokeWidth={1.5} />
-          </TouchableOpacity>
-        </View>
-        <Text style={styles.headerTag}>ADMIN</Text>
-        <Text style={styles.headerTitle}>Manage Amenities</Text>
-        <Text style={styles.headerSub}>
+      <Header variant="inner" title="Manage Amenities" onBack={() => router.back()} />
+
+      {/* Hero section */}
+      <View style={styles.hero}>
+        <Text style={styles.heroTag}>ADMIN</Text>
+        <Text style={styles.heroTitle}>Manage Amenities</Text>
+        <Text style={styles.heroSub}>
           Add, remove, and schedule maintenance for your community amenities.
         </Text>
       </View>
@@ -217,7 +217,7 @@ export default function ManageCourtsScreen() {
                 value={newName}
                 onChangeText={setNewName}
                 placeholder="e.g., Tennis Court 3, Pool Area"
-                placeholderTextColor={Colors.textPlaceholder}
+                placeholderTextColor={theme.textMuted}
                 autoFocus
               />
 
@@ -287,7 +287,6 @@ export default function ManageCourtsScreen() {
                 const isExpanded = selectedCourtId === court.id;
                 return (
                   <View key={court.id} style={styles.courtCard}>
-                    {/* Card header row */}
                     <View style={styles.courtCardHeader}>
                       <View style={styles.courtInfo}>
                         <Text style={styles.courtName}>{court.name}</Text>
@@ -306,7 +305,7 @@ export default function ManageCourtsScreen() {
                           style={styles.deleteBtn}
                           onPress={() => confirmDelete(court)}
                           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                          <Trash2 color={Colors.red} size={16} strokeWidth={1.5} />
+                          <Trash2 color={Colors.negative} size={16} strokeWidth={1.5} />
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -320,7 +319,7 @@ export default function ManageCourtsScreen() {
                         <View style={styles.slotGrid}>
                           {TIME_SLOTS.map((slot) => {
                             const status = getSlotStatus(slot);
-                            const colors = SLOT_COLORS[status];
+                            const colors = slotColors[status];
                             const isMaintenance = status === 'maintenance';
                             const isBooked = status === 'booked';
                             return (
@@ -335,12 +334,16 @@ export default function ManageCourtsScreen() {
                                   <TouchableOpacity
                                     style={[
                                       styles.slotToggleBtn,
-                                      { backgroundColor: isMaintenance ? '#F3F4F6' : '#FFFBEB' },
+                                      {
+                                        backgroundColor: isMaintenance
+                                          ? 'rgba(154,163,184,0.10)'
+                                          : 'rgba(245,158,11,0.10)',
+                                      },
                                     ]}
                                     onPress={() => toggleMaintenance(slot, isMaintenance)}>
                                     <Text style={[
                                       styles.slotToggleBtnText,
-                                      { color: isMaintenance ? '#6B7280' : '#B45309' },
+                                      { color: isMaintenance ? theme.textMuted : '#F59E0B' },
                                     ]}>
                                       {isMaintenance ? 'Make Available' : 'Set Maintenance'}
                                     </Text>
@@ -371,318 +374,309 @@ export default function ManageCourtsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.pageBg },
-  scroll: { flex: 1 },
-  content: { padding: Spacing.pagePx, gap: 12, paddingBottom: 100 },
+function useStyles(theme: ThemeTokens) {
+  return useMemo(() => StyleSheet.create({
+    screen: { flex: 1, backgroundColor: theme.pageBg },
+    scroll: { flex: 1 },
+    content: { padding: Spacing.pagePx, gap: 12, paddingBottom: 100 },
 
-  header: {
-    backgroundColor: Colors.navy,
-    paddingHorizontal: Spacing.pagePx,
-    paddingBottom: 24,
-  },
-  headerTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  backBtn: {
-    width: 36, height: 36, borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  headerTag: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: FontSize.metadata,
-    color: Colors.accentCyan,
-    letterSpacing: 2,
-    marginBottom: 4,
-  },
-  headerTitle: {
-    fontFamily: FontFamily.manropeBlack,
-    fontSize: 32,
-    color: Colors.white,
-    lineHeight: 36,
-  },
-  headerSub: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: 15,
-    color: 'rgba(200,240,255,0.85)',
-    marginTop: 8,
-    lineHeight: 22,
-  },
+    hero: {
+      paddingHorizontal: Spacing.pagePx,
+      paddingTop: 8,
+      paddingBottom: 20,
+    },
+    heroTag: {
+      fontFamily: FontFamily.jetbrainsMonoSemiBold,
+      fontSize: FontSize.metadata,
+      color: Colors.accentCyan,
+      letterSpacing: 2,
+      marginBottom: 6,
+    },
+    heroTitle: {
+      fontFamily: FontFamily.spaceGroteskBold,
+      fontSize: FontSize.display,
+      color: theme.textPrimary,
+      letterSpacing: -0.8,
+      lineHeight: 42,
+    },
+    heroSub: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.label,
+      color: theme.textSecondary,
+      marginTop: 6,
+      lineHeight: 22,
+    },
 
-  // Add dashed card
-  addDashedCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 18,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    borderColor: '#E5E7EB',
-  },
-  addDashedLabel: {
-    fontFamily: FontFamily.manropeBold,
-    fontSize: FontSize.uiLabel,
-    color: Colors.navy,
-  },
+    // Add dashed card
+    addDashedCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      paddingVertical: 18,
+      borderRadius: 16,
+      borderWidth: 2,
+      borderStyle: 'dashed',
+      borderColor: theme.border,
+    },
+    addDashedLabel: {
+      fontFamily: FontFamily.manropeBold,
+      fontSize: FontSize.uiLabel,
+      color: theme.textPrimary,
+    },
 
-  // Add form card
-  addFormCard: {
-    backgroundColor: Colors.white,
-    borderRadius: Radius.card,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    ...Shadow,
-  },
-  addFormTitle: {
-    fontFamily: FontFamily.manropeExtraBold,
-    fontSize: FontSize.cardTitle,
-    color: Colors.navy,
-    marginBottom: 16,
-  },
-  fieldLabel: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: 12,
-    color: '#374151',
-    letterSpacing: 0.8,
-    marginBottom: 6,
-    textTransform: 'uppercase',
-  },
-  textInput: {
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Radius.input,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.body,
-    color: Colors.textPrimary,
-  },
-  typeGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 16,
-  },
-  typePill: {
-    width: '47%',
-    borderRadius: Radius.input,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    alignItems: 'center',
-    backgroundColor: 'transparent',
-  },
-  typePillActive: {
-    borderColor: Colors.accentCyan,
-    backgroundColor: 'rgba(0,212,255,0.08)',
-  },
-  typePillLabel: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: FontSize.uiLabel,
-    color: '#6B7280',
-  },
-  typePillLabelActive: {
-    color: Colors.accentCyan,
-  },
-  formActions: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 4,
-  },
-  cancelBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: Radius.input,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    minHeight: 44,
-  },
-  cancelBtnText: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: FontSize.body,
-    color: Colors.navy,
-  },
-  addBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: Radius.input,
-    backgroundColor: Colors.navy,
-    alignItems: 'center',
-    minHeight: 44,
-  },
-  addBtnDisabled: { opacity: 0.4 },
-  addBtnText: {
-    fontFamily: FontFamily.manropeBold,
-    fontSize: FontSize.uiLabel,
-    color: Colors.white,
-  },
+    // Add form card
+    addFormCard: {
+      backgroundColor: theme.cardBg,
+      borderRadius: Radius.card,
+      padding: 20,
+      borderWidth: 1,
+      borderColor: theme.border,
+      ...theme.shadowCard,
+    },
+    addFormTitle: {
+      fontFamily: FontFamily.manropeExtraBold,
+      fontSize: FontSize.cardTitle,
+      color: theme.textPrimary,
+      marginBottom: 16,
+    },
+    fieldLabel: {
+      fontFamily: FontFamily.jetbrainsMonoSemiBold,
+      fontSize: 12,
+      color: theme.textMuted,
+      letterSpacing: 0.8,
+      marginBottom: 6,
+    },
+    textInput: {
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: Radius.input,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.body,
+      color: theme.textPrimary,
+      backgroundColor: theme.pageBg,
+    },
+    typeGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginBottom: 16,
+    },
+    typePill: {
+      width: '47%',
+      borderRadius: Radius.input,
+      borderWidth: 1,
+      borderColor: theme.border,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      alignItems: 'center',
+      backgroundColor: 'transparent',
+    },
+    typePillActive: {
+      borderColor: Colors.accentCyan,
+      backgroundColor: 'rgba(45,224,255,0.08)',
+    },
+    typePillLabel: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: FontSize.uiLabel,
+      color: theme.textMuted,
+    },
+    typePillLabelActive: {
+      color: Colors.accentCyan,
+    },
+    formActions: {
+      flexDirection: 'row',
+      gap: 10,
+      marginTop: 4,
+    },
+    cancelBtn: {
+      flex: 1,
+      paddingVertical: 12,
+      borderRadius: Radius.input,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.pageBg,
+      alignItems: 'center',
+      minHeight: 44,
+    },
+    cancelBtnText: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: FontSize.body,
+      color: theme.textPrimary,
+    },
+    addBtn: {
+      flex: 1,
+      paddingVertical: 12,
+      borderRadius: Radius.input,
+      backgroundColor: Colors.navy,
+      alignItems: 'center',
+      minHeight: 44,
+    },
+    addBtnDisabled: { opacity: 0.4 },
+    addBtnText: {
+      fontFamily: FontFamily.manropeBold,
+      fontSize: FontSize.uiLabel,
+      color: Colors.white,
+    },
 
-  // Section
-  sectionTitle: {
-    fontFamily: FontFamily.manropeBold,
-    fontSize: FontSize.sectionTitle,
-    color: Colors.navy,
-    marginTop: 4,
-  },
+    // Section
+    sectionTitle: {
+      fontFamily: FontFamily.manropeBold,
+      fontSize: FontSize.sectionTitle,
+      color: theme.textPrimary,
+      marginTop: 4,
+    },
 
-  // Date selector
-  dateSelectorLabel: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: 12,
-    color: '#374151',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    marginBottom: 8,
-    marginTop: 12,
-  },
-  dateScroll: { marginBottom: 4 },
-  dateRow: { flexDirection: 'row', gap: 8, paddingBottom: 4 },
-  datePill: {
-    borderRadius: Radius.input,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: Colors.white,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  datePillActive: {
-    backgroundColor: Colors.navy,
-    borderColor: Colors.navy,
-  },
-  datePillText: {
-    fontFamily: FontFamily.manropeBold,
-    fontSize: 12,
-    color: '#6B7280',
-  },
-  datePillTextActive: { color: Colors.white },
+    // Date selector
+    dateSelectorLabel: {
+      fontFamily: FontFamily.jetbrainsMonoSemiBold,
+      fontSize: 12,
+      color: theme.textMuted,
+      letterSpacing: 0.8,
+      marginBottom: 8,
+      marginTop: 12,
+    },
+    dateScroll: { marginBottom: 4 },
+    dateRow: { flexDirection: 'row', gap: 8, paddingBottom: 4 },
+    datePill: {
+      borderRadius: Radius.input,
+      borderWidth: 1,
+      borderColor: theme.border,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      backgroundColor: theme.cardBg,
+      minHeight: 44,
+      justifyContent: 'center',
+    },
+    datePillActive: {
+      backgroundColor: Colors.navy,
+      borderColor: Colors.navy,
+    },
+    datePillText: {
+      fontFamily: FontFamily.manropeBold,
+      fontSize: 12,
+      color: theme.textMuted,
+    },
+    datePillTextActive: { color: Colors.white },
 
-  // Per-amenity card
-  courtCard: {
-    backgroundColor: Colors.white,
-    borderRadius: Radius.card,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    overflow: 'hidden',
-    ...Shadow,
-  },
-  courtCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-  },
-  courtInfo: { flex: 1, minWidth: 0 },
-  courtName: {
-    fontFamily: FontFamily.manropeExtraBold,
-    fontSize: 15,
-    color: Colors.navy,
-  },
-  courtType: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.uiLabel,
-    color: '#4B5563',
-    marginTop: 2,
-    textTransform: 'capitalize',
-  },
-  courtActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  slotsBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: Radius.input,
-    backgroundColor: '#F3F4F6',
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  slotsBtnActive: { backgroundColor: Colors.navy },
-  slotsBtnText: {
-    fontFamily: FontFamily.manropeBold,
-    fontSize: 12,
-    color: '#6B7280',
-  },
-  slotsBtnTextActive: { color: Colors.white },
-  deleteBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: Radius.input,
-    backgroundColor: '#FEF2F2',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+    // Per-amenity card
+    courtCard: {
+      backgroundColor: theme.cardBg,
+      borderRadius: Radius.card,
+      borderWidth: 1,
+      borderColor: theme.border,
+      overflow: 'hidden',
+      ...theme.shadowCard,
+    },
+    courtCardHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: 16,
+    },
+    courtInfo: { flex: 1, minWidth: 0 },
+    courtName: {
+      fontFamily: FontFamily.manropeExtraBold,
+      fontSize: 15,
+      color: theme.textPrimary,
+    },
+    courtType: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.uiLabel,
+      color: theme.textSecondary,
+      marginTop: 2,
+      textTransform: 'capitalize',
+    },
+    courtActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    slotsBtn: {
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: Radius.input,
+      backgroundColor: theme.pageBg,
+      minHeight: 44,
+      justifyContent: 'center',
+    },
+    slotsBtnActive: { backgroundColor: Colors.navy },
+    slotsBtnText: {
+      fontFamily: FontFamily.manropeBold,
+      fontSize: 12,
+      color: theme.textMuted,
+    },
+    slotsBtnTextActive: { color: Colors.white },
+    deleteBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: Radius.input,
+      backgroundColor: 'rgba(255,92,107,0.10)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
 
-  // Slots inside card
-  slotsContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-  },
-  slotsSectionLabel: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: 12,
-    color: '#374151',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    marginBottom: 10,
-  },
-  slotGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  slotCell: {
-    width: '47%',
-    borderRadius: Radius.input,
-    borderWidth: 1,
-    padding: 10,
-    gap: 4,
-  },
-  slotTime: {
-    fontFamily: FontFamily.manropeBold,
-    fontSize: 12,
-  },
-  slotStatusText: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: 11,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  slotToggleBtn: {
-    borderRadius: Radius.input - 2,
-    paddingVertical: 4,
-    paddingHorizontal: 6,
-    alignItems: 'center',
-    minHeight: 28,
-    justifyContent: 'center',
-    marginTop: 2,
-  },
-  slotToggleBtnText: {
-    fontFamily: FontFamily.manropeBold,
-    fontSize: 10,
-  },
+    // Slots inside card
+    slotsContainer: {
+      paddingHorizontal: 16,
+      paddingBottom: 16,
+    },
+    slotsSectionLabel: {
+      fontFamily: FontFamily.jetbrainsMonoSemiBold,
+      fontSize: 12,
+      color: theme.textMuted,
+      letterSpacing: 0.8,
+      marginBottom: 10,
+    },
+    slotGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    slotCell: {
+      width: '47%',
+      borderRadius: Radius.input,
+      borderWidth: 1,
+      padding: 10,
+      gap: 4,
+    },
+    slotTime: {
+      fontFamily: FontFamily.manropeBold,
+      fontSize: 12,
+    },
+    slotStatusText: {
+      fontFamily: FontFamily.jetbrainsMonoSemiBold,
+      fontSize: 11,
+      textTransform: 'uppercase',
+      letterSpacing: 0.8,
+    },
+    slotToggleBtn: {
+      borderRadius: Radius.input - 2,
+      paddingVertical: 4,
+      paddingHorizontal: 6,
+      alignItems: 'center',
+      minHeight: 28,
+      justifyContent: 'center',
+      marginTop: 2,
+    },
+    slotToggleBtnText: {
+      fontFamily: FontFamily.manropeBold,
+      fontSize: 10,
+    },
 
-  // Empty
-  emptyWrap: {
-    paddingVertical: 40,
-    alignItems: 'center',
-  },
-  emptyTitle: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: 15,
-    color: Colors.navy,
-    marginBottom: 4,
-  },
-  emptySub: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.uiLabel,
-    color: '#4B5563',
-  },
-});
+    // Empty
+    emptyWrap: {
+      paddingVertical: 40,
+      alignItems: 'center',
+    },
+    emptyTitle: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: 15,
+      color: theme.textPrimary,
+      marginBottom: 4,
+    },
+    emptySub: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.uiLabel,
+      color: theme.textSecondary,
+    },
+  }), [theme]);
+}

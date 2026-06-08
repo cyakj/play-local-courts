@@ -1,16 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { router } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, CalendarDays } from 'lucide-react-native';
+import { CalendarDays } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
-import {
-  Colors, FontFamily, FontSize, MaxWidth, Radius, Shadow, Spacing,
-} from '@/constants/design';
+import { Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing } from '@/constants/design';
+import { Header } from '@/components/ui/Header';
 import { CardSkeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { StatusPill } from '@/components/ui/StatusPill';
+import { useTheme } from '@/context/ThemeContext';
+import type { ThemeTokens } from '@/constants/theme-tokens';
 
 interface Booking {
   id: string;
@@ -34,8 +34,16 @@ function formatTime(t: string): string {
   return `${display}:00 ${suffix}`;
 }
 
+function bookingStatus(status: string): 'optimal' | 'needs-attention' | 'critical' | 'pending' {
+  if (status === 'confirmed') return 'optimal';
+  if (status === 'cancelled') return 'critical';
+  if (status === 'pending') return 'pending';
+  return 'needs-attention';
+}
+
 export default function MyReservationsScreen() {
-  const insets = useSafeAreaInsets();
+  const { theme } = useTheme();
+  const styles = useStyles(theme);
   const [upcoming, setUpcoming] = useState<Booking[]>([]);
   const [past, setPast] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,20 +93,12 @@ export default function MyReservationsScreen() {
     ]);
   }
 
-  function bookingStatus(status: string): 'optimal' | 'needs-attention' | 'critical' | 'pending' {
-    if (status === 'confirmed') return 'optimal';
-    if (status === 'cancelled') return 'critical';
-    if (status === 'pending') return 'pending';
-    return 'needs-attention';
-  }
-
   function BookingCard({ b, isUpcoming }: { b: Booking; isUpcoming: boolean }) {
     const d = new Date(b.date + 'T00:00:00');
     const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
     const dayNum = d.getDate();
     return (
       <View style={styles.card}>
-        {/* Colored date sidebar */}
         <View style={[styles.dateSidebar, isUpcoming ? styles.dateSidebarUpcoming : styles.dateSidebarPast]}>
           <Text style={[styles.dateDayName, isUpcoming ? styles.dateTextUpcoming : styles.dateTextPast]}>
             {dayName}
@@ -108,9 +108,10 @@ export default function MyReservationsScreen() {
           </Text>
         </View>
 
-        {/* Content */}
         <View style={styles.cardBody}>
-          <Text style={[styles.cardCourt, !isUpcoming && { color: Colors.textMuted }]} numberOfLines={1}>
+          <Text
+            style={[styles.cardCourt, !isUpcoming && { color: theme.textMuted }]}
+            numberOfLines={1}>
             {b.courtName}
           </Text>
           <Text style={styles.cardTime}>
@@ -119,7 +120,6 @@ export default function MyReservationsScreen() {
           <StatusPill status={bookingStatus(b.status)} label={b.status} />
         </View>
 
-        {/* Cancel — upcoming only */}
         {isUpcoming && (
           <TouchableOpacity
             style={styles.cancelBtn}
@@ -136,13 +136,7 @@ export default function MyReservationsScreen() {
 
   return (
     <View style={styles.screen}>
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 8 }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <ArrowLeft color={Colors.white} size={22} strokeWidth={1.5} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Reservations</Text>
-        <View style={styles.backBtn} />
-      </View>
+      <Header variant="inner" title="My Reservations" onBack={() => router.back()} />
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={{ maxWidth: MaxWidth, width: '100%', alignSelf: 'center' }}>
@@ -153,7 +147,7 @@ export default function MyReservationsScreen() {
               <Text style={styles.sectionTitle}>Upcoming ({upcoming.length})</Text>
               {upcoming.length === 0 ? (
                 <EmptyState
-                  icon={<CalendarDays color={Colors.textMuted} size={40} strokeWidth={1.5} />}
+                  icon={<CalendarDays color={theme.textMuted} size={40} strokeWidth={1.5} />}
                   title="No upcoming reservations"
                   subtitle="Book a court to see it here."
                 />
@@ -175,70 +169,67 @@ export default function MyReservationsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.pageBg },
-  header: {
-    backgroundColor: Colors.headerBg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.pagePx,
-    paddingBottom: 20,
-  },
-  backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontFamily: FontFamily.spaceGroteskBold, fontSize: 18, color: Colors.white },
-  content: { padding: Spacing.pagePx, paddingBottom: 60 },
-  sectionTitle: {
-    fontFamily: FontFamily.spaceGroteskBold,
-    fontSize: FontSize.sectionTitle,
-    color: Colors.white,
-    marginBottom: 12,
-  },
-  card: {
-    backgroundColor: Colors.cardBg,  // dark surface
-    borderRadius: Radius.card,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,      // dark border
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 3,
-    flexDirection: 'row',
-    overflow: 'hidden',
-    alignItems: 'center',
-  },
-  dateSidebar: {
-    width: 64,
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  dateSidebarUpcoming: { backgroundColor: Colors.courtBlue },  // dark navy
-  dateSidebarPast: { backgroundColor: Colors.surface2 },       // dark muted
-  dateDayName: { fontFamily: FontFamily.manropeBold, fontSize: 13 },
-  dateDayNum: { fontFamily: FontFamily.manropeBlack, fontSize: 22, lineHeight: 26 },
-  dateTextUpcoming: { color: Colors.white },
-  dateTextPast: { color: Colors.fg3 },
-  cardBody: {
-    flex: 1,
-    padding: 14,
-    gap: 3,
-  },
-  cardCourt: { fontFamily: FontFamily.spaceGroteskBold, fontSize: FontSize.cardTitle, color: Colors.white },
-  cardTime: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label, color: Colors.fg3 },
-  cancelBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginRight: 4,
-    borderRadius: Radius.button,
-    backgroundColor: 'rgba(255,92,107,0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,92,107,0.25)',
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  cancelText: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label, color: Colors.negative },
-});
+function useStyles(theme: ThemeTokens) {
+  return useMemo(() => StyleSheet.create({
+    screen:  { flex: 1, backgroundColor: theme.pageBg },
+    content: { padding: Spacing.pagePx, paddingBottom: 60 },
+
+    sectionTitle: {
+      fontFamily: FontFamily.spaceGroteskBold,
+      fontSize: FontSize.sectionTitle,
+      color: theme.textPrimary,
+      marginBottom: 12,
+    },
+    card: {
+      backgroundColor: theme.cardBg,
+      borderRadius: Radius.card,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: theme.border,
+      ...theme.shadowCard,
+      flexDirection: 'row',
+      overflow: 'hidden',
+      alignItems: 'center',
+    },
+    dateSidebar: {
+      width: 64,
+      paddingVertical: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+    },
+    dateSidebarUpcoming: { backgroundColor: Colors.courtBlue },
+    dateSidebarPast:     { backgroundColor: theme.surface2 },
+    dateDayName: { fontFamily: FontFamily.manropeBold, fontSize: 13 },
+    dateDayNum:  { fontFamily: FontFamily.manropeBlack, fontSize: 22, lineHeight: 26 },
+    dateTextUpcoming: { color: Colors.white },
+    dateTextPast:     { color: theme.textMuted },
+    cardBody: { flex: 1, padding: 14, gap: 3 },
+    cardCourt: {
+      fontFamily: FontFamily.spaceGroteskBold,
+      fontSize: FontSize.cardTitle,
+      color: theme.textPrimary,
+    },
+    cardTime: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.label,
+      color: theme.textSecondary,
+    },
+    cancelBtn: {
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      marginRight: 4,
+      borderRadius: Radius.button,
+      backgroundColor: 'rgba(255,92,107,0.12)',
+      borderWidth: 1,
+      borderColor: 'rgba(255,92,107,0.25)',
+      minHeight: 44,
+      justifyContent: 'center',
+    },
+    cancelText: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: FontSize.label,
+      color: Colors.negative,
+    },
+  }), [theme]);
+}

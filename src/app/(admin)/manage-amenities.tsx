@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -9,9 +9,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Plus, Trash2, Dumbbell, Waves, Building2, Flame, X } from 'lucide-react-native';
+import { Plus, Trash2, Dumbbell, Waves, Building2, Flame, X } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import {
@@ -19,13 +19,15 @@ import {
   FontFamily,
   FontSize,
   Radius,
-  Shadow,
   Spacing,
   MaxWidth,
 } from '@/constants/design';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Header } from '@/components/ui/Header';
+import { useTheme } from '@/context/ThemeContext';
+import type { ThemeTokens } from '@/constants/theme-tokens';
 import type { Database } from '@/lib/types';
 
 type Court = Database['public']['Tables']['courts']['Row'];
@@ -61,7 +63,8 @@ function getTypeIcon(courtType: string) {
 }
 
 export default function ManageAmenitiesScreen() {
-  const insets = useSafeAreaInsets();
+  const { theme } = useTheme();
+  const styles = useStyles(theme);
   const { hoaId } = useLocalSearchParams<{ hoaId: string }>();
   const [courts, setCourts] = useState<Court[]>([]);
   const [loading, setLoading] = useState(true);
@@ -129,17 +132,20 @@ export default function ManageAmenitiesScreen() {
 
   return (
     <View style={styles.screen}>
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 8 }]}>
-        <View style={styles.headerTopRow}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <ArrowLeft color={Colors.white} size={20} strokeWidth={1.5} />
-          </TouchableOpacity>
-          {plusButton}
-        </View>
-        <Text style={styles.headerTag}>ADMIN</Text>
-        <Text style={styles.headerTitle}>Manage Amenities</Text>
-        <Text style={styles.headerSub}>Add, remove, and schedule maintenance for your community amenities.</Text>
+      <Header
+        variant="inner"
+        title="Manage Amenities"
+        onBack={() => router.back()}
+        rightIcon={plusButton}
+      />
+
+      {/* Hero section */}
+      <View style={styles.hero}>
+        <Text style={styles.heroTag}>ADMIN</Text>
+        <Text style={styles.heroTitle}>Manage Amenities</Text>
+        <Text style={styles.heroSub}>
+          Add, remove, and schedule maintenance for your community amenities.
+        </Text>
       </View>
 
       <ScrollView
@@ -149,7 +155,7 @@ export default function ManageAmenitiesScreen() {
         <View style={{ maxWidth: MaxWidth, width: '100%', alignSelf: 'center' }}>
           {!loading && courts.length === 0 && (
             <EmptyState
-              icon={<Building2 color={Colors.textMuted} size={48} strokeWidth={1.5} />}
+              icon={<Building2 color={theme.textMuted} size={48} strokeWidth={1.5} />}
               title="No amenities yet"
               subtitle="Add your first amenity using the + button above."
             />
@@ -167,7 +173,7 @@ export default function ManageAmenitiesScreen() {
                   onPress={() => confirmDelete(court)}
                   style={styles.deleteBtn}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  <Trash2 color={Colors.red} size={18} strokeWidth={1.5} />
+                  <Trash2 color={Colors.negative} size={18} strokeWidth={1.5} />
                 </TouchableOpacity>
               </View>
             </Card>
@@ -187,7 +193,7 @@ export default function ManageAmenitiesScreen() {
             <TouchableOpacity
               onPress={() => setModalVisible(false)}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <X color={Colors.textMuted} size={22} strokeWidth={1.5} />
+              <X color={theme.textMuted} size={22} strokeWidth={1.5} />
             </TouchableOpacity>
           </View>
 
@@ -201,7 +207,7 @@ export default function ManageAmenitiesScreen() {
               value={newName}
               onChangeText={setNewName}
               placeholder="e.g. Court 1, Main Pool…"
-              placeholderTextColor={Colors.textPlaceholder}
+              placeholderTextColor={theme.textMuted}
               autoFocus
             />
 
@@ -235,139 +241,145 @@ export default function ManageAmenitiesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.pageBg },
-  scroll: { flex: 1 },
-  content: { padding: Spacing.pagePx, gap: Spacing.cardGap, paddingBottom: 100 },
-  header: {
-    backgroundColor: Colors.navy,
-    paddingHorizontal: Spacing.pagePx,
-    paddingBottom: 24,
-  },
-  headerTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  backBtn: {
-    width: 36, height: 36, borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  headerTag: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: FontSize.metadata,
-    color: Colors.accentCyan,
-    letterSpacing: 2,
-    marginBottom: 4,
-  },
-  headerTitle: { fontFamily: FontFamily.manropeBlack, fontSize: 32, color: Colors.white, lineHeight: 36 },
-  headerSub: { fontFamily: FontFamily.interRegular, fontSize: 15, color: 'rgba(200,240,255,0.85)', marginTop: 8, lineHeight: 22 },
-  plusBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  courtCard: { padding: 16 },
-  courtRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  typeIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: Radius.pill,
-    backgroundColor: 'rgba(0,212,255,0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  courtInfo: { flex: 1 },
-  courtName: {
-    fontFamily: FontFamily.manropeBold,
-    fontSize: FontSize.cardTitle,
-    color: Colors.textPrimary,
-  },
-  courtType: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: FontSize.metadata,
-    color: Colors.textMuted,
-    letterSpacing: 1,
-    marginTop: 2,
-  },
-  deleteBtn: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  // Modal
-  modal: { flex: 1, backgroundColor: Colors.cardBg },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: Spacing.pagePx,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  modalTitle: {
-    fontFamily: FontFamily.manropeExtraBold,
-    fontSize: FontSize.sectionTitle,
-    color: Colors.textPrimary,
-  },
-  modalScroll: { flex: 1 },
-  modalContent: {
-    padding: Spacing.pagePx,
-    paddingBottom: 40,
-  },
-  fieldLabel: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: FontSize.metadata,
-    color: Colors.textMuted,
-    letterSpacing: 1.2,
-    marginBottom: 8,
-  },
-  textInput: {
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Radius.input,
-    padding: 14,
-    fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.body,
-    color: Colors.textPrimary,
-    backgroundColor: Colors.pageBg,
-  },
-  typeGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  typePill: {
-    borderRadius: Radius.pill,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: Colors.cardBg,
-  },
-  typePillActive: {
-    backgroundColor: Colors.navy,
-    borderColor: Colors.navy,
-  },
-  typePillLabel: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: FontSize.uiLabel,
-    color: Colors.textMuted,
-  },
-  typePillLabelActive: {
-    color: Colors.white,
-  },
-  modalActions: {
-    marginTop: 32,
-  },
-});
+function useStyles(theme: ThemeTokens) {
+  return useMemo(() => StyleSheet.create({
+    screen: { flex: 1, backgroundColor: theme.pageBg },
+    scroll: { flex: 1 },
+    content: { padding: Spacing.pagePx, gap: Spacing.cardGap, paddingBottom: 100 },
+
+    hero: {
+      paddingHorizontal: Spacing.pagePx,
+      paddingTop: 8,
+      paddingBottom: 20,
+    },
+    heroTag: {
+      fontFamily: FontFamily.jetbrainsMonoSemiBold,
+      fontSize: FontSize.metadata,
+      color: Colors.accentCyan,
+      letterSpacing: 2,
+      marginBottom: 6,
+    },
+    heroTitle: {
+      fontFamily: FontFamily.spaceGroteskBold,
+      fontSize: FontSize.display,
+      color: theme.textPrimary,
+      letterSpacing: -0.8,
+      lineHeight: 42,
+    },
+    heroSub: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.label,
+      color: theme.textSecondary,
+      marginTop: 6,
+      lineHeight: 22,
+    },
+
+    plusBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      backgroundColor: 'rgba(255,255,255,0.12)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    courtCard: { padding: 16 },
+    courtRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    typeIconWrap: {
+      width: 40,
+      height: 40,
+      borderRadius: Radius.pill,
+      backgroundColor: 'rgba(45,224,255,0.10)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    courtInfo: { flex: 1 },
+    courtName: {
+      fontFamily: FontFamily.manropeBold,
+      fontSize: FontSize.cardTitle,
+      color: theme.textPrimary,
+    },
+    courtType: {
+      fontFamily: FontFamily.jetbrainsMonoSemiBold,
+      fontSize: FontSize.metadata,
+      color: theme.textMuted,
+      letterSpacing: 1,
+      marginTop: 2,
+    },
+    deleteBtn: {
+      width: 40,
+      height: 40,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    // Modal
+    modal: { flex: 1, backgroundColor: theme.cardBg },
+    modalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: Spacing.pagePx,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.border,
+    },
+    modalTitle: {
+      fontFamily: FontFamily.manropeExtraBold,
+      fontSize: FontSize.sectionTitle,
+      color: theme.textPrimary,
+    },
+    modalScroll: { flex: 1 },
+    modalContent: {
+      padding: Spacing.pagePx,
+      paddingBottom: 40,
+    },
+    fieldLabel: {
+      fontFamily: FontFamily.jetbrainsMonoSemiBold,
+      fontSize: FontSize.metadata,
+      color: theme.textMuted,
+      letterSpacing: 1.2,
+      marginBottom: 8,
+    },
+    textInput: {
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: Radius.input,
+      padding: 14,
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.body,
+      color: theme.textPrimary,
+      backgroundColor: theme.pageBg,
+    },
+    typeGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    typePill: {
+      borderRadius: Radius.pill,
+      borderWidth: 1,
+      borderColor: theme.border,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      backgroundColor: theme.cardBg,
+    },
+    typePillActive: {
+      backgroundColor: Colors.navy,
+      borderColor: Colors.navy,
+    },
+    typePillLabel: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: FontSize.uiLabel,
+      color: theme.textMuted,
+    },
+    typePillLabelActive: {
+      color: Colors.white,
+    },
+    modalActions: {
+      marginTop: 32,
+    },
+  }), [theme]);
+}

@@ -55,6 +55,7 @@ const RED   = Colors.negative; // #FF5C6B — error/declined
 
 // Layout constants
 const SCREEN_W   = Dimensions.get('window').width;
+const SCREEN_H   = Dimensions.get('window').height;
 const REC_CARD_W = 220;
 const INC_CARD_W = Math.min(320, Math.round(SCREEN_W * 0.85));
 const CARD_RADIUS = Radius.lg; // 20px — premium card feel matching Stitch reference
@@ -64,6 +65,8 @@ const CARD_RADIUS = Radius.lg; // 20px — premium card feel matching Stitch ref
 type MatchType           = 'singles' | 'doubles' | 'mixed_doubles' | 'hitting_session';
 type MatchLifecycleStatus = 'scheduled' | 'reschedule_requested' | 'cancelled' | 'completed';
 type RescheduleStatus     = 'pending' | 'accepted' | 'declined' | 'cancelled';
+type DateMode             = 'today' | 'tomorrow' | 'this_weekend' | 'pick';
+type TimeMode             = 'morning' | 'afternoon' | 'evening' | 'custom';
 
 interface RescheduleRequest {
   id: string;
@@ -123,6 +126,11 @@ interface UpcomingMatch {
 interface MatchFilters {
   format: MatchType;
   selectedNtrpLevels: number[];
+  dateMode: DateMode;
+  selectedDate: Date | null;
+  timeMode: TimeMode;
+  timeStart: string | null; // HH:mm
+  timeEnd: string | null;   // HH:mm
   dateLabel: string;
   timeLabel: string;
   distanceMiles: number;
@@ -133,6 +141,11 @@ interface MatchFilters {
 const DEFAULT_FILTERS: MatchFilters = {
   format: 'singles',
   selectedNtrpLevels: [3.5, 4.0, 4.5],
+  dateMode: 'today',
+  selectedDate: null,
+  timeMode: 'custom',
+  timeStart: '17:00',
+  timeEnd: '20:00',
   dateLabel: 'Today',
   timeLabel: '5 – 8 PM',
   distanceMiles: 10,
@@ -141,6 +154,19 @@ const DEFAULT_FILTERS: MatchFilters = {
 const NTRP_LEVELS = [3.0, 3.5, 4.0, 4.5, 5.0];
 
 const DISTANCE_OPTIONS = [5, 10, 25, 50];
+
+const DATE_PRESETS: { mode: DateMode; label: string }[] = [
+  { mode: 'today',        label: 'Today' },
+  { mode: 'tomorrow',     label: 'Tomorrow' },
+  { mode: 'this_weekend', label: 'This Weekend' },
+  { mode: 'pick',         label: 'Pick Date' },
+];
+
+const TIME_PRESETS: { mode: Exclude<TimeMode, 'custom'>; label: string; start: string; end: string }[] = [
+  { mode: 'morning',   label: 'Morning',   start: '06:00', end: '12:00' },
+  { mode: 'afternoon', label: 'Afternoon', start: '12:00', end: '17:00' },
+  { mode: 'evening',   label: 'Evening',   start: '17:00', end: '21:00' },
+];
 
 const REQUEST_MATCH_TYPES: { value: MatchType; label: string }[] = [
   { value: 'singles',         label: 'Singles' },
@@ -555,6 +581,35 @@ async function declineReschedule(
 }
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
+
+function buildDateLabel(mode: DateMode, date: Date | null): string {
+  if (mode === 'today')        return 'Today';
+  if (mode === 'tomorrow')     return 'Tomorrow';
+  if (mode === 'this_weekend') return 'This Weekend';
+  if (mode === 'pick' && date) {
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+  return 'Pick Date';
+}
+
+function buildTimeLabel(mode: TimeMode, start: string | null, end: string | null): string {
+  if (mode === 'morning')   return 'Morning';
+  if (mode === 'afternoon') return 'Afternoon';
+  if (mode === 'evening')   return 'Evening';
+  if (start && end) {
+    const fmtN = (t: string) => {
+      const [h, m] = t.split(':').map(Number);
+      const hour   = h % 12 || 12;
+      return m === 0 ? `${hour}` : `${hour}:${String(m).padStart(2, '0')}`;
+    };
+    const period = (t: string) => parseInt(t.split(':')[0], 10) >= 12 ? 'PM' : 'AM';
+    const sp = period(start), ep = period(end);
+    return sp === ep
+      ? `${fmtN(start)} – ${fmtN(end)} ${ep}`
+      : `${fmtN(start)} ${sp} – ${fmtN(end)} ${ep}`;
+  }
+  return 'Custom';
+}
 
 function getInitials(name: string): string {
   const parts = name.trim().split(' ').filter(Boolean);
@@ -1064,16 +1119,45 @@ function MatchFiltersSheet({ visible, filters, onApply, onDismiss }: {
   onDismiss: () => void;
 }) {
   const { theme } = useTheme();
-  const [draft, setDraft] = useState<MatchFilters>(filters);
+  const [draft,          setDraft]          = useState<MatchFilters>(filters);
+  const [showDateCal,    setShowDateCal]    = useState(false);
+  const [showCustomTime, setShowCustomTime] = useState(false);
+  const [timeError,      setTimeError]      = useState<string | null>(null);
 
-  useEffect(() => { if (visible) setDraft(filters); }, [visible]);
+  useEffect(() => {
+    if (visible) {
+      setDraft(filters);
+      setShowDateCal(filters.dateMode === 'pick');
+      setShowCustomTime(filters.timeMode === 'custom');
+      setTimeError(null);
+    }
+  }, [visible]);
 
   const formats: { label: string; value: MatchType }[] = [
-    { label: 'Singles',         value: 'singles' },
-    { label: 'Doubles',         value: 'doubles' },
-    { label: 'Mixed Doubles',   value: 'mixed_doubles' },
+    { label: 'Singles',          value: 'singles' },
+    { label: 'Doubles',          value: 'doubles' },
+    { label: 'Mixed Doubles',    value: 'mixed_doubles' },
     { label: 'Practice Session', value: 'hitting_session' },
   ];
+
+  function handleApply() {
+    if (draft.timeMode === 'custom') {
+      if (!draft.timeStart || !draft.timeEnd) {
+        setTimeError('Please select a start and end time.');
+        return;
+      }
+      if (draft.timeStart >= draft.timeEnd) {
+        setTimeError('End time must be after start time.');
+        return;
+      }
+    }
+    onApply({
+      ...draft,
+      dateLabel: buildDateLabel(draft.dateMode, draft.selectedDate),
+      timeLabel: buildTimeLabel(draft.timeMode, draft.timeStart, draft.timeEnd),
+    });
+    onDismiss();
+  }
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onDismiss}>
@@ -1088,69 +1172,209 @@ function MatchFiltersSheet({ visible, filters, onApply, onDismiss }: {
             </TouchableOpacity>
           </View>
 
-          <Text style={[mfS.sectionLabel, { color: theme.textSecondary }]}>Match Format</Text>
-          <View style={mfS.optionRow}>
-            {formats.map((f) => (
-              <TouchableOpacity
-                key={f.value}
-                style={[mfS.option, { borderColor: draft.format === f.value ? BLUE : theme.border, backgroundColor: draft.format === f.value ? theme.selectedBg : theme.cardBg }]}
-                onPress={() => setDraft((d) => ({ ...d, format: f.value }))}
-                activeOpacity={0.7}>
-                <Text style={[mfS.optionText, { color: draft.format === f.value ? BLUE : theme.textSecondary }]}>{f.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <ScrollView style={mfS.scrollArea} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
-          <Text style={[mfS.sectionLabel, { color: theme.textSecondary }]}>NTRP Level</Text>
-          <View style={mfS.optionRow}>
-            {NTRP_LEVELS.map(level => {
-              const active = draft.selectedNtrpLevels.includes(level);
-              return (
-                <TouchableOpacity
-                  key={level}
-                  style={[mfS.option, { borderColor: active ? BLUE : theme.border, backgroundColor: active ? theme.selectedBg : theme.cardBg }]}
-                  onPress={() => {
-                    if (active && draft.selectedNtrpLevels.length === 1) return; // keep at least one
+            {/* Match Format */}
+            <Text style={[mfS.sectionLabel, { color: theme.textSecondary }]}>Match Format</Text>
+            <View style={mfS.optionRow}>
+              {formats.map((f) => {
+                const active = draft.format === f.value;
+                return (
+                  <TouchableOpacity
+                    key={f.value}
+                    style={[mfS.option, { borderColor: active ? BLUE : theme.border, backgroundColor: active ? theme.selectedBg : theme.cardBg }]}
+                    onPress={() => setDraft(d => ({ ...d, format: f.value }))}
+                    activeOpacity={0.7}>
+                    <Text style={[mfS.optionText, { color: active ? BLUE : theme.textSecondary }]}>{f.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Date */}
+            <Text style={[mfS.sectionLabel, { color: theme.textSecondary }]}>Date</Text>
+            <View style={mfS.optionRow}>
+              {DATE_PRESETS.map((dp) => {
+                const active = draft.dateMode === dp.mode;
+                return (
+                  <TouchableOpacity
+                    key={dp.mode}
+                    style={[mfS.option, { borderColor: active ? BLUE : theme.border, backgroundColor: active ? theme.selectedBg : theme.cardBg }]}
+                    onPress={() => {
+                      const isPickMode = dp.mode === 'pick';
+                      setDraft(d => ({
+                        ...d,
+                        dateMode: dp.mode,
+                        selectedDate: isPickMode ? d.selectedDate : null,
+                        dateLabel: buildDateLabel(dp.mode, isPickMode ? d.selectedDate : null),
+                      }));
+                      setShowDateCal(isPickMode);
+                    }}
+                    activeOpacity={0.7}>
+                    <Text style={[mfS.optionText, { color: active ? BLUE : theme.textSecondary }]}>{dp.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            {showDateCal && (
+              <View style={[mfS.calBox, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
+                <MatchRequestDatePicker
+                  selected={draft.selectedDate}
+                  onSelect={(date) => {
                     setDraft(d => ({
                       ...d,
-                      selectedNtrpLevels: active
-                        ? d.selectedNtrpLevels.filter(l => l !== level)
-                        : [...d.selectedNtrpLevels, level],
+                      selectedDate: date,
+                      dateLabel: buildDateLabel('pick', date),
                     }));
+                    setShowDateCal(false);
                   }}
-                  activeOpacity={0.7}>
-                  <Text style={[mfS.optionText, { color: active ? BLUE : theme.textSecondary }]}>{level.toFixed(1)}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+                />
+              </View>
+            )}
 
-          <Text style={[mfS.sectionLabel, { color: theme.textSecondary }]}>Max Distance</Text>
-          <View style={mfS.optionRow}>
-            {DISTANCE_OPTIONS.map((d) => {
-              const active = draft.distanceMiles === d;
-              return (
-                <TouchableOpacity
-                  key={d}
-                  style={[mfS.option, { borderColor: active ? BLUE : theme.border, backgroundColor: active ? theme.selectedBg : theme.cardBg }]}
-                  onPress={() => setDraft((prev) => ({ ...prev, distanceMiles: d }))}
-                  activeOpacity={0.7}>
-                  <Text style={[mfS.optionText, { color: active ? BLUE : theme.textSecondary }]}>{d} mi</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+            {/* Time */}
+            <Text style={[mfS.sectionLabel, { color: theme.textSecondary }]}>Time</Text>
+            <View style={mfS.optionRow}>
+              {TIME_PRESETS.map((tp) => {
+                const active = draft.timeMode === tp.mode;
+                return (
+                  <TouchableOpacity
+                    key={tp.mode}
+                    style={[mfS.option, { borderColor: active ? BLUE : theme.border, backgroundColor: active ? theme.selectedBg : theme.cardBg }]}
+                    onPress={() => {
+                      setDraft(d => ({
+                        ...d,
+                        timeMode: tp.mode,
+                        timeStart: tp.start,
+                        timeEnd: tp.end,
+                        timeLabel: tp.label,
+                      }));
+                      setShowCustomTime(false);
+                      setTimeError(null);
+                    }}
+                    activeOpacity={0.7}>
+                    <Text style={[mfS.optionText, { color: active ? BLUE : theme.textSecondary }]}>{tp.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+              {/* Custom Time */}
+              <TouchableOpacity
+                style={[mfS.option, { borderColor: draft.timeMode === 'custom' ? BLUE : theme.border, backgroundColor: draft.timeMode === 'custom' ? theme.selectedBg : theme.cardBg }]}
+                onPress={() => {
+                  setDraft(d => ({ ...d, timeMode: 'custom' }));
+                  setShowCustomTime(true);
+                  setTimeError(null);
+                }}
+                activeOpacity={0.7}>
+                <Text style={[mfS.optionText, { color: draft.timeMode === 'custom' ? BLUE : theme.textSecondary }]}>Custom</Text>
+              </TouchableOpacity>
+            </View>
+            {showCustomTime && (
+              <View style={mfS.customTimeBox}>
+                <Text style={[mfS.subLabel, { color: theme.textMuted }]}>From</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={mfS.timeSlotRow}>
+                    {REQUEST_TIME_SLOTS.map(slot => {
+                      const active = draft.timeStart === slot;
+                      return (
+                        <TouchableOpacity
+                          key={`s-${slot}`}
+                          style={[mfS.timeSlot, { borderColor: active ? BLUE : theme.border, backgroundColor: active ? theme.selectedBg : theme.cardBg }]}
+                          onPress={() => { setDraft(d => ({ ...d, timeStart: slot })); setTimeError(null); }}
+                          activeOpacity={0.7}>
+                          <Text style={[mfS.optionText, { color: active ? BLUE : theme.textSecondary }]}>
+                            {formatRequestTime(slot)}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </ScrollView>
+                <Text style={[mfS.subLabel, { color: theme.textMuted, marginTop: 10 }]}>To</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={mfS.timeSlotRow}>
+                    {REQUEST_TIME_SLOTS.map(slot => {
+                      const active = draft.timeEnd === slot;
+                      return (
+                        <TouchableOpacity
+                          key={`e-${slot}`}
+                          style={[mfS.timeSlot, { borderColor: active ? BLUE : theme.border, backgroundColor: active ? theme.selectedBg : theme.cardBg }]}
+                          onPress={() => { setDraft(d => ({ ...d, timeEnd: slot })); setTimeError(null); }}
+                          activeOpacity={0.7}>
+                          <Text style={[mfS.optionText, { color: active ? BLUE : theme.textSecondary }]}>
+                            {formatRequestTime(slot)}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </ScrollView>
+                {timeError != null && (
+                  <Text style={[mfS.timeErrorText, { color: RED }]}>{timeError}</Text>
+                )}
+              </View>
+            )}
+
+            {/* NTRP Level */}
+            <Text style={[mfS.sectionLabel, { color: theme.textSecondary }]}>NTRP Level</Text>
+            <View style={mfS.optionRow}>
+              {NTRP_LEVELS.map(level => {
+                const active = draft.selectedNtrpLevels.includes(level);
+                return (
+                  <TouchableOpacity
+                    key={level}
+                    style={[mfS.option, { borderColor: active ? BLUE : theme.border, backgroundColor: active ? theme.selectedBg : theme.cardBg }]}
+                    onPress={() => {
+                      if (active && draft.selectedNtrpLevels.length === 1) return;
+                      setDraft(d => ({
+                        ...d,
+                        selectedNtrpLevels: active
+                          ? d.selectedNtrpLevels.filter(l => l !== level)
+                          : [...d.selectedNtrpLevels, level],
+                      }));
+                    }}
+                    activeOpacity={0.7}>
+                    <Text style={[mfS.optionText, { color: active ? BLUE : theme.textSecondary }]}>{level.toFixed(1)}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Max Distance */}
+            <Text style={[mfS.sectionLabel, { color: theme.textSecondary }]}>Max Distance</Text>
+            <View style={mfS.optionRow}>
+              {DISTANCE_OPTIONS.map((d) => {
+                const active = draft.distanceMiles === d;
+                return (
+                  <TouchableOpacity
+                    key={d}
+                    style={[mfS.option, { borderColor: active ? BLUE : theme.border, backgroundColor: active ? theme.selectedBg : theme.cardBg }]}
+                    onPress={() => setDraft(prev => ({ ...prev, distanceMiles: d }))}
+                    activeOpacity={0.7}>
+                    <Text style={[mfS.optionText, { color: active ? BLUE : theme.textSecondary }]}>{d} mi</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <View style={{ height: 8 }} />
+          </ScrollView>
 
           <View style={mfS.ctaRow}>
             <TouchableOpacity
               style={[mfS.applyBtn, { backgroundColor: BLUE }]}
-              onPress={() => { onApply(draft); onDismiss(); }}
+              onPress={handleApply}
               activeOpacity={0.85}>
               <Text style={mfS.applyText}>Apply Filters</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[mfS.resetBtn, { borderColor: theme.border }]}
-              onPress={() => setDraft(DEFAULT_FILTERS)}
+              onPress={() => {
+                setDraft(DEFAULT_FILTERS);
+                setShowDateCal(false);
+                setShowCustomTime(true);
+                setTimeError(null);
+              }}
               activeOpacity={0.75}>
               <Text style={[mfS.resetText, { color: theme.textSecondary }]}>Reset</Text>
             </TouchableOpacity>
@@ -1162,20 +1386,31 @@ function MatchFiltersSheet({ visible, filters, onApply, onDismiss }: {
 }
 
 const mfS = StyleSheet.create({
-  backdrop:    { flex: 1, justifyContent: 'flex-end' },
-  sheet:       { borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, paddingHorizontal: Spacing.pagePx, paddingBottom: 40, paddingTop: 12 },
-  handle:      { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
-  titleRow:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  title:       { fontFamily: FontFamily.spaceGroteskBold, fontSize: 20 },
-  sectionLabel:{ fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label, marginBottom: 10, marginTop: 16 },
-  optionRow:   { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  option:      { borderWidth: 1.5, borderRadius: Radius.pill, paddingHorizontal: 14, paddingVertical: 8 },
-  optionText:  { fontFamily: FontFamily.manropeSemiBold, fontSize: 13 },
-  ctaRow:      { flexDirection: 'row', gap: 10, marginTop: 24 },
-  applyBtn:    { flex: 2, borderRadius: Radius.button, paddingVertical: 14, alignItems: 'center', minHeight: Spacing.tapTarget },
-  applyText:   { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.body, color: '#FFF' },
-  resetBtn:    { flex: 1, borderRadius: Radius.button, borderWidth: 1.5, paddingVertical: 14, alignItems: 'center', minHeight: Spacing.tapTarget },
-  resetText:   { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.body },
+  backdrop:      { flex: 1, justifyContent: 'flex-end' },
+  sheet:         {
+    maxHeight: Math.round(SCREEN_H * 0.88),
+    borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl,
+    paddingHorizontal: Spacing.pagePx, paddingTop: 12,
+  },
+  handle:        { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
+  titleRow:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  title:         { fontFamily: FontFamily.spaceGroteskBold, fontSize: 20 },
+  sectionLabel:  { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label, marginBottom: 10, marginTop: 16 },
+  optionRow:     { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  option:        { borderWidth: 1.5, borderRadius: Radius.pill, paddingHorizontal: 14, paddingVertical: 8 },
+  optionText:    { fontFamily: FontFamily.manropeSemiBold, fontSize: 13 },
+  scrollArea:    { flexShrink: 1 },
+  calBox:        { borderWidth: 1, borderRadius: Radius.sm, padding: 12, marginTop: 8 },
+  customTimeBox: { marginTop: 10 },
+  subLabel:      { fontFamily: FontFamily.manropeSemiBold, fontSize: 12, marginBottom: 6 },
+  timeSlotRow:   { flexDirection: 'row', gap: 8, paddingBottom: 4 },
+  timeSlot:      { borderWidth: 1.5, borderRadius: Radius.pill, paddingHorizontal: 12, paddingVertical: 7 },
+  timeErrorText: { fontFamily: FontFamily.manropeMedium, fontSize: 12, marginTop: 6 },
+  ctaRow:        { flexDirection: 'row', gap: 10, paddingTop: 16, paddingBottom: 40 },
+  applyBtn:      { flex: 2, borderRadius: Radius.button, paddingVertical: 14, alignItems: 'center', minHeight: Spacing.tapTarget },
+  applyText:     { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.body, color: '#FFF' },
+  resetBtn:      { flex: 1, borderRadius: Radius.button, borderWidth: 1.5, paddingVertical: 14, alignItems: 'center', minHeight: Spacing.tapTarget },
+  resetText:     { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.body },
 });
 
 // ─── Section Header ───────────────────────────────────────────────────────────

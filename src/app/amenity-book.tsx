@@ -18,6 +18,8 @@ import { supabase } from '@/lib/supabase';
 import {
   Colors, FontFamily, FontSize, Radius, Spacing,
 } from '@/constants/design';
+import { useTheme } from '@/context/ThemeContext';
+import type { ThemeTokens } from '@/constants/theme-tokens';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -77,6 +79,8 @@ interface AmenityRules {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function AmenityBookScreen() {
+  const { theme } = useTheme();
+  const styles = useStyles(theme);
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
     amenityId: string;
@@ -99,7 +103,6 @@ export default function AmenityBookScreen() {
   const [confirming, setConfirming] = useState(false);
   const [userId, setUserId] = useState('');
 
-  // Load rules and user id
   useEffect(() => {
     async function loadInit() {
       const { data: { session } } = await supabase.auth.getSession();
@@ -117,7 +120,6 @@ export default function AmenityBookScreen() {
     loadInit();
   }, [amenityId]);
 
-  // Fetch booked slots when date or amenityId changes
   useEffect(() => {
     if (!amenityId) return;
     const dateStr = selectedDate.toISOString().split('T')[0];
@@ -131,12 +133,9 @@ export default function AmenityBookScreen() {
     setSelectedSlot(null);
   }, [amenityId, selectedDate]);
 
-  // Reset slot when duration changes
   useEffect(() => { setSelectedSlot(null); }, [selectedDuration]);
-  // Reset slot + duration when play type changes
   useEffect(() => { setSelectedDuration(null); setSelectedSlot(null); }, [playType]);
 
-  // Date pills (advance_booking_days from rules, default 7)
   const advanceDays = rules?.advance_booking_days ?? 7;
   const datePills = useMemo(() => {
     const pills: Date[] = [];
@@ -149,10 +148,8 @@ export default function AmenityBookScreen() {
     return pills;
   }, [advanceDays]);
 
-  // Is court sport?
   const isCourtSport = amenityType === 'tennis' || amenityType === 'pickleball';
 
-  // Play type options
   const playTypeOptions = useMemo(() => {
     if (isCourtSport) {
       const singlesAllowed = !!rules?.singles_only;
@@ -173,14 +170,12 @@ export default function AmenityBookScreen() {
     ];
   }, [rules, isCourtSport]);
 
-  // Set default play type
   useEffect(() => {
     if (playTypeOptions.length > 0 && !playTypeOptions.find(o => o.value === playType)) {
       setPlayType(playTypeOptions[0].value);
     }
   }, [playTypeOptions]);
 
-  // Max duration per play type
   const maxDuration = useMemo(() => {
     if (!rules) return isCourtSport ? 60 : 120;
     if (isCourtSport) {
@@ -200,11 +195,9 @@ export default function AmenityBookScreen() {
     return opts;
   }, [maxDuration]);
 
-  // Operating hours
   const startHour = rules?.booking_start_time ? parseInt(rules.booking_start_time.split(':')[0]) : 6;
   const endHour = rules?.booking_end_time ? parseInt(rules.booking_end_time.split(':')[0]) : 22;
 
-  // Time slots
   const timeSlots = useMemo(() => {
     if (!selectedDuration) return [];
     const slots: string[] = [];
@@ -226,7 +219,6 @@ export default function AmenityBookScreen() {
     return slots;
   }, [selectedDuration, startHour, endHour, selectedDate]);
 
-  // Slot status
   const getSlotStatus = useCallback((slotStart: string): 'available' | 'booked' => {
     if (!selectedDuration) return 'available';
     const slotEnd = getEndTime(slotStart, selectedDuration);
@@ -236,7 +228,6 @@ export default function AmenityBookScreen() {
     return 'available';
   }, [selectedDuration, bookedSlots]);
 
-  // Confirm booking
   async function handleConfirm() {
     if (!userId || !amenityId || !selectedSlot || !selectedDuration) return;
     setConfirming(true);
@@ -334,7 +325,6 @@ export default function AmenityBookScreen() {
         <View style={styles.optionsCard}>
           <Text style={styles.cardSectionLabel}>OPTIONS</Text>
 
-          {/* Type of Play / Use */}
           <Text style={styles.optionLabel}>
             {isCourtSport ? 'Type of Play' : 'Type of Use'}
           </Text>
@@ -355,7 +345,6 @@ export default function AmenityBookScreen() {
             })}
           </View>
 
-          {/* Duration */}
           <Text style={[styles.optionLabel, { marginTop: 16 }]}>Duration</Text>
           <View style={styles.optionRow}>
             {durationOptions.map((d) => {
@@ -383,9 +372,9 @@ export default function AmenityBookScreen() {
               <Text style={styles.cardSectionLabel}>TIMES</Text>
               <View style={styles.legendRow}>
                 {[
-                  { label: 'Available', bg: Colors.pageBg, border: '#E5E7EB' },
-                  { label: 'Selected',  bg: Colors.navy,   border: Colors.accentCyan },
-                  { label: 'Booked',    bg: '#F3F4F6',     border: '#EBEBEB' },
+                  { label: 'Available', bg: theme.pageBg,   border: theme.border },
+                  { label: 'Selected',  bg: Colors.navy,    border: Colors.accentCyan },
+                  { label: 'Booked',    bg: 'rgba(154,163,184,0.10)', border: 'rgba(154,163,184,0.15)' },
                 ].map((l) => (
                   <View key={l.label} style={styles.legendItem}>
                     <View style={[styles.legendDot, { backgroundColor: l.bg, borderColor: l.border }]} />
@@ -423,8 +412,8 @@ export default function AmenityBookScreen() {
                         styles.slotLabel,
                         {
                           color: isSel ? Colors.white
-                            : status === 'booked' ? '#9CA3AF'
-                            : Colors.navy,
+                            : status === 'booked' ? theme.textMuted
+                            : theme.textPrimary,
                         },
                       ]}>
                         {formatTime(slot)}
@@ -463,7 +452,7 @@ export default function AmenityBookScreen() {
             disabled={confirming}
             activeOpacity={0.85}>
             {confirming ? (
-              <ActivityIndicator color={Colors.white} size="small" />
+              <ActivityIndicator color={Colors.navy} size="small" />
             ) : (
               <Text style={styles.confirmBtnLabel}>Confirm Booking →</Text>
             )}
@@ -477,316 +466,316 @@ export default function AmenityBookScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.pageBg },
+function useStyles(theme: ThemeTokens) {
+  return useMemo(() => StyleSheet.create({
+    screen: { flex: 1, backgroundColor: theme.pageBg },
 
-  // Header
-  header: {
-    backgroundColor: Colors.headerBg,
-    paddingHorizontal: Spacing.pagePx,
-    paddingBottom: 20,
-  },
-  headerTopBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-    flexShrink: 0,
-  },
-  headerLogo: {
-    height: 40,
-    width: 110,
-    flex: 1,
-  },
-  headerIcons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    marginLeft: 12,
-  },
-  amenityName: {
-    fontFamily: FontFamily.manropeExtraBold,
-    fontSize: 22,
-    color: Colors.white,
-    lineHeight: 28,
-  },
-  amenitySub: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.65)',
-    marginTop: 2,
-  },
+    // Header
+    header: {
+      backgroundColor: Colors.headerBg,
+      paddingHorizontal: Spacing.pagePx,
+      paddingBottom: 20,
+    },
+    headerTopBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 14,
+    },
+    backBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      backgroundColor: 'rgba(255,255,255,0.12)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 12,
+      flexShrink: 0,
+    },
+    headerLogo: {
+      height: 40,
+      width: 110,
+      flex: 1,
+    },
+    headerIcons: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 16,
+      marginLeft: 12,
+    },
+    amenityName: {
+      fontFamily: FontFamily.manropeExtraBold,
+      fontSize: 22,
+      color: Colors.white,
+      lineHeight: 28,
+    },
+    amenitySub: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: 13,
+      color: 'rgba(255,255,255,0.65)',
+      marginTop: 2,
+    },
 
-  // Date strip
-  dateStrip: {
-    backgroundColor: Colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    paddingHorizontal: Spacing.pagePx,
-    paddingTop: 14,
-    paddingBottom: 10,
-  },
-  dateSectionLabel: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: 11,
-    color: '#374151',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    marginBottom: 10,
-  },
-  datePillRow: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingBottom: 4,
-  },
-  datePill: {
-    alignItems: 'center',
-    minWidth: 56,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 14,
-    backgroundColor: Colors.pageBg,
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-  },
-  datePillActive: {
-    backgroundColor: Colors.navy,
-    borderColor: Colors.accentCyan,
-  },
-  datePillDay: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: 10,
-    color: '#9CA3AF',
-    letterSpacing: 0.3,
-  },
-  datePillNum: {
-    fontFamily: FontFamily.manropeExtraBold,
-    fontSize: 18,
-    color: Colors.navy,
-    lineHeight: 22,
-  },
-  datePillMonth: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: 9,
-    color: '#9CA3AF',
-  },
-  datePillTextActive: { color: Colors.white },
-  datePillMonthActive: { color: Colors.accentCyan },
+    // Date strip
+    dateStrip: {
+      backgroundColor: theme.cardBg,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.border,
+      paddingHorizontal: Spacing.pagePx,
+      paddingTop: 14,
+      paddingBottom: 10,
+    },
+    dateSectionLabel: {
+      fontFamily: FontFamily.jetbrainsMonoSemiBold,
+      fontSize: 11,
+      color: theme.textMuted,
+      letterSpacing: 1,
+      marginBottom: 10,
+    },
+    datePillRow: {
+      flexDirection: 'row',
+      gap: 8,
+      paddingBottom: 4,
+    },
+    datePill: {
+      alignItems: 'center',
+      minWidth: 56,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: 14,
+      backgroundColor: theme.pageBg,
+      borderWidth: 2,
+      borderColor: theme.border,
+    },
+    datePillActive: {
+      backgroundColor: Colors.navy,
+      borderColor: Colors.accentCyan,
+    },
+    datePillDay: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: 10,
+      color: theme.textMuted,
+      letterSpacing: 0.3,
+    },
+    datePillNum: {
+      fontFamily: FontFamily.manropeExtraBold,
+      fontSize: 18,
+      color: theme.textPrimary,
+      lineHeight: 22,
+    },
+    datePillMonth: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: 9,
+      color: theme.textMuted,
+    },
+    datePillTextActive: { color: Colors.white },
+    datePillMonthActive: { color: Colors.accentCyan },
 
-  // Body
-  body: {
-    padding: Spacing.pagePx,
-  },
+    // Body
+    body: {
+      padding: Spacing.pagePx,
+    },
 
-  // Options card
-  optionsCard: {
-    backgroundColor: Colors.white,
-    borderRadius: Radius.card,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: 16,
-    marginBottom: 12,
-  },
-  cardSectionLabel: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: 11,
-    color: '#374151',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    marginBottom: 14,
-  },
-  optionLabel: {
-    fontFamily: FontFamily.manropeBold,
-    fontSize: 14,
-    color: '#374151',
-    marginBottom: 8,
-  },
-  optionRow: {
-    flexDirection: 'row',
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  optionBtn: {
-    flex: 1,
-    minHeight: 44,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-    backgroundColor: Colors.pageBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 8,
-  },
-  optionBtnActive: {
-    backgroundColor: Colors.navy,
-    borderColor: Colors.accentCyan,
-  },
-  optionBtnLabel: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: FontSize.uiLabel,
-    color: '#4B5563',
-  },
-  optionBtnLabelActive: {
-    color: Colors.white,
-  },
-  maxDurationHint: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: 12,
-    color: '#6B7280',
-    fontStyle: 'italic',
-    marginTop: 8,
-  },
+    // Options card
+    optionsCard: {
+      backgroundColor: theme.cardBg,
+      borderRadius: Radius.card,
+      borderWidth: 1,
+      borderColor: theme.border,
+      padding: 16,
+      marginBottom: 12,
+    },
+    cardSectionLabel: {
+      fontFamily: FontFamily.jetbrainsMonoSemiBold,
+      fontSize: 11,
+      color: theme.textMuted,
+      letterSpacing: 1,
+      marginBottom: 14,
+    },
+    optionLabel: {
+      fontFamily: FontFamily.manropeBold,
+      fontSize: 14,
+      color: theme.textSecondary,
+      marginBottom: 8,
+    },
+    optionRow: {
+      flexDirection: 'row',
+      gap: 8,
+      flexWrap: 'wrap',
+    },
+    optionBtn: {
+      flex: 1,
+      minHeight: 44,
+      borderRadius: 10,
+      borderWidth: 2,
+      borderColor: theme.border,
+      backgroundColor: theme.pageBg,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 8,
+    },
+    optionBtnActive: {
+      backgroundColor: Colors.navy,
+      borderColor: Colors.accentCyan,
+    },
+    optionBtnLabel: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: FontSize.uiLabel,
+      color: theme.textMuted,
+    },
+    optionBtnLabelActive: {
+      color: Colors.white,
+    },
+    maxDurationHint: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: 12,
+      color: theme.textMuted,
+      fontStyle: 'italic',
+      marginTop: 8,
+    },
 
-  // Times card
-  timesCard: {
-    backgroundColor: Colors.white,
-    borderRadius: Radius.card,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: 16,
-    marginBottom: 12,
-  },
-  timesHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-    flexWrap: 'wrap',
-    gap: 4,
-  },
-  legendRow: {
-    flexDirection: 'row',
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  legendDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 3,
-    borderWidth: 1.5,
-  },
-  legendText: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: 11,
-    color: '#4B5563',
-  },
-  noSlotsText: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: 14,
-    color: '#4B5563',
-    textAlign: 'center',
-    paddingVertical: 24,
-  },
-  slotsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  slotBtn: {
-    width: '31%',
-    borderRadius: 10,
-    paddingVertical: 10,
-    alignItems: 'center',
-    position: 'relative',
-    borderWidth: 1.5,
-  },
-  slotAvailable: {
-    backgroundColor: Colors.pageBg,
-    borderColor: '#E5E7EB',
-  },
-  slotBooked: {
-    backgroundColor: '#F3F4F6',
-    borderColor: '#EBEBEB',
-  },
-  slotSelected: {
-    backgroundColor: Colors.navy,
-    borderColor: Colors.accentCyan,
-    borderWidth: 2,
-  },
-  slotCheckDot: {
-    position: 'absolute',
-    top: -5,
-    right: -5,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: Colors.accentCyan,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  slotLabel: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: 12,
-  },
+    // Times card
+    timesCard: {
+      backgroundColor: theme.cardBg,
+      borderRadius: Radius.card,
+      borderWidth: 1,
+      borderColor: theme.border,
+      padding: 16,
+      marginBottom: 12,
+    },
+    timesHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 12,
+      flexWrap: 'wrap',
+      gap: 4,
+    },
+    legendRow: {
+      flexDirection: 'row',
+      gap: 8,
+      flexWrap: 'wrap',
+    },
+    legendItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    legendDot: {
+      width: 12,
+      height: 12,
+      borderRadius: 3,
+      borderWidth: 1.5,
+    },
+    legendText: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: 11,
+      color: theme.textMuted,
+    },
+    noSlotsText: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: 14,
+      color: theme.textMuted,
+      textAlign: 'center',
+      paddingVertical: 24,
+    },
+    slotsGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    slotBtn: {
+      width: '31%',
+      borderRadius: 10,
+      paddingVertical: 10,
+      alignItems: 'center',
+      position: 'relative',
+      borderWidth: 1.5,
+    },
+    slotAvailable: {
+      backgroundColor: theme.pageBg,
+      borderColor: theme.border,
+    },
+    slotBooked: {
+      backgroundColor: 'rgba(154,163,184,0.10)',
+      borderColor: 'rgba(154,163,184,0.15)',
+    },
+    slotSelected: {
+      backgroundColor: Colors.navy,
+      borderColor: Colors.accentCyan,
+      borderWidth: 2,
+    },
+    slotCheckDot: {
+      position: 'absolute',
+      top: -5,
+      right: -5,
+      width: 14,
+      height: 14,
+      borderRadius: 7,
+      backgroundColor: Colors.accentCyan,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    slotLabel: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: 12,
+    },
 
-  // Confirm bar
-  confirmBar: {
-    backgroundColor: Colors.white,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    paddingHorizontal: Spacing.pagePx,
-    paddingTop: 12,
-    gap: 10,
-  },
-  confirmSummary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  confirmTime: {
-    fontFamily: FontFamily.manropeBold,
-    fontSize: 14,
-    color: Colors.navy,
-  },
-  confirmMeta: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: 12,
-    color: '#4B5563',
-    marginTop: 2,
-  },
-  confirmedPill: {
-    alignSelf: 'flex-end',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: Radius.pill,
-    backgroundColor: '#E6FFFA',
-  },
-  confirmedPillText: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: 11,
-    color: Colors.accentCyan,
-  },
-  confirmBtn: {
-    backgroundColor: Colors.accentCyan,
-    borderRadius: Radius.button,
-    paddingVertical: 14,
-    alignItems: 'center',
-    minHeight: 44,
-    shadowColor: '#00D4FF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
-    elevation: 4,
-  },
-  confirmBtnDisabled: {
-    opacity: 0.7,
-  },
-  confirmBtnLabel: {
-    fontFamily: FontFamily.manropeExtraBold,
-    fontSize: 15,
-    color: Colors.white,
-  },
-});
+    // Confirm bar
+    confirmBar: {
+      backgroundColor: theme.cardBg,
+      borderTopWidth: 1,
+      borderTopColor: theme.border,
+      paddingHorizontal: Spacing.pagePx,
+      paddingTop: 12,
+      gap: 10,
+    },
+    confirmSummary: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    confirmTime: {
+      fontFamily: FontFamily.manropeBold,
+      fontSize: 14,
+      color: theme.textPrimary,
+    },
+    confirmMeta: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: 12,
+      color: theme.textSecondary,
+      marginTop: 2,
+    },
+    confirmedPill: {
+      alignSelf: 'flex-end',
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: Radius.pill,
+      backgroundColor: 'rgba(45,224,255,0.12)',
+    },
+    confirmedPillText: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: 11,
+      color: Colors.accentCyan,
+    },
+    confirmBtn: {
+      backgroundColor: Colors.accentCyan,
+      borderRadius: Radius.button,
+      paddingVertical: 14,
+      alignItems: 'center',
+      minHeight: 44,
+      shadowColor: '#00D4FF',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.35,
+      shadowRadius: 16,
+      elevation: 4,
+    },
+    confirmBtnDisabled: {
+      opacity: 0.7,
+    },
+    confirmBtnLabel: {
+      fontFamily: FontFamily.manropeExtraBold,
+      fontSize: 15,
+      color: Colors.navy,
+    },
+  }), [theme]);
+}

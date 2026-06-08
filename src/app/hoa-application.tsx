@@ -1,16 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { router } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, Building2, CheckCircle, Clock } from 'lucide-react-native';
+import { Building2, CheckCircle, Clock } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import {
-  Colors, FontFamily, FontSize, MaxWidth, Radius, Shadow, Spacing,
+  Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing,
 } from '@/constants/design';
 import { Button } from '@/components/ui/Button';
+import { Header } from '@/components/ui/Header';
+import { useTheme } from '@/context/ThemeContext';
+import type { ThemeTokens } from '@/constants/theme-tokens';
 
 type ClaimedRole = 'board_member' | 'property_manager' | 'administrator' | 'other' | '';
 
@@ -33,7 +35,8 @@ interface ExistingApplication {
 }
 
 export default function HOAApplicationScreen() {
-  const insets = useSafeAreaInsets();
+  const { theme } = useTheme();
+  const styles = useStyles(theme);
 
   const [fullName, setFullName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -128,7 +131,7 @@ export default function HOAApplicationScreen() {
   if (isLoading) {
     return (
       <View style={[styles.screen, { justifyContent: 'center', alignItems: 'center' }]}>
-        <Text style={{ color: Colors.textMuted }}>Loading…</Text>
+        <Text style={{ color: theme.textMuted }}>Loading…</Text>
       </View>
     );
   }
@@ -140,23 +143,35 @@ export default function HOAApplicationScreen() {
     const isRejected = status === 'rejected';
     const needsMoreInfo = status === 'needs_more_info';
 
-    const badgeBg = isApproved ? Colors.optimalBg : isRejected ? Colors.criticalBg : needsMoreInfo ? '#FFFBEB' : '#FFF9E6';
-    const badgeBorder = isApproved ? Colors.accentCyan : isRejected ? Colors.red : needsMoreInfo ? '#F59E0B' : '#F59E0B';
-    const badgeColor = isApproved ? Colors.accentCyan : isRejected ? Colors.red : needsMoreInfo ? '#92400E' : '#92400E';
+    const badgeBg = isApproved
+      ? Colors.optimalBg
+      : isRejected
+      ? Colors.criticalBg
+      : needsMoreInfo
+      ? 'rgba(245,158,11,0.12)'
+      : 'rgba(154,163,184,0.12)';
+    const badgeBorder = isApproved
+      ? Colors.accentCyan
+      : isRejected
+      ? Colors.negative
+      : needsMoreInfo
+      ? 'rgba(245,158,11,0.40)'
+      : 'rgba(154,163,184,0.30)';
+    const badgeColor = isApproved
+      ? Colors.accentCyan
+      : isRejected
+      ? Colors.negative
+      : needsMoreInfo
+      ? '#F59E0B'
+      : theme.textMuted;
 
     return (
       <View style={styles.screen}>
-        <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 8 }]}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <ArrowLeft color={Colors.white} size={22} strokeWidth={1.5} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>HOA Application</Text>
-          <View style={styles.backBtn} />
-        </View>
+        <Header variant="inner" title="HOA Application" onBack={() => router.back()} />
         <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
           <View style={{ maxWidth: MaxWidth, width: '100%', alignSelf: 'center' }}>
             <View style={styles.statusCard}>
-              <Building2 color={Colors.navy} size={36} strokeWidth={1.5} />
+              <Building2 color={theme.textSecondary} size={36} strokeWidth={1.5} />
               <Text style={styles.statusTitle}>HOA Application Status</Text>
               <Text style={styles.statusHoa}>"{existingApplication.hoa_name}"</Text>
 
@@ -164,7 +179,13 @@ export default function HOAApplicationScreen() {
                 {isApproved && <CheckCircle color={Colors.accentCyan} size={18} strokeWidth={1.5} />}
                 {!isApproved && <Clock color={badgeColor} size={18} strokeWidth={1.5} />}
                 <Text style={[styles.statusBadgeText, { color: badgeColor }]}>
-                  {isApproved ? 'Application Approved!' : isRejected ? 'Application Not Approved' : needsMoreInfo ? 'Additional Information Needed' : 'Verification Pending'}
+                  {isApproved
+                    ? 'Application Approved!'
+                    : isRejected
+                    ? 'Application Not Approved'
+                    : needsMoreInfo
+                    ? 'Additional Information Needed'
+                    : 'Verification Pending'}
                 </Text>
               </View>
 
@@ -175,8 +196,7 @@ export default function HOAApplicationScreen() {
                   ? 'Please review the reviewer note below for details.'
                   : needsMoreInfo
                   ? 'A reviewer requested more information. Review the request below and resubmit.'
-                  : 'TenisX is reviewing your application. This typically takes 1-3 business days.'
-                }
+                  : 'TenisX is reviewing your application. This typically takes 1-3 business days.'}
               </Text>
 
               {(isRejected || needsMoreInfo) && latestReviewerNote && (
@@ -219,13 +239,7 @@ export default function HOAApplicationScreen() {
   // Application form
   return (
     <View style={styles.screen}>
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 8 }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <ArrowLeft color={Colors.white} size={22} strokeWidth={1.5} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Register Your HOA</Text>
-        <View style={styles.backBtn} />
-      </View>
+      <Header variant="inner" title="Register Your HOA" onBack={() => router.back()} />
 
       <ScrollView
         style={{ flex: 1 }}
@@ -244,7 +258,7 @@ export default function HOAApplicationScreen() {
             value={fullName}
             onChangeText={setFullName}
             placeholder="Jane Smith"
-            placeholderTextColor={Colors.textPlaceholder}
+            placeholderTextColor={theme.textMuted}
           />
 
           <Text style={[styles.fieldLabel, { marginTop: 16 }]}>PHONE NUMBER</Text>
@@ -253,7 +267,7 @@ export default function HOAApplicationScreen() {
             value={phoneNumber}
             onChangeText={setPhoneNumber}
             placeholder="+1 (555) 000-0000"
-            placeholderTextColor={Colors.textPlaceholder}
+            placeholderTextColor={theme.textMuted}
             keyboardType="phone-pad"
           />
 
@@ -263,7 +277,7 @@ export default function HOAApplicationScreen() {
             value={hoaName}
             onChangeText={setHoaName}
             placeholder="Sunset Park HOA"
-            placeholderTextColor={Colors.textPlaceholder}
+            placeholderTextColor={theme.textMuted}
           />
 
           <Text style={[styles.fieldLabel, { marginTop: 16 }]}>COMMUNITY LOCATION</Text>
@@ -272,7 +286,7 @@ export default function HOAApplicationScreen() {
             value={communityLocation}
             onChangeText={setCommunityLocation}
             placeholder="City, State"
-            placeholderTextColor={Colors.textPlaceholder}
+            placeholderTextColor={theme.textMuted}
           />
 
           <Text style={[styles.fieldLabel, { marginTop: 16 }]}>ESTIMATED RESIDENTS</Text>
@@ -281,7 +295,7 @@ export default function HOAApplicationScreen() {
             value={estimatedResidents}
             onChangeText={setEstimatedResidents}
             placeholder="e.g. 150"
-            placeholderTextColor={Colors.textPlaceholder}
+            placeholderTextColor={theme.textMuted}
             keyboardType="number-pad"
           />
 
@@ -307,7 +321,7 @@ export default function HOAApplicationScreen() {
                 value={claimedRoleOther}
                 onChangeText={setClaimedRoleOther}
                 placeholder="e.g. Community Manager"
-                placeholderTextColor={Colors.textPlaceholder}
+                placeholderTextColor={theme.textMuted}
               />
             </>
           )}
@@ -335,151 +349,143 @@ export default function HOAApplicationScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.pageBg },
-  header: {
-    backgroundColor: Colors.headerBg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.pagePx,
-    paddingBottom: 20,
-  },
-  backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontFamily: FontFamily.manropeExtraBold, fontSize: 18, color: Colors.white },
-  content: { padding: Spacing.pagePx, paddingBottom: 60 },
-  intro: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.body,
-    color: Colors.textSubtle,
-    lineHeight: 22,
-    marginBottom: 24,
-  },
-  fieldLabel: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: FontSize.metadata,
-    color: Colors.textMuted,
-    letterSpacing: 1.2,
-    marginBottom: 8,
-  },
-  textInput: {
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Radius.input,
-    padding: 14,
-    fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.body,
-    color: Colors.textPrimary,
-    backgroundColor: Colors.cardBg,
-    minHeight: 44,
-  },
-  roleGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  rolePill: {
-    borderRadius: Radius.pill,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: Colors.cardBg,
-  },
-  rolePillActive: { backgroundColor: Colors.navy, borderColor: Colors.navy },
-  rolePillLabel: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: FontSize.uiLabel,
-    color: Colors.textMuted,
-  },
-  rolePillLabelActive: { color: Colors.white },
+function useStyles(theme: ThemeTokens) {
+  return useMemo(() => StyleSheet.create({
+    screen: { flex: 1, backgroundColor: theme.pageBg },
+    content: { padding: Spacing.pagePx, paddingBottom: 60 },
+    intro: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.body,
+      color: theme.textSecondary,
+      lineHeight: 22,
+      marginBottom: 24,
+    },
+    fieldLabel: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: FontSize.metadata,
+      color: theme.textMuted,
+      letterSpacing: 1.2,
+      marginBottom: 8,
+    },
+    textInput: {
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: Radius.input,
+      padding: 14,
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.body,
+      color: theme.textPrimary,
+      backgroundColor: theme.cardBg,
+      minHeight: 44,
+    },
+    roleGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    rolePill: {
+      borderRadius: Radius.pill,
+      borderWidth: 1,
+      borderColor: theme.border,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      backgroundColor: theme.cardBg,
+    },
+    rolePillActive: { backgroundColor: Colors.navy, borderColor: Colors.navy },
+    rolePillLabel: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: FontSize.uiLabel,
+      color: theme.textMuted,
+    },
+    rolePillLabelActive: { color: Colors.white },
 
-  // Status view
-  statusCard: {
-    backgroundColor: Colors.cardBg,
-    borderRadius: Radius.card,
-    padding: 24,
-    alignItems: 'center',
-    gap: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    ...Shadow,
-  },
-  statusTitle: {
-    fontFamily: FontFamily.manropeExtraBold,
-    fontSize: FontSize.sectionTitle,
-    color: Colors.navy,
-    textAlign: 'center',
-  },
-  statusHoa: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.body,
-    color: Colors.textMuted,
-    textAlign: 'center',
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderRadius: Radius.card,
-    borderWidth: 1,
-    padding: 12,
-    paddingHorizontal: 16,
-  },
-  statusBadgeText: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: FontSize.body,
-  },
-  statusDesc: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.body,
-    color: Colors.textSubtle,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  submittedOn: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.uiLabel,
-    color: Colors.textMuted,
-    marginTop: 4,
-  },
-  reviewerNoteBox: {
-    width: '100%',
-    backgroundColor: Colors.pageBg,
-    borderRadius: Radius.input,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: 14,
-  },
-  reviewerNoteLabel: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: FontSize.uiLabel,
-    color: Colors.textMuted,
-    marginBottom: 6,
-  },
-  reviewerNoteText: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.body,
-    color: Colors.textSubtle,
-    lineHeight: 20,
-  },
-  reviewerNoteDate: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.min,
-    color: Colors.textMuted,
-    marginTop: 6,
-  },
-  infoNotice: {
-    marginTop: 24,
-    padding: 14,
-    backgroundColor: '#EFF6FF',
-    borderRadius: Radius.input,
-    borderLeftWidth: 4,
-    borderLeftColor: '#3B82F6',
-  },
-  infoNoticeText: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.uiLabel,
-    color: '#1E40AF',
-    lineHeight: 19,
-  },
-  infoNoticeBold: {
-    fontFamily: FontFamily.interSemiBold,
-  },
-});
+    // Status view
+    statusCard: {
+      backgroundColor: theme.cardBg,
+      borderRadius: Radius.card,
+      padding: 24,
+      alignItems: 'center',
+      gap: 12,
+      borderWidth: 1,
+      borderColor: theme.border,
+      ...theme.shadowCard,
+    },
+    statusTitle: {
+      fontFamily: FontFamily.manropeExtraBold,
+      fontSize: FontSize.sectionTitle,
+      color: theme.textPrimary,
+      textAlign: 'center',
+    },
+    statusHoa: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.body,
+      color: theme.textMuted,
+      textAlign: 'center',
+    },
+    statusBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      borderRadius: Radius.card,
+      borderWidth: 1,
+      padding: 12,
+      paddingHorizontal: 16,
+    },
+    statusBadgeText: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: FontSize.body,
+    },
+    statusDesc: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.body,
+      color: theme.textSecondary,
+      textAlign: 'center',
+      lineHeight: 22,
+    },
+    submittedOn: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.uiLabel,
+      color: theme.textMuted,
+      marginTop: 4,
+    },
+    reviewerNoteBox: {
+      width: '100%',
+      backgroundColor: theme.pageBg,
+      borderRadius: Radius.input,
+      borderWidth: 1,
+      borderColor: theme.border,
+      padding: 14,
+    },
+    reviewerNoteLabel: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: FontSize.uiLabel,
+      color: theme.textMuted,
+      marginBottom: 6,
+    },
+    reviewerNoteText: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.body,
+      color: theme.textSecondary,
+      lineHeight: 20,
+    },
+    reviewerNoteDate: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.min,
+      color: theme.textMuted,
+      marginTop: 6,
+    },
+    infoNotice: {
+      marginTop: 24,
+      padding: 14,
+      backgroundColor: 'rgba(45,107,255,0.10)',
+      borderRadius: Radius.input,
+      borderLeftWidth: 4,
+      borderLeftColor: 'rgba(45,107,255,0.30)',
+    },
+    infoNoticeText: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.uiLabel,
+      color: Colors.blue,
+      lineHeight: 19,
+    },
+    infoNoticeBold: {
+      fontFamily: FontFamily.manropeSemiBold,
+    },
+  }), [theme]);
+}

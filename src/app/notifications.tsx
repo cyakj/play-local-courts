@@ -1,15 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { router } from 'expo-router';
-import { MessageSquare, Bell, ArrowLeft } from 'lucide-react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MessageSquare } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
-import {
-  Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing,
-} from '@/constants/design';
+import { Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing } from '@/constants/design';
+import { Header } from '@/components/ui/Header';
 import { CardSkeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { useTheme } from '@/context/ThemeContext';
+import type { ThemeTokens } from '@/constants/theme-tokens';
 
 interface NotificationItem {
   id: string;
@@ -31,7 +31,8 @@ function timeAgo(iso: string): string {
 }
 
 export default function NotificationsScreen() {
-  const insets = useSafeAreaInsets();
+  const { theme } = useTheme();
+  const styles = useStyles(theme);
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -60,7 +61,6 @@ export default function NotificationsScreen() {
       setItems(notifications);
       setLoading(false);
 
-      // mark all as read
       await supabase
         .from('messages')
         .update({ read_at: new Date().toISOString() })
@@ -71,14 +71,8 @@ export default function NotificationsScreen() {
   }, []);
 
   return (
-    <View style={[styles.screen]}>
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 8 }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <ArrowLeft color={Colors.white} size={22} strokeWidth={1.5} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Notifications</Text>
-        <View style={styles.backBtn} />
-      </View>
+    <View style={styles.screen}>
+      <Header variant="inner" title="Notifications" onBack={() => router.back()} />
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={{ maxWidth: MaxWidth, width: '100%', alignSelf: 'center' }}>
@@ -90,9 +84,10 @@ export default function NotificationsScreen() {
             items.map((item) => (
               <TouchableOpacity
                 key={item.id}
-                style={[styles.item, !item.read && styles.itemUnread]}>
+                style={[styles.item, !item.read && styles.itemUnread]}
+                activeOpacity={0.75}>
                 <View style={styles.iconWrap}>
-                  <MessageSquare color={Colors.navy} size={20} strokeWidth={1.5} />
+                  <MessageSquare color={Colors.accentCyan} size={20} strokeWidth={1.5} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <View style={styles.itemTop}>
@@ -111,62 +106,51 @@ export default function NotificationsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.pageBg },
-  header: {
-    backgroundColor: Colors.headerBg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.pagePx,
-    paddingBottom: 20,
-  },
-  backBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: {
-    fontFamily: FontFamily.manropeExtraBold,
-    fontSize: 18,
-    color: Colors.white,
-  },
-  content: { padding: Spacing.pagePx, paddingBottom: 60 },
-  item: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 14,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-    backgroundColor: Colors.cardBg,
-    paddingHorizontal: Spacing.pagePx,
-    marginHorizontal: -Spacing.pagePx,
-  },
-  itemUnread: { backgroundColor: 'rgba(0,212,255,0.05)' },
-  iconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0,212,255,0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  itemTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  itemTitle: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: FontSize.body,
-    color: Colors.textPrimary,
-    flex: 1,
-  },
-  unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.accentCyan },
-  itemBody: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.uiLabel,
-    color: Colors.textMuted,
-    marginTop: 2,
-  },
-  itemTime: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.metadata,
-    color: Colors.textMuted,
-    marginTop: 4,
-  },
-});
+function useStyles(theme: ThemeTokens) {
+  return useMemo(() => StyleSheet.create({
+    screen:  { flex: 1, backgroundColor: theme.pageBg },
+    content: { padding: Spacing.pagePx, paddingBottom: 60 },
+
+    item: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 14,
+      paddingVertical: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.border,
+      backgroundColor: theme.cardBg,
+      paddingHorizontal: Spacing.pagePx,
+      marginHorizontal: -Spacing.pagePx,
+    },
+    itemUnread: { backgroundColor: 'rgba(45,224,255,0.05)' },
+    iconWrap: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: 'rgba(45,224,255,0.12)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+    },
+    itemTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    itemTitle: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: FontSize.body,
+      color: theme.textPrimary,
+      flex: 1,
+    },
+    unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.accentCyan },
+    itemBody: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.uiLabel,
+      color: theme.textSecondary,
+      marginTop: 2,
+    },
+    itemTime: {
+      fontFamily: FontFamily.jetbrainsMonoSemiBold,
+      fontSize: 11,
+      color: theme.textMuted,
+      marginTop: 4,
+    },
+  }), [theme]);
+}
