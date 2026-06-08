@@ -22,6 +22,8 @@ export interface CoachWithProfile {
   reviewCount: number;
   distanceKm: number | null;
   availableDays: Set<number>; // 0=Sun … 6=Sat
+  gender: string | null;
+  lessonTypesOffered: string[];
 }
 
 export type DistanceFilterKm = 8 | 16 | 40 | 80 | null;
@@ -29,13 +31,26 @@ export type LevelFilter = 'beginner' | 'intermediate' | 'high_performance';
 export type PriceRange = 'under75' | '75to100' | '100to150' | '150plus' | null;
 export type AvailabilityFilter = 'today' | 'tomorrow' | 'this_week' | 'weekend' | null;
 
+export type RatingFilter     = '4.0' | '4.5' | '4.8' | null;
+export type ExperienceFilter = '0to2' | '3to5' | '5to10' | '10plus' | null;
+export type LocationModeFilter = 'coach_facility' | 'traveling' | null;
+export type GenderFilter     = 'male' | 'female' | 'unspecified' | null;
+export type SortOption =
+  | 'best_match' | 'highest_rated' | 'most_reviews' | 'most_experienced'
+  | 'lowest_price' | 'highest_price' | 'closest_distance';
+
 export interface CoachFilters {
   search:       string;
   distanceKm:   DistanceFilterKm;
   levels:       LevelFilter[];
   priceRange:   PriceRange;
-  lessonTypes:  string[];       // multi-select — empty = no filter
+  lessonTypes:  string[];
   availability: AvailabilityFilter;
+  rating:       RatingFilter;
+  experience:   ExperienceFilter;
+  locationMode: LocationModeFilter;
+  gender:       GenderFilter;
+  sort:         SortOption;
 }
 
 interface UseCoachDataResult {
@@ -78,6 +93,59 @@ function matchesPriceRange(rate: number | null, range: PriceRange): boolean {
   return true;
 }
 
+function bestMatchScore(c: CoachWithProfile): number {
+  const ratingScore = ((c.avgRating ?? 0) / 5) * 0.35;
+  const reviewScore = Math.min(c.reviewCount / 20, 1) * 0.25;
+  const distScore   = c.distanceKm != null
+    ? Math.max(0, 1 - c.distanceKm / 100) * 0.20
+    : 0.5 * 0.20;
+  const availScore  = (c.availableDays.size / 7) * 0.10;
+  const expScore    = (Math.min(c.yearsExperience ?? 0, 20) / 20) * 0.10;
+  return ratingScore + reviewScore + distScore + availScore + expScore;
+}
+
+function applySorting(list: CoachWithProfile[], sort: SortOption): CoachWithProfile[] {
+  const sorted = [...list];
+  switch (sort) {
+    case 'best_match':
+      return sorted.sort((a, b) => bestMatchScore(b) - bestMatchScore(a));
+    case 'highest_rated':
+      return sorted.sort((a, b) => {
+        if (a.avgRating == null) return 1;
+        if (b.avgRating == null) return -1;
+        return b.avgRating - a.avgRating;
+      });
+    case 'most_reviews':
+      return sorted.sort((a, b) => b.reviewCount - a.reviewCount);
+    case 'most_experienced':
+      return sorted.sort((a, b) => {
+        if (a.yearsExperience == null) return 1;
+        if (b.yearsExperience == null) return -1;
+        return b.yearsExperience - a.yearsExperience;
+      });
+    case 'lowest_price':
+      return sorted.sort((a, b) => {
+        if (a.hourlyRate == null) return 1;
+        if (b.hourlyRate == null) return -1;
+        return a.hourlyRate - b.hourlyRate;
+      });
+    case 'highest_price':
+      return sorted.sort((a, b) => {
+        if (a.hourlyRate == null) return 1;
+        if (b.hourlyRate == null) return -1;
+        return b.hourlyRate - a.hourlyRate;
+      });
+    case 'closest_distance':
+      return sorted.sort((a, b) => {
+        if (a.distanceKm == null) return 1;
+        if (b.distanceKm == null) return -1;
+        return a.distanceKm - b.distanceKm;
+      });
+    default:
+      return sorted;
+  }
+}
+
 export function useCoachData(filters: CoachFilters): UseCoachDataResult {
   const [allCoaches, setAllCoaches] = useState<CoachWithProfile[]>([]);
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
@@ -106,7 +174,7 @@ export function useCoachData(filters: CoachFilters): UseCoachDataResult {
       const [coachesRes, reviewsRes, favRes, playerProfileRes] = await Promise.all([
         supabase
           .from('coaches')
-          .select('id, user_id, business_name, credentials, years_experience, sports_offered, home_base, willing_to_travel, hourly_rate, bio, profile_image_url, levels_served, latitude, longitude')
+          .select('id, user_id, business_name, credentials, years_experience, sports_offered, home_base, willing_to_travel, hourly_rate, bio, profile_image_url, levels_served, latitude, longitude, lesson_types_offered')
           .eq('is_active', true)
           .limit(50),
         supabase
@@ -130,14 +198,14 @@ export function useCoachData(filters: CoachFilters): UseCoachDataResult {
       const userIds = rawCoaches.map(c => c.user_id as string);
 
       // Parallel: profiles + coach_availability (days only)
-      let profilesData: { id: string; full_name: string | null; avatar_url: string | null }[] = [];
+      let profilesData: { id: string; full_name: string | null; avatar_url: string | null; gender: string | null }[] = [];
       let availabilityData: { coach_id: string; day_of_week: number }[] = [];
 
       if (userIds.length > 0) {
         const [profilesRes, availRes] = await Promise.all([
           supabase
             .from('profiles')
-            .select('id, full_name, avatar_url')
+            .select('id, full_name, avatar_url, gender')
             .in('id', userIds),
           supabase
             .from('coach_availability')
@@ -199,26 +267,28 @@ export function useCoachData(filters: CoachFilters): UseCoachDataResult {
         const profile = profileMap.get(uid);
         const rating  = ratingMap.get(uid);
         return {
-          id:              c.id as string,
-          userId:          uid,
-          businessName:    c.business_name as string | null,
-          credentials:     c.credentials as string | null,
-          yearsExperience: c.years_experience as number | null,
-          sportsOffered:   (c.sports_offered as string[]) ?? [],
-          homeBase:        c.home_base as string | null,
-          willingToTravel: (c.willing_to_travel as boolean) ?? false,
-          hourlyRate:      c.hourly_rate != null ? Number(c.hourly_rate) : null,
-          bio:             c.bio as string | null,
-          profileImageUrl: c.profile_image_url as string | null,
-          levelsServed:    (c.levels_served as string[]) ?? [],
-          latitude:        c.latitude as number | null,
-          longitude:       c.longitude as number | null,
-          fullName:        profile?.full_name ?? null,
-          avatarUrl:       profile?.avatar_url ?? null,
-          avgRating:       rating ? rating.sum / rating.count : null,
-          reviewCount:     rating?.count ?? 0,
-          distanceKm:      distanceMap.get(uid) ?? null,
-          availableDays:   availMap.get(uid) ?? new Set(),
+          id:                 c.id as string,
+          userId:             uid,
+          businessName:       c.business_name as string | null,
+          credentials:        c.credentials as string | null,
+          yearsExperience:    c.years_experience as number | null,
+          sportsOffered:      (c.sports_offered as string[]) ?? [],
+          homeBase:           c.home_base as string | null,
+          willingToTravel:    (c.willing_to_travel as boolean) ?? false,
+          hourlyRate:         c.hourly_rate != null ? Number(c.hourly_rate) : null,
+          bio:                c.bio as string | null,
+          profileImageUrl:    c.profile_image_url as string | null,
+          levelsServed:       (c.levels_served as string[]) ?? [],
+          latitude:           c.latitude as number | null,
+          longitude:          c.longitude as number | null,
+          fullName:           profile?.full_name ?? null,
+          avatarUrl:          profile?.avatar_url ?? null,
+          avgRating:          rating ? rating.sum / rating.count : null,
+          reviewCount:        rating?.count ?? 0,
+          distanceKm:         distanceMap.get(uid) ?? null,
+          availableDays:      availMap.get(uid) ?? new Set(),
+          gender:             (profileMap.get(uid)?.gender as string | null) ?? null,
+          lessonTypesOffered: (c.lesson_types_offered as string[]) ?? [],
         };
       });
 
@@ -257,7 +327,7 @@ export function useCoachData(filters: CoachFilters): UseCoachDataResult {
   }, [favoriteIds]);
 
   // ── Client-side filtering ──────────────────────────────────────────────────
-  const coaches = allCoaches.filter(c => {
+  const filtered = allCoaches.filter(c => {
     // Search: name or home_base
     if (filters.search.trim()) {
       const q = filters.search.toLowerCase();
@@ -279,11 +349,6 @@ export function useCoachData(filters: CoachFilters): UseCoachDataResult {
     // Price range
     if (!matchesPriceRange(c.hourlyRate, filters.priceRange)) return false;
 
-    // Lesson type — all coaches offer all types, so only filter when
-    // the coach explicitly lists sports_offered that match, OR pass through
-    // (since not all coaches populate this field yet)
-    // → include all for now (no-op until coaches populate lesson_types_offered)
-
     // Availability
     if (filters.availability != null) {
       const requiredDays = getDaysForFilter(filters.availability);
@@ -293,8 +358,45 @@ export function useCoachData(filters: CoachFilters): UseCoachDataResult {
       }
     }
 
+    // Rating
+    if (filters.rating != null) {
+      const threshold = parseFloat(filters.rating);
+      if (c.avgRating == null || c.avgRating < threshold) return false;
+    }
+
+    // Experience
+    if (filters.experience != null) {
+      const yrs = c.yearsExperience;
+      if (yrs != null) {
+        if (filters.experience === '0to2'   && !(yrs >= 0  && yrs <= 2))  return false;
+        if (filters.experience === '3to5'   && !(yrs >= 3  && yrs <= 5))  return false;
+        if (filters.experience === '5to10'  && !(yrs >= 5  && yrs <= 10)) return false;
+        if (filters.experience === '10plus' && yrs < 10)                   return false;
+      }
+    }
+
+    // Location mode
+    if (filters.locationMode === 'traveling' && !c.willingToTravel) return false;
+
+    // Gender
+    if (filters.gender != null) {
+      const g = (c.gender ?? '').toLowerCase();
+      if (filters.gender === 'unspecified') {
+        if (g !== '') return false;
+      } else {
+        if (g !== filters.gender) return false;
+      }
+    }
+
+    // Lesson types — now functional (coaches with empty list pass through)
+    if (filters.lessonTypes.length > 0 && c.lessonTypesOffered.length > 0) {
+      if (!filters.lessonTypes.some(lt => c.lessonTypesOffered.includes(lt))) return false;
+    }
+
     return true;
   });
+
+  const coaches = applySorting(filtered, filters.sort);
 
   return { coaches, loading, error, refresh, favoriteIds, toggleFavorite, playerHasCoordinates };
 }
