@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/design';
 import { useTheme } from '@/context/ThemeContext';
 import type { ThemeTokens } from '@/constants/theme-tokens';
-import { TIME_BANDS, type TimeBand, type CoachAvailabilitySlot, type CoachUnavailabilityBlock } from '@/hooks/useCoachAvailability';
+import { TIME_BANDS, type TimeBand, type CoachAvailabilitySlot, type CoachUnavailabilityBlock, type CellMode } from '@/hooks/useCoachAvailability';
 
 const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
@@ -16,6 +16,9 @@ interface Props {
   onSelectBand?: (band: TimeBand) => void;
   // layout
   compact?: boolean;
+  // new cell-level interaction (editor mode)
+  getCellMode?: (dow: number, band: TimeBand) => CellMode | null;
+  onCellPress?: (dow: number, band: TimeBand) => void;
 }
 
 function overlaps(slotStart: string, slotEnd: string, band: TimeBand): boolean {
@@ -30,6 +33,8 @@ export function CoachAvailabilityGrid({
   selectedBand = null,
   onSelectBand,
   compact = false,
+  getCellMode,
+  onCellPress,
 }: Props) {
   const { theme } = useTheme();
   const styles = useStyles(theme, compact);
@@ -58,9 +63,10 @@ export function CoachAvailabilityGrid({
       .slice(0, 3);
   }, [unavailabilityBlocks]);
 
+  const isCellInteractive = !!onCellPress;
   const hasAnyAvailability = weeklySlots.length > 0;
 
-  if (!hasAnyAvailability) {
+  if (!hasAnyAvailability && !isCellInteractive) {
     return (
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyText}>Schedule not posted — request any time</Text>
@@ -85,11 +91,17 @@ export function CoachAvailabilityGrid({
           {/* Band rows */}
           {grid.map(({ band, days }) => {
             const isSelected = interactive && selectedBand?.label === band.label;
+            const BandRowContainer = isCellInteractive ? View : TouchableOpacity;
+            const bandRowProps = isCellInteractive
+              ? {}
+              : {
+                  activeOpacity: interactive ? 0.7 : 1,
+                  onPress: interactive ? () => onSelectBand?.(band) : undefined,
+                };
             return (
-              <TouchableOpacity
+              <BandRowContainer
                 key={band.label}
-                activeOpacity={interactive ? 0.7 : 1}
-                onPress={interactive ? () => onSelectBand?.(band) : undefined}
+                {...bandRowProps}
                 style={[styles.bandRow, isSelected && styles.bandRowSelected]}
               >
                 <View style={styles.bandLabelCell}>
@@ -100,16 +112,32 @@ export function CoachAvailabilityGrid({
                     {band.start}–{band.end}
                   </Text>
                 </View>
-                {days.map((available, dow) => (
-                  <View
-                    key={dow}
-                    style={[
-                      styles.cell,
-                      available && (isSelected ? styles.cellAvailableSelected : styles.cellAvailable),
-                    ]}
-                  />
-                ))}
-              </TouchableOpacity>
+                {days.map((available, dow) => {
+                  const cellMode = getCellMode?.(dow, band) ?? null;
+                  const cellVisualStyle = isCellInteractive
+                    ? (cellMode === 'coach_facility' ? styles.cellFacility
+                       : cellMode === 'traveling'    ? styles.cellTraveling
+                       : cellMode === 'both'         ? styles.cellBoth
+                       : null)
+                    : (available ? (isSelected ? styles.cellAvailableSelected : styles.cellAvailable) : null);
+                  if (isCellInteractive) {
+                    return (
+                      <TouchableOpacity
+                        key={dow}
+                        activeOpacity={0.7}
+                        onPress={() => onCellPress!(dow, band)}
+                        style={[styles.cell, cellVisualStyle]}
+                      />
+                    );
+                  }
+                  return (
+                    <View
+                      key={dow}
+                      style={[styles.cell, cellVisualStyle]}
+                    />
+                  );
+                })}
+              </BandRowContainer>
             );
           })}
         </View>
@@ -227,6 +255,19 @@ function useStyles(theme: ThemeTokens, compact: boolean) {
     cellAvailableSelected: {
       backgroundColor: 'rgba(45,224,255,0.18)',
       borderColor: Colors.cyan,
+    },
+    // Editor mode cell styles
+    cellFacility: {
+      backgroundColor: 'rgba(45,107,255,0.15)',
+      borderColor:     'rgba(45,107,255,0.35)',
+    },
+    cellTraveling: {
+      backgroundColor: 'rgba(214,255,61,0.12)',
+      borderColor:     'rgba(214,255,61,0.30)',
+    },
+    cellBoth: {
+      backgroundColor: 'rgba(45,224,255,0.12)',
+      borderColor:     'rgba(45,224,255,0.30)',
     },
     // Unavailability notices
     blocksContainer: {
