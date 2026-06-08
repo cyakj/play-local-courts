@@ -249,8 +249,8 @@ export function useCoachData(filters: CoachFilters): UseCoachDataResult {
 
       if (hasCoords) {
         const { data: nearData } = await supabase.rpc('get_coaches_near', {
-          player_lat: playerProfile!.latitude,
-          player_lng: playerProfile!.longitude,
+          player_lat: playerProfile!.latitude!,
+          player_lng: playerProfile!.longitude!,
           radius_km: 200,
         });
         if (!cancelled) {

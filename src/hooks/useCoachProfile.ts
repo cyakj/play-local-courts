@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import type { Database } from '@/lib/types';
+
+type CoachUpdate = Database['public']['Tables']['coaches']['Update'];
 
 export interface CoachProfileData {
   id: string;
@@ -91,7 +94,7 @@ export function useCoachProfile(): UseCoachProfileResult {
 
     setSaving(true);
 
-    const dbUpdates: Record<string, unknown> = {};
+    const dbUpdates: CoachUpdate = {};
     if (updates.businessName !== undefined)           dbUpdates.business_name           = updates.businessName;
     if (updates.bio !== undefined)                    dbUpdates.bio                     = updates.bio;
     if (updates.credentials !== undefined)            dbUpdates.credentials             = updates.credentials;

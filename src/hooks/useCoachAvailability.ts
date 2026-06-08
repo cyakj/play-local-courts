@@ -104,11 +104,11 @@ export function useCoachAvailability(
         supabase
           .from('coach_availability')
           .select('*')
-          .eq('coach_id', coachId),
+          .eq('coach_id', coachId!),
         supabase
           .from('coach_unavailability')
           .select('id, coach_id, type, start_date, end_date, recurs_annually, title')
-          .eq('coach_id', coachId)
+          .eq('coach_id', coachId!)
           .or(`recurs_annually.eq.true,end_date.gte.${new Date().toISOString().split('T')[0]}`)
           .lte('start_date', endStr),
       ]);
@@ -118,13 +118,13 @@ export function useCoachAvailability(
       if (slotsRes.error) {
         setError(slotsRes.error.message);
       } else {
-        setWeeklySlots(slotsRes.data ?? []);
+        setWeeklySlots((slotsRes.data ?? []) as CoachAvailabilitySlot[]);
       }
 
       if (blocksRes.error) {
         setError(blocksRes.error.message);
       } else {
-        setUnavailabilityBlocks(blocksRes.data ?? []);
+        setUnavailabilityBlocks((blocksRes.data ?? []) as CoachUnavailabilityBlock[]);
       }
 
       setLoading(false);
