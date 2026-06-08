@@ -6,7 +6,8 @@ import { useTheme } from '@/context/ThemeContext';
 import { useCoachSchedule } from '@/hooks/useCoachSchedule';
 import { useCoachAvailability } from '@/hooks/useCoachAvailability';
 import { CoachWeekView } from '@/components/coach/CoachWeekView';
-import { CoachAvailabilityEditor } from '@/components/coach/CoachAvailabilityEditor';
+import { CoachAvailabilityGridEditor } from '@/components/coach/CoachAvailabilityGridEditor';
+import { useCoachProfile } from '@/hooks/useCoachProfile';
 import { Colors, FontFamily, FontSize, Spacing } from '@/constants/design';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 import { supabase } from '@/lib/supabase';
@@ -35,6 +36,7 @@ export default function CoachScheduleScreen() {
 
   const { lessonsByDate, loading: schedLoading, refresh: refreshSchedule } = useCoachSchedule(weekStart);
   const { weeklySlots, loading: slotsLoading, hasScheduleForBandOnDay } = useCoachAvailability(coachId);
+  const { profile: coachProfile } = useCoachProfile();
 
   function prevWeek() {
     const d = new Date(weekStart);
@@ -82,8 +84,9 @@ export default function CoachScheduleScreen() {
         />
 
         {/* Availability editor */}
-        <CoachAvailabilityEditor
-          slots={weeklySlots}
+        <CoachAvailabilityGridEditor
+          weeklySlots={weeklySlots}
+          defaultLocationMode={coachProfile?.defaultLocationMode ?? null}
           onRefresh={refreshSchedule}
         />
       </ScrollView>
