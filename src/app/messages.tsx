@@ -20,6 +20,16 @@ import { CardSkeleton } from '@/components/ui/Skeleton';
 import { useTheme } from '@/context/ThemeContext';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 
+const LESSON_TYPE_LABELS: Record<string, string> = {
+  private_lesson:      'Private Lesson',
+  semi_private_lesson: 'Semi-Private',
+  group_clinic:        'Group Clinic',
+  practice_session:    'Practice Session',
+  private:             'Private Lesson',
+  'semi-private':      'Semi-Private',
+  group:               'Group Clinic',
+};
+
 interface Conversation {
   partnerId: string;
   partnerName: string;
@@ -67,7 +77,8 @@ export default function MessagesScreen() {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const flatRef = useRef<FlatList>(null);
-  const { partner: partnerParam } = useLocalSearchParams<{ partner?: string }>();
+  const { partner: partnerParam, lessonRequestId: lessonRequestIdParam } = useLocalSearchParams<{ partner?: string; lessonRequestId?: string }>();
+  const [lessonRequestContext, setLessonRequestContext] = useState<{ type: string; date: string } | null>(null);
   const didDeepLink = useRef(false);
 
   async function load(uid: string) {
@@ -160,23 +171,30 @@ export default function MessagesScreen() {
     if (!partnerParam || !userId || didDeepLink.current) return;
     didDeepLink.current = true;
     (async () => {
-      const { data: p } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .eq('id', partnerParam)
-        .single();
-      if (p) {
+      const [profileRes, requestRes] = await Promise.all([
+        supabase.from('profiles').select('id, full_name').eq('id', partnerParam).single(),
+        lessonRequestIdParam
+          ? supabase.from('lesson_requests').select('lesson_type, preferred_date').eq('id', lessonRequestIdParam).single()
+          : Promise.resolve({ data: null }),
+      ]);
+      if (profileRes.data) {
         const convo: Conversation = {
-          partnerId: p.id,
-          partnerName: p.full_name ?? 'Player',
+          partnerId: profileRes.data.id,
+          partnerName: profileRes.data.full_name ?? 'Player',
           lastMessage: '',
           lastAt: new Date().toISOString(),
           unread: 0,
         };
         openConvo(convo);
       }
+      if (requestRes.data) {
+        setLessonRequestContext({
+          type: (requestRes.data as { lesson_type: string; preferred_date: string }).lesson_type,
+          date: (requestRes.data as { lesson_type: string; preferred_date: string }).preferred_date,
+        });
+      }
     })();
-  }, [userId, partnerParam]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userId, partnerParam, lessonRequestIdParam]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalUnread = conversations.reduce((sum, c) => sum + c.unread, 0);
   const filtered = conversations.filter((c) =>
@@ -204,6 +222,14 @@ export default function MessagesScreen() {
             <Text style={styles.threadSub}>Community member</Text>
           </View>
         </View>
+
+        {lessonRequestContext && (
+          <View style={styles.requestBanner}>
+            <Text style={styles.requestBannerText}>
+              Re: {LESSON_TYPE_LABELS[lessonRequestContext.type] ?? lessonRequestContext.type} · {new Date(lessonRequestContext.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            </Text>
+          </View>
+        )}
 
         <KeyboardAvoidingView
           style={{ flex: 1 }}
@@ -506,5 +532,20 @@ function useStyles(theme: ThemeTokens) {
     emptyState: { paddingVertical: 60, paddingHorizontal: 32, alignItems: 'center' },
     emptyTitle: { fontFamily: FontFamily.spaceGroteskBold, fontSize: FontSize.sectionTitle, color: theme.textPrimary, textAlign: 'center' },
     emptySub: { fontFamily: FontFamily.manropeMedium, fontSize: 13, color: theme.textMuted, marginTop: 6, textAlign: 'center' },
+
+    // ── Lesson request context banner ──
+    requestBanner: {
+      backgroundColor: 'rgba(45,107,255,0.12)',
+      borderBottomWidth: 1,
+      borderBottomColor: 'rgba(45,107,255,0.25)',
+      paddingHorizontal: Spacing.pagePx,
+      paddingVertical: 10,
+    },
+    requestBannerText: {
+      fontFamily: FontFamily.jetbrainsMonoSemiBold,
+      fontSize: FontSize.eyebrow,
+      color: Colors.blue,
+      letterSpacing: 0.18,
+    },
   }), [theme]);
 }
