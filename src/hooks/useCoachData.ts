@@ -21,15 +21,21 @@ export interface CoachWithProfile {
   avgRating: number | null;
   reviewCount: number;
   distanceKm: number | null;
+  availableDays: Set<number>; // 0=Sun … 6=Sat
 }
 
-export type DistanceFilterKm = 8 | 16 | 40 | 80 | null; // 5/10/25/50 mi | any
+export type DistanceFilterKm = 8 | 16 | 40 | 80 | null;
 export type LevelFilter = 'beginner' | 'intermediate' | 'high_performance';
+export type PriceRange = 'under75' | '75to100' | '100to150' | '150plus' | null;
+export type AvailabilityFilter = 'today' | 'tomorrow' | 'this_week' | 'weekend' | null;
 
 export interface CoachFilters {
-  search: string;
-  distanceKm: DistanceFilterKm;
-  levels: LevelFilter[];
+  search:       string;
+  distanceKm:   DistanceFilterKm;
+  levels:       LevelFilter[];
+  priceRange:   PriceRange;
+  lessonTypes:  string[];       // multi-select — empty = no filter
+  availability: AvailabilityFilter;
 }
 
 interface UseCoachDataResult {
@@ -39,6 +45,37 @@ interface UseCoachDataResult {
   refresh: () => void;
   favoriteIds: Set<string>;
   toggleFavorite: (coachUserId: string) => Promise<void>;
+  playerHasCoordinates: boolean;
+}
+
+function getDaysForFilter(filter: AvailabilityFilter): Set<number> | null {
+  if (!filter) return null;
+  const now = new Date();
+  const todayDow = now.getDay();
+
+  if (filter === 'today')    return new Set([todayDow]);
+  if (filter === 'tomorrow') return new Set([(todayDow + 1) % 7]);
+  if (filter === 'weekend')  return new Set([0, 6]); // Sun, Sat
+
+  if (filter === 'this_week') {
+    const days = new Set<number>();
+    for (let i = 0; i < 7; i++) {
+      const d = (todayDow + i) % 7;
+      days.add(d);
+    }
+    return days;
+  }
+  return null;
+}
+
+function matchesPriceRange(rate: number | null, range: PriceRange): boolean {
+  if (!range) return true;
+  if (rate == null) return true; // "Rate TBD" — include by default
+  if (range === 'under75')  return rate < 75;
+  if (range === '75to100')  return rate >= 75  && rate <= 100;
+  if (range === '100to150') return rate >= 100 && rate <= 150;
+  if (range === '150plus')  return rate > 150;
+  return true;
 }
 
 export function useCoachData(filters: CoachFilters): UseCoachDataResult {
@@ -46,6 +83,7 @@ export function useCoachData(filters: CoachFilters): UseCoachDataResult {
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [playerHasCoordinates, setPlayerHasCoordinates] = useState(false);
   const refreshKey = useRef(0);
   const [tick, setTick] = useState(0);
 
@@ -64,7 +102,7 @@ export function useCoachData(filters: CoachFilters): UseCoachDataResult {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setLoading(false); return; }
 
-      // Parallel fetch: coaches + reviews + favorites + player profile (for distance)
+      // Parallel: coaches + reviews + favorites + player profile
       const [coachesRes, reviewsRes, favRes, playerProfileRes] = await Promise.all([
         supabase
           .from('coaches')
@@ -89,21 +127,32 @@ export function useCoachData(filters: CoachFilters): UseCoachDataResult {
       if (coachesRes.error) { setError(coachesRes.error.message); setLoading(false); return; }
 
       const rawCoaches = coachesRes.data ?? [];
-      const userIds = rawCoaches.map(c => c.user_id);
+      const userIds = rawCoaches.map(c => c.user_id as string);
 
-      // Fetch profiles for coaches
+      // Parallel: profiles + coach_availability (days only)
       let profilesData: { id: string; full_name: string | null; avatar_url: string | null }[] = [];
+      let availabilityData: { coach_id: string; day_of_week: number }[] = [];
+
       if (userIds.length > 0) {
-        const { data } = await supabase
-          .from('profiles')
-          .select('id, full_name, avatar_url')
-          .in('id', userIds);
-        if (!cancelled) profilesData = data ?? [];
+        const [profilesRes, availRes] = await Promise.all([
+          supabase
+            .from('profiles')
+            .select('id, full_name, avatar_url')
+            .in('id', userIds),
+          supabase
+            .from('coach_availability')
+            .select('coach_id, day_of_week')
+            .in('coach_id', userIds),
+        ]);
+        if (!cancelled) {
+          profilesData    = profilesRes.data ?? [];
+          availabilityData = availRes.data ?? [];
+        }
       }
 
       if (cancelled) return;
 
-      // Build rating map
+      // Build maps
       const ratingMap = new Map<string, { sum: number; count: number }>();
       for (const r of reviewsRes.data ?? []) {
         const key = r.coach_id as string;
@@ -111,20 +160,29 @@ export function useCoachData(filters: CoachFilters): UseCoachDataResult {
         ratingMap.set(key, { sum: cur.sum + (r.rating as number), count: cur.count + 1 });
       }
 
-      // Build profile map
       const profileMap = new Map(profilesData.map(p => [p.id, p]));
 
-      // Build favorites set
+      // Build availability days map: coachUserId → Set<dow>
+      const availMap = new Map<string, Set<number>>();
+      for (const row of availabilityData) {
+        const uid = row.coach_id as string;
+        if (!availMap.has(uid)) availMap.set(uid, new Set());
+        availMap.get(uid)!.add(row.day_of_week as number);
+      }
+
       const favSet = new Set<string>((favRes.data ?? []).map(f => f.coach_id as string));
       setFavoriteIds(favSet);
 
-      // Distance map: call RPC if player has coordinates
+      // Distance map via Haversine RPC
       const distanceMap = new Map<string, number>();
       const playerProfile = playerProfileRes.data;
-      if (playerProfile?.latitude != null && playerProfile?.longitude != null) {
+      const hasCoords = playerProfile?.latitude != null && playerProfile?.longitude != null;
+      setPlayerHasCoordinates(hasCoords);
+
+      if (hasCoords) {
         const { data: nearData } = await supabase.rpc('get_coaches_near', {
-          player_lat: playerProfile.latitude,
-          player_lng: playerProfile.longitude,
+          player_lat: playerProfile!.latitude,
+          player_lng: playerProfile!.longitude,
           radius_km: 200,
         });
         if (!cancelled) {
@@ -137,28 +195,30 @@ export function useCoachData(filters: CoachFilters): UseCoachDataResult {
       if (cancelled) return;
 
       const merged: CoachWithProfile[] = rawCoaches.map(c => {
-        const profile = profileMap.get(c.user_id);
-        const rating = ratingMap.get(c.user_id);
+        const uid     = c.user_id as string;
+        const profile = profileMap.get(uid);
+        const rating  = ratingMap.get(uid);
         return {
-          id: c.id as string,
-          userId: c.user_id as string,
-          businessName: c.business_name as string | null,
-          credentials: c.credentials as string | null,
+          id:              c.id as string,
+          userId:          uid,
+          businessName:    c.business_name as string | null,
+          credentials:     c.credentials as string | null,
           yearsExperience: c.years_experience as number | null,
-          sportsOffered: (c.sports_offered as string[]) ?? [],
-          homeBase: c.home_base as string | null,
+          sportsOffered:   (c.sports_offered as string[]) ?? [],
+          homeBase:        c.home_base as string | null,
           willingToTravel: (c.willing_to_travel as boolean) ?? false,
-          hourlyRate: c.hourly_rate != null ? Number(c.hourly_rate) : null,
-          bio: c.bio as string | null,
+          hourlyRate:      c.hourly_rate != null ? Number(c.hourly_rate) : null,
+          bio:             c.bio as string | null,
           profileImageUrl: c.profile_image_url as string | null,
-          levelsServed: (c.levels_served as string[]) ?? [],
-          latitude: c.latitude as number | null,
-          longitude: c.longitude as number | null,
-          fullName: profile?.full_name ?? null,
-          avatarUrl: profile?.avatar_url ?? null,
-          avgRating: rating ? rating.sum / rating.count : null,
-          reviewCount: rating?.count ?? 0,
-          distanceKm: distanceMap.get(c.user_id) ?? null,
+          levelsServed:    (c.levels_served as string[]) ?? [],
+          latitude:        c.latitude as number | null,
+          longitude:       c.longitude as number | null,
+          fullName:        profile?.full_name ?? null,
+          avatarUrl:       profile?.avatar_url ?? null,
+          avgRating:       rating ? rating.sum / rating.count : null,
+          reviewCount:     rating?.count ?? 0,
+          distanceKm:      distanceMap.get(uid) ?? null,
+          availableDays:   availMap.get(uid) ?? new Set(),
         };
       });
 
@@ -175,7 +235,6 @@ export function useCoachData(filters: CoachFilters): UseCoachDataResult {
     if (!user) return;
 
     const isFav = favoriteIds.has(coachUserId);
-    // Optimistic update
     setFavoriteIds(prev => {
       const next = new Set(prev);
       if (isFav) next.delete(coachUserId); else next.add(coachUserId);
@@ -188,21 +247,16 @@ export function useCoachData(filters: CoachFilters): UseCoachDataResult {
         .delete()
         .eq('player_id', user.id)
         .eq('coach_id', coachUserId);
-      if (error) {
-        // Rollback
-        setFavoriteIds(prev => { const next = new Set(prev); next.add(coachUserId); return next; });
-      }
+      if (error) setFavoriteIds(prev => { const n = new Set(prev); n.add(coachUserId); return n; });
     } else {
       const { error } = await supabase
         .from('coach_favorites')
         .insert({ player_id: user.id, coach_id: coachUserId });
-      if (error) {
-        setFavoriteIds(prev => { const next = new Set(prev); next.delete(coachUserId); return next; });
-      }
+      if (error) setFavoriteIds(prev => { const n = new Set(prev); n.delete(coachUserId); return n; });
     }
   }, [favoriteIds]);
 
-  // Apply client-side filters
+  // ── Client-side filtering ──────────────────────────────────────────────────
   const coaches = allCoaches.filter(c => {
     // Search: name or home_base
     if (filters.search.trim()) {
@@ -212,19 +266,35 @@ export function useCoachData(filters: CoachFilters): UseCoachDataResult {
       if (!name.includes(q) && !base.includes(q)) return false;
     }
 
-    // Distance filter (only applied when coach has coordinates)
+    // Distance
     if (filters.distanceKm != null && c.distanceKm != null) {
       if (c.distanceKm > filters.distanceKm) return false;
     }
 
-    // Level filter
+    // Levels
     if (filters.levels.length > 0) {
-      const hasLevel = filters.levels.some(l => c.levelsServed.includes(l));
-      if (!hasLevel) return false;
+      if (!filters.levels.some(l => c.levelsServed.includes(l))) return false;
+    }
+
+    // Price range
+    if (!matchesPriceRange(c.hourlyRate, filters.priceRange)) return false;
+
+    // Lesson type — all coaches offer all types, so only filter when
+    // the coach explicitly lists sports_offered that match, OR pass through
+    // (since not all coaches populate this field yet)
+    // → include all for now (no-op until coaches populate lesson_types_offered)
+
+    // Availability
+    if (filters.availability != null) {
+      const requiredDays = getDaysForFilter(filters.availability);
+      if (requiredDays) {
+        const hasMatch = [...requiredDays].some(d => c.availableDays.has(d));
+        if (!hasMatch) return false;
+      }
     }
 
     return true;
   });
 
-  return { coaches, loading, error, refresh, favoriteIds, toggleFavorite };
+  return { coaches, loading, error, refresh, favoriteIds, toggleFavorite, playerHasCoordinates };
 }

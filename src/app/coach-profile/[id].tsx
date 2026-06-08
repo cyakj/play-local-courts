@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Heart, MapPin, MessageCircle, Star } from 'lucide-react-native';
+import { Heart, MapPin, Star } from 'lucide-react-native';
 import { Header } from '@/components/ui/Header';
 import { CoachAvailabilityGrid } from '@/components/coaching/CoachAvailabilityGrid';
 import { BookLessonSheet } from '@/components/coaching/BookLessonSheet';
@@ -19,17 +19,17 @@ import type { ThemeTokens } from '@/constants/theme-tokens';
 import { supabase } from '@/lib/supabase';
 import { useCoachAvailability } from '@/hooks/useCoachAvailability';
 
-const LESSON_TYPES = [
-  'Private Lesson',
-  'Semi-Private Lesson',
-  'Group Clinic',
-  'Practice Session',
-];
-
 const LEVEL_LABELS: Record<string, string> = {
   beginner:         'Beginner',
   intermediate:     'Intermediate',
   high_performance: 'High Performance',
+};
+
+const LESSON_TYPE_LABELS: Record<string, string> = {
+  private_lesson:      'Private Lesson',
+  semi_private_lesson: 'Semi-Private Lesson',
+  group_clinic:        'Group Clinic',
+  practice_session:    'Practice Session',
 };
 
 interface CoachDetail {
@@ -86,7 +86,6 @@ export default function CoachProfileScreen() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setLoading(false); return; }
 
-      // Fetch coach row
       const { data: coachRow, error: coachErr } = await supabase
         .from('coaches')
         .select('id, user_id, business_name, credentials, years_experience, sports_offered, home_base, willing_to_travel, hourly_rate, bio, profile_image_url, levels_served')
@@ -102,34 +101,18 @@ export default function CoachProfileScreen() {
 
       const userId = coachRow.user_id as string;
 
-      // Parallel: profile + reviews + favorite status
       const [profileRes, reviewsRes, favRes] = await Promise.all([
-        supabase
-          .from('profiles')
-          .select('full_name, avatar_url')
-          .eq('id', userId)
-          .single(),
-        supabase
-          .from('coach_reviews')
-          .select('id, rating, review_text, created_at, player_id')
-          .eq('coach_id', userId)
-          .order('created_at', { ascending: false })
-          .limit(3),
-        supabase
-          .from('coach_favorites')
-          .select('id')
-          .eq('player_id', user.id)
-          .eq('coach_id', userId)
-          .maybeSingle(),
+        supabase.from('profiles').select('full_name, avatar_url').eq('id', userId).single(),
+        supabase.from('coach_reviews').select('id, rating, review_text, created_at, player_id')
+          .eq('coach_id', userId).order('created_at', { ascending: false }).limit(3),
+        supabase.from('coach_favorites').select('id')
+          .eq('player_id', user.id).eq('coach_id', userId).maybeSingle(),
       ]);
 
       if (cancelled) return;
 
-      // Build rating stats
       const allReviewsRes = await supabase
-        .from('coach_reviews')
-        .select('rating', { count: 'exact' })
-        .eq('coach_id', userId);
+        .from('coach_reviews').select('rating', { count: 'exact' }).eq('coach_id', userId);
 
       if (cancelled) return;
 
@@ -138,15 +121,11 @@ export default function CoachProfileScreen() {
         ? allRatings.reduce((sum, r) => sum + (r.rating as number), 0) / allRatings.length
         : null;
 
-      // Fetch reviewer names
       const reviewRows = reviewsRes.data ?? [];
       const playerIds = reviewRows.map(r => r.player_id as string).filter(Boolean);
       let reviewerProfiles: { id: string; full_name: string | null }[] = [];
       if (playerIds.length > 0) {
-        const { data } = await supabase
-          .from('profiles')
-          .select('id, full_name')
-          .in('id', playerIds);
+        const { data } = await supabase.from('profiles').select('id, full_name').in('id', playerIds);
         if (!cancelled) reviewerProfiles = data ?? [];
       }
 
@@ -196,27 +175,18 @@ export default function CoachProfileScreen() {
 
     if (isFavorited) {
       setIsFavorited(false);
-      await supabase
-        .from('coach_favorites')
-        .delete()
-        .eq('player_id', user.id)
-        .eq('coach_id', coach.userId);
+      await supabase.from('coach_favorites').delete()
+        .eq('player_id', user.id).eq('coach_id', coach.userId);
     } else {
       setIsFavorited(true);
-      await supabase
-        .from('coach_favorites')
-        .insert({ player_id: user.id, coach_id: coach.userId });
+      await supabase.from('coach_favorites').insert({ player_id: user.id, coach_id: coach.userId });
     }
-  }
-
-  function handleSendRequest() {
-    setBookSheetVisible(true);
   }
 
   if (loading) {
     return (
       <View style={styles.screen}>
-        <Header variant="inner" title="" />
+        <Header variant="inner" title="Coach Profile" onBack={() => router.back()} />
         <ActivityIndicator color={Colors.cyan} style={{ marginTop: 60 }} />
       </View>
     );
@@ -225,11 +195,11 @@ export default function CoachProfileScreen() {
   if (error || !coach) {
     return (
       <View style={styles.screen}>
-        <Header variant="inner" title="Coach Profile" />
+        <Header variant="inner" title="Coach Profile" onBack={() => router.back()} />
         <View style={styles.errorWrap}>
           <Text style={styles.errorTxt}>{error ?? 'Coach not found'}</Text>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
-            <Text style={styles.backBtnLabel}>Go Back</Text>
+          <TouchableOpacity style={styles.errorBtn} onPress={() => router.back()} activeOpacity={0.8}>
+            <Text style={styles.errorBtnLabel}>Go Back</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -238,95 +208,116 @@ export default function CoachProfileScreen() {
 
   const displayName = coach.businessName ?? coach.fullName ?? 'Coach';
   const imageUri = coach.profileImageUrl ?? coach.avatarUrl;
-  const initials = displayName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+  const initials = displayName.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2);
+
+  const lessonTypes = Object.keys(LESSON_TYPE_LABELS);
 
   return (
     <View style={styles.screen}>
-      <Header variant="inner" title="" />
+      {/* Header with working back button */}
+      <Header variant="inner" title="Coach Profile" onBack={() => router.back()} />
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Hero ── */}
-        <View style={styles.heroContainer}>
-          {imageUri ? (
-            <Image source={{ uri: imageUri }} style={styles.heroImage} resizeMode="cover" />
-          ) : (
-            <View style={[styles.heroImage, styles.heroFallback]}>
-              <Text style={styles.heroInitials}>{initials}</Text>
-            </View>
-          )}
-          <View style={styles.heroGradient} />
-          {/* Heart */}
-          <TouchableOpacity style={styles.heartBtn} onPress={toggleFavorite} activeOpacity={0.8}>
-            <Heart
-              size={20}
-              strokeWidth={2}
-              color={isFavorited ? Colors.negative : Colors.white}
-              fill={isFavorited ? Colors.negative : 'transparent'}
-            />
-          </TouchableOpacity>
+        {/* ── Profile Card ── */}
+        <View style={styles.profileCard}>
+          {/* Avatar */}
+          <View style={styles.avatarWrap}>
+            {imageUri ? (
+              <Image source={{ uri: imageUri }} style={styles.avatar} resizeMode="cover" />
+            ) : (
+              <View style={[styles.avatar, styles.avatarFallback]}>
+                <Text style={styles.avatarInitials}>{initials}</Text>
+              </View>
+            )}
+          </View>
 
-          {/* Name + meta overlay */}
-          <View style={styles.heroOverlay}>
-            <Text style={styles.heroName}>{displayName}</Text>
+          {/* Coach info */}
+          <View style={styles.profileInfo}>
+            <Text style={styles.profileName} numberOfLines={2}>{displayName}</Text>
+
             {coach.credentials ? (
               <View style={styles.credentialChip}>
-                <Text style={styles.credentialText}>{coach.credentials}</Text>
+                <Text style={styles.credentialText}>{coach.credentials.toUpperCase()}</Text>
               </View>
             ) : null}
-            <View style={styles.heroMeta}>
-              {coach.avgRating != null ? (
-                <View style={styles.ratingRow}>
-                  <Star size={13} strokeWidth={0} fill="#F59E0B" color="#F59E0B" />
-                  <Text style={styles.ratingTxt}>
-                    {coach.avgRating.toFixed(1)}
-                    <Text style={styles.ratingCount}> ({coach.reviewCount})</Text>
-                  </Text>
-                </View>
-              ) : (
-                <Text style={styles.noRating}>No reviews yet</Text>
-              )}
+
+            {/* Rating row */}
+            {coach.avgRating != null ? (
+              <View style={styles.metaRow}>
+                <Star size={12} strokeWidth={0} fill="#F59E0B" color="#F59E0B" />
+                <Text style={styles.metaTxt}>
+                  {coach.avgRating.toFixed(1)}
+                  <Text style={styles.metaMuted}> ({coach.reviewCount})</Text>
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.metaMuted}>No reviews yet</Text>
+            )}
+
+            {/* Location + rate row */}
+            <View style={styles.metaRow}>
               {coach.homeBase ? (
-                <View style={styles.locationRow}>
-                  <MapPin size={12} strokeWidth={2} color={Colors.fg2} />
-                  <Text style={styles.locationTxt}>{coach.homeBase}</Text>
-                </View>
+                <>
+                  <MapPin size={11} strokeWidth={2} color={theme.textMuted} />
+                  <Text style={styles.metaMuted} numberOfLines={1}>{coach.homeBase}</Text>
+                  {coach.hourlyRate != null && <Text style={styles.metaMuted}>·</Text>}
+                </>
               ) : null}
               {coach.hourlyRate != null && (
                 <Text style={styles.rateTxt}>${Math.round(coach.hourlyRate)}/hr</Text>
               )}
             </View>
           </View>
+
+          {/* Favorite heart */}
+          <TouchableOpacity style={styles.heartBtn} onPress={toggleFavorite} activeOpacity={0.75}>
+            <Heart
+              size={20}
+              strokeWidth={2}
+              color={isFavorited ? Colors.negative : theme.textMuted}
+              fill={isFavorited ? Colors.negative : 'transparent'}
+            />
+          </TouchableOpacity>
         </View>
 
         {/* ── About ── */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>About</Text>
-          {coach.bio ? <Text style={styles.bio}>{coach.bio}</Text> : null}
-          <View style={styles.aboutGrid}>
-            {coach.yearsExperience != null && (
-              <View style={styles.aboutItem}>
-                <Text style={styles.aboutValue}>{coach.yearsExperience}</Text>
-                <Text style={styles.aboutLabel}>YRS EXP</Text>
-              </View>
-            )}
-            {coach.willingToTravel && (
-              <View style={styles.aboutItem}>
-                <Text style={styles.aboutValue}>✓</Text>
-                <Text style={styles.aboutLabel}>TRAVELS</Text>
+        {(coach.bio || coach.yearsExperience != null || coach.willingToTravel) && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>About</Text>
+            {coach.bio ? (
+              <Text style={styles.bio}>{coach.bio}</Text>
+            ) : null}
+            {(coach.yearsExperience != null || coach.willingToTravel) && (
+              <View style={styles.statsRow}>
+                {coach.yearsExperience != null && (
+                  <View style={styles.statItem}>
+                    <Text style={styles.statValue}>{coach.yearsExperience}</Text>
+                    <Text style={styles.statLabel}>YRS EXP</Text>
+                  </View>
+                )}
+                {coach.willingToTravel && (
+                  <View style={styles.statItem}>
+                    <Text style={styles.statValue}>✓</Text>
+                    <Text style={styles.statLabel}>TRAVELS</Text>
+                  </View>
+                )}
               </View>
             )}
           </View>
-        </View>
+        )}
 
         {/* ── Lesson Types ── */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Lesson Types</Text>
           <View style={styles.chipRow}>
-            {LESSON_TYPES.map(lt => (
+            {lessonTypes.map(lt => (
               <View key={lt} style={styles.typeChip}>
-                <Text style={styles.typeChipText}>{lt}</Text>
+                <Text style={styles.typeChipText}>
+                  {LESSON_TYPE_LABELS[lt] ?? lt}
+                </Text>
               </View>
             ))}
           </View>
@@ -356,14 +347,31 @@ export default function CoachProfileScreen() {
               weeklySlots={weeklySlots}
               unavailabilityBlocks={unavailabilityBlocks}
             />
+            {/* Legend */}
+            {weeklySlots.length > 0 && (
+              <View style={styles.legendRow}>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, styles.legendDotAvail]} />
+                  <Text style={styles.legendLabel}>Available</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, styles.legendDotUnavail]} />
+                  <Text style={styles.legendLabel}>Unavailable</Text>
+                </View>
+              </View>
+            )}
           </View>
         </View>
 
         {/* ── Packages (deferred) ── */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Packages</Text>
-          <View style={[styles.card, styles.deferredCard]}>
-            <Text style={styles.deferredTxt}>Package options coming soon</Text>
+          <View style={styles.deferredCard}>
+            <Text style={styles.deferredEyebrow}>COMING SOON</Text>
+            <Text style={styles.deferredTitle}>Lesson Packages</Text>
+            <Text style={styles.deferredBody}>
+              Multi-lesson packages with discounted rates will be available soon.
+            </Text>
           </View>
         </View>
 
@@ -379,30 +387,20 @@ export default function CoachProfileScreen() {
           </View>
         )}
 
-        {/* Bottom padding for sticky footer */}
-        <View style={{ height: 100 }} />
+        <View style={{ height: 120 }} />
       </ScrollView>
 
-      {/* ── Sticky Footer ── */}
+      {/* ── Sticky Footer — Request Lesson only ── */}
       <View style={styles.footer}>
         <TouchableOpacity
-          style={styles.footerGhost}
-          onPress={() => router.push({ pathname: '/messages', params: { recipientId: coach.userId } } as any)}
-          activeOpacity={0.8}
-        >
-          <MessageCircle size={16} strokeWidth={2} color={theme.textSecondary} />
-          <Text style={styles.footerGhostLabel}>Message</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
           style={styles.footerPrimary}
-          onPress={handleSendRequest}
+          onPress={() => setBookSheetVisible(true)}
           activeOpacity={0.8}
         >
-          <Text style={styles.footerPrimaryLabel}>Send Lesson Request</Text>
+          <Text style={styles.footerPrimaryLabel}>Request Lesson</Text>
         </TouchableOpacity>
       </View>
 
-      {/* ── Book Lesson Sheet ── */}
       <BookLessonSheet
         visible={bookSheetVisible}
         onClose={() => setBookSheetVisible(false)}
@@ -426,16 +424,22 @@ function ReviewCard({ review, theme }: { review: ReviewRow; theme: ThemeTokens }
 
   return (
     <View style={styles.reviewCard}>
-      <View style={styles.reviewHeader}>
-        <View style={styles.starsRow}>
-          {stars.map((filled, i) => (
-            <Star key={i} size={11} strokeWidth={0} fill={filled ? '#F59E0B' : theme.textMuted} color={filled ? '#F59E0B' : theme.textMuted} />
-          ))}
+      <View style={styles.reviewTopRow}>
+        <View>
+          <View style={styles.starsRow}>
+            {stars.map((filled, i) => (
+              <Star
+                key={i}
+                size={12}
+                strokeWidth={0}
+                fill={filled ? '#F59E0B' : theme.border}
+                color={filled ? '#F59E0B' : theme.border}
+              />
+            ))}
+          </View>
+          <Text style={styles.reviewerName}>{review.playerName ?? 'Resident'}</Text>
         </View>
-        <Text style={styles.reviewMeta}>
-          {review.playerName ?? 'Resident'}
-          {date ? ` · ${date}` : ''}
-        </Text>
+        {date ? <Text style={styles.reviewDate}>{date}</Text> : null}
       </View>
       {review.reviewText ? (
         <Text style={styles.reviewText}>{review.reviewText}</Text>
@@ -451,116 +455,97 @@ function useStyles(theme: ThemeTokens) {
       backgroundColor: theme.pageBg,
     },
     scrollContent: {
+      paddingTop: 20,
       paddingBottom: 20,
     },
 
-    // Hero
-    heroContainer: {
-      height: 220,
-      position: 'relative',
-      marginBottom: 20,
+    // ── Profile card ──
+    profileCard: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 14,
+      marginHorizontal: Spacing.pagePx,
+      marginBottom: 28,
+      backgroundColor: theme.cardBg,
+      borderRadius: Radius.card,
+      borderWidth: 1,
+      borderColor: theme.border,
+      padding: 16,
     },
-    heroImage: {
-      width: '100%',
-      height: '100%',
+    avatarWrap: {
+      flexShrink: 0,
     },
-    heroFallback: {
-      backgroundColor: 'rgba(45,107,255,0.20)',
+    avatar: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+    },
+    avatarFallback: {
+      backgroundColor: 'rgba(45,107,255,0.18)',
       alignItems: 'center',
       justifyContent: 'center',
+      borderWidth: 2,
+      borderColor: 'rgba(45,107,255,0.30)',
     },
-    heroInitials: {
-      fontFamily: FontFamily.spaceGroteskBold,
-      fontSize: 56,
-      color: Colors.cyan,
-    },
-    heroGradient: {
-      position: 'absolute',
-      bottom: 0,
-      left: 0,
-      right: 0,
-      height: 160,
-      backgroundColor: 'rgba(12,15,24,0.55)',
-    },
-    heartBtn: {
-      position: 'absolute',
-      top: 16,
-      right: 16,
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: 'rgba(12,15,24,0.50)',
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    heroOverlay: {
-      position: 'absolute',
-      bottom: 16,
-      left: Spacing.pagePx,
-      right: Spacing.pagePx,
-      gap: 6,
-    },
-    heroName: {
+    avatarInitials: {
       fontFamily: FontFamily.spaceGroteskBold,
       fontSize: 26,
-      color: Colors.white,
-      letterSpacing: -0.4,
+      color: Colors.cyan,
+    },
+    profileInfo: {
+      flex: 1,
+      gap: 5,
+    },
+    profileName: {
+      fontFamily: FontFamily.spaceGroteskBold,
+      fontSize: 20,
+      color: theme.textPrimary,
+      letterSpacing: -0.3,
+      lineHeight: 26,
     },
     credentialChip: {
       alignSelf: 'flex-start',
-      backgroundColor: 'rgba(45,107,255,0.25)',
+      backgroundColor: 'rgba(45,107,255,0.18)',
       borderRadius: Radius.xs,
-      paddingHorizontal: 8,
+      paddingHorizontal: 7,
       paddingVertical: 3,
     },
     credentialText: {
       fontFamily: FontFamily.jetbrainsMonoSemiBold,
       fontSize: 9,
       color: Colors.blueHi,
-      letterSpacing: 0.6,
+      letterSpacing: 0.8,
     },
-    heroMeta: {
+    metaRow: {
       flexDirection: 'row',
       alignItems: 'center',
       flexWrap: 'wrap',
-      gap: 10,
-    },
-    ratingRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
       gap: 4,
     },
-    ratingTxt: {
+    metaTxt: {
       fontFamily: FontFamily.manropeSemiBold,
       fontSize: FontSize.label,
-      color: Colors.white,
+      color: theme.textSecondary,
     },
-    ratingCount: {
-      fontFamily: FontFamily.manropeMedium,
-      color: Colors.fg2,
-    },
-    noRating: {
+    metaMuted: {
       fontFamily: FontFamily.manropeMedium,
       fontSize: FontSize.label,
-      color: Colors.fg2,
-    },
-    locationRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-    },
-    locationTxt: {
-      fontFamily: FontFamily.manropeMedium,
-      fontSize: FontSize.label,
-      color: Colors.fg2,
+      color: theme.textMuted,
     },
     rateTxt: {
       fontFamily: FontFamily.manropeSemiBold,
       fontSize: FontSize.label,
-      color: Colors.white,
+      color: theme.textPrimary,
+    },
+    heartBtn: {
+      width: 40,
+      height: 40,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
     },
 
-    // Sections
+    // ── Sections ──
     section: {
       paddingHorizontal: Spacing.pagePx,
       marginBottom: 28,
@@ -580,26 +565,26 @@ function useStyles(theme: ThemeTokens) {
       color: theme.textSecondary,
       lineHeight: 24,
     },
-    aboutGrid: {
+    statsRow: {
       flexDirection: 'row',
       gap: 12,
     },
-    aboutItem: {
-      backgroundColor: theme.cardBg,
-      borderRadius: Radius.card,
+    statItem: {
+      backgroundColor: theme.bgElevated,
+      borderRadius: Radius.sm,
       borderWidth: 1,
       borderColor: theme.border,
       paddingHorizontal: 16,
-      paddingVertical: 12,
+      paddingVertical: 10,
       alignItems: 'center',
       gap: 2,
     },
-    aboutValue: {
+    statValue: {
       fontFamily: FontFamily.spaceGroteskBold,
-      fontSize: 22,
+      fontSize: 20,
       color: theme.textPrimary,
     },
-    aboutLabel: {
+    statLabel: {
       fontFamily: FontFamily.jetbrainsMonoSemiBold,
       fontSize: 9,
       color: theme.textMuted,
@@ -637,27 +622,82 @@ function useStyles(theme: ThemeTokens) {
       color: Colors.cyan,
     },
 
-    // Availability + packages card wrapper
+    // Availability card
     card: {
       backgroundColor: theme.cardBg,
       borderRadius: Radius.card,
       borderWidth: 1,
       borderColor: theme.border,
       padding: Spacing.cardPadding,
+      gap: 12,
     },
-    deferredCard: {
+    legendRow: {
+      flexDirection: 'row',
+      gap: 16,
+      paddingTop: 4,
+      borderTopWidth: 1,
+      borderTopColor: theme.border,
+    },
+    legendItem: {
+      flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: 24,
+      gap: 6,
     },
-    deferredTxt: {
+    legendDot: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+    },
+    legendDotAvail: {
+      backgroundColor: 'rgba(45,224,255,0.55)',
+      borderWidth: 1,
+      borderColor: 'rgba(45,224,255,0.70)',
+    },
+    legendDotUnavail: {
+      backgroundColor: 'rgba(154,163,184,0.12)',
+      borderWidth: 1,
+      borderColor: 'rgba(154,163,184,0.20)',
+    },
+    legendLabel: {
       fontFamily: FontFamily.manropeMedium,
-      fontSize: FontSize.body,
+      fontSize: 12,
       color: theme.textMuted,
+    },
+
+    // Packages deferred
+    deferredCard: {
+      backgroundColor: theme.cardBg,
+      borderRadius: Radius.card,
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderStyle: 'dashed',
+      padding: 20,
+      alignItems: 'center',
+      gap: 6,
+    },
+    deferredEyebrow: {
+      fontFamily: FontFamily.jetbrainsMonoSemiBold,
+      fontSize: 9,
+      color: theme.textMuted,
+      letterSpacing: 1.2,
+    },
+    deferredTitle: {
+      fontFamily: FontFamily.spaceGroteskBold,
+      fontSize: 15,
+      color: theme.textSecondary,
+      letterSpacing: -0.2,
+    },
+    deferredBody: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: 13,
+      color: theme.textMuted,
+      textAlign: 'center',
+      lineHeight: 20,
     },
 
     // Reviews
     reviewList: {
-      gap: 10,
+      gap: 12,
     },
     reviewCard: {
       backgroundColor: theme.cardBg,
@@ -665,24 +705,27 @@ function useStyles(theme: ThemeTokens) {
       borderWidth: 1,
       borderColor: theme.border,
       padding: 16,
-      gap: 8,
+      gap: 10,
     },
-    reviewHeader: {
+    reviewTopRow: {
       flexDirection: 'row',
-      alignItems: 'center',
+      alignItems: 'flex-start',
       justifyContent: 'space-between',
-      gap: 8,
     },
     starsRow: {
       flexDirection: 'row',
-      gap: 2,
+      gap: 3,
+      marginBottom: 4,
     },
-    reviewMeta: {
-      fontFamily: FontFamily.manropeMedium,
+    reviewerName: {
+      fontFamily: FontFamily.manropeSemiBold,
       fontSize: FontSize.label,
+      color: theme.textSecondary,
+    },
+    reviewDate: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: 12,
       color: theme.textMuted,
-      flex: 1,
-      textAlign: 'right',
     },
     reviewText: {
       fontFamily: FontFamily.manropeMedium,
@@ -693,33 +736,15 @@ function useStyles(theme: ThemeTokens) {
 
     // Footer
     footer: {
-      flexDirection: 'row',
-      gap: 10,
       paddingHorizontal: Spacing.pagePx,
       paddingVertical: 14,
-      paddingBottom: 28,
-      backgroundColor: 'rgba(12,15,24,0.95)',
+      paddingBottom: 30,
+      backgroundColor: 'rgba(12,15,24,0.96)',
       borderTopWidth: 1,
       borderTopColor: theme.border,
     },
-    footerGhost: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      paddingHorizontal: 16,
-      height: 50,
-      borderRadius: Radius.sm,
-      borderWidth: 1,
-      borderColor: theme.border,
-    },
-    footerGhostLabel: {
-      fontFamily: FontFamily.manropeSemiBold,
-      fontSize: FontSize.label,
-      color: theme.textSecondary,
-    },
     footerPrimary: {
-      flex: 1,
-      height: 50,
+      height: 52,
       backgroundColor: Colors.blue,
       borderRadius: Radius.sm,
       alignItems: 'center',
@@ -745,13 +770,13 @@ function useStyles(theme: ThemeTokens) {
       color: theme.textMuted,
       textAlign: 'center',
     },
-    backBtn: {
+    errorBtn: {
       backgroundColor: Colors.blue,
       paddingHorizontal: 24,
       paddingVertical: 13,
       borderRadius: Radius.sm,
     },
-    backBtnLabel: {
+    errorBtnLabel: {
       fontFamily: FontFamily.manropeSemiBold,
       fontSize: FontSize.label,
       color: Colors.white,

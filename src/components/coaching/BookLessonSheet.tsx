@@ -16,15 +16,15 @@ import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/desig
 import { useTheme } from '@/context/ThemeContext';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 import { supabase } from '@/lib/supabase';
-import { CoachAvailabilityGrid } from '@/components/coaching/CoachAvailabilityGrid';
-import type { CoachAvailabilitySlot, CoachUnavailabilityBlock, TimeBand } from '@/hooks/useCoachAvailability';
-import { TIME_BANDS } from '@/hooks/useCoachAvailability';
+import type { CoachAvailabilitySlot, CoachUnavailabilityBlock } from '@/hooks/useCoachAvailability';
 
-const LESSON_TYPES = [
-  'Private Lesson',
-  'Semi-Private Lesson',
-  'Group Clinic',
-  'Practice Session',
+// ── Types ────────────────────────────────────────────────────────────────────
+
+const LESSON_TYPE_OPTIONS: { label: string; value: string }[] = [
+  { label: 'Private Lesson',      value: 'private_lesson'      },
+  { label: 'Semi-Private Lesson', value: 'semi_private_lesson'  },
+  { label: 'Group Clinic',        value: 'group_clinic'         },
+  { label: 'Practice Session',    value: 'practice_session'     },
 ];
 
 const DURATIONS: { label: string; value: 30 | 60 | 90 }[] = [
@@ -34,40 +34,72 @@ const DURATIONS: { label: string; value: 30 | 60 | 90 }[] = [
 ];
 
 const SKILL_LEVELS: { label: string; value: string }[] = [
-  { label: 'Beginner',        value: 'beginner'        },
-  { label: 'Intermediate',    value: 'intermediate'     },
+  { label: 'Beginner',         value: 'beginner'        },
+  { label: 'Intermediate',     value: 'intermediate'     },
   { label: 'High Performance', value: 'high_performance' },
 ];
 
-const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MONTH_NAMES = [
+  'January','February','March','April','May','June',
+  'July','August','September','October','November','December',
+];
 const DAY_LABELS = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+
+type Step = 1 | 2 | 3 | 4 | 5;
+type LocationPref = 'already_have_court' | 'need_court' | 'decide_with_coach' | 'coach_facility';
+
+interface TimeSlotOption {
+  start: string;          // 'HH:MM' 24h
+  end: string;            // 'HH:MM' 24h
+  display: string;        // '10:00 AM'
+  locationMode: 'coach_facility' | 'traveling' | 'both' | null;
+}
 
 export interface BookLessonSheetProps {
   visible: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  coachUserId: string;    // coaches.user_id — used as lesson_requests.coach_id
+  coachUserId: string;
   coachName: string;
   homeBase: string | null;
   weeklySlots: CoachAvailabilitySlot[];
   unavailabilityBlocks: CoachUnavailabilityBlock[];
 }
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
 function isoDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
-function isBlockedDate(date: Date, blocks: CoachUnavailabilityBlock[]): boolean {
-  const m = date.getMonth() + 1;
-  const d = date.getDate();
+function timeToMin(t: string): number {
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+}
 
+function minToTime(m: number): string {
+  const h = Math.floor(m / 60);
+  const mm = m % 60;
+  return `${String(h).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
+}
+
+function formatTime12h(t: string): string {
+  const [h, m] = t.split(':').map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12  = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${String(m).padStart(2,'0')} ${ampm}`;
+}
+
+function isBlockedDate(date: Date, blocks: CoachUnavailabilityBlock[]): boolean {
+  const mo = date.getMonth() + 1;
+  const d  = date.getDate();
   for (const b of blocks) {
     if (b.recurs_annually) {
-      const [,bStartM, bStartD] = b.start_date.split('-').map(Number);
-      const [,bEndM,   bEndD]   = b.end_date.split('-').map(Number);
-      const val  = m * 100 + d;
-      const sval = bStartM * 100 + bStartD;
-      const eval_ = bEndM * 100 + bEndD;
+      const [,bsm, bsd] = b.start_date.split('-').map(Number);
+      const [,bem, bed] = b.end_date.split('-').map(Number);
+      const val  = mo * 100 + d;
+      const sval = bsm * 100 + bsd;
+      const eval_ = bem * 100 + bed;
       if (sval <= eval_) { if (val >= sval && val <= eval_) return true; }
       else { if (val >= sval || val <= eval_) return true; }
     } else {
@@ -79,17 +111,79 @@ function isBlockedDate(date: Date, blocks: CoachUnavailabilityBlock[]): boolean 
   return false;
 }
 
-function hasScheduleOnDate(date: Date, band: TimeBand | null, slots: CoachAvailabilitySlot[]): boolean {
-  const dow = date.getDay();
-  if (!band) {
-    return slots.some(s => s.day_of_week === dow);
-  }
-  const toMin = (t: string) => { const [h,m] = t.split(':').map(Number); return h*60+m; };
-  return slots.some(s => s.day_of_week === dow
-    && toMin(s.start_time) < toMin(band.end)
-    && toMin(s.end_time) > toMin(band.start),
-  );
+function hasSlotOnDate(date: Date, slots: CoachAvailabilitySlot[]): boolean {
+  return slots.some(s => s.day_of_week === date.getDay());
 }
+
+function generateTimeSlots(
+  date: Date,
+  durationMin: number,
+  slots: CoachAvailabilitySlot[],
+): TimeSlotOption[] {
+  const dow    = date.getDay();
+  const result: TimeSlotOption[] = [];
+  const seen   = new Set<string>();
+
+  for (const slot of slots) {
+    if (slot.day_of_week !== dow) continue;
+    const slotStart = timeToMin(slot.start_time);
+    const slotEnd   = timeToMin(slot.end_time);
+    let t = slotStart;
+    while (t + durationMin <= slotEnd) {
+      const start = minToTime(t);
+      if (!seen.has(start)) {
+        seen.add(start);
+        result.push({
+          start,
+          end:          minToTime(t + durationMin),
+          display:      formatTime12h(start),
+          locationMode: slot.location_mode ?? null,
+        });
+      }
+      t += 30;
+    }
+  }
+
+  return result.sort((a, b) => a.start.localeCompare(b.start));
+}
+
+// Location options shown depends on the selected slot's locationMode
+function getLocationOptions(
+  slotLocationMode: 'coach_facility' | 'traveling' | 'both' | null,
+  homeBase: string | null,
+): { value: LocationPref; label: string; description: string }[] {
+  const coachFacilityOption = {
+    value:       'coach_facility' as LocationPref,
+    label:       'Coach Facility',
+    description: homeBase ? `Location: ${homeBase}` : "Coach's facility",
+  };
+
+  const playerOptions: { value: LocationPref; label: string; description: string }[] = [
+    {
+      value:       'already_have_court',
+      label:       'I already have a court',
+      description: 'Enter facility name and any notes',
+    },
+    {
+      value:       'need_court',
+      label:       'Need to reserve a court',
+      description: 'Your preference will be shared with the coach',
+    },
+    {
+      value:       'decide_with_coach',
+      label:       'Message coach to decide',
+      description: 'Coordinate location in chat after approval',
+    },
+  ];
+
+  if (slotLocationMode === 'coach_facility') return [coachFacilityOption];
+  if (slotLocationMode === 'traveling')      return playerOptions;
+  if (slotLocationMode === 'both')           return [coachFacilityOption, ...playerOptions];
+  // null / no location mode → show player options
+  return playerOptions;
+}
+
+// ── Component ────────────────────────────────────────────────────────────────
 
 export function BookLessonSheet({
   visible,
@@ -104,15 +198,18 @@ export function BookLessonSheet({
   const { theme } = useTheme();
   const styles = useStyles(theme);
 
-  const [step, setStep] = useState<1|2|3|4>(1);
-  const [lessonType, setLessonType] = useState<string | null>(null);
-  const [duration, setDuration] = useState<30|60|90|null>(null);
-  const [skillLevel, setSkillLevel] = useState<string | null>(null);
-  const [selectedBand, setSelectedBand] = useState<TimeBand | null>(null);
-  const [selectedDates, setSelectedDates] = useState<Date[]>([]);
-  const [notes, setNotes] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const [step,           setStep]          = useState<Step>(1);
+  const [lessonType,     setLessonType]    = useState<string | null>(null);
+  const [duration,       setDuration]      = useState<30|60|90|null>(null);
+  const [skillLevel,     setSkillLevel]    = useState<string | null>(null);
+  const [selectedDate,   setSelectedDate]  = useState<Date | null>(null);
+  const [selectedSlot,   setSelectedSlot]  = useState<TimeSlotOption | null>(null);
+  const [locationPref,   setLocationPref]  = useState<LocationPref | null>(null);
+  const [facilityName,   setFacilityName]  = useState('');
+  const [locationNote,   setLocationNote]  = useState('');
+  const [notes,          setNotes]         = useState('');
+  const [submitting,     setSubmitting]    = useState(false);
+  const [success,        setSuccess]       = useState(false);
 
   // Calendar state
   const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d; }, []);
@@ -124,14 +221,36 @@ export function BookLessonSheet({
     const first = new Date(calYear, calMonth, 1);
     const pad   = first.getDay();
     const days  = new Date(calYear, calMonth+1, 0).getDate();
-    return [...Array(pad).fill(null), ...Array.from({length: days}, (_,i)=>new Date(calYear,calMonth,i+1))];
+    return [
+      ...Array(pad).fill(null),
+      ...Array.from({ length: days }, (_,i) => new Date(calYear, calMonth, i+1)),
+    ];
   }, [calYear, calMonth]);
 
   const calWeeks = useMemo((): (Date|null)[][] => {
     const weeks: (Date|null)[][] = [];
-    for (let i=0; i<calCells.length; i+=7) weeks.push(calCells.slice(i,i+7));
+    for (let i=0; i<calCells.length; i+=7) weeks.push(calCells.slice(i, i+7));
     return weeks;
   }, [calCells]);
+
+  // Time slots for selected date + duration
+  const timeSlots = useMemo((): TimeSlotOption[] => {
+    if (!selectedDate || !duration) return [];
+    return generateTimeSlots(selectedDate, duration, weeklySlots);
+  }, [selectedDate, duration, weeklySlots]);
+
+  // Location options for selected slot
+  const locationOptions = useMemo(
+    () => getLocationOptions(selectedSlot?.locationMode ?? null, homeBase),
+    [selectedSlot, homeBase],
+  );
+
+  // Auto-select coach_facility if it's the only option
+  useMemo(() => {
+    if (locationOptions.length === 1 && locationOptions[0].value === 'coach_facility') {
+      setLocationPref('coach_facility');
+    }
+  }, [locationOptions]);
 
   function prevMonth() {
     if (calMonth === 0) { setCalYear(y=>y-1); setCalMonth(11); }
@@ -142,23 +261,16 @@ export function BookLessonSheet({
     else setCalMonth(m=>m+1);
   }
 
-  function toggleDate(day: Date) {
-    const t = day.getTime();
-    const idx = selectedDates.findIndex(d => d.getTime() === t);
-    if (idx >= 0) {
-      setSelectedDates(prev => prev.filter((_,i) => i !== idx));
-    } else if (selectedDates.length < 3) {
-      setSelectedDates(prev => [...prev, day]);
-    }
-  }
-
   function resetSheet() {
     setStep(1);
     setLessonType(null);
     setDuration(null);
     setSkillLevel(null);
-    setSelectedBand(null);
-    setSelectedDates([]);
+    setSelectedDate(null);
+    setSelectedSlot(null);
+    setLocationPref(null);
+    setFacilityName('');
+    setLocationNote('');
     setNotes('');
     setSubmitting(false);
     setSuccess(false);
@@ -170,50 +282,52 @@ export function BookLessonSheet({
   }
 
   function canAdvance(): boolean {
-    if (step === 1) return !!lessonType && !!duration && !!skillLevel;
-    if (step === 2) return true; // time band optional (soft warning)
-    if (step === 3) return selectedDates.length > 0;
-    return true;
+    switch (step) {
+      case 1: return !!lessonType && !!duration && !!skillLevel;
+      case 2: return selectedDate != null;
+      case 3: return true; // slot selection best-effort
+      case 4: return locationPref != null;
+      default: return true;
+    }
   }
 
   function advance() {
     if (!canAdvance()) return;
-    if (step < 4) setStep((s) => (s + 1) as 1|2|3|4);
+    if (step < 5) setStep(s => (s + 1) as Step);
   }
 
   function goBack() {
-    if (step > 1) setStep((s) => (s - 1) as 1|2|3|4);
+    if (step > 1) setStep(s => (s - 1) as Step);
   }
 
   async function handleSubmit() {
-    if (!lessonType || !duration || !skillLevel || selectedDates.length === 0) return;
+    if (!lessonType || !duration || !skillLevel || !selectedDate) return;
     setSubmitting(true);
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setSubmitting(false); return; }
 
-    const primaryDate = selectedDates[0];
-    const band = selectedBand ?? TIME_BANDS[1]; // default afternoon if none selected
     const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
 
     const { error } = await supabase
       .from('lesson_requests')
       .insert({
-        coach_id:             coachUserId,
-        player_id:            user.id,
-        lesson_type:          lessonType,
-        duration_minutes:     duration,
-        skill_level:          skillLevel,
-        sport:                'tennis',
-        preferred_date:       isoDate(primaryDate),
-        preferred_dates:      selectedDates.map(isoDate),
-        preferred_time_start: band.start,
-        preferred_time_end:   band.end,
-        location:             homeBase,
-        notes:                notes.trim() || null,
-        status:               'pending',
-        expires_at:           expiresAt,
-      });
+        coach_id:            coachUserId,
+        player_id:           user.id,
+        lesson_type:         lessonType,
+        duration_minutes:    duration,
+        skill_level:         skillLevel,
+        sport:               'tennis',
+        preferred_date:      isoDate(selectedDate),
+        preferred_time_start: selectedSlot?.start ?? null,
+        preferred_time_end:   selectedSlot?.end ?? null,
+        location_preference: locationPref ?? 'decide_with_coach',
+        facility_name:       facilityName.trim() || null,
+        location_note:       locationNote.trim() || null,
+        notes:               notes.trim() || null,
+        status:              'pending',
+        expires_at:          expiresAt,
+      } as any);
 
     setSubmitting(false);
 
@@ -234,6 +348,8 @@ export function BookLessonSheet({
 
   if (!visible) return null;
 
+  const totalSteps = 5;
+
   return (
     <Modal
       visible={visible}
@@ -245,26 +361,34 @@ export function BookLessonSheet({
         style={styles.modal}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {/* Header row */}
+        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={handleClose} hitSlop={{top:8,bottom:8,left:8,right:8}}>
             <X size={20} strokeWidth={2} color={theme.textSecondary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Book a Lesson</Text>
+          <Text style={styles.headerTitle}>Request Lesson</Text>
           <View style={{ width: 28 }} />
         </View>
 
         {/* Progress dots */}
-        <View style={styles.dots}>
-          {([1,2,3,4] as const).map(s => (
-            <View key={s} style={[styles.dot, s === step && styles.dotActive, s < step && styles.dotDone]} />
-          ))}
-        </View>
+        {!success && (
+          <View style={styles.dots}>
+            {Array.from({ length: totalSteps }, (_, i) => i + 1).map(s => (
+              <View
+                key={s}
+                style={[
+                  styles.dot,
+                  s === step && styles.dotActive,
+                  s < step  && styles.dotDone,
+                ]}
+              />
+            ))}
+          </View>
+        )}
 
         {success ? (
-          /* ── Success state ── */
           <View style={styles.successWrap}>
-            <Text style={styles.successIcon}>✓</Text>
+            <Text style={styles.successCheckmark}>✓</Text>
             <Text style={styles.successTitle}>Request Sent!</Text>
             <Text style={styles.successBody}>{coachName} has 48 hours to respond.</Text>
           </View>
@@ -281,15 +405,15 @@ export function BookLessonSheet({
 
                 <Text style={styles.fieldLabel}>Lesson Type</Text>
                 <View style={styles.optionGrid}>
-                  {LESSON_TYPES.map(lt => (
+                  {LESSON_TYPE_OPTIONS.map(lt => (
                     <TouchableOpacity
-                      key={lt}
-                      style={[styles.option, lessonType === lt && styles.optionActive]}
-                      onPress={() => setLessonType(lt)}
+                      key={lt.value}
+                      style={[styles.option, lessonType === lt.value && styles.optionActive]}
+                      onPress={() => setLessonType(lt.value)}
                       activeOpacity={0.75}
                     >
-                      <Text style={[styles.optionLabel, lessonType === lt && styles.optionLabelActive]}>
-                        {lt}
+                      <Text style={[styles.optionLabel, lessonType === lt.value && styles.optionLabelActive]}>
+                        {lt.label}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -329,41 +453,14 @@ export function BookLessonSheet({
               </View>
             )}
 
-            {/* ── Step 2: Preferred Time ── */}
+            {/* ── Step 2: Date ── */}
             {step === 2 && (
               <View style={styles.stepWrap}>
-                <Text style={styles.stepTitle}>Preferred Time</Text>
+                <Text style={styles.stepTitle}>Select Date</Text>
                 <Text style={styles.stepSubtitle}>
-                  Select a preferred time band. The coach will confirm a specific time.
-                </Text>
-                <View style={styles.gridCard}>
-                  <CoachAvailabilityGrid
-                    weeklySlots={weeklySlots}
-                    unavailabilityBlocks={unavailabilityBlocks}
-                    interactive
-                    selectedBand={selectedBand}
-                    onSelectBand={setSelectedBand}
-                  />
-                </View>
-                {!selectedBand && (
-                  <View style={styles.warnBanner}>
-                    <Text style={styles.warnTxt}>
-                      No time band selected — the coach can choose any available time.
-                    </Text>
-                  </View>
-                )}
-              </View>
-            )}
-
-            {/* ── Step 3: Select Dates ── */}
-            {step === 3 && (
-              <View style={styles.stepWrap}>
-                <Text style={styles.stepTitle}>Preferred Dates</Text>
-                <Text style={styles.stepSubtitle}>
-                  Select up to 3 dates ({selectedDates.length}/3). Cyan dots = coach is available.
+                  Highlighted dates match the coach's schedule.
                 </Text>
 
-                {/* Calendar */}
                 <View style={styles.calCard}>
                   {/* Month nav */}
                   <View style={styles.calNav}>
@@ -375,25 +472,25 @@ export function BookLessonSheet({
                       <ChevronRight size={18} strokeWidth={1.5} color={theme.textSecondary} />
                     </TouchableOpacity>
                   </View>
+
                   {/* Day labels */}
                   <View style={styles.calWeekRow}>
                     {DAY_LABELS.map(dl => (
                       <Text key={dl} style={styles.calDayLabel}>{dl}</Text>
                     ))}
                   </View>
+
                   {/* Weeks */}
                   {calWeeks.map((week, wi) => (
                     <View key={wi} style={styles.calWeekRow}>
                       {week.map((day, di) => {
                         if (!day) return <View key={di} style={styles.calCell} />;
-
-                        const isPast    = day < today;
-                        const isBeyond  = day > cutoff;
-                        const blocked   = isBlockedDate(day, unavailabilityBlocks);
-                        const available = hasScheduleOnDate(day, selectedBand, weeklySlots);
-                        const isDisabled = isPast || isBeyond;
-                        const selIdx    = selectedDates.findIndex(d => d.getTime() === day.getTime());
-                        const isSelected = selIdx >= 0;
+                        const isPast     = day < today;
+                        const isBeyond   = day > cutoff;
+                        const blocked    = isBlockedDate(day, unavailabilityBlocks);
+                        const hasSlot    = hasSlotOnDate(day, weeklySlots);
+                        const isDisabled = isPast || isBeyond || blocked;
+                        const isSelected = selectedDate?.getTime() === day.getTime();
 
                         return (
                           <TouchableOpacity
@@ -401,112 +498,214 @@ export function BookLessonSheet({
                             style={[
                               styles.calCell,
                               isSelected && styles.calCellSelected,
-                              !isSelected && available && !blocked && styles.calCellAvailable,
-                              (isDisabled || blocked) && styles.calCellDisabled,
+                              !isSelected && hasSlot && !isDisabled && styles.calCellAvailable,
+                              isDisabled && styles.calCellDisabled,
                             ]}
-                            onPress={() => !isDisabled && !blocked && toggleDate(day)}
+                            onPress={() => {
+                              if (isDisabled) return;
+                              setSelectedDate(day);
+                              setSelectedSlot(null); // reset slot on date change
+                              setLocationPref(null);
+                            }}
                             disabled={isDisabled}
                             activeOpacity={0.7}
                           >
-                            {isSelected && (
-                              <View style={styles.selIdx}>
-                                <Text style={styles.selIdxTxt}>{selIdx+1}</Text>
-                              </View>
-                            )}
                             <Text style={[
                               styles.calDayNum,
                               isSelected && { color: Colors.white },
-                              !isSelected && available && !blocked && { color: Colors.cyan },
-                              (isDisabled || blocked) && { color: theme.textMuted },
+                              !isSelected && hasSlot && !isDisabled && { color: Colors.cyan },
+                              isDisabled && { color: theme.textMuted },
                             ]}>
                               {day.getDate()}
                             </Text>
-                            {blocked && !isDisabled && (
+                            {blocked && !isPast && (
                               <View style={styles.blockedDot} />
                             )}
                           </TouchableOpacity>
                         );
                       })}
-                      {Array.from({length: 7 - week.length}, (_,i) => <View key={`p${i}`} style={styles.calCell} />)}
+                      {Array.from({ length: 7 - week.length }, (_,i) => (
+                        <View key={`p${i}`} style={styles.calCell} />
+                      ))}
                     </View>
                   ))}
                 </View>
 
-                {homeBase ? (
-                  <View style={styles.locationRow}>
-                    <Text style={styles.locationLabel}>Location</Text>
-                    <Text style={styles.locationValue}>{homeBase}</Text>
-                  </View>
-                ) : null}
-
-                {selectedDates.length === 0 && (
-                  <Text style={styles.hintTxt}>Tap a date to select it as preferred.</Text>
-                )}
-
-                {selectedDates.length > 0 && (
-                  <View style={styles.selectedDatesList}>
-                    {selectedDates.map((d, i) => (
-                      <View key={i} style={styles.selectedDateRow}>
-                        <View style={styles.selectedDateIdx}>
-                          <Text style={styles.selectedDateIdxTxt}>{i+1}</Text>
-                        </View>
-                        <Text style={styles.selectedDateTxt}>
-                          {d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' })}
-                        </Text>
-                        <TouchableOpacity
-                          onPress={() => toggleDate(d)}
-                          hitSlop={{top:8,bottom:8,left:8,right:8}}
-                        >
-                          <X size={14} strokeWidth={2} color={theme.textMuted} />
-                        </TouchableOpacity>
-                      </View>
-                    ))}
+                {selectedDate && (
+                  <View style={styles.selectedDateBadge}>
+                    <Text style={styles.selectedDateBadgeTxt}>
+                      {selectedDate.toLocaleDateString('en-US', {
+                        weekday: 'long', month: 'long', day: 'numeric',
+                      })}
+                    </Text>
                   </View>
                 )}
               </View>
             )}
 
-            {/* ── Step 4: Review & Send ── */}
+            {/* ── Step 3: Time Slot ── */}
+            {step === 3 && (
+              <View style={styles.stepWrap}>
+                <Text style={styles.stepTitle}>Select Time</Text>
+                <Text style={styles.stepSubtitle}>
+                  Available {duration}-min slots on{' '}
+                  {selectedDate?.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' })}.
+                </Text>
+
+                {timeSlots.length === 0 ? (
+                  <View style={styles.noSlotsBanner}>
+                    <Text style={styles.noSlotsTxt}>
+                      No scheduled slots on this date. You can still send the request — the coach will coordinate a time.
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.slotsGrid}>
+                    {timeSlots.map(slot => (
+                      <TouchableOpacity
+                        key={slot.start}
+                        style={[
+                          styles.slotChip,
+                          selectedSlot?.start === slot.start && styles.slotChipActive,
+                        ]}
+                        onPress={() => {
+                          setSelectedSlot(slot);
+                          setLocationPref(null); // reset location on slot change
+                        }}
+                        activeOpacity={0.75}
+                      >
+                        <Text style={[
+                          styles.slotChipLabel,
+                          selectedSlot?.start === slot.start && styles.slotChipLabelActive,
+                        ]}>
+                          {slot.display}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+
+                {timeSlots.length > 0 && !selectedSlot && (
+                  <Text style={styles.hintTxt}>Tap a slot to select it.</Text>
+                )}
+              </View>
+            )}
+
+            {/* ── Step 4: Location ── */}
             {step === 4 && (
+              <View style={styles.stepWrap}>
+                <Text style={styles.stepTitle}>Location</Text>
+
+                {locationOptions.map(opt => (
+                  <TouchableOpacity
+                    key={opt.value}
+                    style={[styles.locationOption, locationPref === opt.value && styles.locationOptionActive]}
+                    onPress={() => setLocationPref(opt.value)}
+                    activeOpacity={0.75}
+                  >
+                    <View style={styles.locationOptionHeader}>
+                      <View style={[
+                        styles.radio,
+                        locationPref === opt.value && styles.radioActive,
+                      ]}>
+                        {locationPref === opt.value && <View style={styles.radioDot} />}
+                      </View>
+                      <Text style={[
+                        styles.locationOptionLabel,
+                        locationPref === opt.value && styles.locationOptionLabelActive,
+                      ]}>
+                        {opt.label}
+                      </Text>
+                    </View>
+                    <Text style={styles.locationOptionDesc}>{opt.description}</Text>
+                  </TouchableOpacity>
+                ))}
+
+                {/* Sub-form for "already have a court" */}
+                {locationPref === 'already_have_court' && (
+                  <View style={styles.subForm}>
+                    <Text style={styles.fieldLabel}>Facility / court name (optional)</Text>
+                    <TextInput
+                      style={styles.textInput}
+                      value={facilityName}
+                      onChangeText={setFacilityName}
+                      placeholder="e.g. Westside Tennis Club"
+                      placeholderTextColor={theme.textMuted}
+                    />
+                    <Text style={styles.fieldLabel}>Notes (optional)</Text>
+                    <TextInput
+                      style={[styles.textInput, { minHeight: 72 }]}
+                      value={locationNote}
+                      onChangeText={setLocationNote}
+                      placeholder="Court number, access details…"
+                      placeholderTextColor={theme.textMuted}
+                      multiline
+                      numberOfLines={3}
+                      textAlignVertical="top"
+                    />
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* ── Step 5: Review & Send ── */}
+            {step === 5 && (
               <View style={styles.stepWrap}>
                 <Text style={styles.stepTitle}>Review & Send</Text>
 
-                {/* Summary card */}
                 <View style={styles.summaryCard}>
-                  <SummaryRow label="Lesson Type"    value={lessonType ?? ''} />
-                  <SummaryRow label="Duration"       value={`${duration} min`} />
-                  <SummaryRow label="Skill Level"    value={SKILL_LEVELS.find(s=>s.value===skillLevel)?.label ?? ''} />
-                  <SummaryRow label="Preferred Time" value={selectedBand ? `${selectedBand.label} (${selectedBand.start}–${selectedBand.end})` : 'No preference'} />
-                  <SummaryRow label="Preferred Dates" value={selectedDates.map(d=>d.toLocaleDateString('en-US',{month:'short',day:'numeric'})).join(', ')} />
-                  {homeBase && <SummaryRow label="Location" value={homeBase} />}
-                  <SummaryRow label="Student"        value="Myself" />
+                  <SummaryRow label="Lesson Type"  value={LESSON_TYPE_OPTIONS.find(lt => lt.value === lessonType)?.label ?? ''} />
+                  <SummaryRow label="Duration"     value={`${duration} min`} />
+                  <SummaryRow label="Skill Level"  value={SKILL_LEVELS.find(s=>s.value===skillLevel)?.label ?? ''} />
+                  <SummaryRow
+                    label="Date"
+                    value={selectedDate?.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}) ?? ''}
+                  />
+                  <SummaryRow
+                    label="Time"
+                    value={selectedSlot ? selectedSlot.display : 'Coach will coordinate'}
+                  />
+                  <SummaryRow
+                    label="Location"
+                    value={
+                      locationPref === 'coach_facility'      ? (homeBase ?? 'Coach Facility') :
+                      locationPref === 'already_have_court'  ? (facilityName || 'My court') :
+                      locationPref === 'need_court'          ? 'Need to reserve a court' :
+                                                               'Message coach to decide'
+                    }
+                  />
+                  <SummaryRow label="Student" value="Myself" />
                 </View>
 
-                {/* Package placeholder */}
                 <View style={styles.packagePlaceholder}>
                   <Text style={styles.packagePlaceholderTxt}>
-                    Package & payment options — coming soon
+                    Package &amp; payment options — coming soon
                   </Text>
                 </View>
 
-                {/* Notes */}
                 <Text style={styles.fieldLabel}>Message to Coach (optional)</Text>
                 <TextInput
                   style={styles.notesInput}
                   value={notes}
                   onChangeText={setNotes}
-                  placeholder="Add any notes, goals, or preferences..."
+                  placeholder="Add any notes, goals, or preferences…"
                   placeholderTextColor={theme.textMuted}
                   multiline
                   numberOfLines={3}
                   maxLength={400}
+                  textAlignVertical="top"
                 />
+
+                <View style={styles.approvalNote}>
+                  <Text style={styles.approvalNoteTxt}>
+                    Every lesson requires coach approval. Selecting a time does not confirm the lesson.
+                  </Text>
+                </View>
               </View>
             )}
           </ScrollView>
         )}
 
-        {/* Navigation footer */}
+        {/* Nav footer */}
         {!success && (
           <View style={styles.navFooter}>
             {step > 1 ? (
@@ -518,7 +717,7 @@ export function BookLessonSheet({
               <View style={{ flex: 1 }} />
             )}
 
-            {step < 4 ? (
+            {step < totalSteps ? (
               <TouchableOpacity
                 style={[styles.nextBtn, !canAdvance() && styles.nextBtnDisabled]}
                 onPress={advance}
@@ -550,9 +749,30 @@ export function BookLessonSheet({
 function SummaryRow({ label, value }: { label: string; value: string }) {
   const { theme } = useTheme();
   return (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: theme.border }}>
-      <Text style={{ fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label, color: theme.textMuted }}>{label}</Text>
-      <Text style={{ fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label, color: theme.textPrimary, flex: 1, textAlign: 'right', marginLeft: 12 }}>{value}</Text>
+    <View style={{
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingVertical: 8,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.border,
+    }}>
+      <Text style={{
+        fontFamily: FontFamily.manropeMedium,
+        fontSize: FontSize.label,
+        color: theme.textMuted,
+      }}>
+        {label}
+      </Text>
+      <Text style={{
+        fontFamily: FontFamily.manropeSemiBold,
+        fontSize: FontSize.label,
+        color: theme.textPrimary,
+        flex: 1,
+        textAlign: 'right',
+        marginLeft: 12,
+      }}>
+        {value}
+      </Text>
     </View>
   );
 }
@@ -593,7 +813,6 @@ function useStyles(theme: ThemeTokens) {
     dotActive: {
       backgroundColor: Colors.cyan,
       width: 20,
-      borderRadius: 4,
     },
     dotDone: {
       backgroundColor: Colors.positive,
@@ -625,10 +844,8 @@ function useStyles(theme: ThemeTokens) {
       color: theme.textSecondary,
     },
 
-    // Lesson type grid
-    optionGrid: {
-      gap: 8,
-    },
+    // Lesson type
+    optionGrid: { gap: 8 },
     option: {
       paddingHorizontal: 16,
       paddingVertical: 14,
@@ -646,16 +863,10 @@ function useStyles(theme: ThemeTokens) {
       fontSize: FontSize.body,
       color: theme.textSecondary,
     },
-    optionLabelActive: {
-      color: Colors.cyan,
-    },
+    optionLabelActive: { color: Colors.cyan },
 
-    // Duration / skill level chips
-    chipRow: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 8,
-    },
+    // Chips
+    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     chip: {
       paddingHorizontal: 16,
       paddingVertical: 9,
@@ -673,28 +884,7 @@ function useStyles(theme: ThemeTokens) {
       fontSize: FontSize.label,
       color: theme.textSecondary,
     },
-    chipLabelActive: {
-      color: Colors.cyan,
-    },
-
-    // Availability grid card
-    gridCard: {
-      backgroundColor: theme.cardBg,
-      borderRadius: Radius.card,
-      borderWidth: 1,
-      borderColor: theme.border,
-      padding: Spacing.cardPadding,
-    },
-    warnBanner: {
-      backgroundColor: 'rgba(214,255,61,0.08)',
-      borderRadius: Radius.sm,
-      padding: 12,
-    },
-    warnTxt: {
-      fontFamily: FontFamily.manropeMedium,
-      fontSize: FontSize.label,
-      color: Colors.volt,
-    },
+    chipLabelActive: { color: Colors.cyan },
 
     // Calendar
     calCard: {
@@ -743,9 +933,7 @@ function useStyles(theme: ThemeTokens) {
       borderColor: 'rgba(45,224,255,0.35)',
       borderRadius: 19,
     },
-    calCellDisabled: {
-      opacity: 0.25,
-    },
+    calCellDisabled: { opacity: 0.25 },
     calDayNum: {
       fontFamily: FontFamily.manropeMedium,
       fontSize: 13,
@@ -759,85 +947,133 @@ function useStyles(theme: ThemeTokens) {
       borderRadius: 2,
       backgroundColor: Colors.negative,
     },
-    selIdx: {
-      position: 'absolute',
-      top: 2,
-      right: 2,
-      width: 13,
-      height: 13,
-      borderRadius: 7,
-      backgroundColor: Colors.cyan,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    selIdxTxt: {
-      fontFamily: FontFamily.jetbrainsMonoSemiBold,
-      fontSize: 8,
-      color: Colors.midnight,
-    },
-    locationRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
+    selectedDateBadge: {
+      backgroundColor: 'rgba(45,107,255,0.12)',
+      borderRadius: Radius.sm,
       padding: 12,
+      alignItems: 'center',
+    },
+    selectedDateBadgeTxt: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: FontSize.body,
+      color: Colors.blueHi,
+    },
+
+    // Time slots
+    noSlotsBanner: {
       backgroundColor: theme.cardBg,
       borderRadius: Radius.sm,
       borderWidth: 1,
       borderColor: theme.border,
+      padding: 16,
     },
-    locationLabel: {
+    noSlotsTxt: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.body,
+      color: theme.textSecondary,
+      lineHeight: 22,
+    },
+    slotsGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
+    },
+    slotChip: {
+      paddingHorizontal: 18,
+      paddingVertical: 12,
+      backgroundColor: theme.cardBg,
+      borderRadius: Radius.sm,
+      borderWidth: 1,
+      borderColor: theme.border,
+      minWidth: 96,
+      alignItems: 'center',
+    },
+    slotChipActive: {
+      backgroundColor: 'rgba(45,224,255,0.12)',
+      borderColor: Colors.cyan,
+    },
+    slotChipLabel: {
       fontFamily: FontFamily.manropeSemiBold,
       fontSize: FontSize.label,
-      color: theme.textMuted,
+      color: theme.textSecondary,
     },
-    locationValue: {
-      fontFamily: FontFamily.manropeMedium,
-      fontSize: FontSize.label,
-      color: theme.textPrimary,
-      flex: 1,
-      textAlign: 'right',
-    },
+    slotChipLabelActive: { color: Colors.cyan },
     hintTxt: {
       fontFamily: FontFamily.manropeMedium,
       fontSize: FontSize.label,
       color: theme.textMuted,
       textAlign: 'center',
     },
-    selectedDatesList: {
-      gap: 8,
+
+    // Location
+    locationOption: {
+      backgroundColor: theme.cardBg,
+      borderRadius: Radius.sm,
+      borderWidth: 1,
+      borderColor: theme.border,
+      padding: 14,
+      gap: 6,
     },
-    selectedDateRow: {
+    locationOptionActive: {
+      backgroundColor: 'rgba(45,224,255,0.08)',
+      borderColor: 'rgba(45,224,255,0.40)',
+    },
+    locationOptionHeader: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 10,
-      backgroundColor: theme.cardBg,
-      borderRadius: Radius.sm,
-      paddingHorizontal: 14,
-      paddingVertical: 10,
-      borderWidth: 1,
-      borderColor: theme.border,
     },
-    selectedDateIdx: {
-      width: 22,
-      height: 22,
-      borderRadius: 11,
-      backgroundColor: Colors.blue,
+    radio: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      borderWidth: 1.5,
+      borderColor: theme.border,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    selectedDateIdxTxt: {
-      fontFamily: FontFamily.jetbrainsMonoSemiBold,
-      fontSize: 11,
-      color: Colors.white,
+    radioActive: {
+      borderColor: Colors.cyan,
     },
-    selectedDateTxt: {
-      flex: 1,
+    radioDot: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      backgroundColor: Colors.cyan,
+    },
+    locationOptionLabel: {
       fontFamily: FontFamily.manropeSemiBold,
+      fontSize: FontSize.body,
+      color: theme.textSecondary,
+    },
+    locationOptionLabelActive: { color: Colors.cyan },
+    locationOptionDesc: {
+      fontFamily: FontFamily.manropeMedium,
       fontSize: FontSize.label,
+      color: theme.textMuted,
+      paddingLeft: 30,
+    },
+    subForm: {
+      backgroundColor: theme.cardBg,
+      borderRadius: Radius.sm,
+      borderWidth: 1,
+      borderColor: theme.border,
+      padding: 14,
+      gap: 10,
+    },
+    textInput: {
+      backgroundColor: theme.pageBg,
+      borderRadius: Radius.xs,
+      borderWidth: 1,
+      borderColor: theme.border,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.body,
       color: theme.textPrimary,
     },
 
-    // Step 4 summary + notes
+    // Review step
     summaryCard: {
       backgroundColor: theme.cardBg,
       borderRadius: Radius.card,
@@ -846,7 +1082,7 @@ function useStyles(theme: ThemeTokens) {
       padding: 16,
     },
     packagePlaceholder: {
-      padding: 16,
+      padding: 14,
       borderRadius: Radius.sm,
       borderWidth: 1,
       borderColor: theme.border,
@@ -870,6 +1106,19 @@ function useStyles(theme: ThemeTokens) {
       color: theme.textPrimary,
       minHeight: 88,
       textAlignVertical: 'top',
+    },
+    approvalNote: {
+      backgroundColor: theme.cardBg,
+      borderRadius: Radius.sm,
+      borderWidth: 1,
+      borderColor: theme.border,
+      padding: 12,
+    },
+    approvalNoteTxt: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.label,
+      color: theme.textSecondary,
+      lineHeight: 20,
     },
 
     // Nav footer
@@ -925,16 +1174,14 @@ function useStyles(theme: ThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    submitBtnDisabled: {
-      opacity: 0.6,
-    },
+    submitBtnDisabled: { opacity: 0.6 },
     submitBtnLabel: {
       fontFamily: FontFamily.manropeSemiBold,
       fontSize: FontSize.body,
       color: Colors.white,
     },
 
-    // Success state
+    // Success
     successWrap: {
       flex: 1,
       alignItems: 'center',
@@ -942,7 +1189,7 @@ function useStyles(theme: ThemeTokens) {
       gap: 14,
       paddingHorizontal: Spacing.pagePx,
     },
-    successIcon: {
+    successCheckmark: {
       fontSize: 52,
       color: Colors.positive,
     },

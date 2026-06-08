@@ -35,6 +35,16 @@ const STATUS_LABEL_MAP: Record<string, string> = {
   expired:         'EXPIRED',
 };
 
+const LESSON_TYPE_LABELS: Record<string, string> = {
+  private_lesson:      'Private Lesson',
+  semi_private_lesson: 'Semi-Private Lesson',
+  group_clinic:        'Group Clinic',
+  practice_session:    'Practice Session',
+  private:             'Private Lesson',
+  'semi-private':      'Semi-Private Lesson',
+  group:               'Group Clinic',
+};
+
 const LEVEL_LABELS: Record<string, string> = {
   beginner:         'Beginner',
   intermediate:     'Intermediate',
@@ -131,11 +141,11 @@ export function LessonRequestRow({ request, onRefresh, onLeaveReview }: Props) {
           <Text style={styles.coachName} numberOfLines={1}>
             {request.coachName ?? 'Coach'}
           </Text>
-          <StatusPill variant={pillVariant} label={pillLabel} />
+          <StatusPill status={pillVariant} label={pillLabel} />
         </View>
 
         <Text style={styles.lessonMeta}>
-          {request.lessonType}
+          {LESSON_TYPE_LABELS[request.lessonType] ?? request.lessonType}
           {request.durationMinutes ? ` · ${request.durationMinutes} min` : ''}
           {request.skillLevel ? ` · ${LEVEL_LABELS[request.skillLevel] ?? request.skillLevel}` : ''}
         </Text>

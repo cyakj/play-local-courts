@@ -20,9 +20,12 @@ export default function CoachFavoritesScreen() {
   const [refreshTick, setRefreshTick] = useState(0);
 
   const { coaches, loading, favoriteIds, toggleFavorite, refresh } = useCoachData({
-    search: '',
-    distanceKm: null,
-    levels: [],
+    search:       '',
+    distanceKm:   null,
+    levels:       [],
+    priceRange:   null,
+    lessonTypes:  [],
+    availability: null,
   });
 
   useFocusEffect(useCallback(() => {
@@ -56,8 +59,7 @@ export default function CoachFavoritesScreen() {
               coach={item}
               isFavorited
               onToggleFavorite={() => toggleFavorite(item.userId)}
-              onViewProfile={() => router.push(`/coach-profile/${item.id}` as any)}
-              onBookLesson={() => router.push(`/coach-profile/${item.id}` as any)}
+              onViewCoach={() => router.push(`/coach-profile/${item.id}` as any)}
             />
           </View>
         )}

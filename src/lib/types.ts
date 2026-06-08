@@ -419,6 +419,7 @@ export type Database = {
           day_of_week: number
           end_time: string
           id: string
+          location_mode: string | null
           start_time: string
         }
         Insert: {
@@ -427,6 +428,7 @@ export type Database = {
           day_of_week: number
           end_time: string
           id?: string
+          location_mode?: string | null
           start_time: string
         }
         Update: {
@@ -435,6 +437,7 @@ export type Database = {
           day_of_week?: number
           end_time?: string
           id?: string
+          location_mode?: string | null
           start_time?: string
         }
         Relationships: []
@@ -2049,9 +2052,12 @@ export type Database = {
           created_at: string | null
           duration_minutes: number | null
           expires_at: string | null
+          facility_name: string | null
           id: string
           lesson_type: string
           location: string | null
+          location_note: string | null
+          location_preference: string | null
           no_show_by: string | null
           notes: string | null
           package_hold_id: string | null
@@ -2084,9 +2090,12 @@ export type Database = {
           created_at?: string | null
           duration_minutes?: number | null
           expires_at?: string | null
+          facility_name?: string | null
           id?: string
           lesson_type: string
           location?: string | null
+          location_note?: string | null
+          location_preference?: string | null
           no_show_by?: string | null
           notes?: string | null
           package_hold_id?: string | null
@@ -2119,9 +2128,12 @@ export type Database = {
           created_at?: string | null
           duration_minutes?: number | null
           expires_at?: string | null
+          facility_name?: string | null
           id?: string
           lesson_type?: string
           location?: string | null
+          location_note?: string | null
+          location_preference?: string | null
           no_show_by?: string | null
           notes?: string | null
           package_hold_id?: string | null

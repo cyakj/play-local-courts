@@ -19,6 +19,7 @@ export interface CoachAvailabilitySlot {
   day_of_week: number;
   start_time: string;
   end_time: string;
+  location_mode: 'coach_facility' | 'traveling' | 'both' | null;
 }
 
 export interface CoachUnavailabilityBlock {

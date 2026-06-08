@@ -9,38 +9,77 @@ import {
   View,
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
-import { GraduationCap, Heart } from 'lucide-react-native';
+import { GraduationCap, Heart, SlidersHorizontal, X } from 'lucide-react-native';
 import { Header } from '@/components/ui/Header';
 import { CoachCard, CoachCardSkeleton } from '@/components/coaching/CoachCard';
 import { CoachSearchBar } from '@/components/coaching/CoachSearchBar';
-import { CoachFilterBar } from '@/components/coaching/CoachFilterBar';
+import {
+  CoachFiltersSheet,
+  DEFAULT_FILTERS,
+  activeFilterCount,
+  type CoachFiltersState,
+} from '@/components/coaching/CoachFiltersSheet';
 import { Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing } from '@/constants/design';
 import { useTheme } from '@/context/ThemeContext';
 import type { ThemeTokens } from '@/constants/theme-tokens';
-import { useCoachData, type CoachFilters, type DistanceFilterKm, type LevelFilter } from '@/hooks/useCoachData';
+import { useCoachData, type CoachFilters } from '@/hooks/useCoachData';
+
+const PRICE_LABELS: Record<string, string> = {
+  under75:  '<$75',
+  '75to100':  '$75–$100',
+  '100to150': '$100–$150',
+  '150plus':  '$150+',
+};
+
+const DIST_LABELS: Record<string, string> = {
+  '8':  '5 mi',
+  '16': '10 mi',
+  '40': '25 mi',
+  '80': '50 mi',
+};
+
+const AVAIL_LABELS: Record<string, string> = {
+  today:     'Today',
+  tomorrow:  'Tomorrow',
+  this_week: 'This Week',
+  weekend:   'Weekend',
+};
+
+function buildFilterSummary(f: CoachFiltersState): string {
+  const parts: string[] = [];
+  if (f.distanceKm != null) parts.push(DIST_LABELS[String(f.distanceKm)] ?? '');
+  f.levels.forEach(l => parts.push(
+    l === 'beginner' ? 'Beginner' : l === 'intermediate' ? 'Intermediate' : 'High Perf',
+  ));
+  if (f.priceRange != null) parts.push(PRICE_LABELS[f.priceRange] ?? '');
+  f.lessonTypes.forEach(lt => parts.push(lt));
+  if (f.availability != null) parts.push(AVAIL_LABELS[f.availability] ?? '');
+  return parts.filter(Boolean).join(' · ');
+}
 
 export default function CoachesScreen() {
   const { theme } = useTheme();
   const styles = useStyles(theme);
 
-  const [searchText, setSearchText] = useState('');
+  const [searchText,      setSearchText]      = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [distanceKm, setDistanceKm] = useState<DistanceFilterKm>(null);
-  const [levels, setLevels] = useState<LevelFilter[]>([]);
+  const [filtersVisible,  setFiltersVisible]  = useState(false);
+  const [appliedFilters,  setAppliedFilters]  = useState<CoachFiltersState>(DEFAULT_FILTERS);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const filters: CoachFilters = useMemo(() => ({
-    search: debouncedSearch,
-    distanceKm,
-    levels,
-  }), [debouncedSearch, distanceKm, levels]);
+    search:       debouncedSearch,
+    distanceKm:   appliedFilters.distanceKm,
+    levels:       appliedFilters.levels,
+    priceRange:   appliedFilters.priceRange,
+    lessonTypes:  appliedFilters.lessonTypes,
+    availability: appliedFilters.availability,
+  }), [debouncedSearch, appliedFilters]);
 
-  const { coaches, loading, error, refresh, favoriteIds, toggleFavorite } = useCoachData(filters);
+  const { coaches, loading, error, refresh, favoriteIds, toggleFavorite, playerHasCoordinates } =
+    useCoachData(filters);
 
-  // Refresh on tab focus
-  useFocusEffect(useCallback(() => {
-    refresh();
-  }, [refresh]));
+  useFocusEffect(useCallback(() => { refresh(); }, [refresh]));
 
   function handleSearchChange(text: string) {
     setSearchText(text);
@@ -48,9 +87,15 @@ export default function CoachesScreen() {
     debounceTimer.current = setTimeout(() => setDebouncedSearch(text), 300);
   }
 
-  // Player coordinates: useCoachData reads them internally; expose existence for FilterBar
-  // We check by watching if any coach has distanceKm (means RPC ran = player has coords)
-  const playerHasCoordinates = coaches.some(c => c.distanceKm != null);
+  const activeCount   = activeFilterCount(appliedFilters);
+  const filterSummary = activeCount > 0 ? buildFilterSummary(appliedFilters) : '';
+  const hasActiveFilters = activeCount > 0 || debouncedSearch.trim().length > 0;
+
+  function clearAllFilters() {
+    setAppliedFilters(DEFAULT_FILTERS);
+    setSearchText('');
+    setDebouncedSearch('');
+  }
 
   const ListHeader = useMemo(() => (
     <View>
@@ -65,15 +110,34 @@ export default function CoachesScreen() {
         <CoachSearchBar value={searchText} onChangeText={handleSearchChange} />
       </View>
 
-      {/* Filters */}
-      <View style={styles.filterWrap}>
-        <CoachFilterBar
-          distanceKm={distanceKm}
-          onDistanceChange={setDistanceKm}
-          levels={levels}
-          onLevelsChange={setLevels}
-          playerHasCoordinates={playerHasCoordinates}
-        />
+      {/* Filter bar: summary + Filters button */}
+      <View style={styles.filterBar}>
+        <TouchableOpacity
+          style={[styles.filtersBtn, activeCount > 0 && styles.filtersBtnActive]}
+          onPress={() => setFiltersVisible(true)}
+          activeOpacity={0.8}
+        >
+          <SlidersHorizontal
+            size={14}
+            strokeWidth={2}
+            color={activeCount > 0 ? Colors.cyan : theme.textSecondary}
+          />
+          <Text style={[styles.filtersBtnLabel, activeCount > 0 && styles.filtersBtnLabelActive]}>
+            Filters{activeCount > 0 ? ` (${activeCount})` : ''}
+          </Text>
+        </TouchableOpacity>
+
+        {filterSummary ? (
+          <View style={styles.filterSummaryRow}>
+            <Text style={styles.filterSummaryTxt} numberOfLines={1}>{filterSummary}</Text>
+            <TouchableOpacity
+              onPress={() => setAppliedFilters(DEFAULT_FILTERS)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <X size={13} strokeWidth={2} color={theme.textMuted} />
+            </TouchableOpacity>
+          </View>
+        ) : null}
       </View>
 
       {/* Favorites shortcut */}
@@ -95,6 +159,11 @@ export default function CoachesScreen() {
               ? 'No coaches match'
               : `${coaches.length} coach${coaches.length === 1 ? '' : 'es'}`}
           </Text>
+          {hasActiveFilters && (
+            <TouchableOpacity onPress={clearAllFilters}>
+              <Text style={styles.clearTxt}>Clear all</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
@@ -109,7 +178,7 @@ export default function CoachesScreen() {
       ) : null}
     </View>
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [searchText, distanceKm, levels, playerHasCoordinates, coaches.length, loading, error, theme]);
+  ), [searchText, appliedFilters, activeCount, filterSummary, coaches.length, loading, error, theme]);
 
   if (loading) {
     return (
@@ -144,8 +213,7 @@ export default function CoachesScreen() {
               coach={item}
               isFavorited={favoriteIds.has(item.userId)}
               onToggleFavorite={() => toggleFavorite(item.userId)}
-              onViewProfile={() => router.push(`/coach-profile/${item.id}` as any)}
-              onBookLesson={() => router.push(`/coach-profile/${item.id}` as any)}
+              onViewCoach={() => router.push(`/coach-profile/${item.id}` as any)}
             />
           </View>
         )}
@@ -155,10 +223,15 @@ export default function CoachesScreen() {
             <GraduationCap color={theme.textMuted} size={40} strokeWidth={1.5} />
             <Text style={styles.emptyTitle}>No coaches found</Text>
             <Text style={styles.emptyBody}>
-              {debouncedSearch || levels.length > 0 || distanceKm != null
+              {hasActiveFilters
                 ? 'Try adjusting your search or filters.'
-                : 'No coaches are available in your community yet.'}
+                : 'No coaches are available yet.'}
             </Text>
+            {hasActiveFilters && (
+              <TouchableOpacity style={styles.clearFiltersBtn} onPress={clearAllFilters} activeOpacity={0.8}>
+                <Text style={styles.clearFiltersBtnLabel}>Clear Filters</Text>
+              </TouchableOpacity>
+            )}
           </View>
         }
         contentContainerStyle={styles.listContent}
@@ -170,6 +243,15 @@ export default function CoachesScreen() {
             tintColor={Colors.cyan}
           />
         }
+      />
+
+      <CoachFiltersSheet
+        visible={filtersVisible}
+        onClose={() => setFiltersVisible(false)}
+        filters={appliedFilters}
+        onApply={setAppliedFilters}
+        playerHasCoords={playerHasCoordinates}
+        resultCount={coaches.length}
       />
     </View>
   );
@@ -204,15 +286,55 @@ function useStyles(theme: ThemeTokens) {
       paddingHorizontal: Spacing.pagePx,
       marginBottom: 10,
     },
-    filterWrap: {
-      marginBottom: 6,
+    filterBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingHorizontal: Spacing.pagePx,
+      marginBottom: 8,
+      flexWrap: 'wrap',
+    },
+    filtersBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      backgroundColor: theme.cardBg,
+      borderRadius: Radius.chip,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    filtersBtnActive: {
+      backgroundColor: 'rgba(45,224,255,0.08)',
+      borderColor: 'rgba(45,224,255,0.35)',
+    },
+    filtersBtnLabel: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: FontSize.label,
+      color: theme.textSecondary,
+    },
+    filtersBtnLabelActive: {
+      color: Colors.cyan,
+    },
+    filterSummaryRow: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    filterSummaryTxt: {
+      flex: 1,
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.label,
+      color: theme.textSecondary,
     },
     favoritesRow: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
       marginHorizontal: Spacing.pagePx,
-      marginTop: 8,
+      marginTop: 4,
       marginBottom: 4,
       paddingVertical: 10,
       paddingHorizontal: 14,
@@ -234,13 +356,22 @@ function useStyles(theme: ThemeTokens) {
       lineHeight: 22,
     },
     countRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
       paddingHorizontal: Spacing.pagePx,
       paddingVertical: 8,
+      gap: 8,
     },
     countTxt: {
+      flex: 1,
       fontFamily: FontFamily.manropeMedium,
       fontSize: FontSize.label,
       color: theme.textMuted,
+    },
+    clearTxt: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: FontSize.label,
+      color: Colors.cyan,
     },
     errorBanner: {
       margin: Spacing.pagePx,
@@ -301,6 +432,20 @@ function useStyles(theme: ThemeTokens) {
       fontSize: FontSize.body,
       color: theme.textMuted,
       textAlign: 'center',
+    },
+    clearFiltersBtn: {
+      marginTop: 4,
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      backgroundColor: theme.cardBg,
+      borderRadius: Radius.sm,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    clearFiltersBtnLabel: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: FontSize.label,
+      color: theme.textSecondary,
     },
   }), [theme]);
 }

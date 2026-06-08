@@ -17,11 +17,10 @@ interface Props {
   coach: CoachWithProfile;
   isFavorited: boolean;
   onToggleFavorite: () => void;
-  onViewProfile: () => void;
-  onBookLesson: () => void;
+  onViewCoach: () => void;
 }
 
-export function CoachCard({ coach, isFavorited, onToggleFavorite, onViewProfile, onBookLesson }: Props) {
+export function CoachCard({ coach, isFavorited, onToggleFavorite, onViewCoach }: Props) {
   const { theme } = useTheme();
   const styles = useStyles(theme);
 
@@ -34,20 +33,20 @@ export function CoachCard({ coach, isFavorited, onToggleFavorite, onViewProfile,
     .toUpperCase()
     .slice(0, 2);
 
-  const ratingText = coach.avgRating != null
-    ? coach.avgRating.toFixed(1)
-    : null;
-
+  const ratingText = coach.avgRating != null ? coach.avgRating.toFixed(1) : null;
   const distanceText = coach.distanceKm != null
     ? `${(coach.distanceKm * 0.621371).toFixed(1)} mi`
     : 'Distance unknown';
-
   const hasDistance = coach.distanceKm != null;
 
   return (
     <View style={styles.card}>
       {/* Heart */}
-      <TouchableOpacity style={styles.heartBtn} onPress={onToggleFavorite} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+      <TouchableOpacity
+        style={styles.heartBtn}
+        onPress={onToggleFavorite}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      >
         <Heart
           size={18}
           strokeWidth={2}
@@ -72,7 +71,7 @@ export function CoachCard({ coach, isFavorited, onToggleFavorite, onViewProfile,
         <View style={styles.content}>
           <Text style={styles.name} numberOfLines={1}>{displayName}</Text>
 
-          {/* Credential + distance row */}
+          {/* Credential + distance */}
           <View style={styles.metaRow}>
             {coach.credentials ? (
               <View style={styles.credentialChip}>
@@ -127,15 +126,10 @@ export function CoachCard({ coach, isFavorited, onToggleFavorite, onViewProfile,
         </View>
       </View>
 
-      {/* CTAs */}
-      <View style={styles.ctaRow}>
-        <TouchableOpacity style={[styles.cta, styles.ctaGhost]} onPress={onViewProfile} activeOpacity={0.75}>
-          <Text style={styles.ctaGhostLabel}>View Profile</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.cta, styles.ctaPrimary]} onPress={onBookLesson} activeOpacity={0.75}>
-          <Text style={styles.ctaPrimaryLabel}>Book Lesson</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Single CTA */}
+      <TouchableOpacity style={styles.ctaPrimary} onPress={onViewCoach} activeOpacity={0.75}>
+        <Text style={styles.ctaPrimaryLabel}>View Coach</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -159,10 +153,7 @@ export function CoachCardSkeleton() {
           <Skeleton width="40%" height={12} />
         </View>
       </View>
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <Skeleton width="48%" height={36} borderRadius={Radius.sm} />
-        <Skeleton width="48%" height={36} borderRadius={Radius.sm} />
-      </View>
+      <Skeleton width="100%" height={40} borderRadius={Radius.sm} />
     </View>
   );
 }
@@ -186,7 +177,7 @@ function useStyles(theme: ThemeTokens) {
     row: {
       flexDirection: 'row',
       gap: 14,
-      paddingRight: 32, // space for heart button
+      paddingRight: 32,
     },
     avatarWrap: {
       flexShrink: 0,
@@ -302,28 +293,12 @@ function useStyles(theme: ThemeTokens) {
       color: Colors.cyan,
       letterSpacing: 0.8,
     },
-    ctaRow: {
-      flexDirection: 'row',
-      gap: 10,
-    },
-    cta: {
-      flex: 1,
-      height: 40,
+    ctaPrimary: {
+      height: 42,
+      backgroundColor: Colors.blue,
       borderRadius: Radius.sm,
       alignItems: 'center',
       justifyContent: 'center',
-    },
-    ctaGhost: {
-      borderWidth: 1,
-      borderColor: theme.border,
-    },
-    ctaGhostLabel: {
-      fontFamily: FontFamily.manropeSemiBold,
-      fontSize: FontSize.label,
-      color: theme.textSecondary,
-    },
-    ctaPrimary: {
-      backgroundColor: Colors.blue,
     },
     ctaPrimaryLabel: {
       fontFamily: FontFamily.manropeSemiBold,
