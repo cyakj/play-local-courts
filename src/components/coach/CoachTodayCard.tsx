@@ -84,7 +84,7 @@ export function CoachTodayCard({ nextLesson, upcomingTodayCount, pendingCount }:
             style={styles.viewRequestsBtn}
             onPress={() => router.push('/(coach)/requests' as any)}
             activeOpacity={0.8}>
-            <AlertCircle size={12} color={Colors.volt} strokeWidth={2} />
+            <AlertCircle size={12} color='#FFFFFF' strokeWidth={2} />
             <Text style={styles.viewRequestsText}>View Requests</Text>
           </TouchableOpacity>
         )}
@@ -150,7 +150,7 @@ function useStyles(theme: ThemeTokens) {
       letterSpacing: -0.4,
     },
     statValueAmber: {
-      color: Colors.volt,
+      color: Colors.blue,
     },
     statLabel: {
       fontFamily: FontFamily.jetbrainsMonoSemiBold,
@@ -171,14 +171,12 @@ function useStyles(theme: ThemeTokens) {
       paddingHorizontal: 12,
       paddingVertical: 8,
       borderRadius: Radius.sm,
-      borderWidth: 1,
-      borderColor: 'rgba(214,255,61,0.35)',
-      backgroundColor: 'rgba(214,255,61,0.08)',
+      backgroundColor: Colors.blue,
     },
     viewRequestsText: {
       fontFamily: FontFamily.manropeSemiBold,
       fontSize: FontSize.label,
-      color: Colors.volt,
+      color: '#FFFFFF',
     },
   }), [theme]);
 }

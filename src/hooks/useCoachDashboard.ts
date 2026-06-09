@@ -16,6 +16,8 @@ export interface CoachDashboardData {
   estimatedRevenueThisMonth: number;
   avgResponseHours: number | null;
   avgRating: number | null;
+  reviewCount: number;
+  latestReviewText: string | null;
   attendanceRate: number | null;
   completedCount: number;
   noShowCount: number;
@@ -92,11 +94,12 @@ export function useCoachDashboard() {
           .not('responded_at', 'is', null)
           .gte('created_at', thirtyAgo),
 
-        // Avg rating
+        // Avg rating + review preview
         supabase
           .from('coach_reviews')
-          .select('rating')
-          .eq('coach_id', user.id),
+          .select('rating, review_text, created_at')
+          .eq('coach_id', user.id)
+          .order('created_at', { ascending: false }),
 
         // Coach hourly_rate
         supabase
@@ -167,11 +170,14 @@ export function useCoachDashboard() {
         avgResponseHours = Math.round((totalHours / responseRows.length) * 10) / 10;
       }
 
-      // Avg rating
-      const ratings = (ratingRes.data ?? []).map(r => r.rating as number);
+      // Avg rating + review metadata
+      const reviewRows = ratingRes.data ?? [];
+      const reviewCount = reviewRows.length;
+      const ratings = reviewRows.map(r => r.rating as number);
       const avgRating = ratings.length > 0
         ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10
         : null;
+      const latestReviewText = (reviewRows[0]?.review_text as string | null) ?? null;
 
       // Attendance
       const attRows = attendanceRes.data ?? [];
@@ -189,6 +195,8 @@ export function useCoachDashboard() {
         estimatedRevenueThisMonth,
         avgResponseHours,
         avgRating,
+        reviewCount,
+        latestReviewText,
         attendanceRate,
         completedCount,
         noShowCount,

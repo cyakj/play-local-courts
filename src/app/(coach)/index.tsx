@@ -1,11 +1,13 @@
 import { useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { router } from 'expo-router';
+import { ChevronRight } from 'lucide-react-native';
 import { Header } from '@/components/ui/Header';
 import { useTheme } from '@/context/ThemeContext';
 import { useCoachDashboard } from '@/hooks/useCoachDashboard';
 import { CoachTodayCard } from '@/components/coach/CoachTodayCard';
 import { CoachDashboardKPI } from '@/components/coach/CoachDashboardKPI';
-import { Colors, FontFamily, FontSize, Spacing } from '@/constants/design';
+import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/design';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 
 function fmtCurrency(n: number): string {
@@ -113,6 +115,30 @@ export default function CoachDashboardScreen() {
               />
               <View style={{ flex: 1 }} />
             </View>
+
+            {/* Reviews */}
+            <Text style={styles.sectionLabel}>REVIEWS</Text>
+            <TouchableOpacity
+              style={styles.reviewsCard}
+              onPress={() => router.push('/(coach)/reviews' as any)}
+              activeOpacity={0.8}>
+              <View style={styles.reviewsLeft}>
+                <Text style={styles.reviewsRating}>
+                  {data.avgRating != null ? data.avgRating.toFixed(1) : '—'}
+                </Text>
+                <View style={styles.reviewsMeta}>
+                  <Text style={styles.reviewsCount}>
+                    {data.reviewCount} review{data.reviewCount !== 1 ? 's' : ''}
+                  </Text>
+                  {data.latestReviewText && (
+                    <Text style={styles.reviewsPreview} numberOfLines={2}>
+                      "{data.latestReviewText}"
+                    </Text>
+                  )}
+                </View>
+              </View>
+              <ChevronRight size={18} color={theme.textMuted} strokeWidth={1.5} />
+            </TouchableOpacity>
           </>
         )}
       </ScrollView>
@@ -145,6 +171,36 @@ function useStyles(theme: ThemeTokens) {
       borderRadius: 14,
       borderWidth: 1,
       borderColor: theme.border,
+    },
+    reviewsCard: {
+      backgroundColor: theme.cardBg,
+      borderRadius: Radius.card,
+      borderWidth: 1,
+      borderColor: theme.border,
+      padding: Spacing.cardPadding,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    reviewsLeft: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+    reviewsRating: {
+      fontFamily: FontFamily.spaceGroteskBold,
+      fontSize: 28,
+      color: theme.textPrimary,
+      letterSpacing: -0.4,
+    },
+    reviewsMeta: { flex: 1, gap: 4 },
+    reviewsCount: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: FontSize.label,
+      color: theme.textSecondary,
+    },
+    reviewsPreview: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.label,
+      color: theme.textMuted,
+      fontStyle: 'italic',
+      lineHeight: 18,
     },
   }), [theme]);
 }
