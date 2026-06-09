@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { router } from 'expo-router';
-import { LogOut, ChevronRight } from 'lucide-react-native';
+import { LogOut } from 'lucide-react-native';
 import { Header } from '@/components/ui/Header';
 import { useTheme } from '@/context/ThemeContext';
 import { useCoachProfile } from '@/hooks/useCoachProfile';
@@ -33,24 +33,61 @@ const LESSON_TYPES = [
   { value: 'hitting_partner',     label: 'Hitting Partner' },
 ];
 
-const LOCATION_MODE_OPTIONS = [
-  { value: 'coach_facility', label: 'My Facility'   },
-  { value: 'traveling',      label: 'Travels to You'},
-  { value: 'both',           label: 'Either'        },
+const GENDER_OPTIONS = [
+  { value: '',       label: 'Not specified' },
+  { value: 'male',   label: 'Male'          },
+  { value: 'female', label: 'Female'        },
 ];
+
+const ITF_OPTIONS = [
+  { value: 'none',  label: 'None'   },
+  { value: 'itf_1', label: 'ITF L1' },
+  { value: 'itf_2', label: 'ITF L2' },
+  { value: 'itf_3', label: 'ITF L3' },
+  { value: 'itf_4', label: 'ITF L4' },
+];
+
+const LOCATION_TYPE_OPTIONS = [
+  { value: 'facility_coach',  label: 'Facility Coach'    },
+  { value: 'traveling_coach', label: 'Traveling Coach'   },
+  { value: 'facility_travel', label: 'Facility + Travel' },
+];
+
+const COURT_TYPE_OPTIONS = ['hard', 'clay', 'grass', 'indoor', 'outdoor'];
 
 export default function CoachMeScreen() {
   const { theme } = useTheme();
   const styles = useStyles(theme);
   const { profile, loading, saving, save } = useCoachProfile();
 
-  const [businessName, setBusinessName]     = useState('');
-  const [bio, setBio]                       = useState('');
-  const [hourlyRate, setHourlyRate]         = useState('');
-  const [homeBase, setHomeBase]             = useState('');
-  const [yearsExperience, setYearsExperience] = useState('');
-  const [initialized, setInitialized]       = useState(false);
+  // Existing fields
+  const [businessName,     setBusinessName]     = useState('');
+  const [bio,              setBio]              = useState('');
+  const [hourlyRate,       setHourlyRate]       = useState('');
+  const [homeBase,         setHomeBase]         = useState('');
+  const [yearsExperience,  setYearsExperience]  = useState('');
 
+  // New fields
+  const [fullName,             setFullName]             = useState('');
+  const [gender,               setGender]               = useState('');
+  const [itfCertification,     setItfCertification]     = useState('none');
+  const [coachingLocationType, setCoachingLocationType] = useState('facility_coach');
+  const [facilityAddress,      setFacilityAddress]      = useState('');
+  const [facilityNotes,        setFacilityNotes]        = useState('');
+  const [travelAreas,          setTravelAreas]          = useState('');
+  const [travelNotes,          setTravelNotes]          = useState('');
+  const [travelRadiusKm,       setTravelRadiusKm]       = useState('');
+  const [courtType,            setCourtType]            = useState('');
+
+  // Local chip state (moved from profile-direct reads)
+  const [levelsServed,       setLevelsServed]       = useState<string[]>([]);
+  const [lessonTypesOffered, setLessonTypesOffered] = useState<string[]>([]);
+  const [minimumNoticeHours,     setMinimumNoticeHours]     = useState<number | null>(null);
+  const [maxAdvanceBookingDays,  setMaxAdvanceBookingDays]  = useState<number | null>(null);
+
+  const [initialized, setInitialized] = useState(false);
+
+  // Initialize all state from profile on first load
   useMemo(() => {
     if (profile && !initialized) {
       setBusinessName(profile.businessName ?? '');
@@ -58,36 +95,92 @@ export default function CoachMeScreen() {
       setHourlyRate(profile.hourlyRate != null ? String(profile.hourlyRate) : '');
       setHomeBase(profile.homeBase ?? '');
       setYearsExperience(profile.yearsExperience != null ? String(profile.yearsExperience) : '');
+      setFullName(profile.fullName ?? '');
+      setGender(profile.gender ?? '');
+      setItfCertification(profile.itfCertification ?? 'none');
+      setCoachingLocationType(profile.coachingLocationType ?? 'facility_coach');
+      setFacilityAddress(profile.facilityAddress ?? '');
+      setFacilityNotes(profile.facilityNotes ?? '');
+      setTravelAreas(profile.travelAreas ?? '');
+      setTravelNotes(profile.travelNotes ?? '');
+      setTravelRadiusKm(profile.travelRadiusKm != null ? String(profile.travelRadiusKm) : '');
+      setCourtType(profile.courtType ?? '');
+      setLevelsServed(profile.levelsServed ?? []);
+      setLessonTypesOffered(profile.lessonTypesOffered ?? []);
+      setMinimumNoticeHours(profile.minimumNoticeHours ?? null);
+      setMaxAdvanceBookingDays(profile.maxAdvanceBookingDays ?? null);
       setInitialized(true);
     }
   }, [profile, initialized]);
 
-  async function handleSaveProfile() {
-    const rate  = parseFloat(hourlyRate);
-    const years = parseInt(yearsExperience, 10);
+  // isDirty — tracks unsaved changes
+  const isDirty = useMemo(() => {
+    if (!profile || !initialized) return false;
+    return (
+      fullName             !== (profile.fullName ?? '')             ||
+      gender               !== (profile.gender ?? '')              ||
+      itfCertification     !== (profile.itfCertification ?? 'none') ||
+      coachingLocationType !== (profile.coachingLocationType ?? 'facility_coach') ||
+      facilityAddress      !== (profile.facilityAddress ?? '')      ||
+      travelAreas          !== (profile.travelAreas ?? '')          ||
+      businessName         !== (profile.businessName ?? '')         ||
+      bio                  !== (profile.bio ?? '')                  ||
+      hourlyRate           !== (profile.hourlyRate != null ? String(profile.hourlyRate) : '') ||
+      homeBase             !== (profile.homeBase ?? '')             ||
+      yearsExperience      !== (profile.yearsExperience != null ? String(profile.yearsExperience) : '') ||
+      JSON.stringify([...(levelsServed ?? [])].sort()) !==
+        JSON.stringify([...(profile.levelsServed ?? [])].sort()) ||
+      JSON.stringify([...(lessonTypesOffered ?? [])].sort()) !==
+        JSON.stringify([...(profile.lessonTypesOffered ?? [])].sort())
+    );
+  }, [
+    profile, initialized,
+    fullName, gender, itfCertification, coachingLocationType,
+    facilityAddress, travelAreas,
+    businessName, bio, hourlyRate, homeBase, yearsExperience,
+    levelsServed, lessonTypesOffered,
+  ]);
+
+  // Single save handler
+  async function handleSave() {
+    const rate   = parseFloat(hourlyRate);
+    const years  = parseInt(yearsExperience, 10);
+    const radius = parseInt(travelRadiusKm, 10);
     const err = await save({
-      businessName:    businessName.trim() || null,
-      bio:             bio.trim() || null,
-      hourlyRate:      isNaN(rate)  ? null : rate,
-      homeBase:        homeBase.trim() || null,
-      yearsExperience: isNaN(years) ? null : years,
+      fullName:              fullName.trim() || null,
+      businessName:          businessName.trim() || null,
+      bio:                   bio.trim() || null,
+      hourlyRate:            isNaN(rate)   ? null : rate,
+      homeBase:              homeBase.trim() || null,
+      yearsExperience:       isNaN(years)  ? null : years,
+      facilityAddress:       facilityAddress.trim() || null,
+      facilityNotes:         facilityNotes.trim() || null,
+      travelAreas:           travelAreas.trim() || null,
+      travelNotes:           travelNotes.trim() || null,
+      travelRadiusKm:        isNaN(radius) ? null : radius,
+      gender:                gender || null,
+      itfCertification:      itfCertification === 'none' ? null : itfCertification,
+      coachingLocationType,
+      courtType:             courtType || null,
+      levelsServed,
+      lessonTypesOffered,
+      minimumNoticeHours:    minimumNoticeHours ?? null,
+      maxAdvanceBookingDays: maxAdvanceBookingDays ?? null,
     });
     if (err) Alert.alert('Error', err);
     else Alert.alert('Saved', 'Profile updated.');
   }
 
-  async function toggleLevel(val: string) {
-    if (!profile) return;
-    const current = profile.levelsServed ?? [];
-    const next = current.includes(val) ? current.filter(v => v !== val) : [...current, val];
-    await save({ levelsServed: next });
+  function toggleLevel(val: string) {
+    setLevelsServed(prev =>
+      prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]
+    );
   }
 
-  async function toggleLessonType(val: string) {
-    if (!profile) return;
-    const current = profile.lessonTypesOffered ?? [];
-    const next = current.includes(val) ? current.filter(v => v !== val) : [...current, val];
-    await save({ lessonTypesOffered: next });
+  function toggleLessonType(val: string) {
+    setLessonTypesOffered(prev =>
+      prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]
+    );
   }
 
   async function handleSignOut() {
@@ -121,7 +214,12 @@ export default function CoachMeScreen() {
       <ScrollView contentContainerStyle={styles.content}>
 
         {/* Profile section */}
-        <Text style={styles.sectionLabel}>PROFILE</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
+          <Text style={styles.sectionLabel}>PROFILE</Text>
+          {isDirty && (
+            <Text style={styles.unsavedBadge}>● UNSAVED</Text>
+          )}
+        </View>
         <View style={styles.card}>
           <Text style={styles.fieldLabel}>Business / Display Name</Text>
           <TextInput
@@ -131,6 +229,45 @@ export default function CoachMeScreen() {
             placeholder="e.g. Coach J · J Tennis"
             placeholderTextColor={Colors.fgDisabled}
           />
+
+          <Text style={styles.fieldLabel}>Full Name</Text>
+          <TextInput
+            style={styles.input}
+            value={fullName}
+            onChangeText={setFullName}
+            placeholder="Your full name"
+            placeholderTextColor="#5A6379"
+          />
+
+          <Text style={styles.fieldLabel}>Gender</Text>
+          <View style={styles.chipWrap}>
+            {GENDER_OPTIONS.map(g => (
+              <TouchableOpacity
+                key={g.value || 'ns'}
+                style={[styles.chip, gender === g.value && styles.chipActive]}
+                onPress={() => setGender(g.value)}
+                activeOpacity={0.7}>
+                <Text style={[styles.chipText, gender === g.value && styles.chipTextActive]}>
+                  {g.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={styles.fieldLabel}>ITF Certification</Text>
+          <View style={styles.chipWrap}>
+            {ITF_OPTIONS.map(c => (
+              <TouchableOpacity
+                key={c.value}
+                style={[styles.chip, itfCertification === c.value && styles.chipActive]}
+                onPress={() => setItfCertification(c.value)}
+                activeOpacity={0.7}>
+                <Text style={[styles.chipText, itfCertification === c.value && styles.chipTextActive]}>
+                  {c.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
           <Text style={styles.fieldLabel}>Bio</Text>
           <TextInput
@@ -142,15 +279,6 @@ export default function CoachMeScreen() {
             multiline
             numberOfLines={3}
             textAlignVertical="top"
-          />
-
-          <Text style={styles.fieldLabel}>Home Base / Location</Text>
-          <TextInput
-            style={styles.input}
-            value={homeBase}
-            onChangeText={setHomeBase}
-            placeholder="e.g. Sunset Park Courts"
-            placeholderTextColor={Colors.fgDisabled}
           />
 
           <Text style={styles.fieldLabel}>Hourly Rate (USD)</Text>
@@ -172,21 +300,13 @@ export default function CoachMeScreen() {
             placeholderTextColor={Colors.fgDisabled}
             keyboardType="numeric"
           />
-
-          <TouchableOpacity
-            style={[styles.saveBtn, saving && styles.btnDisabled]}
-            onPress={handleSaveProfile}
-            disabled={saving}
-            activeOpacity={0.85}>
-            <Text style={styles.saveBtnText}>{saving ? 'Saving…' : 'Save Profile'}</Text>
-          </TouchableOpacity>
         </View>
 
         {/* Skill levels */}
         <Text style={styles.sectionLabel}>SKILL LEVELS</Text>
         <View style={styles.chipWrap}>
           {LEVEL_OPTIONS.map(l => {
-            const active = (profile.levelsServed ?? []).includes(l.value);
+            const active = levelsServed.includes(l.value);
             return (
               <TouchableOpacity
                 key={l.value}
@@ -203,7 +323,7 @@ export default function CoachMeScreen() {
         <Text style={styles.sectionLabel}>LESSON TYPES</Text>
         <View style={styles.chipWrap}>
           {LESSON_TYPES.map(t => {
-            const active = (profile.lessonTypesOffered ?? []).includes(t.value);
+            const active = lessonTypesOffered.includes(t.value);
             return (
               <TouchableOpacity
                 key={t.value}
@@ -216,22 +336,100 @@ export default function CoachMeScreen() {
           })}
         </View>
 
-        {/* Default location */}
-        <Text style={styles.sectionLabel}>DEFAULT LOCATION</Text>
+        {/* Coaching location */}
+        <Text style={styles.sectionLabel}>COACHING LOCATION</Text>
         <View style={styles.chipWrap}>
-          {LOCATION_MODE_OPTIONS.map(m => {
-            const active = (profile.defaultLocationMode ?? 'coach_facility') === m.value;
-            return (
-              <TouchableOpacity
-                key={m.value}
-                style={[styles.chip, active && styles.chipActive]}
-                onPress={() => save({ defaultLocationMode: m.value })}
-                activeOpacity={0.7}>
-                <Text style={[styles.chipText, active && styles.chipTextActive]}>{m.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
+          {LOCATION_TYPE_OPTIONS.map(m => (
+            <TouchableOpacity
+              key={m.value}
+              style={[styles.chip, coachingLocationType === m.value && styles.chipActive]}
+              onPress={() => setCoachingLocationType(m.value)}
+              activeOpacity={0.7}>
+              <Text style={[styles.chipText, coachingLocationType === m.value && styles.chipTextActive]}>
+                {m.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
+
+        {(coachingLocationType === 'facility_coach' || coachingLocationType === 'facility_travel') && (
+          <View style={styles.card}>
+            <Text style={styles.fieldLabel}>Facility Name</Text>
+            <TextInput
+              style={styles.input}
+              value={homeBase}
+              onChangeText={setHomeBase}
+              placeholder="e.g. Sunset Park Courts"
+              placeholderTextColor="#5A6379"
+            />
+            <Text style={styles.fieldLabel}>Address</Text>
+            <TextInput
+              style={styles.input}
+              value={facilityAddress}
+              onChangeText={setFacilityAddress}
+              placeholder="Street address"
+              placeholderTextColor="#5A6379"
+            />
+            <Text style={styles.fieldLabel}>Court Type</Text>
+            <View style={styles.chipWrap}>
+              {COURT_TYPE_OPTIONS.map(ct => (
+                <TouchableOpacity
+                  key={ct}
+                  style={[styles.chip, courtType === ct && styles.chipActive]}
+                  onPress={() => setCourtType(courtType === ct ? '' : ct)}
+                  activeOpacity={0.7}>
+                  <Text style={[styles.chipText, courtType === ct && styles.chipTextActive]}>
+                    {ct.charAt(0).toUpperCase() + ct.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={styles.fieldLabel}>Facility Notes</Text>
+            <TextInput
+              style={[styles.input, styles.multilineInput]}
+              value={facilityNotes}
+              onChangeText={setFacilityNotes}
+              placeholder="Parking, access instructions…"
+              placeholderTextColor="#5A6379"
+              multiline
+              numberOfLines={2}
+              textAlignVertical="top"
+            />
+          </View>
+        )}
+
+        {(coachingLocationType === 'traveling_coach' || coachingLocationType === 'facility_travel') && (
+          <View style={styles.card}>
+            <Text style={styles.fieldLabel}>Radius (km)</Text>
+            <TextInput
+              style={styles.input}
+              value={travelRadiusKm}
+              onChangeText={setTravelRadiusKm}
+              placeholder="e.g. 25"
+              placeholderTextColor="#5A6379"
+              keyboardType="numeric"
+            />
+            <Text style={styles.fieldLabel}>Areas Served</Text>
+            <TextInput
+              style={styles.input}
+              value={travelAreas}
+              onChangeText={setTravelAreas}
+              placeholder="e.g. Downtown, West End"
+              placeholderTextColor="#5A6379"
+            />
+            <Text style={styles.fieldLabel}>Travel Notes</Text>
+            <TextInput
+              style={[styles.input, styles.multilineInput]}
+              value={travelNotes}
+              onChangeText={setTravelNotes}
+              placeholder="Any travel conditions…"
+              placeholderTextColor="#5A6379"
+              multiline
+              numberOfLines={2}
+              textAlignVertical="top"
+            />
+          </View>
+        )}
 
         {/* Booking window */}
         <Text style={styles.sectionLabel}>BOOKING WINDOW</Text>
@@ -239,12 +437,12 @@ export default function CoachMeScreen() {
           <Text style={styles.fieldLabel}>Minimum Notice</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.optionRow}>
             {NOTICE_OPTIONS.map(h => {
-              const active = profile.minimumNoticeHours === h;
+              const active = minimumNoticeHours === h;
               return (
                 <TouchableOpacity
                   key={h}
                   style={[styles.chip, active && styles.chipActive]}
-                  onPress={() => save({ minimumNoticeHours: h })}
+                  onPress={() => setMinimumNoticeHours(h)}
                   activeOpacity={0.7}>
                   <Text style={[styles.chipText, active && styles.chipTextActive]}>
                     {h < 24 ? `${h}h` : `${h / 24}d`}
@@ -257,12 +455,12 @@ export default function CoachMeScreen() {
           <Text style={[styles.fieldLabel, { marginTop: 12 }]}>Max Advance Booking</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.optionRow}>
             {ADVANCE_OPTIONS.map(d => {
-              const active = profile.maxAdvanceBookingDays === d;
+              const active = maxAdvanceBookingDays === d;
               return (
                 <TouchableOpacity
                   key={d}
                   style={[styles.chip, active && styles.chipActive]}
-                  onPress={() => save({ maxAdvanceBookingDays: d })}
+                  onPress={() => setMaxAdvanceBookingDays(d)}
                   activeOpacity={0.7}>
                   <Text style={[styles.chipText, active && styles.chipTextActive]}>{d} days</Text>
                 </TouchableOpacity>
@@ -270,6 +468,15 @@ export default function CoachMeScreen() {
             })}
           </ScrollView>
         </View>
+
+        {/* Save all changes */}
+        <TouchableOpacity
+          style={[styles.saveBtn, saving && styles.btnDisabled]}
+          onPress={handleSave}
+          disabled={saving}
+          activeOpacity={0.85}>
+          <Text style={styles.saveBtnText}>{saving ? 'Saving…' : 'Save All Changes'}</Text>
+        </TouchableOpacity>
 
         {/* Sign out */}
         <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.8}>
@@ -309,7 +516,12 @@ function useStyles(theme: ThemeTokens) {
       fontSize: FontSize.eyebrow,
       color: theme.textMuted,
       letterSpacing: 0.18,
-      marginTop: 10,
+    },
+    unsavedBadge: {
+      fontFamily: FontFamily.jetbrainsMonoSemiBold,
+      fontSize: 9,
+      color: Colors.volt,
+      letterSpacing: 0.6,
     },
     card: {
       backgroundColor: theme.cardBg,
@@ -334,8 +546,8 @@ function useStyles(theme: ThemeTokens) {
       color: theme.textPrimary,
     },
     multilineInput: {
-      minHeight: 80,
-      textAlignVertical: 'top',
+      minHeight: 60,
+      textAlignVertical: 'top' as const,
     },
     saveBtn: {
       backgroundColor: Colors.blue,
