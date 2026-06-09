@@ -1,10 +1,12 @@
+import { useEffect, useState } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Bell, ArrowLeft, Menu } from 'lucide-react-native';
+import { Bell, ArrowLeft, Menu, MessageCircle } from 'lucide-react-native';
 
 import { Colors, FontFamily, FontSize } from '@/constants/design';
 import { useTheme } from '@/context/ThemeContext';
+import { supabase } from '@/lib/supabase';
 
 interface CMPortfolioHeaderProps {
   variant: 'cm-portfolio';
@@ -38,6 +40,7 @@ interface ResidentHeaderProps {
 interface CoachHeaderProps {
   variant: 'coach';
   onBell?: () => void;
+  onMessages?: () => void;
   onSettings?: () => void;
 }
 
@@ -48,10 +51,31 @@ type HeaderProps =
   | ResidentHeaderProps
   | CoachHeaderProps;
 
+function useCoachInitials(): string {
+  const [initials, setInitials] = useState('');
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .single()
+        .then(({ data }) => {
+          if (!data?.full_name) return;
+          const parts = (data.full_name as string).trim().split(' ').filter(Boolean);
+          setInitials((parts[0][0] + (parts[1]?.[0] ?? '')).toUpperCase());
+        });
+    });
+  }, []);
+  return initials;
+}
+
 export function Header(props: HeaderProps) {
   const insets = useSafeAreaInsets();
   const topPad = Math.max(insets.top, 24);
   const { theme } = useTheme();
+  const coachInitials = useCoachInitials();
 
   if (props.variant === 'resident' || props.variant === 'coach') {
     const isCoach = props.variant === 'coach';
@@ -66,6 +90,27 @@ export function Header(props: HeaderProps) {
             />
           </View>
           <View style={styles.topBarRight}>
+            {isCoach && (
+              <>
+                {/* Avatar button — navigates to profile */}
+                <TouchableOpacity
+                  style={styles.iconBtn}
+                  onPress={() => router.push('/(coach)/me' as any)}
+                  hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+                  <View style={styles.avatarCircle}>
+                    <Text style={styles.avatarCircleText}>{coachInitials || '?'}</Text>
+                  </View>
+                </TouchableOpacity>
+
+                {/* Messages button */}
+                <TouchableOpacity
+                  style={styles.iconBtn}
+                  onPress={(props as CoachHeaderProps).onMessages ?? (() => router.push('/messages' as any))}
+                  hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+                  <MessageCircle color="#FFFFFF" size={22} strokeWidth={1.5} />
+                </TouchableOpacity>
+              </>
+            )}
             <TouchableOpacity
               testID="bell-icon"
               style={styles.iconBtn}
@@ -78,7 +123,7 @@ export function Header(props: HeaderProps) {
               style={styles.iconBtn}
               onPress={
                 isCoach
-                  ? ((props as CoachHeaderProps).onSettings ?? (() => router.push('/(coach)/me' as any)))
+                  ? ((props as CoachHeaderProps).onSettings ?? (() => router.push('/settings' as any)))
                   : ((props as ResidentHeaderProps).onMenu ?? (() => router.push('/settings')))
               }
               hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
@@ -249,5 +294,20 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     flex: 1,
     textAlign: 'center',
+  },
+  avatarCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(45,224,255,0.18)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(45,224,255,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarCircleText: {
+    fontFamily: FontFamily.manropeBold ?? FontFamily.manropeSemiBold,
+    fontSize: 10,
+    color: Colors.cyan,
   },
 });
