@@ -20,12 +20,18 @@ export default function CoachFavoritesScreen() {
   const [refreshTick, setRefreshTick] = useState(0);
 
   const { coaches, loading, favoriteIds, toggleFavorite, refresh } = useCoachData({
-    search:       '',
-    distanceKm:   null,
-    levels:       [],
-    priceRange:   null,
-    lessonTypes:  [],
-    availability: null,
+    search:        '',
+    distanceKm:    null,
+    levels:        [],
+    priceRange:    null,
+    lessonTypes:   [],
+    availability:  null,
+    rating:        null,
+    experience:    null,
+    locationMode:  null,
+    gender:        null,
+    sort:          'best_match',
+    certification: null,
   });
 
   useFocusEffect(useCallback(() => {
