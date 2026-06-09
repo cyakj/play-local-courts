@@ -1,72 +1,60 @@
 import { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/design';
+import { Colors, FontFamily, FontSize, Radius } from '@/constants/design';
 import { useTheme } from '@/context/ThemeContext';
 import type { ThemeTokens } from '@/constants/theme-tokens';
-import { TIME_BANDS, type TimeBand, type CoachAvailabilitySlot, type CoachUnavailabilityBlock, type CellMode } from '@/hooks/useCoachAvailability';
+import {
+  HOURS,
+  type TimeHour,
+  type CoachAvailabilitySlot,
+  type CoachUnavailabilityBlock,
+  type CellMode,
+} from '@/hooks/useCoachAvailability';
 
 const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+
+function normTime(t: string): string { return t.slice(0, 5); }
 
 interface Props {
   weeklySlots: CoachAvailabilitySlot[];
   unavailabilityBlocks?: CoachUnavailabilityBlock[];
-  // interactive mode
-  interactive?: boolean;
-  selectedBand?: TimeBand | null;
-  onSelectBand?: (band: TimeBand) => void;
-  // layout
+  selectedHour?: TimeHour | null;
+  onSelectHour?: (hour: TimeHour) => void;
   compact?: boolean;
-  // new cell-level interaction (editor mode)
-  getCellMode?: (dow: number, band: TimeBand) => CellMode | null;
-  onCellPress?: (dow: number, band: TimeBand) => void;
-}
-
-function overlaps(slotStart: string, slotEnd: string, band: TimeBand): boolean {
-  const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
-  return toMin(slotStart) < toMin(band.end) && toMin(slotEnd) > toMin(band.start);
+  getCellMode?: (dow: number, hour: TimeHour) => CellMode | null;
+  onCellPress?: (dow: number, hour: TimeHour) => void;
 }
 
 export function CoachAvailabilityGrid({
   weeklySlots,
   unavailabilityBlocks = [],
-  interactive = false,
-  selectedBand = null,
-  onSelectBand,
+  selectedHour = null,
+  onSelectHour,
   compact = false,
   getCellMode,
   onCellPress,
 }: Props) {
   const { theme } = useTheme();
   const styles = useStyles(theme, compact);
+  const isCellInteractive = !!onCellPress;
 
-  // For each (day, band) cell: is the coach scheduled?
-  const grid = useMemo(() => {
-    return TIME_BANDS.map(band => ({
-      band,
-      days: DAYS.map((_, dow) =>
-        weeklySlots.some(s => s.day_of_week === dow && overlaps(s.start_time, s.end_time, band)),
-      ),
-    }));
+  const availSet = useMemo(() => {
+    const s = new Set<string>();
+    for (const slot of weeklySlots) {
+      s.add(`${slot.day_of_week}|${normTime(slot.start_time)}`);
+    }
+    return s;
   }, [weeklySlots]);
 
-  // Upcoming unavailability blocks to display below grid
   const upcomingBlocks = useMemo(() => {
     if (!unavailabilityBlocks.length) return [];
     const today = new Date();
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() + 60);
     return unavailabilityBlocks
-      .filter(b => {
-        if (b.recurs_annually) return true;
-        return new Date(b.end_date) >= today && new Date(b.start_date) <= cutoff;
-      })
+      .filter(b => b.recurs_annually || new Date(b.end_date) >= today)
       .slice(0, 3);
   }, [unavailabilityBlocks]);
 
-  const isCellInteractive = !!onCellPress;
-  const hasAnyAvailability = weeklySlots.length > 0;
-
-  if (!hasAnyAvailability && !isCellInteractive) {
+  if (!weeklySlots.length && !isCellInteractive) {
     return (
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyText}>Schedule not posted — request any time</Text>
@@ -76,11 +64,10 @@ export function CoachAvailabilityGrid({
 
   return (
     <View style={styles.root}>
-      {/* Day headers */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scroll}>
         <View>
           <View style={styles.headerRow}>
-            <View style={styles.bandLabelCell} />
+            <View style={styles.hourLabelCell} />
             {DAYS.map(day => (
               <View key={day} style={styles.dayHeaderCell}>
                 <Text style={styles.dayHeaderText}>{day}</Text>
@@ -88,62 +75,50 @@ export function CoachAvailabilityGrid({
             ))}
           </View>
 
-          {/* Band rows */}
-          {grid.map(({ band, days }) => {
-            const isSelected = interactive && selectedBand?.label === band.label;
-            const BandRowContainer = isCellInteractive ? View : TouchableOpacity;
-            const bandRowProps = isCellInteractive
-              ? {}
-              : {
-                  activeOpacity: interactive ? 0.7 : 1,
-                  onPress: interactive ? () => onSelectBand?.(band) : undefined,
-                };
+          {HOURS.map(hour => {
+            const isSelected = !isCellInteractive && selectedHour?.start === hour.start;
             return (
-              <BandRowContainer
-                key={band.label}
-                {...bandRowProps}
-                style={[styles.bandRow, isSelected && styles.bandRowSelected]}
-              >
-                <View style={styles.bandLabelCell}>
-                  <Text style={[styles.bandLabel, isSelected && styles.bandLabelSelected]}>
-                    {band.label}
-                  </Text>
-                  <Text style={[styles.bandTime, isSelected && styles.bandTimeSelected]}>
-                    {band.start}–{band.end}
+              <TouchableOpacity
+                key={hour.start}
+                activeOpacity={onSelectHour ? 0.7 : 1}
+                onPress={onSelectHour ? () => onSelectHour(hour) : undefined}
+                style={[styles.hourRow, isSelected && styles.hourRowSelected]}>
+                <View style={styles.hourLabelCell}>
+                  <Text style={[styles.hourLabel, isSelected && styles.hourLabelSelected]}>
+                    {hour.label}
                   </Text>
                 </View>
-                {days.map((available, dow) => {
-                  const cellMode = getCellMode?.(dow, band) ?? null;
-                  const cellVisualStyle = isCellInteractive
-                    ? (cellMode === 'coach_facility' ? styles.cellFacility
-                       : cellMode === 'traveling'    ? styles.cellTraveling
-                       : cellMode === 'both'         ? styles.cellBoth
-                       : null)
-                    : (available ? (isSelected ? styles.cellAvailableSelected : styles.cellAvailable) : null);
+                {DAYS.map((_, dow) => {
+                  let cellStyle;
+                  if (isCellInteractive) {
+                    const mode = getCellMode?.(dow, hour) ?? null;
+                    cellStyle = mode === 'coach_facility' ? styles.cellFacility
+                               : mode === 'traveling'    ? styles.cellTraveling
+                               : mode === 'both'         ? styles.cellBoth
+                               : null;
+                  } else {
+                    const available = availSet.has(`${dow}|${hour.start}`);
+                    cellStyle = available ? (isSelected ? styles.cellAvailableSelected : styles.cellAvailable) : null;
+                  }
+
                   if (isCellInteractive) {
                     return (
                       <TouchableOpacity
                         key={dow}
                         activeOpacity={0.7}
-                        onPress={() => onCellPress!(dow, band)}
-                        style={[styles.cell, cellVisualStyle]}
+                        onPress={() => onCellPress!(dow, hour)}
+                        style={[styles.cell, cellStyle]}
                       />
                     );
                   }
-                  return (
-                    <View
-                      key={dow}
-                      style={[styles.cell, cellVisualStyle]}
-                    />
-                  );
+                  return <View key={dow} style={[styles.cell, cellStyle]} />;
                 })}
-              </BandRowContainer>
+              </TouchableOpacity>
             );
           })}
         </View>
       </ScrollView>
 
-      {/* Upcoming unavailability notice */}
       {upcomingBlocks.length > 0 && (
         <View style={styles.blocksContainer}>
           {upcomingBlocks.map(block => (
@@ -152,9 +127,8 @@ export function CoachAvailabilityGrid({
               <Text style={styles.blockText}>
                 {block.title ?? 'Away'}{' · '}
                 {block.recurs_annually
-                  ? formatMonthDay(block.start_date)
-                  : `${formatDate(block.start_date)}–${formatDate(block.end_date)}`}
-                {block.recurs_annually ? ' (annual)' : ''}
+                  ? `${block.start_date.slice(5)} (annual)`
+                  : `${block.start_date}–${block.end_date}`}
               </Text>
             </View>
           ))}
@@ -164,89 +138,53 @@ export function CoachAvailabilityGrid({
   );
 }
 
-function formatDate(iso: string): string {
-  const d = new Date(iso + 'T00:00:00');
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
-function formatMonthDay(iso: string): string {
-  const [, m, d] = iso.split('-');
-  const dt = new Date(`2000-${m}-${d}T00:00:00`);
-  return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
 function useStyles(theme: ThemeTokens, compact: boolean) {
   return useMemo(() => StyleSheet.create({
-    root:        { gap: 8 },
-    scroll:      { flexGrow: 0 },
-    emptyContainer: {
-      paddingVertical: 16,
-      alignItems: 'center',
-    },
+    root: { gap: 8 },
+    scroll: { flexGrow: 0 },
+    emptyContainer: { paddingVertical: 16, alignItems: 'center' },
     emptyText: {
       fontFamily: FontFamily.manropeMedium,
       fontSize: FontSize.label,
       color: theme.textMuted,
       textAlign: 'center',
     },
-    headerRow: {
-      flexDirection: 'row',
-      marginBottom: 4,
-    },
-    bandLabelCell: {
-      width: 88,
-      paddingRight: 8,
-      justifyContent: 'center',
-    },
-    dayHeaderCell: {
-      width: compact ? 34 : 38,
-      alignItems: 'center',
-    },
+    headerRow: { flexDirection: 'row', marginBottom: 2 },
+    hourLabelCell: { width: 48, paddingRight: 4, justifyContent: 'center' },
+    dayHeaderCell: { width: compact ? 32 : 36, alignItems: 'center' },
     dayHeaderText: {
       fontFamily: FontFamily.jetbrainsMonoSemiBold,
       fontSize: 9,
       color: theme.textMuted,
       letterSpacing: 0.8,
     },
-    bandRow: {
+    hourRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: compact ? 6 : 8,
-      paddingHorizontal: 8,
-      borderRadius: Radius.sm,
-      marginBottom: 2,
+      paddingVertical: compact ? 1 : 2,
+      paddingHorizontal: 2,
+      borderRadius: Radius.xs ?? 4,
+      marginBottom: 1,
     },
-    bandRowSelected: {
+    hourRowSelected: {
       backgroundColor: 'rgba(45,224,255,0.08)',
       borderWidth: 1,
       borderColor: 'rgba(45,224,255,0.30)',
     },
-    bandLabel: {
+    hourLabel: {
       fontFamily: FontFamily.jetbrainsMonoSemiBold,
       fontSize: 9,
-      color: theme.textSecondary,
-      letterSpacing: 0.8,
-    },
-    bandLabelSelected: {
-      color: Colors.cyan,
-    },
-    bandTime: {
-      fontFamily: FontFamily.manropeMedium,
-      fontSize: 10,
       color: theme.textMuted,
-      marginTop: 1,
+      letterSpacing: 0.4,
     },
-    bandTimeSelected: {
-      color: Colors.cyan,
-    },
+    hourLabelSelected: { color: Colors.cyan },
     cell: {
-      width: compact ? 34 : 38,
-      height: compact ? 22 : 26,
-      borderRadius: Radius.xs,
+      width: compact ? 32 : 36,
+      height: compact ? 16 : 20,
+      borderRadius: Radius.xs ?? 4,
       backgroundColor: 'rgba(154,163,184,0.06)',
       borderWidth: 1,
       borderColor: 'rgba(154,163,184,0.10)',
-      marginHorizontal: 1,
     },
     cellAvailable: {
       backgroundColor: 'rgba(45,224,255,0.10)',
@@ -256,34 +194,21 @@ function useStyles(theme: ThemeTokens, compact: boolean) {
       backgroundColor: 'rgba(45,224,255,0.18)',
       borderColor: Colors.cyan,
     },
-    // Editor mode cell styles
     cellFacility: {
-      backgroundColor: 'rgba(45,107,255,0.15)',
-      borderColor:     'rgba(45,107,255,0.35)',
+      backgroundColor: 'rgba(45,107,255,0.18)',
+      borderColor: 'rgba(45,107,255,0.40)',
     },
     cellTraveling: {
-      backgroundColor: 'rgba(214,255,61,0.12)',
-      borderColor:     'rgba(214,255,61,0.30)',
+      backgroundColor: 'rgba(214,255,61,0.14)',
+      borderColor: 'rgba(214,255,61,0.32)',
     },
     cellBoth: {
-      backgroundColor: 'rgba(45,224,255,0.12)',
-      borderColor:     'rgba(45,224,255,0.30)',
+      backgroundColor: 'rgba(45,224,255,0.14)',
+      borderColor: 'rgba(45,224,255,0.32)',
     },
-    // Unavailability notices
-    blocksContainer: {
-      marginTop: 4,
-      gap: 4,
-    },
-    blockRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-    },
-    blockDot: {
-      fontFamily: FontFamily.manropeMedium,
-      fontSize: 8,
-      color: Colors.volt,
-    },
+    blocksContainer: { marginTop: 4, gap: 4 },
+    blockRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    blockDot: { fontFamily: FontFamily.manropeMedium, fontSize: 8, color: Colors.volt },
     blockText: {
       fontFamily: FontFamily.manropeMedium,
       fontSize: FontSize.label,

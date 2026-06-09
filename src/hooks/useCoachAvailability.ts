@@ -1,17 +1,24 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 
-export interface TimeBand {
-  label: string;
-  start: string; // 'HH:MM'
-  end: string;
+export interface TimeHour {
+  label: string;  // '6AM', '12PM', '9PM'
+  start: string;  // '06:00'
+  end: string;    // '07:00'
+  hour: number;   // 6..21
 }
 
-export const TIME_BANDS: TimeBand[] = [
-  { label: 'MORNING',   start: '06:00', end: '12:00' },
-  { label: 'AFTERNOON', start: '12:00', end: '17:00' },
-  { label: 'EVENING',   start: '17:00', end: '21:00' },
-];
+export const HOURS: TimeHour[] = Array.from({ length: 16 }, (_, i) => {
+  const h = 6 + i;
+  const period = h < 12 ? 'AM' : 'PM';
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return {
+    label: `${h12}${period}`,
+    start: `${String(h).padStart(2, '0')}:00`,
+    end:   `${String(h + 1).padStart(2, '0')}:00`,
+    hour:  h,
+  };
+});
 
 export type CellMode = 'coach_facility' | 'traveling' | 'both';
 
@@ -39,19 +46,13 @@ interface UseCoachAvailabilityResult {
   unavailabilityBlocks: CoachUnavailabilityBlock[];
   loading: boolean;
   error: string | null;
-  isAvailableOnDate: (date: Date, band: TimeBand) => boolean;
+  isAvailableOnDate: (date: Date, hour: TimeHour) => boolean;
   isBlockedOnDate: (date: Date) => boolean;
-  hasScheduleForBandOnDay: (dayOfWeek: number, band: TimeBand) => boolean;
+  hasScheduleForHourOnDay: (dayOfWeek: number, hour: TimeHour) => boolean;
 }
 
-function timeToMinutes(t: string): number {
-  const [h, m] = t.split(':').map(Number);
-  return h * 60 + m;
-}
-
-function overlaps(slotStart: string, slotEnd: string, bandStart: string, bandEnd: string): boolean {
-  return timeToMinutes(slotStart) < timeToMinutes(bandEnd) &&
-         timeToMinutes(slotEnd)   > timeToMinutes(bandStart);
+function normTime(t: string): string {
+  return t.slice(0, 5); // '09:00:00' → '09:00'
 }
 
 function isDateInBlock(date: Date, block: CoachUnavailabilityBlock): boolean {
@@ -134,10 +135,10 @@ export function useCoachAvailability(
     return () => { cancelled = true; };
   }, [coachId, lookaheadDays]);
 
-  const hasScheduleForBandOnDay = useCallback(
-    (dayOfWeek: number, band: TimeBand): boolean => {
+  const hasScheduleForHourOnDay = useCallback(
+    (dayOfWeek: number, hour: TimeHour): boolean => {
       return weeklySlots.some(
-        s => s.day_of_week === dayOfWeek && overlaps(s.start_time, s.end_time, band.start, band.end),
+        s => s.day_of_week === dayOfWeek && normTime(s.start_time) === hour.start,
       );
     },
     [weeklySlots],
@@ -151,12 +152,11 @@ export function useCoachAvailability(
   );
 
   const isAvailableOnDate = useCallback(
-    (date: Date, band: TimeBand): boolean => {
-      const dow = date.getDay(); // 0=Sun
-      return hasScheduleForBandOnDay(dow, band) && !isBlockedOnDate(date);
+    (date: Date, hour: TimeHour): boolean => {
+      return hasScheduleForHourOnDay(date.getDay(), hour) && !isBlockedOnDate(date);
     },
-    [hasScheduleForBandOnDay, isBlockedOnDate],
+    [hasScheduleForHourOnDay, isBlockedOnDate],
   );
 
-  return { weeklySlots, unavailabilityBlocks, loading, error, isAvailableOnDate, isBlockedOnDate, hasScheduleForBandOnDay };
+  return { weeklySlots, unavailabilityBlocks, loading, error, isAvailableOnDate, isBlockedOnDate, hasScheduleForHourOnDay };
 }

@@ -35,7 +35,7 @@ export default function CoachScheduleScreen() {
   }, []);
 
   const { lessonsByDate, loading: schedLoading, refresh: refreshSchedule } = useCoachSchedule(weekStart);
-  const { weeklySlots, loading: slotsLoading, hasScheduleForBandOnDay } = useCoachAvailability(coachId);
+  const { weeklySlots, loading: slotsLoading } = useCoachAvailability(coachId);
   const { profile: coachProfile } = useCoachProfile();
 
   function prevWeek() {
@@ -86,7 +86,7 @@ export default function CoachScheduleScreen() {
         {/* Availability editor */}
         <CoachAvailabilityGridEditor
           weeklySlots={weeklySlots}
-          defaultLocationMode={coachProfile?.defaultLocationMode ?? null}
+          coachingLocationType={coachProfile?.coachingLocationType ?? null}
           onRefresh={refreshSchedule}
         />
       </ScrollView>
