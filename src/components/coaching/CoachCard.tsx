@@ -13,6 +13,26 @@ const LEVEL_LABELS: Record<string, string> = {
   high_performance: 'HIGH PERF',
 };
 
+const LOCATION_TYPE_LABELS: Record<string, string> = {
+  facility_coach:  'Facility Coach',
+  traveling_coach: 'Traveling Coach',
+  facility_travel: 'Facility + Travel',
+};
+
+const ITF_CERT_LABELS: Record<string, string> = {
+  itf_1: 'ITF L1',
+  itf_2: 'ITF L2',
+  itf_3: 'ITF L3',
+  itf_4: 'ITF L4',
+};
+
+const LESSON_CHIP_LABELS: Record<string, string> = {
+  private_lesson:      'Private',
+  semi_private_lesson: 'Semi-Private',
+  group_lesson:        'Group',
+  hitting_partner:     'Hitting',
+};
+
 interface Props {
   coach: CoachWithProfile;
   isFavorited: boolean;
@@ -34,10 +54,6 @@ export function CoachCard({ coach, isFavorited, onToggleFavorite, onViewCoach }:
     .slice(0, 2);
 
   const ratingText = coach.avgRating != null ? coach.avgRating.toFixed(1) : null;
-  const distanceText = coach.distanceKm != null
-    ? `${(coach.distanceKm * 0.621371).toFixed(1)} mi`
-    : 'Distance unknown';
-  const hasDistance = coach.distanceKm != null;
 
   return (
     <View style={styles.card}>
@@ -69,36 +85,38 @@ export function CoachCard({ coach, isFavorited, onToggleFavorite, onViewCoach }:
 
         {/* Main content */}
         <View style={styles.content}>
+          {/* 1. Name */}
           <Text style={styles.name} numberOfLines={1}>{displayName}</Text>
 
-          {/* Credential + distance */}
-          <View style={styles.metaRow}>
-            {coach.credentials ? (
-              <View style={styles.credentialChip}>
-                <Text style={styles.credentialText}>{coach.credentials}</Text>
-              </View>
-            ) : null}
-            <View style={styles.distanceRow}>
-              <MapPin color={hasDistance ? theme.textSecondary : theme.textMuted} size={11} strokeWidth={2} />
-              <Text style={[styles.distanceTxt, !hasDistance && styles.unknownTxt]}>
-                {distanceText}
+          {/* 2. Location type badge */}
+          {coach.coachingLocationType && LOCATION_TYPE_LABELS[coach.coachingLocationType] && (
+            <View style={styles.locationBadge}>
+              <MapPin size={10} color={Colors.cyan} strokeWidth={2} />
+              <Text style={styles.locationBadgeText}>
+                {LOCATION_TYPE_LABELS[coach.coachingLocationType]}
               </Text>
             </View>
-          </View>
+          )}
 
-          {/* Club/facility */}
-          {coach.homeBase ? (
-            <Text style={styles.homeBase} numberOfLines={1}>{coach.homeBase}</Text>
-          ) : null}
+          {/* 3. Lesson type chips (max 3 + overflow) */}
+          {coach.lessonTypesOffered.length > 0 && (
+            <View style={styles.lessonRow}>
+              {coach.lessonTypesOffered.slice(0, 3).map(lt => (
+                <View key={lt} style={styles.lessonChip}>
+                  <Text style={styles.lessonChipText}>{LESSON_CHIP_LABELS[lt] ?? lt}</Text>
+                </View>
+              ))}
+              {coach.lessonTypesOffered.length > 3 && (
+                <Text style={styles.moreText}>+{coach.lessonTypesOffered.length - 3}</Text>
+              )}
+            </View>
+          )}
 
-          {/* Rating + price */}
+          {/* 4. Rating row */}
           <View style={styles.ratingRow}>
-            <Star
-              size={12}
-              strokeWidth={0}
+            <Star size={12} strokeWidth={0}
               fill={ratingText ? '#F59E0B' : theme.textMuted}
-              color={ratingText ? '#F59E0B' : theme.textMuted}
-            />
+              color={ratingText ? '#F59E0B' : theme.textMuted} />
             {ratingText ? (
               <Text style={styles.ratingTxt}>
                 {ratingText}
@@ -107,19 +125,33 @@ export function CoachCard({ coach, isFavorited, onToggleFavorite, onViewCoach }:
             ) : (
               <Text style={styles.noRating}>No reviews yet</Text>
             )}
-            {coach.yearsExperience != null && (
-              <>
-                <View style={styles.dot} />
-                <Text style={styles.rate}>{coach.yearsExperience} yrs</Text>
-              </>
-            )}
-            <View style={styles.dot} />
-            <Text style={styles.rate}>
-              {coach.hourlyRate != null ? `$${Math.round(coach.hourlyRate)}/hr` : 'Rate TBD'}
-            </Text>
           </View>
 
-          {/* Level chips */}
+          {/* 5. Stats row: years + price + distance */}
+          <View style={styles.statsRow}>
+            {coach.yearsExperience != null && (
+              <Text style={styles.statText}>{coach.yearsExperience} yrs</Text>
+            )}
+            {coach.yearsExperience != null && <View style={styles.dot} />}
+            <Text style={styles.statText}>
+              {coach.hourlyRate != null ? `$${Math.round(coach.hourlyRate)}/hr` : 'Rate TBD'}
+            </Text>
+            {coach.distanceKm != null && <View style={styles.dot} />}
+            {coach.distanceKm != null && (
+              <Text style={styles.statText}>{(coach.distanceKm * 0.621371).toFixed(1)} mi</Text>
+            )}
+          </View>
+
+          {/* 6. ITF cert badge */}
+          {coach.itfCertification && coach.itfCertification !== 'none' && ITF_CERT_LABELS[coach.itfCertification] && (
+            <View style={styles.certBadge}>
+              <Text style={styles.certBadgeText}>
+                {ITF_CERT_LABELS[coach.itfCertification]}
+              </Text>
+            </View>
+          )}
+
+          {/* 7. Level chips */}
           {coach.levelsServed.length > 0 && (
             <View style={styles.levelRow}>
               {coach.levelsServed.map(lv => (
@@ -213,42 +245,60 @@ function useStyles(theme: ThemeTokens) {
       color: theme.textPrimary,
       letterSpacing: -0.3,
     },
-    metaRow: {
+    locationBadge: {
       flexDirection: 'row',
       alignItems: 'center',
-      flexWrap: 'wrap',
-      gap: 6,
+      gap: 4,
     },
-    credentialChip: {
-      backgroundColor: 'rgba(45,107,255,0.12)',
-      borderRadius: Radius.xs,
-      paddingHorizontal: 7,
+    locationBadgeText: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: 11,
+      color: Colors.cyan,
+    },
+    lessonRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 4,
+    },
+    lessonChip: {
+      backgroundColor: 'rgba(45,107,255,0.10)',
+      borderRadius: 4,
+      paddingHorizontal: 6,
       paddingVertical: 2,
     },
-    credentialText: {
-      fontFamily: FontFamily.jetbrainsMonoSemiBold,
-      fontSize: 9,
-      color: Colors.blueHi,
-      letterSpacing: 0.6,
+    lessonChipText: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: 10,
+      color: Colors.blue,
     },
-    distanceRow: {
+    moreText: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: 10,
+      color: theme.textMuted,
+      alignSelf: 'center',
+    },
+    statsRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 3,
+      gap: 4,
     },
-    distanceTxt: {
-      fontFamily: FontFamily.manropeMedium,
+    statText: {
+      fontFamily: FontFamily.manropeSemiBold,
       fontSize: FontSize.label,
-      color: theme.textSecondary,
+      color: theme.textPrimary,
     },
-    unknownTxt: {
-      color: theme.textMuted,
-      fontStyle: 'italic',
+    certBadge: {
+      backgroundColor: 'rgba(45,224,255,0.10)',
+      borderRadius: 4,
+      paddingHorizontal: 7,
+      paddingVertical: 2,
+      alignSelf: 'flex-start',
     },
-    homeBase: {
-      fontFamily: FontFamily.manropeMedium,
-      fontSize: FontSize.label,
-      color: theme.textSecondary,
+    certBadgeText: {
+      fontFamily: FontFamily.jetbrainsMonoSemiBold,
+      fontSize: 9,
+      color: Colors.cyan,
+      letterSpacing: 0.6,
     },
     ratingRow: {
       flexDirection: 'row',
@@ -272,14 +322,8 @@ function useStyles(theme: ThemeTokens) {
     dot: {
       width: 3,
       height: 3,
-      borderRadius: 2,
+      borderRadius: 1.5,
       backgroundColor: theme.textMuted,
-      marginHorizontal: 2,
-    },
-    rate: {
-      fontFamily: FontFamily.manropeSemiBold,
-      fontSize: FontSize.label,
-      color: theme.textPrimary,
     },
     levelRow: {
       flexDirection: 'row',

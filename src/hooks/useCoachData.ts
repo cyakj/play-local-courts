@@ -24,6 +24,8 @@ export interface CoachWithProfile {
   availableDays: Set<number>; // 0=Sun … 6=Sat
   gender: string | null;
   lessonTypesOffered: string[];
+  coachingLocationType: string | null;
+  itfCertification: string | null;
 }
 
 export type DistanceFilterKm = 8 | 16 | 40 | 80 | null;
@@ -174,7 +176,7 @@ export function useCoachData(filters: CoachFilters): UseCoachDataResult {
       const [coachesRes, reviewsRes, favRes, playerProfileRes] = await Promise.all([
         supabase
           .from('coaches')
-          .select('id, user_id, business_name, credentials, years_experience, sports_offered, home_base, willing_to_travel, hourly_rate, bio, profile_image_url, levels_served, latitude, longitude, lesson_types_offered')
+          .select('id, user_id, business_name, credentials, years_experience, sports_offered, home_base, willing_to_travel, hourly_rate, bio, profile_image_url, levels_served, latitude, longitude, lesson_types_offered, coaching_location_type, itf_certification')
           .eq('is_active', true)
           .limit(50),
         supabase
@@ -287,8 +289,10 @@ export function useCoachData(filters: CoachFilters): UseCoachDataResult {
           reviewCount:        rating?.count ?? 0,
           distanceKm:         distanceMap.get(uid) ?? null,
           availableDays:      availMap.get(uid) ?? new Set(),
-          gender:             (profileMap.get(uid)?.gender as string | null) ?? null,
-          lessonTypesOffered: (c.lesson_types_offered as string[]) ?? [],
+          gender:               (profileMap.get(uid)?.gender as string | null) ?? null,
+          lessonTypesOffered:   (c.lesson_types_offered as string[]) ?? [],
+          coachingLocationType: c.coaching_location_type as string | null,
+          itfCertification:     c.itf_certification     as string | null,
         };
       });
 
