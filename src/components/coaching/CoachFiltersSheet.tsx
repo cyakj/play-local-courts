@@ -13,7 +13,7 @@ import { useTheme } from '@/context/ThemeContext';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 import type {
   DistanceFilterKm, LevelFilter, PriceRange, AvailabilityFilter,
-  RatingFilter, ExperienceFilter, LocationModeFilter, GenderFilter,
+  RatingFilter, ExperienceFilter, LocationModeFilter, GenderFilter, CertificationFilter,
 } from '@/hooks/useCoachData';
 
 export const LESSON_TYPE_OPTIONS: { value: string; label: string }[] = [
@@ -67,9 +67,9 @@ const EXPERIENCE_OPTIONS: { label: string; value: ExperienceFilter }[] = [
 ];
 
 const LOCATION_FILTER_OPTIONS: { label: string; value: LocationModeFilter }[] = [
-  { label: 'Either',         value: null             },
-  { label: 'Coach Facility', value: 'coach_facility' },
-  { label: 'Travels to You', value: 'traveling'      },
+  { label: 'Either',         value: null              },
+  { label: 'Facility Coach', value: 'facility_coach'  },
+  { label: 'Travels to You', value: 'traveling_coach' },
 ];
 
 const GENDER_OPTIONS: { label: string; value: GenderFilter }[] = [
@@ -80,27 +80,29 @@ const GENDER_OPTIONS: { label: string; value: GenderFilter }[] = [
 ];
 
 export interface CoachFiltersState {
-  distanceKm:   DistanceFilterKm;
-  levels:       LevelFilter[];
-  priceRange:   PriceRange;
-  lessonTypes:  string[];
-  availability: AvailabilityFilter;
-  rating:       RatingFilter;
-  experience:   ExperienceFilter;
-  locationMode: LocationModeFilter;
-  gender:       GenderFilter;
+  distanceKm:    DistanceFilterKm;
+  levels:        LevelFilter[];
+  priceRange:    PriceRange;
+  lessonTypes:   string[];
+  availability:  AvailabilityFilter;
+  rating:        RatingFilter;
+  experience:    ExperienceFilter;
+  locationMode:  LocationModeFilter;
+  gender:        GenderFilter;
+  certification: CertificationFilter;
 }
 
 export const DEFAULT_FILTERS: CoachFiltersState = {
-  distanceKm:   null,
-  levels:       [],
-  priceRange:   null,
-  lessonTypes:  [],
-  availability: null,
-  rating:       null,
-  experience:   null,
-  locationMode: null,
-  gender:       null,
+  distanceKm:    null,
+  levels:        [],
+  priceRange:    null,
+  lessonTypes:   [],
+  availability:  null,
+  rating:        null,
+  experience:    null,
+  locationMode:  null,
+  gender:        null,
+  certification: null,
 };
 
 export function activeFilterCount(f: CoachFiltersState): number {
@@ -114,6 +116,7 @@ export function activeFilterCount(f: CoachFiltersState): number {
   if (f.experience   != null)   n++;
   if (f.locationMode != null)   n++;
   if (f.gender       != null)   n++;
+  if (f.certification != null)  n++;
   return n;
 }
 
@@ -357,6 +360,27 @@ export function CoachFiltersSheet({ visible, onClose, filters, onApply, playerHa
                   </TouchableOpacity>
                 );
               })}
+            </View>
+          </View>
+
+          {/* ── Certification ── */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Certification</Text>
+            <View style={styles.chipRow}>
+              {([
+                { label: 'Any',       value: null          as CertificationFilter },
+                { label: 'Certified', value: 'certified'   as CertificationFilter },
+              ] as const).map(o => (
+                <TouchableOpacity
+                  key={String(o.value)}
+                  style={[styles.chip, draft.certification === o.value && styles.chipActive]}
+                  onPress={() => setDraft(s => ({ ...s, certification: o.value }))}
+                  activeOpacity={0.7}>
+                  <Text style={[styles.chipLabel, draft.certification === o.value && styles.chipLabelActive]}>
+                    {o.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
         </ScrollView>

@@ -35,24 +35,26 @@ export type AvailabilityFilter = 'today' | 'tomorrow' | 'this_week' | 'weekend' 
 
 export type RatingFilter     = '4.0' | '4.5' | '4.8' | null;
 export type ExperienceFilter = '0to2' | '3to5' | '5to10' | '10plus' | null;
-export type LocationModeFilter = 'coach_facility' | 'traveling' | null;
+export type LocationModeFilter = 'traveling_coach' | 'facility_coach' | null;
 export type GenderFilter     = 'male' | 'female' | 'unspecified' | null;
+export type CertificationFilter = 'certified' | null;
 export type SortOption =
   | 'best_match' | 'highest_rated' | 'most_reviews' | 'most_experienced'
   | 'lowest_price' | 'highest_price' | 'closest_distance';
 
 export interface CoachFilters {
-  search:       string;
-  distanceKm:   DistanceFilterKm;
-  levels:       LevelFilter[];
-  priceRange:   PriceRange;
-  lessonTypes:  string[];
-  availability: AvailabilityFilter;
-  rating:       RatingFilter;
-  experience:   ExperienceFilter;
-  locationMode: LocationModeFilter;
-  gender:       GenderFilter;
-  sort:         SortOption;
+  search:        string;
+  distanceKm:    DistanceFilterKm;
+  levels:        LevelFilter[];
+  priceRange:    PriceRange;
+  lessonTypes:   string[];
+  availability:  AvailabilityFilter;
+  rating:        RatingFilter;
+  experience:    ExperienceFilter;
+  locationMode:  LocationModeFilter;
+  gender:        GenderFilter;
+  sort:          SortOption;
+  certification: CertificationFilter;
 }
 
 interface UseCoachDataResult {
@@ -379,8 +381,18 @@ export function useCoachData(filters: CoachFilters): UseCoachDataResult {
       }
     }
 
-    // Location mode
-    if (filters.locationMode === 'traveling' && !c.willingToTravel) return false;
+    // Location mode — based on coachingLocationType
+    if (filters.locationMode === 'traveling_coach') {
+      if (c.coachingLocationType !== 'traveling_coach' && c.coachingLocationType !== 'facility_travel') return false;
+    }
+    if (filters.locationMode === 'facility_coach') {
+      if (c.coachingLocationType !== 'facility_coach' && c.coachingLocationType !== 'facility_travel') return false;
+    }
+
+    // Certification
+    if (filters.certification === 'certified') {
+      if (!c.itfCertification || c.itfCertification === 'none') return false;
+    }
 
     // Gender
     if (filters.gender != null) {

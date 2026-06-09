@@ -72,17 +72,18 @@ export default function CoachesScreen() {
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const filters: CoachFilters = useMemo(() => ({
-    search:       debouncedSearch,
-    distanceKm:   appliedFilters.distanceKm,
-    levels:       appliedFilters.levels,
-    priceRange:   appliedFilters.priceRange,
-    lessonTypes:  appliedFilters.lessonTypes,
-    availability: appliedFilters.availability,
-    rating:       appliedFilters.rating,
-    experience:   appliedFilters.experience,
-    locationMode: appliedFilters.locationMode,
-    gender:       appliedFilters.gender,
+    search:        debouncedSearch,
+    distanceKm:    appliedFilters.distanceKm,
+    levels:        appliedFilters.levels,
+    priceRange:    appliedFilters.priceRange,
+    lessonTypes:   appliedFilters.lessonTypes,
+    availability:  appliedFilters.availability,
+    rating:        appliedFilters.rating,
+    experience:    appliedFilters.experience,
+    locationMode:  appliedFilters.locationMode,
+    gender:        appliedFilters.gender,
     sort,
+    certification: appliedFilters.certification,
   }), [debouncedSearch, appliedFilters, sort]);
 
   const { coaches, loading, error, refresh, favoriteIds, toggleFavorite, playerHasCoordinates } =
