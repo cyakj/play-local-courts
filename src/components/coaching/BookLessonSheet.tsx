@@ -17,6 +17,8 @@ import { useTheme } from '@/context/ThemeContext';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 import { supabase } from '@/lib/supabase';
 import type { CoachAvailabilitySlot, CoachUnavailabilityBlock } from '@/hooks/useCoachAvailability';
+import { useHourlyWeather } from '@/hooks/useHourlyWeather';
+import { TimeSlotWheel } from '@/components/ui/TimeSlotWheel';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -197,6 +199,7 @@ export function BookLessonSheet({
 }: BookLessonSheetProps) {
   const { theme } = useTheme();
   const styles = useStyles(theme);
+  const { wheelWeather } = useHourlyWeather(homeBase);
 
   const [step,           setStep]          = useState<Step>(1);
   const [lessonType,     setLessonType]    = useState<string | null>(null);
@@ -213,6 +216,7 @@ export function BookLessonSheet({
 
   // Calendar state
   const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d; }, []);
+  const weatherNow = useMemo(() => new Date(), []);
   const cutoff = useMemo(() => { const d = new Date(today); d.setDate(d.getDate()+60); return d; }, [today]);
   const [calYear,  setCalYear]  = useState(today.getFullYear());
   const [calMonth, setCalMonth] = useState(today.getMonth());
@@ -253,6 +257,17 @@ export function BookLessonSheet({
     () => getLocationOptions(selectedSlot?.locationMode ?? null, homeBase),
     [selectedSlot, homeBase],
   );
+
+  const timeSlotByStart = useMemo(
+    () => new Map(timeSlots.map(slot => [slot.start, slot])),
+    [timeSlots],
+  );
+
+  function isOutdoorSlot(start: string): boolean {
+    const mode = timeSlotByStart.get(start)?.locationMode;
+    if (mode === 'traveling' || mode === 'both' || mode === null) return true;
+    return !homeBase?.toLowerCase().includes('indoor');
+  }
 
   // Auto-select coach_facility if it's the only option
   useMemo(() => {
@@ -570,33 +585,25 @@ export function BookLessonSheet({
                     </Text>
                   </View>
                 ) : (
-                  <View style={styles.slotsGrid}>
-                    {timeSlots.map(slot => (
-                      <TouchableOpacity
-                        key={slot.start}
-                        style={[
-                          styles.slotChip,
-                          selectedSlot?.start === slot.start && styles.slotChipActive,
-                        ]}
-                        onPress={() => {
-                          setSelectedSlot(slot);
-                          setLocationPref(null); // reset location on slot change
-                        }}
-                        activeOpacity={0.75}
-                      >
-                        <Text style={[
-                          styles.slotChipLabel,
-                          selectedSlot?.start === slot.start && styles.slotChipLabelActive,
-                        ]}>
-                          {slot.display}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
+                  <TimeSlotWheel
+                    slots={timeSlots.map(slot => slot.start)}
+                    selectedSlot={selectedSlot?.start ?? null}
+                    onSelectSlot={start => {
+                      setSelectedSlot(start ? timeSlotByStart.get(start) ?? null : null);
+                      setLocationPref(null);
+                    }}
+                    weather={wheelWeather}
+                    outdoor
+                    isOutdoorSlot={isOutdoorSlot}
+                    showWeatherFallback
+                    sheetDate={selectedDate ?? today}
+                    now={weatherNow}
+                    theme={theme}
+                  />
                 )}
 
                 {timeSlots.length > 0 && !selectedSlot && (
-                  <Text style={styles.hintTxt}>Tap a slot to select it.</Text>
+                  <Text style={styles.hintTxt}>Scroll through the available times, then tap Select.</Text>
                 )}
               </View>
             )}
@@ -984,31 +991,6 @@ function useStyles(theme: ThemeTokens) {
       color: theme.textSecondary,
       lineHeight: 22,
     },
-    slotsGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 10,
-    },
-    slotChip: {
-      paddingHorizontal: 18,
-      paddingVertical: 12,
-      backgroundColor: theme.cardBg,
-      borderRadius: Radius.sm,
-      borderWidth: 1,
-      borderColor: theme.border,
-      minWidth: 96,
-      alignItems: 'center',
-    },
-    slotChipActive: {
-      backgroundColor: 'rgba(45,224,255,0.12)',
-      borderColor: Colors.cyan,
-    },
-    slotChipLabel: {
-      fontFamily: FontFamily.manropeSemiBold,
-      fontSize: FontSize.label,
-      color: theme.textSecondary,
-    },
-    slotChipLabelActive: { color: Colors.cyan },
     hintTxt: {
       fontFamily: FontFamily.manropeMedium,
       fontSize: FontSize.label,

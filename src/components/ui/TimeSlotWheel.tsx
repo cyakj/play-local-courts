@@ -54,6 +54,8 @@ export interface TimeSlotWheelProps {
   onSelectSlot: (slot: string | null) => void;
   weather: WheelWeatherSource | null;
   outdoor: boolean;
+  isOutdoorSlot?: (slot: string) => boolean;
+  showWeatherFallback?: boolean;
   sheetDate: Date;
   now: Date;
   theme: ThemeTokens;
@@ -213,7 +215,7 @@ function WxIcon({ type, size }: { type: SlotWx['iconType']; size: number }) {
 
 export const TimeSlotWheel = memo(function TimeSlotWheel({
   slots, selectedSlot, onSelectSlot,
-  weather, outdoor, sheetDate, now, theme,
+  weather, outdoor, isOutdoorSlot, showWeatherFallback = false, sheetDate, now, theme,
 }: TimeSlotWheelProps) {
   const scrollRef  = useRef<ScrollView>(null);
   const lastIdxRef = useRef(0);
@@ -274,7 +276,8 @@ export const TimeSlotWheel = memo(function TimeSlotWheel({
           const isCentered = i === centeredIdx;
           const isSelected = slot === selectedSlot;
           const { scaleY, opacity } = cylT(dist);
-          const wx = outdoor && weather ? wxForSlot(slot, sheetDate, now, weather) : null;
+          const slotIsOutdoor = isOutdoorSlot ? isOutdoorSlot(slot) : outdoor;
+          const wx = slotIsOutdoor && weather ? wxForSlot(slot, sheetDate, now, weather) : null;
 
           return (
             <View
@@ -299,12 +302,18 @@ export const TimeSlotWheel = memo(function TimeSlotWheel({
                 </Text>
 
                 {/* Weather (outdoor courts only) */}
-                {outdoor && wx ? (
+                {slotIsOutdoor && wx ? (
                   <View style={s.wxArea}>
                     <WxIcon type={wx.iconType} size={isCentered ? 20 : 18} />
                     <Text style={[s.temp, isCentered && s.tempFocused]}>{wx.temp}°F</Text>
                     <Text style={[s.cond, isCentered && s.condFocused]} numberOfLines={1}>
                       {wx.condition}
+                    </Text>
+                  </View>
+                ) : slotIsOutdoor && showWeatherFallback ? (
+                  <View style={s.wxArea}>
+                    <Text style={[s.weatherFallback, isCentered && s.condFocused]} numberOfLines={1}>
+                      Weather unavailable
                     </Text>
                   </View>
                 ) : (
@@ -418,6 +427,12 @@ function useWheelStyles(theme: ThemeTokens) {
       },
       condFocused: {
         color: theme.textSecondary,
+      },
+      weatherFallback: {
+        fontFamily: FontFamily.manropeMedium,
+        fontSize: 12,
+        color: theme.textMuted,
+        flexShrink: 1,
       },
 
       btn: {

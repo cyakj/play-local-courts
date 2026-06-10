@@ -13,10 +13,12 @@ CREATE TABLE IF NOT EXISTS public.coach_global_hours (
 
 ALTER TABLE public.coach_global_hours ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Coach manages own global hours" ON public.coach_global_hours;
 CREATE POLICY "Coach manages own global hours"
   ON public.coach_global_hours FOR ALL
   USING (coach_id = auth.uid());
 
+DROP POLICY IF EXISTS "Anyone can view global hours" ON public.coach_global_hours;
 CREATE POLICY "Anyone can view global hours"
   ON public.coach_global_hours FOR SELECT
   USING (true);
@@ -40,10 +42,12 @@ CREATE TABLE IF NOT EXISTS public.coach_facility_hours (
 
 ALTER TABLE public.coach_facility_hours ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Coach manages own facility hours" ON public.coach_facility_hours;
 CREATE POLICY "Coach manages own facility hours"
   ON public.coach_facility_hours FOR ALL
   USING (coach_id = auth.uid());
 
+DROP POLICY IF EXISTS "Anyone can view public facility hours" ON public.coach_facility_hours;
 CREATE POLICY "Anyone can view public facility hours"
   ON public.coach_facility_hours FOR SELECT
   USING (publicly_bookable = true OR coach_id = auth.uid());
@@ -68,10 +72,12 @@ CREATE TABLE IF NOT EXISTS public.coach_travel_hours (
 
 ALTER TABLE public.coach_travel_hours ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Coach manages own travel hours" ON public.coach_travel_hours;
 CREATE POLICY "Coach manages own travel hours"
   ON public.coach_travel_hours FOR ALL
   USING (coach_id = auth.uid());
 
+DROP POLICY IF EXISTS "Anyone can view public travel hours" ON public.coach_travel_hours;
 CREATE POLICY "Anyone can view public travel hours"
   ON public.coach_travel_hours FOR SELECT
   USING (publicly_bookable = true OR coach_id = auth.uid());
@@ -98,6 +104,7 @@ CREATE TABLE IF NOT EXISTS public.coach_blockouts (
 
 ALTER TABLE public.coach_blockouts ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Coach manages own blockouts" ON public.coach_blockouts;
 CREATE POLICY "Coach manages own blockouts"
   ON public.coach_blockouts FOR ALL
   USING (coach_id = auth.uid());

@@ -3,12 +3,13 @@
     "name": "tenisx-native",
     "slug": "tenisx-native",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "tenisxnative",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "requireFullScreen": true
     },
     "android": {
       "adaptiveIcon": {
@@ -26,6 +27,12 @@
     "plugins": [
       "expo-router",
       [
+        "expo-screen-orientation",
+        {
+          "initialOrientation": "DEFAULT"
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#208AEF",
@@ -33,6 +40,12 @@
             "image": "./assets/images/splash-icon.png",
             "imageWidth": 76
           }
+        }
+      ],
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "Allow TenisX to access your contacts?"
         }
       ]
     ],

@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,7 +17,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useCoachProfile } from '@/hooks/useCoachProfile';
 import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/design';
 import type { ThemeTokens } from '@/constants/theme-tokens';
-import { supabase } from '@/lib/supabase';
+import { signOutAndReset } from '@/lib/auth';
 
 const NOTICE_OPTIONS = [1, 2, 4, 8, 12, 24, 48, 72];
 const ADVANCE_OPTIONS = [7, 14, 21, 30, 60, 90];
@@ -86,6 +88,7 @@ export default function CoachMeScreen() {
   const [maxAdvanceBookingDays,  setMaxAdvanceBookingDays]  = useState<number | null>(null);
 
   const [initialized, setInitialized] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   // Initialize all state from profile on first load
   useMemo(() => {
@@ -183,16 +186,35 @@ export default function CoachMeScreen() {
     );
   }
 
-  async function handleSignOut() {
+  function handleSignOut() {
+    if (signingOut) return;
+
+    async function performSignOut() {
+      setSigningOut(true);
+      try {
+        await signOutAndReset();
+      } catch (error) {
+        setSigningOut(false);
+        Alert.alert(
+          'Unable to sign out',
+          error instanceof Error ? error.message : 'Please try again.',
+        );
+      }
+    }
+
+    if (Platform.OS === 'web') {
+      if (window.confirm('Are you sure you want to sign out?')) {
+        void performSignOut();
+      }
+      return;
+    }
+
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Sign Out',
         style: 'destructive',
-        onPress: async () => {
-          try { await supabase.auth.signOut(); } catch {}
-          router.replace('/(auth)/login');
-        },
+        onPress: () => { void performSignOut(); },
       },
     ]);
   }
@@ -479,9 +501,17 @@ export default function CoachMeScreen() {
         </TouchableOpacity>
 
         {/* Sign out */}
-        <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.8}>
-          <LogOut size={16} color={Colors.negative} strokeWidth={1.8} />
-          <Text style={styles.signOutText}>Sign Out</Text>
+        <TouchableOpacity
+          style={[styles.signOutBtn, signingOut && styles.btnDisabled]}
+          onPress={handleSignOut}
+          disabled={signingOut}
+          activeOpacity={0.8}>
+          {signingOut
+            ? <ActivityIndicator size="small" color={Colors.negative} />
+            : <LogOut size={16} color={Colors.negative} strokeWidth={1.8} />}
+          <Text style={styles.signOutText}>
+            {signingOut ? 'Signing Out...' : 'Sign Out'}
+          </Text>
         </TouchableOpacity>
 
         {/* Coming soon */}

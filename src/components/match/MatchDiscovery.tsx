@@ -1,0 +1,847 @@
+import { useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  PanResponder,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { router } from 'expo-router';
+import {
+  Check,
+  ChevronDown,
+  MapPin,
+  Search,
+  SlidersHorizontal,
+  Users,
+  X,
+} from 'lucide-react-native';
+
+import { ScheduleTimePicker } from '@/components/coach/schedule/ScheduleTimePicker';
+import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/design';
+import { useTheme } from '@/context/ThemeContext';
+import { supabase } from '@/lib/supabase';
+
+type MatchFormat = 'singles' | 'doubles' | 'casual_hit';
+type MatchKind = 'all' | 'casual' | 'competitive';
+type PlayWith = 'men' | 'women' | 'mixed' | 'all';
+type TimeMode = 'all_day' | 'morning' | 'afternoon' | 'evening' | 'specific';
+
+export interface DiscoveryFilters {
+  dates: string[];
+  timeMode: TimeMode;
+  startTime: string;
+  endTime: string;
+  format: MatchFormat | null;
+  playWith: PlayWith[];
+  ntrpMin: number;
+  ntrpMax: number;
+  distanceMiles: number;
+}
+
+interface Listing {
+  id: string;
+  creator_id: string;
+  format: MatchFormat;
+  match_type: Exclude<MatchKind, 'all'>;
+  play_with: PlayWith;
+  match_date: string;
+  start_time: string;
+  end_time: string;
+  utr_min: number;
+  utr_max: number;
+  ntrp_min?: number;
+  ntrp_max?: number;
+  location: string;
+  note: string | null;
+  creator?: { full_name: string | null; avatar_url: string | null } | null;
+}
+
+const today = new Date();
+today.setHours(0, 0, 0, 0);
+
+const DATE_OPTIONS = Array.from({ length: 15 }, (_, index) => {
+  const value = new Date(today);
+  value.setDate(today.getDate() + index);
+  return {
+    date: value,
+    key: toDateKey(value),
+    day: value.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
+    number: value.getDate(),
+    month: value.toLocaleDateString('en-US', { month: 'short' }),
+  };
+});
+
+const DEFAULT_FILTERS: DiscoveryFilters = {
+  dates: [],
+  timeMode: 'all_day',
+  startTime: '16:00',
+  endTime: '19:00',
+  format: null,
+  playWith: ['all'],
+  ntrpMin: 1,
+  ntrpMax: 7,
+  distanceMiles: 25,
+};
+
+const INITIAL_FILTERS: DiscoveryFilters = {
+  ...DEFAULT_FILTERS,
+  dates: [DATE_OPTIONS[1].key],
+};
+
+const TIME_OPTIONS: { value: TimeMode; label: string; detail: string }[] = [
+  { value: 'all_day', label: 'All day', detail: '' },
+  { value: 'morning', label: 'Morning', detail: '6:00 AM - 12:00 PM' },
+  { value: 'afternoon', label: 'Afternoon', detail: '12:00 PM - 6:00 PM' },
+  { value: 'evening', label: 'Evening', detail: '6:00 PM - 12:00 AM' },
+  { value: 'specific', label: 'Specific hours', detail: 'Max. 6 hours' },
+];
+
+function toDateKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function formatTime(value: string) {
+  const [hourString, minute = '00'] = value.slice(0, 5).split(':');
+  const hour = Number(hourString);
+  const period = hour >= 12 ? 'PM' : 'AM';
+  const normalized = hour % 12 || 12;
+  return minute === '00' ? `${normalized} ${period}` : `${normalized}:${minute} ${period}`;
+}
+
+function minutes(value: string) {
+  const [hour, minute] = value.split(':').map(Number);
+  return hour * 60 + minute;
+}
+
+function dateLabel(dates: string[]) {
+  if (dates.length === 0) return 'Any Date';
+  if (dates.length > 1) return `${dates.length} Days`;
+  if (dates[0] === DATE_OPTIONS[0].key) return 'Today';
+  if (dates[0] === DATE_OPTIONS[1].key) return 'Tomorrow';
+  const date = new Date(`${dates[0]}T00:00:00`);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function timeLabel(filters: DiscoveryFilters) {
+  if (filters.timeMode === 'all_day') return 'All day';
+  if (filters.timeMode === 'specific') {
+    return `${formatTime(filters.startTime)} - ${formatTime(filters.endTime)}`;
+  }
+  return TIME_OPTIONS.find(option => option.value === filters.timeMode)?.label ?? 'All day';
+}
+
+function scheduleLabel(filters: DiscoveryFilters) {
+  return `${dateLabel(filters.dates)}, ${timeLabel(filters)}`;
+}
+
+function formatLabel(format: MatchFormat) {
+  if (format === 'casual_hit') return 'Casual Hit';
+  return format === 'singles' ? 'Singles' : 'Doubles';
+}
+
+function selectionTimeRange(filters: DiscoveryFilters): [number, number] | null {
+  switch (filters.timeMode) {
+    case 'morning': return [360, 720];
+    case 'afternoon': return [720, 1080];
+    case 'evening': return [1080, 1440];
+    case 'specific': return [minutes(filters.startTime), minutes(filters.endTime)];
+    default: return null;
+  }
+}
+
+function DateTimeSheet({
+  visible,
+  filters,
+  onApply,
+  onDismiss,
+}: {
+  visible: boolean;
+  filters: DiscoveryFilters;
+  onApply: (filters: DiscoveryFilters) => void;
+  onDismiss: () => void;
+}) {
+  const { theme } = useTheme();
+  const [draft, setDraft] = useState(filters);
+
+  useEffect(() => {
+    if (visible) setDraft(filters);
+  }, [visible, filters]);
+
+  function toggleDate(key: string) {
+    setDraft(current => {
+      const selected = current.dates.includes(key);
+      if (!selected && current.dates.length >= 7) {
+        Alert.alert('Maximum 7 days', 'You can select up to 7 days.');
+        return current;
+      }
+      return {
+        ...current,
+        dates: selected ? current.dates.filter(date => date !== key) : [...current.dates, key],
+      };
+    });
+  }
+
+  function apply() {
+    if (draft.timeMode === 'specific') {
+      const duration = minutes(draft.endTime) - minutes(draft.startTime);
+      if (duration <= 0 || duration > 360) {
+        Alert.alert('Choose a valid time window', 'Specific hours must be after the start time and no longer than 6 hours.');
+        return;
+      }
+    }
+    onApply(draft);
+    onDismiss();
+  }
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onDismiss}>
+      <View style={[styles.backdrop, { backgroundColor: theme.backdrop }]}>
+        <TouchableOpacity style={styles.backdropTap} onPress={onDismiss} />
+        <View style={[styles.sheet, { backgroundColor: theme.sheetBg }, theme.shadowSheet]}>
+          <View style={styles.sheetHeader}>
+            <Text style={[styles.sheetTitle, { color: theme.textPrimary }]}>When do you want to play?</Text>
+            <TouchableOpacity style={styles.iconButton} onPress={onDismiss}>
+              <X size={24} color={theme.textMuted} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Choose your days (max. 7)</Text>
+            <Text style={[styles.sectionHelp, { color: theme.textSecondary }]}>You can select up to 7 days</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dateRow}>
+              {DATE_OPTIONS.map(option => {
+                const active = draft.dates.includes(option.key);
+                return (
+                  <TouchableOpacity key={option.key} style={styles.dateOption} onPress={() => toggleDate(option.key)}>
+                    <Text style={[styles.dateDay, { color: active ? Colors.cyan : theme.textMuted }]}>{option.day}</Text>
+                    <View style={[styles.dateNumber, active && { backgroundColor: Colors.courtBlue, borderColor: Colors.cyan }]}>
+                      <Text style={[styles.dateNumberText, { color: active ? Colors.white : theme.textPrimary }]}>{option.number}</Text>
+                    </View>
+                    <Text style={[styles.dateMonth, { color: theme.textSecondary }]}>{option.month}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            <Text style={[styles.sectionTitle, styles.timeHeading, { color: theme.textPrimary }]}>Choose your time</Text>
+            {TIME_OPTIONS.map(option => {
+              const active = draft.timeMode === option.value;
+              return (
+                <TouchableOpacity
+                  key={option.value}
+                  style={styles.radioRow}
+                  onPress={() => setDraft(current => ({ ...current, timeMode: option.value }))}>
+                  <View style={[styles.radio, { borderColor: active ? Colors.blue : theme.borderStrong }]}>
+                    {active && <View style={styles.radioDot} />}
+                  </View>
+                  <Text style={[styles.radioLabel, { color: theme.textPrimary }]}>{option.label}</Text>
+                  {!!option.detail && <Text style={[styles.radioDetail, { color: theme.textSecondary }]}>{option.detail}</Text>}
+                </TouchableOpacity>
+              );
+            })}
+
+            {draft.timeMode === 'specific' && (
+              <View style={styles.pickerGrid}>
+                <ScheduleTimePicker
+                  label="START TIME"
+                  value={draft.startTime}
+                  onChange={startTime => setDraft(current => ({ ...current, startTime }))}
+                />
+                <ScheduleTimePicker
+                  label="END TIME"
+                  value={draft.endTime}
+                  onChange={endTime => setDraft(current => ({ ...current, endTime }))}
+                />
+              </View>
+            )}
+            <View style={{ height: 100 }} />
+          </ScrollView>
+
+          <View style={[styles.fixedCta, { backgroundColor: theme.sheetBg, borderTopColor: theme.border }]}>
+            <TouchableOpacity style={styles.primaryButton} onPress={apply}>
+              <Text style={styles.primaryButtonText}>See Results</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function ToggleRow({
+  label,
+  description,
+  checked,
+  radio = false,
+  onPress,
+}: {
+  label: string;
+  description?: string;
+  checked: boolean;
+  radio?: boolean;
+  onPress: () => void;
+}) {
+  const { theme } = useTheme();
+  return (
+    <TouchableOpacity
+      accessibilityRole={radio ? 'radio' : 'checkbox'}
+      accessibilityState={{ checked }}
+      accessibilityLabel={label}
+      style={styles.toggleRow}
+      onPress={onPress}>
+      <View style={[
+        radio ? styles.radio : styles.checkbox,
+        {
+          borderColor: checked ? Colors.blue : theme.borderStrong,
+          backgroundColor: checked && !radio ? Colors.blue : 'transparent',
+        },
+      ]}>
+        {checked && (radio ? <View style={styles.radioDot} /> : <Check size={15} color={Colors.white} />)}
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.toggleLabel, { color: theme.textPrimary }]}>{label}</Text>
+        {!!description && <Text style={[styles.toggleDescription, { color: theme.textSecondary }]}>{description}</Text>}
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+function ContinuousSlider({
+  label,
+  value,
+  min,
+  max,
+  step,
+  suffix = '',
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  suffix?: string;
+  onChange: (value: number) => void;
+}) {
+  const { theme } = useTheme();
+  const [trackWidth, setTrackWidth] = useState(0);
+  const percent = (value - min) / (max - min);
+
+  function updateFromX(x: number) {
+    if (!trackWidth) return;
+    const raw = min + Math.max(0, Math.min(1, x / trackWidth)) * (max - min);
+    const snapped = Math.round(raw / step) * step;
+    onChange(Number(Math.max(min, Math.min(max, snapped)).toFixed(step < 1 ? 1 : 0)));
+  }
+
+  const panResponder = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderGrant: event => updateFromX(event.nativeEvent.locationX),
+    onPanResponderMove: event => updateFromX(event.nativeEvent.locationX),
+  }), [trackWidth, min, max, step]);
+
+  return (
+    <View style={styles.sliderBlock}>
+      <View style={styles.sliderHeader}>
+        <Text style={[styles.sliderLabel, { color: theme.textPrimary }]}>{label}</Text>
+        <Text style={styles.sliderValue}>{value.toFixed(step < 1 ? 1 : 0)}{suffix}</Text>
+      </View>
+      <View
+        accessibilityLabel={`${label} ${value}${suffix}`}
+        style={styles.sliderTouchArea}
+        onLayout={event => setTrackWidth(event.nativeEvent.layout.width)}
+        {...panResponder.panHandlers}>
+        <View style={[styles.sliderTrack, { backgroundColor: theme.surface2 }]}>
+          <View style={[styles.sliderFill, { width: `${percent * 100}%` }]} />
+          <View style={[styles.sliderThumb, { left: `${percent * 100}%` }]} />
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function MoreFiltersSheet({
+  visible,
+  filters,
+  onApply,
+  onClear,
+  onDismiss,
+}: {
+  visible: boolean;
+  filters: DiscoveryFilters;
+  onApply: (filters: DiscoveryFilters) => void;
+  onClear: () => void;
+  onDismiss: () => void;
+}) {
+  const { theme } = useTheme();
+  const [draft, setDraft] = useState(filters);
+
+  useEffect(() => {
+    if (visible) setDraft(filters);
+  }, [visible, filters]);
+
+  function togglePlayWith(value: PlayWith) {
+    setDraft(current => {
+      if (value === 'all') return { ...current, playWith: ['all'] };
+      const base = current.playWith.filter(item => item !== 'all');
+      const next = base.includes(value) ? base.filter(item => item !== value) : [...base, value];
+      return { ...current, playWith: next.length ? next : ['all'] };
+    });
+  }
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onDismiss}>
+      <View style={[styles.backdrop, { backgroundColor: theme.backdrop }]}>
+        <View style={[styles.fullSheet, { backgroundColor: theme.sheetBg }]}>
+          <View style={styles.moreHeader}>
+            <TouchableOpacity style={styles.headerAction} onPress={onDismiss}>
+              <Text style={[styles.headerActionText, { color: theme.textSecondary }]}>Back</Text>
+            </TouchableOpacity>
+            <Text style={[styles.moreTitle, { color: theme.textPrimary }]}>More Filters</Text>
+            <TouchableOpacity
+              style={styles.headerAction}
+              onPress={() => {
+                setDraft(DEFAULT_FILTERS);
+                onClear();
+                onDismiss();
+              }}>
+              <Text style={[styles.headerActionText, { color: Colors.cyan }]}>Clear All</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView contentContainerStyle={styles.moreContent} showsVerticalScrollIndicator={false}>
+            <Text style={[styles.filterSectionTitle, { color: theme.textPrimary }]}>Match Format</Text>
+            {([
+              ['singles', 'Singles', '1 versus 1'],
+              ['doubles', 'Doubles', '2 versus 2'],
+              ['casual_hit', 'Casual Hit', 'Rallying, drilling, practice, warmup, or fitness hitting'],
+            ] as const).map(([value, label, description]) => (
+              <ToggleRow
+                key={value}
+                radio
+                label={label}
+                description={description}
+                checked={draft.format === value}
+                onPress={() => setDraft(current => ({ ...current, format: value }))}
+              />
+            ))}
+
+            <Text style={[styles.filterSectionTitle, { color: theme.textPrimary }]}>Play With</Text>
+            {([
+              ['men', 'Men Only'],
+              ['women', 'Women Only'],
+              ['mixed', 'Mixed'],
+              ['all', 'All Players'],
+            ] as const).map(([value, label]) => (
+              <ToggleRow
+                key={value}
+                label={label}
+                description={value === 'mixed' ? 'One man and one woman on each doubles team.' : undefined}
+                checked={draft.playWith.includes(value)}
+                onPress={() => togglePlayWith(value)}
+              />
+            ))}
+
+            <Text style={[styles.filterSectionTitle, { color: theme.textPrimary }]}>NTRP Range</Text>
+            <ContinuousSlider label="Minimum NTRP" value={draft.ntrpMin} min={1} max={7} step={0.5} onChange={ntrpMin => setDraft(current => ({ ...current, ntrpMin: Math.min(ntrpMin, current.ntrpMax) }))} />
+            <ContinuousSlider label="Maximum NTRP" value={draft.ntrpMax} min={1} max={7} step={0.5} onChange={ntrpMax => setDraft(current => ({ ...current, ntrpMax: Math.max(ntrpMax, current.ntrpMin) }))} />
+
+            <Text style={[styles.filterSectionTitle, { color: theme.textPrimary }]}>Distance</Text>
+            <ContinuousSlider label="Maximum distance" value={draft.distanceMiles} min={0} max={100} step={1} suffix=" mi" onChange={distanceMiles => setDraft(current => ({ ...current, distanceMiles }))} />
+            <View style={{ height: 100 }} />
+          </ScrollView>
+
+          <View style={[styles.fixedCta, { backgroundColor: theme.sheetBg, borderTopColor: theme.border }]}>
+            <TouchableOpacity style={styles.primaryButton} onPress={() => { onApply(draft); onDismiss(); }}>
+              <Text style={styles.primaryButtonText}>Apply Filters</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function CreateMatchSheet({
+  visible,
+  userId,
+  onCreated,
+  onDismiss,
+}: {
+  visible: boolean;
+  userId: string;
+  onCreated: () => void;
+  onDismiss: () => void;
+}) {
+  const { theme } = useTheme();
+  const [format, setFormat] = useState<MatchFormat>('singles');
+  const [matchType, setMatchType] = useState<Exclude<MatchKind, 'all'>>('casual');
+  const [date, setDate] = useState(DATE_OPTIONS[1].key);
+  const [startTime, setStartTime] = useState('18:00');
+  const [endTime, setEndTime] = useState('19:30');
+  const [ntrpMin, setNtrpMin] = useState(1);
+  const [ntrpMax, setNtrpMax] = useState(7);
+  const [playWith, setPlayWith] = useState<PlayWith>('all');
+  const [location, setLocation] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  async function publish() {
+    if (!location.trim()) {
+      Alert.alert('Location required', 'Add a court or meeting location.');
+      return;
+    }
+    if (minutes(endTime) <= minutes(startTime)) {
+      Alert.alert('Choose a valid time', 'End time must be after start time.');
+      return;
+    }
+    if (ntrpMax < ntrpMin) {
+      Alert.alert('Choose a valid NTRP range', 'Maximum NTRP must be greater than minimum NTRP.');
+      return;
+    }
+    setSaving(true);
+    const { error } = await (supabase as any).from('open_match_listings').insert({
+      creator_id: userId,
+      format,
+      match_type: matchType,
+      play_with: format === 'doubles' ? playWith : playWith === 'mixed' ? 'all' : playWith,
+      match_date: date,
+      start_time: startTime,
+      end_time: endTime,
+      ntrp_min: ntrpMin,
+      ntrp_max: ntrpMax,
+      location: location.trim(),
+    });
+    setSaving(false);
+    if (error) {
+      Alert.alert('Unable to publish match', error.message);
+      return;
+    }
+    onCreated();
+    onDismiss();
+  }
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onDismiss}>
+      <View style={[styles.backdrop, { backgroundColor: theme.backdrop }]}>
+        <TouchableOpacity style={styles.backdropTap} onPress={onDismiss} />
+        <View style={[styles.fullSheet, { backgroundColor: theme.sheetBg }]}>
+          <View style={styles.sheetHeader}>
+            <Text style={[styles.sheetTitle, { color: theme.textPrimary }]}>Create Match</Text>
+            <TouchableOpacity style={styles.iconButton} onPress={onDismiss}><X size={24} color={theme.textMuted} /></TouchableOpacity>
+          </View>
+          <ScrollView contentContainerStyle={styles.createContent}>
+            <Text style={[styles.fieldLabel, { color: theme.textSecondary }]}>MATCH FORMAT</Text>
+            <View style={styles.inlineOptions}>
+              {(['singles', 'doubles', 'casual_hit'] as MatchFormat[]).map(value => (
+                <TouchableOpacity key={value} style={[styles.smallChip, { borderColor: format === value ? Colors.cyan : theme.border, backgroundColor: format === value ? theme.selectedBg : theme.cardBg }]} onPress={() => setFormat(value)}>
+                  <Text style={[styles.smallChipText, { color: format === value ? Colors.cyan : theme.textSecondary }]}>{formatLabel(value)}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={[styles.fieldLabel, { color: theme.textSecondary }]}>MATCH TYPE</Text>
+            <View style={styles.inlineOptions}>
+              {(['casual', 'competitive'] as const).map(value => (
+                <TouchableOpacity key={value} style={[styles.smallChip, { borderColor: matchType === value ? Colors.cyan : theme.border, backgroundColor: matchType === value ? theme.selectedBg : theme.cardBg }]} onPress={() => setMatchType(value)}>
+                  <Text style={[styles.smallChipText, { color: matchType === value ? Colors.cyan : theme.textSecondary }]}>{value === 'casual' ? 'Casual' : 'Competitive'}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={[styles.fieldLabel, { color: theme.textSecondary }]}>DATE</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.inlineOptions}>
+              {DATE_OPTIONS.map(option => (
+                <TouchableOpacity key={option.key} style={[styles.smallChip, { borderColor: date === option.key ? Colors.cyan : theme.border, backgroundColor: date === option.key ? theme.selectedBg : theme.cardBg }]} onPress={() => setDate(option.key)}>
+                  <Text style={[styles.smallChipText, { color: date === option.key ? Colors.cyan : theme.textSecondary }]}>{option.month} {option.number}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <View style={styles.pickerGrid}>
+              <ScheduleTimePicker label="START TIME" value={startTime} onChange={setStartTime} />
+              <ScheduleTimePicker label="END TIME" value={endTime} onChange={setEndTime} />
+            </View>
+            <Text style={[styles.fieldLabel, { color: theme.textSecondary }]}>NTRP REQUIREMENT</Text>
+            <ContinuousSlider label="Minimum NTRP" value={ntrpMin} min={1} max={7} step={0.5} onChange={setNtrpMin} />
+            <ContinuousSlider label="Maximum NTRP" value={ntrpMax} min={1} max={7} step={0.5} onChange={setNtrpMax} />
+            <Text style={[styles.fieldLabel, { color: theme.textSecondary }]}>GENDER PREFERENCE</Text>
+            <View style={styles.inlineOptions}>
+              {(['all', 'men', 'women', ...(format === 'doubles' ? ['mixed'] : [])] as PlayWith[]).map(value => (
+                <TouchableOpacity key={value} style={[styles.smallChip, { borderColor: playWith === value ? Colors.cyan : theme.border, backgroundColor: playWith === value ? theme.selectedBg : theme.cardBg }]} onPress={() => setPlayWith(value)}>
+                  <Text style={[styles.smallChipText, { color: playWith === value ? Colors.cyan : theme.textSecondary }]}>{value === 'all' ? 'All Players' : value === 'men' ? 'Men Only' : value === 'women' ? 'Women Only' : 'Mixed'}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={[styles.fieldLabel, { color: theme.textSecondary }]}>LOCATION</Text>
+            <TextInput
+              style={[styles.locationInput, { backgroundColor: theme.inputBg, borderColor: theme.border, color: theme.textPrimary }]}
+              value={location}
+              onChangeText={setLocation}
+              placeholder="Court or meeting location"
+              placeholderTextColor={theme.textDisabled}
+            />
+            <TouchableOpacity style={[styles.primaryButton, saving && { opacity: 0.6 }]} disabled={saving} onPress={publish}>
+              {saving ? <ActivityIndicator color={Colors.white} /> : <Text style={styles.primaryButtonText}>Publish Match</Text>}
+            </TouchableOpacity>
+            <View style={{ height: 40 }} />
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+export function MatchDiscovery({ userId }: { userId: string }) {
+  const { theme } = useTheme();
+  const [filters, setFilters] = useState(INITIAL_FILTERS);
+  const [query, setQuery] = useState('');
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [dateSheet, setDateSheet] = useState(false);
+  const [moreFilters, setMoreFilters] = useState(false);
+  const [joiningId, setJoiningId] = useState<string | null>(null);
+
+  async function load() {
+    if (!userId) return;
+    setLoading(true);
+    const { data, error } = await (supabase as any)
+      .from('open_match_listings')
+      .select('*')
+      .eq('status', 'open')
+      .gte('match_date', DATE_OPTIONS[0].key)
+      .lte('match_date', DATE_OPTIONS[14].key)
+      .order('match_date')
+      .order('start_time');
+    if (error) {
+      setListings([]);
+    } else {
+      const rows = (data ?? []) as Listing[];
+      const creatorIds = [...new Set(rows.map(row => row.creator_id))];
+      const { data: profiles } = creatorIds.length
+        ? await supabase.from('profiles').select('id, full_name, avatar_url').in('id', creatorIds)
+        : { data: [] };
+      const profileMap = new Map((profiles ?? []).map(profile => [profile.id, profile]));
+      setListings(rows.map(row => ({ ...row, creator: profileMap.get(row.creator_id) ?? null })));
+    }
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    void load();
+    if (!userId) return;
+    const channel = supabase
+      .channel(`match-discovery-${userId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'open_match_listings' }, () => { void load(); })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [userId]);
+
+  const filtered = useMemo(() => {
+    const range = selectionTimeRange(filters);
+    return listings.filter(listing => {
+      if (listing.creator_id === userId) return false;
+      if (filters.dates.length && !filters.dates.includes(listing.match_date)) return false;
+      if (filters.format && listing.format !== filters.format) return false;
+      if (!filters.playWith.includes('all') && !filters.playWith.includes(listing.play_with)) return false;
+      const listingNtrpMin = listing.ntrp_min ?? 1;
+      const listingNtrpMax = listing.ntrp_max ?? 7;
+      if (listingNtrpMax < filters.ntrpMin || listingNtrpMin > filters.ntrpMax) return false;
+      if ((listing as Listing & { distance_miles?: number }).distance_miles != null
+        && (listing as Listing & { distance_miles: number }).distance_miles > filters.distanceMiles) return false;
+      if (range) {
+        const start = minutes(listing.start_time);
+        if (start < range[0] || start >= range[1]) return false;
+      }
+      if (query.trim()) {
+        const haystack = `${listing.location} ${listing.note ?? ''} ${listing.creator?.full_name ?? ''}`.toLowerCase();
+        if (!haystack.includes(query.trim().toLowerCase())) return false;
+      }
+      return true;
+    });
+  }, [filters, listings, query, userId]);
+
+  async function join(listing: Listing) {
+    setJoiningId(listing.id);
+    const { error } = await (supabase as any).from('open_match_listing_participants').insert({
+      listing_id: listing.id,
+      user_id: userId,
+    });
+    setJoiningId(null);
+    Alert.alert(error ? 'Unable to join' : 'Request sent', error?.message ?? 'The match creator can now confirm the details with you.');
+  }
+
+  return (
+    <View style={styles.discovery}>
+      <View style={[styles.searchBar, { backgroundColor: theme.inputBg, borderColor: theme.border }]}>
+        <Search size={22} color={theme.textMuted} />
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          style={[styles.searchInput, { color: theme.textPrimary }]}
+          placeholder="Search matches or locations"
+          placeholderTextColor={theme.textDisabled}
+        />
+      </View>
+
+      <View style={styles.filterToolbar}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="More Filters"
+          style={[styles.filterIcon, { borderColor: theme.border }]}
+          onPress={() => setMoreFilters(true)}>
+          <SlidersHorizontal size={22} color={theme.textPrimary} />
+        </TouchableOpacity>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={`Schedule filter: ${scheduleLabel(filters)}`}
+            style={[styles.filterChip, { backgroundColor: theme.chipActiveBg }]}
+            onPress={() => setDateSheet(true)}>
+            <Text style={styles.filterChipText}>{scheduleLabel(filters)}</Text>
+            <ChevronDown size={15} color={Colors.white} />
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
+
+      {loading ? (
+        <View style={styles.loading}><ActivityIndicator color={Colors.cyan} /></View>
+      ) : filtered.length ? (
+        <View style={styles.list}>
+          <Text style={[styles.resultsTitle, { color: theme.textPrimary }]}>Matches near you</Text>
+          {filtered.map(listing => (
+            <View key={listing.id} style={[styles.matchCard, { backgroundColor: theme.cardBg, borderColor: theme.border }, theme.shadowCard]}>
+              <View style={styles.matchCardHeader}>
+                <Text style={[styles.formatBadge, { color: Colors.cyan }]}>{formatLabel(listing.format).toUpperCase()}</Text>
+                <Text style={[styles.creatorName, { color: theme.textSecondary }]}>{listing.creator?.full_name ?? 'TenisX player'}</Text>
+              </View>
+              <Text style={[styles.matchTitle, { color: theme.textPrimary }]}>
+                {formatLabel(listing.format)} on {new Date(`${listing.match_date}T00:00:00`).toLocaleDateString('en-US', { weekday: 'long' })}
+              </Text>
+              <View style={styles.matchMeta}>
+                <Text style={[styles.matchMetaText, { color: theme.textSecondary }]}>{formatTime(listing.start_time)} - {formatTime(listing.end_time)}</Text>
+                <Text style={[styles.matchMetaText, { color: theme.textSecondary }]}>NTRP {(listing.ntrp_min ?? 1).toFixed(1)} - {(listing.ntrp_max ?? 7).toFixed(1)}</Text>
+              </View>
+              <View style={styles.locationRow}>
+                <MapPin size={16} color={Colors.cyan} />
+                <Text style={[styles.locationText, { color: theme.textSecondary }]}>{listing.location}</Text>
+              </View>
+              {!!listing.note && <Text style={[styles.matchNote, { color: theme.textSecondary }]}>{listing.note}</Text>}
+              <TouchableOpacity style={styles.joinButton} onPress={() => join(listing)} disabled={joiningId === listing.id}>
+                {joiningId === listing.id ? <ActivityIndicator color={Colors.white} /> : <Text style={styles.joinButtonText}>Join Match</Text>}
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+      ) : (
+        <View style={styles.emptyState}>
+          <View style={[styles.emptyIllustration, { backgroundColor: theme.surface2 }]}>
+            <Users size={58} color={Colors.cyan} strokeWidth={1.4} />
+          </View>
+          <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>No Matches Found</Text>
+          <Text style={[styles.emptyDescription, { color: theme.textSecondary }]}>
+            There are no matches with your filters. Try adjusting them or create your own match.
+          </Text>
+          <TouchableOpacity style={[styles.createButton, { backgroundColor: Colors.blue }]} onPress={() => router.push('/match/new' as any)}>
+            <Text style={styles.createButtonText}>Start Match</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      <DateTimeSheet visible={dateSheet} filters={filters} onApply={setFilters} onDismiss={() => setDateSheet(false)} />
+      <MoreFiltersSheet
+        visible={moreFilters}
+        filters={filters}
+        onApply={setFilters}
+        onClear={() => setFilters(DEFAULT_FILTERS)}
+        onDismiss={() => setMoreFilters(false)}
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  discovery: { paddingTop: 20 },
+  searchBar: { minHeight: 56, marginHorizontal: Spacing.pagePx, borderWidth: 1, borderRadius: Radius.lg, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  searchInput: { flex: 1, fontFamily: FontFamily.manropeMedium, fontSize: FontSize.body },
+  filterToolbar: { flexDirection: 'row', alignItems: 'center', marginTop: 18 },
+  filterIcon: { width: 52, height: 48, marginLeft: Spacing.pagePx, borderWidth: 1, borderRadius: Radius.sm, alignItems: 'center', justifyContent: 'center' },
+  chipRow: { paddingHorizontal: 10, paddingRight: Spacing.pagePx, gap: 8 },
+  filterChip: { minHeight: 48, borderRadius: Radius.pill, paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', gap: 7 },
+  filterChipText: { color: Colors.white, fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label },
+  loading: { minHeight: 280, alignItems: 'center', justifyContent: 'center' },
+  list: { padding: Spacing.pagePx, gap: 14 },
+  resultsTitle: { fontFamily: FontFamily.spaceGroteskBold, fontSize: FontSize.sectionTitle, marginTop: 4 },
+  matchCard: { padding: 20, borderRadius: Radius.card, borderWidth: 1, gap: 12 },
+  matchCardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  formatBadge: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: FontSize.metadata },
+  typeBadge: { borderRadius: Radius.pill, paddingHorizontal: 10, paddingVertical: 5 },
+  typeBadgeText: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: FontSize.metadata },
+  creatorName: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label },
+  matchTitle: { fontFamily: FontFamily.spaceGroteskBold, fontSize: FontSize.cardTitle },
+  matchMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
+  matchMetaText: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  locationText: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.body, flex: 1 },
+  matchNote: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.body, lineHeight: 23 },
+  joinButton: { minHeight: 50, backgroundColor: Colors.blue, borderRadius: Radius.button, alignItems: 'center', justifyContent: 'center' },
+  joinButtonText: { color: Colors.white, fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.body },
+  emptyState: { minHeight: 430, paddingHorizontal: 28, paddingTop: 48, alignItems: 'center' },
+  emptyIllustration: { width: 150, height: 130, borderRadius: 40, alignItems: 'center', justifyContent: 'center' },
+  emptyTitle: { marginTop: 24, fontFamily: FontFamily.spaceGroteskBold, fontSize: 24, textAlign: 'center' },
+  emptyDescription: { marginTop: 14, fontFamily: FontFamily.manropeMedium, fontSize: FontSize.body, lineHeight: 25, textAlign: 'center' },
+  createButton: { marginTop: 24, minHeight: 52, borderRadius: Radius.button, paddingHorizontal: 34, alignItems: 'center', justifyContent: 'center' },
+  createButtonText: { color: Colors.white, fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.body },
+  backdrop: { flex: 1, justifyContent: 'flex-end' },
+  backdropTap: { flex: 1 },
+  sheet: { height: '82%', borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, paddingTop: 18, paddingHorizontal: Spacing.pagePx, overflow: 'hidden' },
+  fullSheet: { flex: 1, paddingTop: 18, paddingHorizontal: Spacing.pagePx },
+  sheetHeader: { minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sheetTitle: { flex: 1, fontFamily: FontFamily.spaceGroteskBold, fontSize: 24 },
+  iconButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
+  sectionTitle: { fontFamily: FontFamily.spaceGroteskBold, fontSize: FontSize.cardTitle, marginTop: 18 },
+  sectionHelp: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.body, marginTop: 4 },
+  dateRow: { paddingVertical: 24, gap: 8 },
+  dateOption: { width: 66, alignItems: 'center', gap: 7 },
+  dateDay: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: FontSize.label },
+  dateNumber: { width: 50, height: 50, borderRadius: 25, borderWidth: 1, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
+  dateNumberText: { fontFamily: FontFamily.spaceGroteskBold, fontSize: 20 },
+  dateMonth: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label },
+  timeHeading: { marginBottom: 8 },
+  radioRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 14 },
+  radio: { width: 28, height: 28, borderRadius: 14, borderWidth: 2.5, alignItems: 'center', justifyContent: 'center' },
+  radioDot: { width: 14, height: 14, borderRadius: 7, backgroundColor: Colors.blue },
+  radioLabel: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.body },
+  radioDetail: { flex: 1, fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label },
+  pickerGrid: { gap: 16, marginTop: 16 },
+  fixedCta: { position: 'absolute', left: 0, right: 0, bottom: 0, borderTopWidth: 1, padding: Spacing.pagePx, paddingBottom: 34 },
+  primaryButton: { minHeight: 52, backgroundColor: Colors.blue, borderRadius: Radius.button, alignItems: 'center', justifyContent: 'center' },
+  primaryButtonText: { color: Colors.white, fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.body },
+  moreHeader: { minHeight: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  moreTitle: { fontFamily: FontFamily.spaceGroteskBold, fontSize: FontSize.cardTitle },
+  headerAction: { minWidth: 76, minHeight: 48, justifyContent: 'center' },
+  headerActionText: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label },
+  moreContent: { paddingBottom: 30 },
+  filterSectionTitle: { fontFamily: FontFamily.spaceGroteskBold, fontSize: FontSize.cardTitle, marginTop: 24, marginBottom: 8 },
+  toggleRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 14 },
+  checkbox: { width: 28, height: 28, borderRadius: 7, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  toggleLabel: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.body },
+  toggleDescription: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label, lineHeight: 20, marginTop: 2 },
+  sliderBlock: { marginTop: 14, gap: 12 },
+  sliderHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  sliderLabel: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.body },
+  sliderValue: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: FontSize.label, color: Colors.cyan },
+  sliderTouchArea: { height: 44, justifyContent: 'center' },
+  sliderTrack: { height: 6, borderRadius: 3, position: 'relative' },
+  sliderFill: { position: 'absolute', left: 0, top: 0, bottom: 0, borderRadius: 3, backgroundColor: Colors.blue },
+  sliderThumb: { position: 'absolute', top: -7, width: 20, height: 20, marginLeft: -10, borderRadius: 10, backgroundColor: Colors.blue, borderWidth: 3, borderColor: Colors.white },
+  createContent: { paddingBottom: 20 },
+  fieldLabel: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: FontSize.eyebrow, letterSpacing: 1.2, marginTop: 20, marginBottom: 10 },
+  inlineOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  smallChip: { minHeight: 44, borderRadius: Radius.chip, borderWidth: 1, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
+  smallChipText: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label },
+  locationInput: { minHeight: 54, borderRadius: Radius.input, borderWidth: 1, paddingHorizontal: 14, fontFamily: FontFamily.manropeMedium, fontSize: FontSize.body, marginBottom: 22 },
+});

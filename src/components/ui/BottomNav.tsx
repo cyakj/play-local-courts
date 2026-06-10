@@ -8,6 +8,7 @@ export function BottomNav(props: BottomTabBarProps) {
   const { state, descriptors, navigation } = props;
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
+  if (state.routes[state.index]?.name === 'schedule-week') return null;
 
   return (
     <View testID="bottom-nav" style={[styles.container, { paddingBottom: Math.max(insets.bottom, 8), backgroundColor: theme.navBg, borderTopColor: theme.navBorder, ...theme.shadowNav }]}>

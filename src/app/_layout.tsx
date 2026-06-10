@@ -15,6 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFonts } from 'expo-font';
 import { Stack, router } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import { setBackgroundColorAsync } from 'expo-system-ui';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
@@ -50,6 +51,10 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
+    ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then(saved => {
       if (saved === 'dark' || saved === 'light') setInitialTheme(saved);
       setThemeLoaded(true);
@@ -65,6 +70,7 @@ export default function RootLayout() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s);
+      setAuthLoading(false);
     });
     return () => subscription.unsubscribe();
   }, []);

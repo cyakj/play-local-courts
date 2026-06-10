@@ -43,6 +43,7 @@ import {
 
 import { supabase } from '@/lib/supabase';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { MatchDiscovery } from '@/components/match/MatchDiscovery';
 import { useTheme } from '@/context/ThemeContext';
 import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/design';
 import { useWeather, getWeatherForDate } from '@/hooks/useWeather';
@@ -65,7 +66,7 @@ const CARD_RADIUS = Radius.lg; // 20px — premium card feel matching Stitch ref
 type MatchType           = 'singles' | 'doubles' | 'mixed_doubles' | 'hitting_session';
 type MatchLifecycleStatus = 'scheduled' | 'reschedule_requested' | 'cancelled' | 'completed';
 type RescheduleStatus     = 'pending' | 'accepted' | 'declined' | 'cancelled';
-type DateMode             = 'today' | 'tomorrow' | 'this_weekend' | 'pick';
+type DateMode             = 'today' | 'tomorrow' | 'pick';
 type TimeMode             = 'morning' | 'afternoon' | 'evening' | 'custom';
 
 interface RescheduleRequest {
@@ -158,7 +159,6 @@ const DISTANCE_OPTIONS = [5, 10, 25, 50];
 const DATE_PRESETS: { mode: DateMode; label: string }[] = [
   { mode: 'today',        label: 'Today' },
   { mode: 'tomorrow',     label: 'Tomorrow' },
-  { mode: 'this_weekend', label: 'This Weekend' },
   { mode: 'pick',         label: 'Pick Date' },
 ];
 
@@ -181,13 +181,6 @@ const REQUEST_AVAILABILITY: { value: string; label: string }[] = [
 ];
 
 const REQUEST_DURATIONS = [60, 90, 120];
-
-const REQUEST_COURT_TYPES: { value: string | null; label: string }[] = [
-  { value: 'hard',  label: 'Hard' },
-  { value: 'clay',  label: 'Clay' },
-  { value: 'grass', label: 'Grass' },
-  { value: null,    label: 'Any' },
-];
 
 const REQUEST_TIME_SLOTS: string[] = Array.from({ length: 33 }, (_, i) => {
   const totalMins = 6 * 60 + i * 30;
@@ -217,7 +210,7 @@ const MOCK_RECOMMENDED: RecommendedPlayer[] = [
     avatarUrl: null,
     utrRating: 8.1,
     ntrpRating: 4.0,
-    preferredTimes: ['Weekends'],
+    preferredTimes: ['Evenings'],
     preferredCourt: 'Bayview Courts',
   },
   {
@@ -585,7 +578,6 @@ async function declineReschedule(
 function buildDateLabel(mode: DateMode, date: Date | null): string {
   if (mode === 'today')        return 'Today';
   if (mode === 'tomorrow')     return 'Tomorrow';
-  if (mode === 'this_weekend') return 'This Weekend';
   if (mode === 'pick' && date) {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
@@ -2092,7 +2084,6 @@ function MatchRequestSheet({
   const [date,       setDate]       = useState<Date | null>(null);
   const [timeSlot,   setTimeSlot]   = useState<string | null>(null);
   const [duration,   setDuration]   = useState<number>(90);
-  const [courtType,  setCourtType]  = useState<string | null>(null);
   const [message,    setMessage]    = useState<string>('');
   const [showCal,    setShowCal]    = useState(false);
   const [sending,    setSending]    = useState(false);
@@ -2105,7 +2096,6 @@ function MatchRequestSheet({
       setDate(null);
       setTimeSlot(null);
       setDuration(90);
-      setCourtType(null);
       setMessage('');
       setShowCal(false);
       setSending(false);
@@ -2124,7 +2114,7 @@ function MatchRequestSheet({
         challenger_id:    currentUserId,
         opponent_id:      opponent.id,
         match_type:       matchType as any,
-        court_type:       courtType as any,
+        court_type:       null,
         date:             dateStr,
         time_start:       timeSlot,
         time_end:         timeEnd,
@@ -2253,23 +2243,6 @@ function MatchRequestSheet({
                       onPress={() => setDuration(d)}
                       activeOpacity={0.8}>
                       <Text style={[mrS.pillText, { color: active ? BLUE : theme.textSecondary }]}>{d} min</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              {/* Court Surface */}
-              <Text style={[mrS.sectionLabel, { color: theme.textSecondary }]}>Preferred Surface</Text>
-              <View style={mrS.pillRow}>
-                {REQUEST_COURT_TYPES.map(ct => {
-                  const active = courtType === ct.value;
-                  return (
-                    <TouchableOpacity
-                      key={ct.label}
-                      style={[mrS.pill, { borderColor: active ? BLUE : theme.border, backgroundColor: active ? BLUE + '22' : 'transparent' }]}
-                      onPress={() => setCourtType(ct.value)}
-                      activeOpacity={0.8}>
-                      <Text style={[mrS.pillText, { color: active ? BLUE : theme.textSecondary }]}>{ct.label}</Text>
                     </TouchableOpacity>
                   );
                 })}
@@ -2537,26 +2510,15 @@ export default function MatchScreen() {
 
         {/* Hero */}
         <View style={scrS.hero}>
-          <View style={{ flex: 1, paddingRight: 12 }}>
-            <Text style={[scrS.pageTitle, { color: theme.textPrimary }]}>Match</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={[scrS.pageTitle, { color: theme.textPrimary }]}>Matches</Text>
             <Text style={[scrS.pageSub, { color: theme.textSecondary }]}>
-              Find the right players. Play more tennis.
+              Discover open matches and join players nearby.
             </Text>
           </View>
-          <TouchableOpacity
-            style={[scrS.lookupBtn, { borderColor: BLUE, backgroundColor: theme.cardBg }]}
-            onPress={() => setShowLookup(true)}
-            activeOpacity={0.8}>
-            <User size={14} color={BLUE} strokeWidth={1.5} />
-            <Text style={scrS.lookupBtnText}>Player Lookup</Text>
-          </TouchableOpacity>
         </View>
 
-        {/* Filter bar */}
-        <View style={scrS.filterWrap}>
-          <FilterBar filters={filters} onEdit={() => setShowFilters(true)} />
-          <ResultsContext filters={filters} matchingCount={filteredRecommended.length} loading={loading} />
-        </View>
+        <MatchDiscovery userId={userId} />
 
         {/* Error banner */}
         {error != null && (
@@ -2571,7 +2533,6 @@ export default function MatchScreen() {
         )}
 
         {/* Sections */}
-        <RecommendedPlayersSection players={filteredRecommended} loading={loading} currentUserId={userId} onRequest={setRequestTarget} />
         <IncomingRequestsSection
           requests={incoming} loading={loading} currentUserId={userId}
           onAccept={setAcceptTarget} onDecline={setDeclineTarget}

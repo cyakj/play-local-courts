@@ -89,6 +89,8 @@ export default function CoachLayout() {
         }}
       />
       <Tabs.Screen name="reviews" options={{ href: null }} />
+      <Tabs.Screen name="schedule-settings" options={{ href: null }} />
+      <Tabs.Screen name="schedule-week" options={{ href: null }} />
     </Tabs>
   );
 }

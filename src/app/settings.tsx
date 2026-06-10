@@ -1,5 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -7,6 +16,7 @@ import {
 } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
+import { signOutAndReset } from '@/lib/auth';
 import {
   Colors, FontFamily, FontSize, MaxWidth, Radius, Shadow, Spacing,
 } from '@/constants/design';
@@ -36,6 +46,7 @@ export default function SettingsScreen() {
   const { mode, theme, setTheme } = useTheme();
   const [profile, setProfile] = useState<Profile>({ full_name: null, email: null });
   const [memberships, setMemberships] = useState<Membership[]>([]);
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -64,16 +75,35 @@ export default function SettingsScreen() {
     load();
   }, []);
 
-  async function signOut() {
+  function signOut() {
+    if (signingOut) return;
+
+    async function performSignOut() {
+      setSigningOut(true);
+      try {
+        await signOutAndReset();
+      } catch (error) {
+        setSigningOut(false);
+        Alert.alert(
+          'Unable to sign out',
+          error instanceof Error ? error.message : 'Please try again.',
+        );
+      }
+    }
+
+    if (Platform.OS === 'web') {
+      if (window.confirm('Are you sure you want to sign out?')) {
+        void performSignOut();
+      }
+      return;
+    }
+
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Sign Out',
         style: 'destructive',
-        onPress: async () => {
-          try { await supabase.auth.signOut(); } catch { /* ignore */ }
-          router.replace('/(auth)/login');
-        },
+        onPress: () => { void performSignOut(); },
       },
     ]);
   }
@@ -218,8 +248,15 @@ export default function SettingsScreen() {
           </View>
 
           {/* Sign Out */}
-          <TouchableOpacity style={styles.signOutCard} onPress={signOut} activeOpacity={0.8}>
-            <Text style={styles.signOutText}>Sign Out</Text>
+          <TouchableOpacity
+            style={[styles.signOutCard, signingOut && styles.signOutCardDisabled]}
+            onPress={signOut}
+            disabled={signingOut}
+            activeOpacity={0.8}>
+            {signingOut && <ActivityIndicator size="small" color={Colors.red} />}
+            <Text style={styles.signOutText}>
+              {signingOut ? 'Signing Out...' : 'Sign Out'}
+            </Text>
           </TouchableOpacity>
 
         </View>
@@ -343,10 +380,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEF2F2',
     borderRadius: Radius.card,
     padding: 16,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: 'rgba(239,68,68,0.13)',
   },
+  signOutCardDisabled: { opacity: 0.65 },
   signOutText: { fontFamily: FontFamily.manropeExtraBold, fontSize: 15, color: Colors.red },
 
   // Appearance segmented control
