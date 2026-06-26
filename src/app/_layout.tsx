@@ -104,6 +104,9 @@ export default function RootLayout() {
       <Stack.Screen name="coach-profile/[id]" />
       <Stack.Screen name="my-coaching" />
       <Stack.Screen name="coach-favorites" />
+      <Stack.Screen name="report-detail/[id]" />
+      <Stack.Screen name="announcements" />
+      <Stack.Screen name="survey-results/[id]" />
     </Stack>
     </ThemeProvider>
   );
