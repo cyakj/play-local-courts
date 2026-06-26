@@ -287,13 +287,14 @@ export default function LoginScreen() {
 
             <View style={styles.divider} />
 
-            <Text style={styles.signUpRow}>
-              Don't have an account?{' '}
-              <Text style={styles.signUpLink}>Sign up</Text>
-            </Text>
-
-            <TouchableOpacity style={styles.centeredLink}>
-              <Text style={styles.reviewerLink}>RallyNet Personnel Login</Text>
+            <TouchableOpacity
+              style={[styles.centeredLink, { marginTop: 20 }]}
+              onPress={() => router.push('/hoa-application')}
+              activeOpacity={0.7}>
+              <Text style={styles.signUpRow}>
+                Don't have an account?{' '}
+                <Text style={styles.signUpLink}>Sign up</Text>
+              </Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
