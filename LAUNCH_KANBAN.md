@@ -26,7 +26,7 @@ A task is DONE only when ALL of the following are true:
 | Tier | Count | Est. Hours | Block |
 |------|-------|-----------|-------|
 | P0 — Must Fix Before TestFlight | 0 remaining (16 done) | ✅ | Nothing ships |
-| P1 — Must Fix Before Public Launch | 6 blocked / 5 done | ~6 h blocked | Users can't be onboarded |
+| P1 — Must Fix Before Public Launch | 4 blocked / 7 done | ~4 h blocked | Users can't be onboarded |
 | P2 — First Month After Launch | 10 | ~10 h | UX degraded |
 | P3 — Ignore Until 100 Users | 7 | ~17 h | Nice-to-have |
 | **Total** | **43** | **~53 h** | |
@@ -429,7 +429,7 @@ A task is DONE only when ALL of the following are true:
 
 ---
 
-### 🚫 P1-002 · BLOCKED — requires production DB schema verification · Data integrity: approving a join request may not add the user to `hoa_members`
+### ~~P1-002~~ · ✅ DONE (2026-06-26, commit `52b4afc`) · Data integrity: approving a join request may not add the user to `hoa_members`
 
 **Description:** `pending-requests.tsx`'s `updateRequest()` only sets `community_join_requests.status = 'approved'`. No explicit `hoa_members` INSERT follows. If no database trigger converts an approved `community_join_requests` row into an `hoa_members` row, the approved user can never access courts, bookings, or any HOA data. No such trigger was found in the migration audit.
 
@@ -454,7 +454,7 @@ A task is DONE only when ALL of the following are true:
 
 ---
 
-### 🚫 P1-003 · BLOCKED — schema uncertainty, requires production DB verification · Data integrity: `hoa_members` vs `hoa_memberships` table name mismatch
+### ~~P1-003~~ · ✅ DONE (2026-06-26, commit `52b4afc`) · Data integrity: `hoa_members` vs `hoa_memberships` table name mismatch
 
 **Description:** Two screens query different table names for user-to-HOA membership:
 - `(cm)/index.tsx` line 54: queries `hoa_members`
