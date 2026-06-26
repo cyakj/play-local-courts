@@ -104,11 +104,11 @@ export default function AdminHubScreen() {
   const timeGreeting = hour < 12 ? 'Good morning,' : hour < 18 ? 'Good afternoon,' : 'Good evening,';
 
   const statCards = [
-    { Icon: AlertTriangle, value: totalOpenIssues, label: 'Open Issues' },
-    { Icon: Calendar, value: totalTodayBookings, label: "Today's Bookings" },
-    { Icon: Building2, value: totalMembers, label: 'Members' },
-    { Icon: Clock, value: totalPending, label: 'Pending' },
-  ];
+    { Icon: AlertTriangle, value: totalOpenIssues, label: 'Open Issues', onPress: undefined },
+    { Icon: Calendar, value: totalTodayBookings, label: "Today's Bookings", onPress: undefined },
+    { Icon: Building2, value: totalMembers, label: 'Members', onPress: undefined },
+    { Icon: Clock, value: totalPending, label: 'Pending', onPress: () => router.push('/(admin)/pending-requests') },
+  ] as const;
 
   return (
     <View style={styles.screen}>
@@ -128,14 +128,19 @@ export default function AdminHubScreen() {
 
           {/* 2×2 stats grid */}
           <View style={styles.statsGrid}>
-            {statCards.map(({ Icon, value, label }) => (
-              <View key={label} style={styles.statCard}>
+            {statCards.map(({ Icon, value, label, onPress }) => (
+              <TouchableOpacity
+                key={label}
+                style={styles.statCard}
+                onPress={onPress}
+                disabled={!onPress}
+                activeOpacity={onPress ? 0.8 : 1}>
                 <Icon color={Colors.accentCyan} size={20} strokeWidth={1.5} />
                 <View style={styles.statBottom}>
                   <Text style={styles.statValue}>{value}</Text>
                   <Text style={styles.statLabel}>{label.toUpperCase()}</Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
 
