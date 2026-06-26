@@ -85,8 +85,12 @@ export default function MyReservationsScreen() {
         style: 'destructive',
         onPress: async () => {
           setCancelling(id);
-          await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', id);
+          const { error } = await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', id);
           setCancelling(null);
+          if (error) {
+            Alert.alert('Cancellation failed', 'Could not cancel this booking. Please try again.');
+            return;
+          }
           load();
         },
       },
