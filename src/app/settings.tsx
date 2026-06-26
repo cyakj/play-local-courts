@@ -80,7 +80,7 @@ export default function SettingsScreen() {
 
   const name = profile.full_name ?? 'User';
   const initials = getInitials(name);
-  const activeMemberships = memberships.filter((m) => m.status === 'active');
+  const activeMemberships = memberships.filter((m) => m.status === 'approved');
   const pendingMemberships = memberships.filter((m) => m.status === 'pending');
   const activeHOA = activeMemberships[0];
 
