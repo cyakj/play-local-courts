@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Plus, Trash2 } from 'lucide-react-native';
+import { Copy, Pencil, Plus, Trash2 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/design';
 import { useTheme } from '@/context/ThemeContext';
@@ -39,6 +39,10 @@ function fmtTime(t: string): string {
   return `${h12}${m ? `:${String(m).padStart(2, '0')}` : ''}${ampm}`;
 }
 
+function normalizeTime(t: string): string {
+  return t.slice(0, 5);
+}
+
 interface Props {
   slots: CoachAvailabilitySlot[];
   onRefresh: () => void;
@@ -49,7 +53,8 @@ export function CoachAvailabilityEditor({ slots, onRefresh }: Props) {
   const styles = useStyles(theme);
   const insets = useSafeAreaInsets();
 
-  const [showAdd, setShowAdd]         = useState(false);
+  const [showModal, setShowModal]     = useState(false);
+  const [editingSlot, setEditingSlot] = useState<CoachAvailabilitySlot | null>(null);
   const [newDay, setNewDay]           = useState(1);
   const [newStart, setNewStart]       = useState('09:00');
   const [newEnd, setNewEnd]           = useState('12:00');
@@ -65,17 +70,45 @@ export function CoachAvailabilityEditor({ slots, onRefresh }: Props) {
     return g;
   }, [slots]);
 
+  function openAdd() {
+    setEditingSlot(null);
+    setNewDay(1);
+    setNewStart('09:00');
+    setNewEnd('12:00');
+    setNewLocation('coach_facility');
+    setShowModal(true);
+  }
+
+  function openEdit(slot: CoachAvailabilitySlot) {
+    setEditingSlot(slot);
+    setNewDay(slot.day_of_week);
+    setNewStart(normalizeTime(slot.start_time));
+    setNewEnd(normalizeTime(slot.end_time));
+    setNewLocation(slot.location_mode ?? 'coach_facility');
+    setShowModal(true);
+  }
+
+  function openCopy(slot: CoachAvailabilitySlot) {
+    setEditingSlot(null);
+    setNewDay(slot.day_of_week);
+    setNewStart(normalizeTime(slot.start_time));
+    setNewEnd(normalizeTime(slot.end_time));
+    setNewLocation(slot.location_mode ?? 'coach_facility');
+    setShowModal(true);
+  }
+
   async function handleDelete(slot: CoachAvailabilitySlot) {
     Alert.alert(
       'Remove Slot',
-      `Remove ${DAY_NAMES[slot.day_of_week]} ${fmtTime(slot.start_time)} – ${fmtTime(slot.end_time)}?`,
+      `Remove ${DAY_NAMES[slot.day_of_week]} ${fmtTime(normalizeTime(slot.start_time))} – ${fmtTime(normalizeTime(slot.end_time))}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Remove',
           style: 'destructive',
           onPress: async () => {
-            await supabase.from('coach_availability').delete().eq('id', slot.id);
+            const { error } = await supabase.from('coach_availability').delete().eq('id', slot.id);
+            if (error) { Alert.alert('Error', error.message); return; }
             onRefresh();
           },
         },
@@ -83,10 +116,16 @@ export function CoachAvailabilityEditor({ slots, onRefresh }: Props) {
     );
   }
 
-  async function handleAdd() {
+  async function handleSave() {
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setSaving(false); return; }
+
+    if (editingSlot) {
+      // Delete old row, then insert new one (handles key changes)
+      const { error: delErr } = await supabase.from('coach_availability').delete().eq('id', editingSlot.id);
+      if (delErr) { setSaving(false); Alert.alert('Error', delErr.message); return; }
+    }
 
     const { error } = await supabase
       .from('coach_availability')
@@ -97,9 +136,16 @@ export function CoachAvailabilityEditor({ slots, onRefresh }: Props) {
 
     setSaving(false);
     if (error) { Alert.alert('Error', error.message); return; }
-    setShowAdd(false);
+    setShowModal(false);
     onRefresh();
   }
+
+  const isEditing = editingSlot != null;
+  const modalTitle = isEditing ? 'Edit Availability Slot' : 'Add Availability Slot';
+  const saveLabel  = saving ? 'Saving…' : isEditing ? 'Save Changes' : 'Add Slot';
+
+  const validStart = TIME_OPTIONS.filter(t => t < newEnd);
+  const validEnd   = TIME_OPTIONS.filter(t => t > newStart);
 
   return (
     <View style={styles.container}>
@@ -107,7 +153,7 @@ export function CoachAvailabilityEditor({ slots, onRefresh }: Props) {
         <Text style={styles.sectionTitle}>AVAILABILITY</Text>
         <TouchableOpacity
           style={styles.addBtn}
-          onPress={() => setShowAdd(true)}
+          onPress={openAdd}
           activeOpacity={0.8}>
           <Plus size={14} color={Colors.blue} strokeWidth={2.5} />
           <Text style={styles.addBtnText}>Add Slot</Text>
@@ -115,7 +161,10 @@ export function CoachAvailabilityEditor({ slots, onRefresh }: Props) {
       </View>
 
       {slots.length === 0 ? (
-        <Text style={styles.emptyText}>No availability slots set. Add your first slot above.</Text>
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyText}>No availability slots yet.</Text>
+          <Text style={styles.emptySubText}>Tap "Add Slot" to set your weekly availability.</Text>
+        </View>
       ) : (
         [0, 1, 2, 3, 4, 5, 6].filter(d => grouped[d]).map(d => (
           <View key={d} style={styles.dayGroup}>
@@ -124,31 +173,44 @@ export function CoachAvailabilityEditor({ slots, onRefresh }: Props) {
               <View key={slot.id} style={styles.slotRow}>
                 <View style={styles.slotInfo}>
                   <Text style={styles.slotTime}>
-                    {fmtTime(slot.start_time)} – {fmtTime(slot.end_time)}
+                    {fmtTime(normalizeTime(slot.start_time))} – {fmtTime(normalizeTime(slot.end_time))}
                   </Text>
                   <Text style={styles.slotLocation}>
                     {LOCATION_MODES.find(m => m.value === slot.location_mode)?.label ?? slot.location_mode ?? '—'}
                   </Text>
                 </View>
-                <TouchableOpacity
-                  style={styles.deleteBtn}
-                  onPress={() => handleDelete(slot)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  activeOpacity={0.7}>
-                  <Trash2 size={15} color={Colors.negative} strokeWidth={1.8} />
-                </TouchableOpacity>
+                <View style={styles.slotActions}>
+                  <TouchableOpacity
+                    onPress={() => openCopy(slot)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    activeOpacity={0.7}>
+                    <Copy size={14} color={Colors.fg2} strokeWidth={1.8} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => openEdit(slot)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    activeOpacity={0.7}>
+                    <Pencil size={14} color={Colors.fg2} strokeWidth={1.8} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => handleDelete(slot)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    activeOpacity={0.7}>
+                    <Trash2 size={14} color={Colors.negative} strokeWidth={1.8} />
+                  </TouchableOpacity>
+                </View>
               </View>
             ))}
           </View>
         ))
       )}
 
-      {/* Add Slot Modal */}
-      <Modal visible={showAdd} transparent animationType="slide" onRequestClose={() => setShowAdd(false)}>
-        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setShowAdd(false)} />
+      {/* Add / Edit Modal */}
+      <Modal visible={showModal} transparent animationType="slide" onRequestClose={() => setShowModal(false)}>
+        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setShowModal(false)} />
         <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
           <View style={styles.sheetHandle} />
-          <Text style={styles.sheetTitle}>Add Availability Slot</Text>
+          <Text style={styles.sheetTitle}>{modalTitle}</Text>
 
           <Text style={styles.fieldLabel}>DAY OF WEEK</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
@@ -165,7 +227,7 @@ export function CoachAvailabilityEditor({ slots, onRefresh }: Props) {
 
           <Text style={styles.fieldLabel}>START TIME</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-            {TIME_OPTIONS.filter(t => t < newEnd).map(t => (
+            {validStart.map(t => (
               <TouchableOpacity
                 key={t}
                 style={[styles.chip, newStart === t && styles.chipActive]}
@@ -178,7 +240,7 @@ export function CoachAvailabilityEditor({ slots, onRefresh }: Props) {
 
           <Text style={styles.fieldLabel}>END TIME</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-            {TIME_OPTIONS.filter(t => t > newStart).map(t => (
+            {validEnd.map(t => (
               <TouchableOpacity
                 key={t}
                 style={[styles.chip, newEnd === t && styles.chipActive]}
@@ -204,10 +266,10 @@ export function CoachAvailabilityEditor({ slots, onRefresh }: Props) {
 
           <TouchableOpacity
             style={[styles.saveBtn, saving && styles.btnDisabled]}
-            onPress={handleAdd}
+            onPress={handleSave}
             disabled={saving}
             activeOpacity={0.85}>
-            <Text style={styles.saveBtnText}>{saving ? 'Saving…' : 'Add Slot'}</Text>
+            <Text style={styles.saveBtnText}>{saveLabel}</Text>
           </TouchableOpacity>
         </View>
       </Modal>
@@ -245,12 +307,27 @@ function useStyles(theme: ThemeTokens) {
       fontSize: FontSize.label,
       color: Colors.blue,
     },
+    emptyCard: {
+      backgroundColor: theme.cardBg,
+      borderRadius: Radius.card,
+      borderWidth: 1,
+      borderColor: theme.border,
+      paddingVertical: 28,
+      paddingHorizontal: 20,
+      alignItems: 'center',
+      gap: 6,
+    },
     emptyText: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: FontSize.label,
+      color: theme.textSecondary,
+      textAlign: 'center',
+    },
+    emptySubText: {
       fontFamily: FontFamily.manropeMedium,
       fontSize: FontSize.label,
       color: theme.textMuted,
       textAlign: 'center',
-      paddingVertical: 16,
     },
     dayGroup: { gap: 6 },
     dayLabel: {
@@ -279,8 +356,11 @@ function useStyles(theme: ThemeTokens) {
       fontSize: FontSize.label,
       color: theme.textMuted,
     },
-    deleteBtn: {
-      padding: 4,
+    slotActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+      paddingLeft: 8,
     },
     overlay: {
       flex: 1,

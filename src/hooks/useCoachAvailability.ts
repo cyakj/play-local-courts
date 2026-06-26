@@ -46,6 +46,7 @@ interface UseCoachAvailabilityResult {
   unavailabilityBlocks: CoachUnavailabilityBlock[];
   loading: boolean;
   error: string | null;
+  refresh: () => void;
   isAvailableOnDate: (date: Date, hour: TimeHour) => boolean;
   isBlockedOnDate: (date: Date) => boolean;
   hasScheduleForHourOnDay: (dayOfWeek: number, hour: TimeHour) => boolean;
@@ -88,6 +89,9 @@ export function useCoachAvailability(
   const [unavailabilityBlocks, setUnavailabilityBlocks] = useState<CoachUnavailabilityBlock[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tick, setTick] = useState(0);
+
+  const refresh = useCallback(() => setTick(t => t + 1), []);
 
   useEffect(() => {
     if (!coachId) return;
@@ -133,7 +137,7 @@ export function useCoachAvailability(
 
     load();
     return () => { cancelled = true; };
-  }, [coachId, lookaheadDays]);
+  }, [coachId, lookaheadDays, tick]);
 
   const hasScheduleForHourOnDay = useCallback(
     (dayOfWeek: number, hour: TimeHour): boolean => {
@@ -158,5 +162,5 @@ export function useCoachAvailability(
     [hasScheduleForHourOnDay, isBlockedOnDate],
   );
 
-  return { weeklySlots, unavailabilityBlocks, loading, error, isAvailableOnDate, isBlockedOnDate, hasScheduleForHourOnDay };
+  return { weeklySlots, unavailabilityBlocks, loading, error, refresh, isAvailableOnDate, isBlockedOnDate, hasScheduleForHourOnDay };
 }

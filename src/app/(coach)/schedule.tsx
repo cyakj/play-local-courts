@@ -1,14 +1,13 @@
 import { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { Header } from '@/components/ui/Header';
 import { useTheme } from '@/context/ThemeContext';
 import { useCoachSchedule } from '@/hooks/useCoachSchedule';
 import { useCoachAvailability } from '@/hooks/useCoachAvailability';
 import { CoachWeekView } from '@/components/coach/CoachWeekView';
-import { CoachAvailabilityGridEditor } from '@/components/coach/CoachAvailabilityGridEditor';
-import { useCoachProfile } from '@/hooks/useCoachProfile';
-import { Colors, FontFamily, FontSize, Spacing } from '@/constants/design';
+import { CoachAvailabilityEditor } from '@/components/coach/CoachAvailabilityEditor';
+import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/design';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 import { supabase } from '@/lib/supabase';
 
@@ -35,8 +34,7 @@ export default function CoachScheduleScreen() {
   }, []);
 
   const { lessonsByDate, loading: schedLoading, refresh: refreshSchedule } = useCoachSchedule(weekStart);
-  const { weeklySlots, loading: slotsLoading } = useCoachAvailability(coachId);
-  const { profile: coachProfile } = useCoachProfile();
+  const { weeklySlots, loading: slotsLoading, error: slotsError, refresh: refreshSlots } = useCoachAvailability(coachId);
 
   function prevWeek() {
     const d = new Date(weekStart);
@@ -83,12 +81,26 @@ export default function CoachScheduleScreen() {
           onSelectDate={setSelectedDate}
         />
 
-        {/* Availability editor */}
-        <CoachAvailabilityGridEditor
-          weeklySlots={weeklySlots}
-          coachingLocationType={coachProfile?.coachingLocationType ?? null}
-          onRefresh={refreshSchedule}
-        />
+        {/* Availability block editor */}
+        {slotsLoading ? (
+          <View style={styles.loadingRow}>
+            <ActivityIndicator size="small" color={Colors.blue} />
+            <Text style={styles.loadingText}>Loading availability…</Text>
+          </View>
+        ) : slotsError ? (
+          <View style={styles.errorCard}>
+            <Text style={styles.errorText}>Could not load availability.</Text>
+            <Text style={styles.errorDetail}>{slotsError}</Text>
+            <TouchableOpacity onPress={refreshSlots} activeOpacity={0.7}>
+              <Text style={styles.retryText}>Try again</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <CoachAvailabilityEditor
+            slots={weeklySlots}
+            onRefresh={refreshSlots}
+          />
+        )}
       </ScrollView>
     </View>
   );
@@ -110,7 +122,7 @@ function useStyles(theme: ThemeTokens) {
     navBtn: {
       width: 36,
       height: 36,
-      borderRadius: 8,
+      borderRadius: Radius.sm,
       borderWidth: 1,
       borderColor: theme.border,
       alignItems: 'center',
@@ -120,6 +132,44 @@ function useStyles(theme: ThemeTokens) {
       fontFamily: FontFamily.manropeSemiBold,
       fontSize: FontSize.label,
       color: theme.textSecondary,
+    },
+    loadingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      paddingVertical: 20,
+    },
+    loadingText: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.label,
+      color: theme.textMuted,
+    },
+    errorCard: {
+      backgroundColor: 'rgba(255,92,107,0.08)',
+      borderRadius: Radius.card,
+      borderWidth: 1,
+      borderColor: 'rgba(255,92,107,0.2)',
+      padding: 20,
+      alignItems: 'center',
+      gap: 8,
+    },
+    errorText: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: FontSize.label,
+      color: Colors.negative,
+    },
+    errorDetail: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.label,
+      color: theme.textMuted,
+      textAlign: 'center',
+    },
+    retryText: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: FontSize.label,
+      color: Colors.blue,
+      marginTop: 4,
     },
   }), [theme]);
 }
