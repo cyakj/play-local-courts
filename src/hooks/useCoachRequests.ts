@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
+import { sendNotificationEmail } from '@/lib/emailNotifications';
 
 export interface CoachLessonRequest {
   id: string;
@@ -156,6 +157,26 @@ export function useCoachRequests(): UseCoachRequestsResult {
       })
       .eq('id', id);
     if (e) return e.message;
+
+    // Notify the player — fire and forget
+    void (async () => {
+      const [{ data: lesson }, { data: auth }] = await Promise.all([
+        supabase.from('lesson_requests').select('player_id, lesson_type').eq('id', id).single(),
+        supabase.auth.getUser(),
+      ]);
+      if (!lesson) return;
+      const { data: prof } = await supabase.from('profiles').select('full_name').eq('id', auth.user?.id ?? '').single();
+      sendNotificationEmail({
+        type: 'lesson_confirmation',
+        userId: (lesson as any).player_id,
+        coachName: (prof as any)?.full_name ?? 'Your Coach',
+        lessonType: (lesson as any).lesson_type,
+        date: confirmedDate,
+        startTime: confirmedStart,
+        endTime: confirmedEnd,
+      });
+    })();
+
     refresh();
     return null;
   }
@@ -170,6 +191,25 @@ export function useCoachRequests(): UseCoachRequestsResult {
       })
       .eq('id', id);
     if (e) return e.message;
+
+    // Notify the player — fire and forget
+    void (async () => {
+      const [{ data: lesson }, { data: auth }] = await Promise.all([
+        supabase.from('lesson_requests').select('player_id, lesson_type, preferred_date').eq('id', id).single(),
+        supabase.auth.getUser(),
+      ]);
+      if (!lesson) return;
+      const { data: prof } = await supabase.from('profiles').select('full_name').eq('id', auth.user?.id ?? '').single();
+      sendNotificationEmail({
+        type: 'lesson_declined',
+        userId: (lesson as any).player_id,
+        coachName: (prof as any)?.full_name ?? 'Your Coach',
+        lessonType: (lesson as any).lesson_type,
+        date: (lesson as any).preferred_date,
+        cancellationReason: reason,
+      });
+    })();
+
     refresh();
     return null;
   }

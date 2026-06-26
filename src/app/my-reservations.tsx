@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { CalendarDays } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
+import { sendNotificationEmail } from '@/lib/emailNotifications';
 import { Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing } from '@/constants/design';
 import { Header } from '@/components/ui/Header';
 import { CardSkeleton } from '@/components/ui/Skeleton';
@@ -56,10 +57,12 @@ export default function MyReservationsScreen() {
   const [past, setPast] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState<string | null>(null);
+  const [userId, setUserId] = useState('');
 
   async function load() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
+    setUserId(user.id);
     const today = new Date().toISOString().split('T')[0];
 
     const { data } = await supabase
@@ -85,20 +88,28 @@ export default function MyReservationsScreen() {
 
   useEffect(() => { load(); }, []);
 
-  async function cancelBooking(id: string) {
+  async function cancelBooking(booking: Booking) {
     Alert.alert('Cancel Booking', 'Are you sure you want to cancel this booking?', [
       { text: 'No', style: 'cancel' },
       {
         text: 'Yes, Cancel',
         style: 'destructive',
         onPress: async () => {
-          setCancelling(id);
-          const { error } = await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', id);
+          setCancelling(booking.id);
+          const { error } = await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', booking.id);
           setCancelling(null);
           if (error) {
             Alert.alert('Cancellation failed', 'Could not cancel this booking. Please try again.');
             return;
           }
+          sendNotificationEmail({
+            type: 'booking_cancellation',
+            userId,
+            courtName: booking.courtName,
+            date: booking.date,
+            startTime: booking.start_time,
+            endTime: booking.end_time,
+          });
           load();
         },
       },
@@ -135,7 +146,7 @@ export default function MyReservationsScreen() {
         {isUpcoming && canCancelBooking(b.date, b.start_time) && (
           <TouchableOpacity
             style={styles.cancelBtn}
-            onPress={() => cancelBooking(b.id)}
+            onPress={() => cancelBooking(b)}
             disabled={cancelling === b.id}>
             <Text style={styles.cancelText}>
               {cancelling === b.id ? '…' : 'Cancel'}

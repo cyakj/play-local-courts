@@ -6,6 +6,7 @@ import { router } from 'expo-router';
 import { UserCheck, UserX, Users } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
+import { sendNotificationEmail } from '@/lib/emailNotifications';
 import {
   Colors, FontFamily, FontSize, Radius, Spacing, MaxWidth,
 } from '@/constants/design';
@@ -115,6 +116,10 @@ export default function PendingRequestsScreen() {
     if (finalError) {
       setActionError(finalError);
     } else {
+      sendNotificationEmail({
+        type: action === 'approved' ? 'hoa_approved' : 'hoa_rejected',
+        userId: req.user_id,
+      });
       loadRequests();
     }
   }

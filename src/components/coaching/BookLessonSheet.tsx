@@ -16,6 +16,7 @@ import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/desig
 import { useTheme } from '@/context/ThemeContext';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 import { supabase } from '@/lib/supabase';
+import { sendNotificationEmail } from '@/lib/emailNotifications';
 import type { CoachAvailabilitySlot, CoachUnavailabilityBlock } from '@/hooks/useCoachAvailability';
 import type { LessonPackage } from '@/hooks/useLessonPackages';
 
@@ -354,6 +355,17 @@ export function BookLessonSheet({
       Alert.alert('Error', 'Could not send request. Please try again.');
       return;
     }
+
+    // Notify the coach of the new request (fire and forget)
+    sendNotificationEmail({
+      type: 'lesson_request_received',
+      userId: coachUserId,
+      playerId: user.id,
+      lessonType,
+      date: isoDate(selectedDate),
+      startTime: selectedSlot?.start,
+      endTime: selectedSlot?.end,
+    });
 
     setSuccess(true);
     setTimeout(() => {

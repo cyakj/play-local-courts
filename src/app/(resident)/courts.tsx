@@ -19,6 +19,7 @@ import {
 import * as Location from 'expo-location';
 
 import { supabase } from '@/lib/supabase';
+import { sendNotificationEmail } from '@/lib/emailNotifications';
 import {
   Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing,
 } from '@/constants/design';
@@ -695,6 +696,15 @@ export default function CourtsScreen() {
     setConfirming(false);
     if (!error) {
       setBookingSuccess(true);
+      sendNotificationEmail({
+        type: 'booking_confirmation',
+        userId,
+        courtName: bookingSheet.courtName,
+        date: dateStr,
+        startTime: `${sheetSelectedSlot}:00`,
+        endTime: `${endTime}:00`,
+        playType: sheetPlayType,
+      });
       await fetchBookingsForDate(dateStr);
       await loadCourts();
       setTimeout(() => { setBookingSheet(null); setBookingSuccess(false); setBookingError(null); }, 1400);
