@@ -197,12 +197,27 @@ export default function CoachMeScreen() {
     ]);
   }
 
-  if (loading || !profile) {
+  if (loading) {
     return (
       <View style={[styles.screen, { backgroundColor: theme.pageBg }]}>
         <Header variant="coach" />
         <View style={styles.loading}>
           <Text style={styles.loadingText}>Loading…</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <View style={[styles.screen, { backgroundColor: theme.pageBg }]}>
+        <Header variant="coach" />
+        <View style={styles.loading}>
+          <Text style={styles.loadingText}>Coach profile not found.</Text>
+          <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.8}>
+            <LogOut size={16} color={Colors.negative} strokeWidth={1.8} />
+            <Text style={styles.signOutText}>Sign Out</Text>
+          </TouchableOpacity>
         </View>
       </View>
     );

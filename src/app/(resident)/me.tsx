@@ -70,7 +70,7 @@ export default function MeScreen() {
 
     setProfile({
       fullName: profileRes.data?.full_name ?? 'Member',
-      ntrpRating: profileRes.data?.ntrp_rating ?? null,
+      ntrpRating: profileRes.data?.ntrp_rating != null ? String(profileRes.data.ntrp_rating) : null,
       communityName,
     });
     setLoading(false);
@@ -83,7 +83,8 @@ export default function MeScreen() {
         text: 'Sign out',
         style: 'destructive',
         onPress: async () => {
-          try { await supabase.auth.signOut(); } catch { /* layout handles routing */ }
+          try { await supabase.auth.signOut(); } catch { /* ignore */ }
+          router.replace('/(auth)/login');
         },
       },
     ]);
@@ -163,12 +164,15 @@ export default function MeScreen() {
                 onPress={() => router.push('/settings')}
                 styles={styles}
               />
-
-              <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.8}>
-                <LogOut size={18} color={Colors.negative} strokeWidth={1.5} />
-                <Text style={styles.signOutText}>Sign Out</Text>
-              </TouchableOpacity>
             </>
+          )}
+
+          {/* Sign out is always visible so users can log out even when profile fails to load */}
+          {!loading && (
+            <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.8}>
+              <LogOut size={18} color={Colors.negative} strokeWidth={1.5} />
+              <Text style={styles.signOutText}>Sign Out</Text>
+            </TouchableOpacity>
           )}
         </View>
       </ScrollView>
