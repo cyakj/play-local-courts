@@ -13,11 +13,13 @@ import { Heart, MapPin, Star } from 'lucide-react-native';
 import { Header } from '@/components/ui/Header';
 import { CoachAvailabilityGrid } from '@/components/coaching/CoachAvailabilityGrid';
 import { BookLessonSheet } from '@/components/coaching/BookLessonSheet';
+import { PackagesList } from '@/components/coaching/PackagesList';
 import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/design';
 import { useTheme } from '@/context/ThemeContext';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 import { supabase } from '@/lib/supabase';
 import { useCoachAvailability } from '@/hooks/useCoachAvailability';
+import { useCoachPackages } from '@/hooks/useLessonPackages';
 
 const LEVEL_LABELS: Record<string, string> = {
   beginner:         'Beginner',
@@ -72,6 +74,9 @@ export default function CoachProfileScreen() {
   const [bookSheetVisible, setBookSheetVisible] = useState(false);
 
   const { weeklySlots, unavailabilityBlocks } = useCoachAvailability(
+    coach?.userId ?? null,
+  );
+  const { packages, loading: packagesLoading, error: packagesError } = useCoachPackages(
     coach?.userId ?? null,
   );
 
@@ -363,16 +368,14 @@ export default function CoachProfileScreen() {
           </View>
         </View>
 
-        {/* ── Packages (deferred) ── */}
+        {/* ── Packages ── */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Packages</Text>
-          <View style={styles.deferredCard}>
-            <Text style={styles.deferredEyebrow}>COMING SOON</Text>
-            <Text style={styles.deferredTitle}>Lesson Packages</Text>
-            <Text style={styles.deferredBody}>
-              Multi-lesson packages with discounted rates will be available soon.
-            </Text>
-          </View>
+          <PackagesList
+            packages={packages}
+            loading={packagesLoading}
+            error={packagesError}
+          />
         </View>
 
         {/* ── Reviews ── */}
@@ -410,6 +413,7 @@ export default function CoachProfileScreen() {
         homeBase={coach.homeBase}
         weeklySlots={weeklySlots}
         unavailabilityBlocks={unavailabilityBlocks}
+        packages={packages}
       />
     </View>
   );
@@ -662,37 +666,6 @@ function useStyles(theme: ThemeTokens) {
       fontFamily: FontFamily.manropeMedium,
       fontSize: 12,
       color: theme.textMuted,
-    },
-
-    // Packages deferred
-    deferredCard: {
-      backgroundColor: theme.cardBg,
-      borderRadius: Radius.card,
-      borderWidth: 1,
-      borderColor: theme.border,
-      borderStyle: 'dashed',
-      padding: 20,
-      alignItems: 'center',
-      gap: 6,
-    },
-    deferredEyebrow: {
-      fontFamily: FontFamily.jetbrainsMonoSemiBold,
-      fontSize: 9,
-      color: theme.textMuted,
-      letterSpacing: 1.2,
-    },
-    deferredTitle: {
-      fontFamily: FontFamily.spaceGroteskBold,
-      fontSize: 15,
-      color: theme.textSecondary,
-      letterSpacing: -0.2,
-    },
-    deferredBody: {
-      fontFamily: FontFamily.manropeMedium,
-      fontSize: 13,
-      color: theme.textMuted,
-      textAlign: 'center',
-      lineHeight: 20,
     },
 
     // Reviews

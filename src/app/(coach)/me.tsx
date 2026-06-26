@@ -13,6 +13,7 @@ import { LogOut } from 'lucide-react-native';
 import { Header } from '@/components/ui/Header';
 import { useTheme } from '@/context/ThemeContext';
 import { useCoachProfile } from '@/hooks/useCoachProfile';
+import { LessonPackagesManager } from '@/components/coach/LessonPackagesManager';
 import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/design';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 import { supabase } from '@/lib/supabase';
@@ -492,6 +493,9 @@ export default function CoachMeScreen() {
           activeOpacity={0.85}>
           <Text style={styles.saveBtnText}>{saving ? 'Saving…' : 'Save All Changes'}</Text>
         </TouchableOpacity>
+
+        {/* Lesson Packages */}
+        <LessonPackagesManager />
 
         {/* Sign out */}
         <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.8}>

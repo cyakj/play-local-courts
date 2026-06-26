@@ -17,6 +17,7 @@ import { useTheme } from '@/context/ThemeContext';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 import { supabase } from '@/lib/supabase';
 import type { CoachAvailabilitySlot, CoachUnavailabilityBlock } from '@/hooks/useCoachAvailability';
+import type { LessonPackage } from '@/hooks/useLessonPackages';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -64,6 +65,7 @@ export interface BookLessonSheetProps {
   homeBase: string | null;
   weeklySlots: CoachAvailabilitySlot[];
   unavailabilityBlocks: CoachUnavailabilityBlock[];
+  packages?: LessonPackage[];
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -185,6 +187,10 @@ function getLocationOptions(
 
 // ── Component ────────────────────────────────────────────────────────────────
 
+function formatPrice(price: number): string {
+  return `$${price % 1 === 0 ? price.toFixed(0) : price.toFixed(2)}`;
+}
+
 export function BookLessonSheet({
   visible,
   onClose,
@@ -194,6 +200,7 @@ export function BookLessonSheet({
   homeBase,
   weeklySlots,
   unavailabilityBlocks,
+  packages = [],
 }: BookLessonSheetProps) {
   const { theme } = useTheme();
   const styles = useStyles(theme);
@@ -208,6 +215,7 @@ export function BookLessonSheet({
   const [facilityName,   setFacilityName]  = useState('');
   const [locationNote,   setLocationNote]  = useState('');
   const [notes,          setNotes]         = useState('');
+  const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
   const [submitting,     setSubmitting]    = useState(false);
   const [success,        setSuccess]       = useState(false);
 
@@ -281,6 +289,7 @@ export function BookLessonSheet({
     setFacilityName('');
     setLocationNote('');
     setNotes('');
+    setSelectedPackageId(null);
     setSubmitting(false);
     setSuccess(false);
   }
@@ -336,6 +345,7 @@ export function BookLessonSheet({
         notes:               notes.trim() || null,
         status:              'pending',
         expires_at:          expiresAt,
+        package_id:          selectedPackageId ?? null,
       } as any);
 
     setSubmitting(false);
@@ -685,13 +695,53 @@ export function BookLessonSheet({
                     }
                   />
                   <SummaryRow label="Student" value="Myself" />
+                  {selectedPackageId && (() => {
+                    const pkg = packages.find(p => p.id === selectedPackageId);
+                    return pkg ? <SummaryRow label="Package" value={`${pkg.title} · ${formatPrice(pkg.price)}`} /> : null;
+                  })()}
                 </View>
 
-                <View style={styles.packagePlaceholder}>
-                  <Text style={styles.packagePlaceholderTxt}>
-                    Package &amp; payment options — coming soon
-                  </Text>
-                </View>
+                {packages.length > 0 && (
+                  <View style={styles.packageSection}>
+                    <Text style={styles.packageSectionLabel}>ADD A PACKAGE (optional)</Text>
+                    {packages.map(pkg => {
+                      const selected = selectedPackageId === pkg.id;
+                      const typeLabel = pkg.lessonType
+                        ? ({ 'private': 'Private', 'semi-private': 'Semi-Private', 'group': 'Group', 'junior': 'Junior' } as Record<string, string>)[pkg.lessonType]
+                        : null;
+                      return (
+                        <TouchableOpacity
+                          key={pkg.id}
+                          style={[styles.pkgCard, selected && styles.pkgCardActive]}
+                          onPress={() => setSelectedPackageId(selected ? null : pkg.id)}
+                          activeOpacity={0.75}
+                        >
+                          <View style={styles.pkgCardRow}>
+                            <View style={styles.pkgRadio}>
+                              {selected && <View style={styles.pkgRadioDot} />}
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text style={[styles.pkgTitle, selected && styles.pkgTitleActive]} numberOfLines={1}>
+                                {pkg.title}
+                              </Text>
+                              <Text style={styles.pkgMeta}>
+                                {pkg.durationMin} min
+                                {typeLabel ? ` · ${typeLabel}` : ''}
+                                {pkg.numSessions > 1 ? ` · ${pkg.numSessions} sessions` : ''}
+                              </Text>
+                            </View>
+                            <Text style={[styles.pkgPrice, selected && styles.pkgPriceActive]}>
+                              {formatPrice(pkg.price)}
+                            </Text>
+                          </View>
+                          {pkg.description ? (
+                            <Text style={styles.pkgDesc} numberOfLines={2}>{pkg.description}</Text>
+                          ) : null}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
 
                 <Text style={styles.fieldLabel}>Message to Coach (optional)</Text>
                 <TextInput
@@ -1092,18 +1142,73 @@ function useStyles(theme: ThemeTokens) {
       borderColor: theme.border,
       padding: 16,
     },
-    packagePlaceholder: {
-      padding: 14,
+    packageSection: {
+      gap: 8,
+    },
+    packageSectionLabel: {
+      fontFamily: FontFamily.jetbrainsMonoSemiBold,
+      fontSize: 10,
+      color: theme.textMuted,
+      letterSpacing: 1.0,
+    },
+    pkgCard: {
+      backgroundColor: theme.cardBg,
       borderRadius: Radius.sm,
       borderWidth: 1,
       borderColor: theme.border,
-      borderStyle: 'dashed',
-      alignItems: 'center',
+      padding: 12,
+      gap: 6,
     },
-    packagePlaceholderTxt: {
-      fontFamily: FontFamily.manropeMedium,
+    pkgCardActive: {
+      backgroundColor: 'rgba(45,224,255,0.07)',
+      borderColor: 'rgba(45,224,255,0.40)',
+    },
+    pkgCardRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    pkgRadio: {
+      width: 18,
+      height: 18,
+      borderRadius: 9,
+      borderWidth: 1.5,
+      borderColor: theme.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+    },
+    pkgRadioDot: {
+      width: 9,
+      height: 9,
+      borderRadius: 5,
+      backgroundColor: Colors.cyan,
+    },
+    pkgTitle: {
+      fontFamily: FontFamily.manropeSemiBold,
       fontSize: FontSize.label,
+      color: theme.textSecondary,
+    },
+    pkgTitleActive: { color: Colors.cyan },
+    pkgMeta: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: 12,
       color: theme.textMuted,
+      marginTop: 1,
+    },
+    pkgPrice: {
+      fontFamily: FontFamily.spaceGroteskBold,
+      fontSize: 16,
+      color: theme.textSecondary,
+      flexShrink: 0,
+    },
+    pkgPriceActive: { color: Colors.cyan },
+    pkgDesc: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: 12,
+      color: theme.textMuted,
+      lineHeight: 18,
+      paddingLeft: 28,
     },
     notesInput: {
       backgroundColor: theme.cardBg,
