@@ -51,7 +51,7 @@ export default function AdminHubScreen() {
     const enriched: CommunityWithStats[] = await Promise.all(
       hoas.map(async (hoa) => {
         const [membersRes, issuesRes, courtsRes, pendingRes] = await Promise.all([
-          supabase.from('hoa_members').select('id', { count: 'exact' }).eq('hoa_id', hoa.id).eq('status', 'active'),
+          supabase.from('hoa_memberships').select('id', { count: 'exact' }).eq('hoa_id', hoa.id).eq('status', 'approved'),
           supabase.from('maintenance_reports').select('id', { count: 'exact' }).eq('hoa_id', hoa.id).eq('status', 'open'),
           supabase.from('courts').select('id').eq('hoa_id', hoa.id),
           supabase.from('community_join_requests').select('id', { count: 'exact' }).eq('hoa_id', hoa.id).eq('status', 'pending'),

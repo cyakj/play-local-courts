@@ -28,6 +28,7 @@ export default function PendingRequestsScreen() {
   const [requests, setRequests] = useState<RequestWithProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   async function loadRequests() {
     setLoading(true);
@@ -72,14 +73,50 @@ export default function PendingRequestsScreen() {
     return () => { supabase.removeChannel(sub); };
   }, []);
 
-  async function updateRequest(id: string, status: 'approved' | 'rejected') {
-    setProcessingId(id);
-    await supabase
-      .from('community_join_requests')
-      .update({ status, updated_at: new Date().toISOString() })
-      .eq('id', id);
+  async function updateRequest(req: RequestWithProfile, action: 'approved' | 'rejected') {
+    setProcessingId(req.id);
+    setActionError(null);
+
+    // Look up the hoa_memberships row for this user+hoa (created by request_hoa_membership())
+    const { data: membership } = await supabase
+      .from('hoa_memberships')
+      .select('id')
+      .eq('user_id', req.user_id)
+      .eq('hoa_id', req.hoa_id)
+      .eq('status', 'pending')
+      .single();
+
+    let finalError: string | null = null;
+
+    if (membership) {
+      // Prefer the RPC functions which run as SECURITY DEFINER and handle both tables
+      const fnName = action === 'approved' ? 'approve_hoa_membership' : 'reject_hoa_membership';
+      const { error: rpcError } = await supabase.rpc(fnName, { membership_id: membership.id });
+      if (rpcError) {
+        // RPC failed (e.g. caller not admin in hoa_memberships); do direct updates as fallback
+        const [memRes, jrRes] = await Promise.all([
+          supabase.from('hoa_memberships').update({ status: action, updated_at: new Date().toISOString() }).eq('id', membership.id),
+          supabase.from('community_join_requests').update({ status: action, updated_at: new Date().toISOString() }).eq('id', req.id),
+        ]);
+        if (memRes.error || jrRes.error) {
+          finalError = memRes.error?.message ?? jrRes.error?.message ?? 'Unknown error';
+        }
+      }
+    } else {
+      // Fallback: no hoa_memberships row found — update community_join_requests only
+      const { error } = await supabase
+        .from('community_join_requests')
+        .update({ status: action, updated_at: new Date().toISOString() })
+        .eq('id', req.id);
+      if (error) finalError = error.message;
+    }
+
     setProcessingId(null);
-    loadRequests();
+    if (finalError) {
+      setActionError(finalError);
+    } else {
+      loadRequests();
+    }
   }
 
   return (
@@ -98,6 +135,15 @@ export default function PendingRequestsScreen() {
           </View>
         )}
       </View>
+
+      {actionError && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorBannerText}>{actionError}</Text>
+          <TouchableOpacity onPress={() => setActionError(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Text style={styles.errorBannerDismiss}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <ScrollView
         style={{ flex: 1 }}
@@ -154,7 +200,7 @@ export default function PendingRequestsScreen() {
                 <View style={styles.actionRow}>
                   <TouchableOpacity
                     style={styles.rejectBtn}
-                    onPress={() => updateRequest(req.id, 'rejected')}
+                    onPress={() => updateRequest(req, 'rejected')}
                     disabled={!!processingId}
                     activeOpacity={0.8}>
                     <UserX color={Colors.negative} size={16} strokeWidth={1.5} />
@@ -162,7 +208,7 @@ export default function PendingRequestsScreen() {
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.approveBtn}
-                    onPress={() => updateRequest(req.id, 'approved')}
+                    onPress={() => updateRequest(req, 'approved')}
                     disabled={!!processingId}
                     activeOpacity={0.8}>
                     <UserCheck color={Colors.white} size={16} strokeWidth={1.5} />
@@ -222,6 +268,30 @@ function useStyles(theme: ThemeTokens) {
     awaitingText: { fontFamily: FontFamily.manropeExtraBold, fontSize: 12, color: Colors.negative },
 
     content: { padding: Spacing.pagePx, paddingBottom: 100, gap: 12 },
+
+    errorBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: 'rgba(255,92,107,0.12)',
+      borderTopWidth: 1,
+      borderBottomWidth: 1,
+      borderColor: 'rgba(255,92,107,0.25)',
+      paddingHorizontal: Spacing.pagePx,
+      paddingVertical: 10,
+      gap: 12,
+    },
+    errorBannerText: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.label,
+      color: Colors.negative,
+      flex: 1,
+    },
+    errorBannerDismiss: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: 14,
+      color: Colors.negative,
+    },
 
     emptyCard: {
       backgroundColor: theme.cardBg,

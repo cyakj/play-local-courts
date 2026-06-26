@@ -499,12 +499,10 @@ export default function CoachMeScreen() {
           <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>
 
-        {/* Coming soon */}
+        {/* Payment Settings — not yet available */}
         <View style={styles.comingSoonCard}>
-          <Text style={styles.comingSoonText}>Payment Settings — Coming Soon</Text>
-        </View>
-        <View style={styles.comingSoonCard}>
-          <Text style={styles.comingSoonText}>Lesson Packages — Coming Soon</Text>
+          <Text style={styles.comingSoonText}>Payment Settings</Text>
+          <Text style={styles.comingSoonSub}>Coming in a future update</Text>
         </View>
 
       </ScrollView>
@@ -633,9 +631,15 @@ function useStyles(theme: ThemeTokens) {
       opacity: 0.45,
     },
     comingSoonText: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: FontSize.label,
+      color: theme.textMuted,
+    },
+    comingSoonSub: {
       fontFamily: FontFamily.manropeMedium,
       fontSize: FontSize.label,
       color: theme.textMuted,
+      opacity: 0.6,
     },
   }), [theme]);
 }

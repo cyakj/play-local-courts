@@ -45,7 +45,7 @@ export default function SettingsScreen() {
       const [profileRes, membersRes] = await Promise.all([
         supabase.from('profiles').select('full_name').eq('id', user.id).single(),
         supabase
-          .from('hoa_members')
+          .from('hoa_memberships')
           .select('id, hoa_id, role, status, hoas(name)')
           .eq('user_id', user.id),
       ]);

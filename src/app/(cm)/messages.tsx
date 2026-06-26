@@ -159,7 +159,7 @@ export default function CMMessagesScreen() {
     if (hoaIds.length === 0) { setLoadingResidents(false); return; }
 
     const { data: members } = await supabase
-      .from('hoa_members')
+      .from('hoa_memberships')
       .select('user_id')
       .in('hoa_id', hoaIds)
       .eq('status', 'approved')
