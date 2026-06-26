@@ -21,6 +21,14 @@ interface Booking {
   courtName: string;
 }
 
+const MIN_CANCELLATION_HOURS = 2;
+
+function canCancelBooking(date: string, startTime: string): boolean {
+  const bookingStart = new Date(`${date}T${startTime}`);
+  const hoursUntilStart = (bookingStart.getTime() - Date.now()) / (1000 * 60 * 60);
+  return hoursUntilStart >= MIN_CANCELLATION_HOURS;
+}
+
 function formatDate(iso: string): string {
   const d = new Date(iso + 'T00:00:00');
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
@@ -124,7 +132,7 @@ export default function MyReservationsScreen() {
           <StatusPill status={bookingStatus(b.status)} label={b.status} />
         </View>
 
-        {isUpcoming && (
+        {isUpcoming && canCancelBooking(b.date, b.start_time) && (
           <TouchableOpacity
             style={styles.cancelBtn}
             onPress={() => cancelBooking(b.id)}
@@ -133,6 +141,11 @@ export default function MyReservationsScreen() {
               {cancelling === b.id ? '…' : 'Cancel'}
             </Text>
           </TouchableOpacity>
+        )}
+        {isUpcoming && !canCancelBooking(b.date, b.start_time) && (
+          <View style={[styles.cancelBtn, { opacity: 0.4 }]}>
+            <Text style={styles.cancelText}>{'<2h'}</Text>
+          </View>
         )}
       </View>
     );
