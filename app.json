@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "tenisx-native",
+    "name": "TenisX",
     "slug": "tenisx-native",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -8,7 +8,11 @@
     "scheme": "tenisxnative",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "bundleIdentifier": "ai.tenisx.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "TenisX uses your location to show weather conditions at your local courts."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -28,7 +32,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#0C0F18",
           "android": {
             "image": "./assets/images/splash-icon.png",
             "imageWidth": 76
