@@ -812,6 +812,53 @@ One or both of these table names is wrong. If `hoa_memberships` does not exist, 
 
 ---
 
+### P2-011 · ⚠️ AWAITING QA · Lesson Packages — coach CRUD + player view + booking integration
+
+**Description:** Full lesson packages feature. Coaches can create, edit, deactivate/reactivate, and delete packages from the Coach Me tab. Players see active packages on the coach profile screen and can optionally attach a package when submitting a lesson request. The `package_id` FK is nullable (`ON DELETE SET NULL`) so no existing data is affected.
+
+**Est. Hours:** 0 h remaining (code done, commit `9bac382`) · Migrations need applying to prod · Human QA required  
+**Dependencies:** Two migrations must be applied to production Supabase before this can be QA-tested:  
+1. `supabase/migrations/20260626000000_lesson_packages.sql` — creates `lesson_packages` table with RLS  
+2. `supabase/migrations/20260626000001_lesson_requests_add_package_id.sql` — adds nullable FK to `lesson_requests`  
+**Files:** `src/hooks/useLessonPackages.ts`, `src/components/coach/LessonPackagesManager.tsx`, `src/components/coaching/PackagesList.tsx`, `src/app/(coach)/me.tsx`, `src/app/coach-profile/[id].tsx`, `src/components/coaching/BookLessonSheet.tsx`  
+**Can Defer?** Yes — no P0/P1 blocker depends on it  
+
+**Definition of Done:**
+- Both migrations applied to production
+- Coach can create a package and it appears in the list immediately (no refresh needed)
+- Coach can edit, deactivate, reactivate, and delete a package
+- Deactivated packages show INACTIVE badge; are hidden from player view
+- Player sees active packages on coach profile (or a clean empty state if none exist)
+- Player can select a package in the lesson booking flow (Step 5 of BookLessonSheet)
+- Submitted lesson request row in Supabase has correct `package_id` when package was selected, `null` when skipped
+- No "Coming Soon" text anywhere in the packages flow
+
+**Manual QA Steps — Coach Side:**
+1. Sign in as a coach. Navigate to the Coach tab → Me screen.
+2. Scroll past "Save All Changes" — verify "Lesson Packages" section appears with an "+ Add" button.
+3. Tap "+ Add." Fill in: title, lesson type chip, duration chip (e.g. 60 min), price, sessions (e.g. 4). Tap "Save."
+4. Verify the new package appears in the list with ACTIVE badge and correct title/price.
+5. Tap the pencil icon on the package. Edit the title. Tap "Save." Verify the list updates.
+6. Tap the power icon (toggle). Confirm deactivation alert. Verify badge changes to INACTIVE.
+7. Tap the power icon again. Verify badge returns to ACTIVE.
+8. Tap the trash icon. Confirm delete alert. Verify the package is removed from the list.
+9. Create a package with no description — verify no blank space is left where description would be.
+10. Check Supabase `lesson_packages` table — verify rows match what's shown in the UI.
+
+**Manual QA Steps — Player Side:**
+1. Sign in as a resident/player. Navigate to a coach profile screen (`/coach-profile/[id]`).
+2. Scroll to the "Packages" section. Verify at least one package is visible (or clean empty state if none).
+3. Verify each package shows: title, price, per-session price (if multi-session), type chip, duration/sessions meta.
+4. Tap "Book a Lesson." Advance to Step 5 of the booking flow.
+5. If the coach has active packages: verify a package selector appears. Select one. Verify it highlights.
+6. Tap the selected package again — verify it deselects (optional).
+7. Advance to Step 6 (Review). Verify selected package shows in the summary row.
+8. Submit the lesson request. Check `lesson_requests` table — verify `package_id` column is populated with the correct package UUID.
+9. Book again, skip package selection. Verify `lesson_requests.package_id` is `null`.
+10. If coach has no packages: verify no package selector appears, booking flow is unaffected.
+
+---
+
 ## P3 — Ignore Until 100 Users
 
 > Post-launch, post-product-market-fit work.
