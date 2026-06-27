@@ -3,20 +3,24 @@ import { View } from 'react-native';
 import { router } from 'expo-router';
 
 import { supabase } from '@/lib/supabase';
+import { useSession } from '@/context/NativeAuthContext';
 
 export default function RootIndex() {
-  useEffect(() => {
-    async function determineRoute() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.replace('/(auth)/login');
-        return;
-      }
+  const { session, loading } = useSession();
 
+  useEffect(() => {
+    if (loading) return;
+
+    if (!session) {
+      router.replace('/(auth)/login');
+      return;
+    }
+
+    async function routeByRole() {
       const { data: rolesData } = await supabase
         .from('user_roles')
         .select('role')
-        .eq('user_id', session.user.id);
+        .eq('user_id', session!.user.id);
 
       const roles = (rolesData ?? []).map((r: { role: string }) => r.role);
       const isCM    = roles.some((r) => ['admin', 'condo_manager', 'manager'].includes(r));
@@ -27,9 +31,8 @@ export default function RootIndex() {
       else              router.replace('/(resident)');
     }
 
-    determineRoute();
-  }, []);
+    routeByRole();
+  }, [session, loading]);
 
-  // Dark screen while session resolves — matches splash color
   return <View style={{ flex: 1, backgroundColor: '#0C0F18' }} />;
 }

@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, type ColorValue } from 'react-native';
-import { Tabs } from 'expo-router';
+import { Tabs, Redirect } from 'expo-router';
 import { LayoutDashboard, Users, CalendarDays, Inbox, UserCircle } from 'lucide-react-native';
 import { BottomNav } from '@/components/ui/BottomNav';
 import { Colors } from '@/constants/design';
 import { supabase } from '@/lib/supabase';
+import { useSession } from '@/context/NativeAuthContext';
 
 function RequestsBadgeIcon({ color, size }: { color: ColorValue; size: number }) {
   const [pendingCount, setPendingCount] = useState(0);
@@ -49,6 +50,10 @@ function RequestsBadgeIcon({ color, size }: { color: ColorValue; size: number })
 }
 
 export default function CoachLayout() {
+  const { session, loading } = useSession();
+  if (loading) return null;
+  if (!session) return <Redirect href="/(auth)/login" />;
+
   return (
     <Tabs
       tabBar={(props) => <BottomNav {...(props as any)} />}

@@ -64,16 +64,13 @@ export default function SettingsScreen() {
     load();
   }, []);
 
-  async function signOut() {
+  function signOut() {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Sign Out',
         style: 'destructive',
-        onPress: async () => {
-          try { await supabase.auth.signOut(); } catch { /* ignore */ }
-          router.replace('/(auth)/login');
-        },
+        onPress: () => { supabase.auth.signOut(); },
       },
     ]);
   }

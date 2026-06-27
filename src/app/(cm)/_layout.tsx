@@ -1,8 +1,13 @@
-import { Tabs } from 'expo-router';
+import { Tabs, Redirect } from 'expo-router';
 import { LayoutDashboard, AlertCircle, Calendar, Bell } from 'lucide-react-native';
 import { BottomNav } from '@/components/ui/BottomNav';
+import { useSession } from '@/context/NativeAuthContext';
 
 export default function CMLayout() {
+  const { session, loading } = useSession();
+  if (loading) return null;
+  if (!session) return <Redirect href="/(auth)/login" />;
+
   return (
     <Tabs
       tabBar={(props) => <BottomNav {...(props as any)} />}

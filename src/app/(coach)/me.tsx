@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { router } from 'expo-router';
 import { LogOut } from 'lucide-react-native';
 import { Header } from '@/components/ui/Header';
 import { useTheme } from '@/context/ThemeContext';
@@ -190,10 +189,7 @@ export default function CoachMeScreen() {
       {
         text: 'Sign Out',
         style: 'destructive',
-        onPress: async () => {
-          try { await supabase.auth.signOut(); } catch {}
-          router.replace('/(auth)/login');
-        },
+        onPress: () => { supabase.auth.signOut(); },
       },
     ]);
   }
@@ -227,7 +223,7 @@ export default function CoachMeScreen() {
   return (
     <View style={[styles.screen, { backgroundColor: theme.pageBg }]}>
       <Header variant="coach" />
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
 
         {/* Profile section */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
@@ -497,7 +493,10 @@ export default function CoachMeScreen() {
         {/* Lesson Packages */}
         <LessonPackagesManager />
 
-        {/* Sign out */}
+      </ScrollView>
+
+      {/* Sign out — outside ScrollView so PackageModal cannot block touches */}
+      <View style={styles.footer}>
         <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.8}>
           <LogOut size={16} color={Colors.negative} strokeWidth={1.8} />
           <Text style={styles.signOutText}>Sign Out</Text>
@@ -508,8 +507,7 @@ export default function CoachMeScreen() {
           <Text style={styles.comingSoonText}>Payment Settings</Text>
           <Text style={styles.comingSoonSub}>Coming in a future update</Text>
         </View>
-
-      </ScrollView>
+      </View>
     </View>
   );
 }
@@ -525,7 +523,12 @@ function useStyles(theme: ThemeTokens) {
     },
     content: {
       padding: Spacing.pagePx,
-      paddingBottom: 100,
+      paddingBottom: 20,
+      gap: 10,
+    },
+    footer: {
+      paddingHorizontal: Spacing.pagePx,
+      paddingBottom: 16,
       gap: 10,
     },
     sectionLabel: {

@@ -76,16 +76,13 @@ export default function MeScreen() {
     setLoading(false);
   }
 
-  async function handleSignOut() {
+  function handleSignOut() {
     Alert.alert('Sign out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Sign out',
         style: 'destructive',
-        onPress: async () => {
-          try { await supabase.auth.signOut(); } catch { /* ignore */ }
-          router.replace('/(auth)/login');
-        },
+        onPress: () => { supabase.auth.signOut(); },
       },
     ]);
   }
