@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSession } from '@/context/NativeAuthContext';
 import {
   ArrowLeft, Bell, ChevronRight, LifeBuoy, Lock, Shield, Sun, Moon,
 } from 'lucide-react-native';
@@ -32,12 +33,16 @@ function getInitials(name: string): string {
 }
 
 export default function SettingsScreen() {
+  const { session, loading } = useSession();
   const insets = useSafeAreaInsets();
   const { mode, theme, setTheme } = useTheme();
   const [profile, setProfile] = useState<Profile>({ full_name: null, email: null });
   const [memberships, setMemberships] = useState<Membership[]>([]);
 
+  // All hooks must run before any early returns
   useEffect(() => {
+    if (!session) return;
+
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -62,7 +67,10 @@ export default function SettingsScreen() {
       setMemberships(mapped);
     }
     load();
-  }, []);
+  }, [session]);
+
+  if (loading) return null;
+  if (!session) return <Redirect href="/(auth)/login" />;
 
   function signOut() {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
