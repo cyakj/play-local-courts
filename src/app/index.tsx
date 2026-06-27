@@ -23,14 +23,14 @@ export default function RootIndex() {
         .eq('user_id', session!.user.id);
 
       const roles = (rolesData ?? []).map((r: { role: string }) => r.role);
-      const isCM       = roles.some((r) => ['admin', 'condo_manager', 'manager'].includes(r));
-      const isHOAAdmin = roles.some((r) => ['hoa_manager', 'board_admin'].includes(r));
-      const isCoach    = roles.includes('coach');
+      const isCM    = roles.some((r) =>
+        ['admin', 'condo_manager', 'manager', 'hoa_manager', 'board_admin'].includes(r),
+      );
+      const isCoach = roles.includes('coach');
 
-      if (isCM)            router.replace('/(cm)');
-      else if (isHOAAdmin) router.replace('/(admin)');
-      else if (isCoach)    router.replace('/(coach)');
-      else                 router.replace('/(resident)');
+      if (isCM)         router.replace('/(cm)');
+      else if (isCoach) router.replace('/(coach)');
+      else              router.replace('/(resident)');
     }
 
     routeByRole().catch(() => {
