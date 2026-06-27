@@ -1,0 +1,40 @@
+appId: com.tenisx.native
+name: "Phase 4 — Lesson Packages UX (P2-011)"
+tags:
+  - packages
+  - p2
+---
+
+# Pre-condition: signed in as coach with ZERO packages
+- launchApp:
+    clearState: false
+- tapOn: "Me"
+- scrollUntilVisible:
+    element: "LESSON PACKAGES"
+    direction: DOWN
+
+# ── 4a: Empty state shows only Create First Package ──────────────────────────
+- assertVisible: "Create First Package"
+- assertNotVisible:
+    text: "Add"
+    enabled: true                              # header Add button must be absent
+
+# ── 4b: Open create modal ─────────────────────────────────────────────────────
+- tapOn: "Create First Package"
+- assertVisible: "New Package"
+
+# ── 4c: Fill in title and price ───────────────────────────────────────────────
+- tapOn:
+    id: "title-input"
+- typeText: "Beginner Starter Pack"
+- tapOn: "60 min"                              # duration chip
+- tapOn:
+    id: "price-input"
+- typeText: "120"
+- tapOn: "Create Package"
+
+# ── 4d: Package appears, Add button now visible ───────────────────────────────
+- assertVisible: "Beginner Starter Pack"
+- assertVisible: "ACTIVE"
+- assertVisible: "Add"                         # header Add button now present
+- assertNotVisible: "Create First Package"     # empty CTA gone

@@ -1,0 +1,32 @@
+appId: com.tenisx.native
+name: "Phase 1 — Auth Sign-out (P0-016)"
+tags:
+  - auth
+  - p0
+---
+
+# ── Test 1a: Sign out from Coach Me tab ──────────────────────────────────────
+- launchApp:
+    clearState: false
+- assertVisible: "Me"                          # coach tab bar item
+- tapOn: "Me"
+- assertVisible: "Sign Out"
+- tapOn: "Sign Out"
+- assertVisible: "Sign Out"                    # confirmation alert button
+- tapOn:
+    text: "Sign Out"
+    index: 1                                   # second occurrence = confirm button
+- assertNotVisible: "Sign Out"                 # alert dismissed
+- assertVisible: "Login"                       # must land on login screen
+- assertNotVisible: "Schedule"                 # authenticated tabs must be gone
+
+# ── Test 1b: Back nav must not re-enter auth screens ─────────────────────────
+- pressKey: Back
+- assertVisible: "Login"                       # still on login, not authenticated content
+
+# ── Test 1c: Cold-start after sign-out stays on login ─────────────────────────
+- stopApp
+- launchApp:
+    clearState: false
+- assertVisible: "Login"
+- assertNotVisible: "Schedule"

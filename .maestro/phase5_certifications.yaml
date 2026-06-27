@@ -1,0 +1,31 @@
+appId: com.tenisx.native
+name: "Phase 5 — Coach Certifications (P2-014)"
+tags:
+  - certifications
+  - p2
+---
+
+# Pre-condition: signed in as coach
+- launchApp:
+    clearState: false
+- tapOn: "Me"
+- scrollUntilVisible:
+    element: "PTR Certified"
+    direction: DOWN
+
+# ── 5b: Correct chips are present ────────────────────────────────────────────
+- assertVisible: "PTR Certified"
+- assertVisible: "ITF L1"
+- assertVisible: "ITF L2"
+- assertVisible: "ITF L3"
+
+# ── 5c: ITF L4 must be absent ────────────────────────────────────────────────
+- assertNotVisible: "ITF L4"
+
+# ── 5d: Tap PTR Certified and save ───────────────────────────────────────────
+- tapOn: "PTR Certified"
+- scrollUntilVisible:
+    element: "Save All Changes"
+    direction: DOWN
+- tapOn: "Save All Changes"
+- assertNotVisible: "Error"

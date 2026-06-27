@@ -1,0 +1,18 @@
+appId: com.tenisx.native
+name: "Phase 1 — Auth Cold Start (P0-016)"
+tags:
+  - auth
+  - p0
+---
+
+# ── Test 1e: Cold-start while signed in routes to dashboard ──────────────────
+# Pre-condition: user is signed in (run after login, before sign-out)
+- launchApp:
+    clearState: false
+- assertNotVisible: "Login"
+- assertVisible: "Schedule"                    # coach dashboard visible
+
+# ── Test 1f: Navigating to /(auth)/login while signed in redirects back ──────
+- openLink: "tenisx:///(auth)/login"
+- assertNotVisible: "Sign in to TenisX"       # login form should not appear
+- assertVisible: "Schedule"                    # back on dashboard

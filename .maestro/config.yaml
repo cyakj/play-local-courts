@@ -1,0 +1,6 @@
+flows:
+  - phase1_auth_signout.yaml
+  - phase1_auth_cold_start.yaml
+  - phase2_availability_ux.yaml
+  - phase4_packages_ux.yaml
+  - phase5_certifications.yaml

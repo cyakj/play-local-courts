@@ -1,0 +1,57 @@
+appId: com.tenisx.native
+name: "Phase 2 — Coach Availability Day Selector (P2-012)"
+tags:
+  - availability
+  - p2
+---
+
+# Pre-condition: signed in as coach
+- launchApp:
+    clearState: false
+
+# ── 2a: Navigate to Schedule tab ─────────────────────────────────────────────
+- tapOn: "Schedule"
+- assertVisible: "AVAILABILITY"
+
+# ── 2b: Verify 7 day pills exist ─────────────────────────────────────────────
+- assertVisible: "SUN"
+- assertVisible: "MON"
+- assertVisible: "TUE"
+- assertVisible: "WED"
+- assertVisible: "THU"
+- assertVisible: "FRI"
+- assertVisible: "SAT"
+
+# ── 2c: Tap a different day ───────────────────────────────────────────────────
+- tapOn: "MON"
+- assertVisible: "MON"
+
+# ── 2d: "Add Slot on Monday" button shows selected day ───────────────────────
+- assertVisible: "Add Slot on Monday"
+
+# ── 2e: Open add slot modal ───────────────────────────────────────────────────
+- tapOn: "Add Slot on Monday"
+- assertVisible: "Add Availability Slot"
+- assertVisible: "DAY OF WEEK"
+- assertVisible: "MON"                         # Monday pre-selected in modal
+
+# ── 2f: Close modal ───────────────────────────────────────────────────────────
+- swipeRight                                   # dismiss bottom sheet
+- assertNotVisible: "Add Availability Slot"
+
+# ── 2g: Swipe gesture changes day ─────────────────────────────────────────────
+- swipeLeft:
+    startX: 300
+    startY: 400
+    endX: 100
+    endY: 400
+    duration: 300
+- assertVisible: "TUE"                         # day advanced
+
+- swipeRight:
+    startX: 100
+    startY: 400
+    endX: 300
+    endY: 400
+    duration: 300
+- assertVisible: "MON"                         # retreated back
