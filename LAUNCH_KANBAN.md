@@ -7,6 +7,114 @@
 
 ---
 
+## ⚡ DEVICE QA RUNBOOK — Execute on physical iOS device
+
+> All code for phases 1–5 is committed. This section is the checklist a human must execute and sign off on. When each block is confirmed working, change `[ ]` to `[x]` and mark the corresponding ticket DONE.
+>
+> **Setup:** Run `npx expo start --dev-client` or install the current build from TestFlight. Sign in with a coach account and a resident account.
+
+---
+
+### PHASE 1 — Auth / Sign-out (ticket P0-016, commit `b84487e`)
+
+**Architecture:** All sign-out handlers call `supabase.auth.signOut()` only. Navigation is handled by `<Redirect>` guards in each group layout reacting to `SIGNED_OUT` event from `NativeAuthContext`. Cold-start reads from AsyncStorage via `INITIAL_SESSION` event (no network required).
+
+- [ ] 1a. Sign in as **coach**. Coach Me tab → tap "Sign Out" → confirm. App must land on the login screen. Back button / swipe must NOT go back to any authenticated screen.
+- [ ] 1b. Sign in as **coach**. Navigate to Settings screen → tap "Sign Out" → confirm. Same result as 1a.
+- [ ] 1c. Sign in as **resident**. Resident Me tab → tap "Sign Out" → confirm. Must land on login. Back must not re-enter.
+- [ ] 1d. After any sign-out: **fully kill** the app (swipe away from app switcher). Reopen. Must show login screen — no flash of authenticated content.
+- [ ] 1e. Sign in as coach. Fully kill the app. Reopen. Must route directly to coach dashboard without showing login.
+- [ ] 1f. While signed in: open browser / deep link directly to `/(auth)/login`. Must redirect back to dashboard automatically.
+
+**Sign off:** `[ ]` All 6 steps pass → mark P0-016 DONE
+
+---
+
+### PHASE 2 — Coach Availability UX (ticket P2-012, commit `cbe79b0`)
+
+**Architecture:** Replaced all-days stacked list with a sticky day-pill row (SUN–SAT). `PanResponder` on the slot container detects horizontal swipe (>40pt dx with clear horizontal intent) and advances/retreats the selected day.
+
+- [ ] 2a. Coach → Schedule tab → AVAILABILITY section. Verify 7 pills (SUN MON TUE WED THU FRI SAT) are visible across the top.
+- [ ] 2b. Today's day pill is pre-selected and highlighted in blue on first open.
+- [ ] 2c. Tap a different day pill. Only that day's slots appear below. Other days' slots are hidden.
+- [ ] 2d. Swipe LEFT on the slot area → day advances by 1. Swipe RIGHT → retreats by 1. (Min 40pt gesture, clear horizontal direction.)
+- [ ] 2e. A day with existing availability slots shows a cyan dot at the bottom of its pill (not the currently selected day).
+- [ ] 2f. Tap "Add Slot on [Day]" → modal opens → DAY OF WEEK row shows that day already selected.
+- [ ] 2g. Add a slot → it appears immediately for that day without needing to switch days and back.
+- [ ] 2h. Edit a slot (pencil icon) → modal pre-fills existing values → save → list updates.
+- [ ] 2i. Delete a slot (trash icon) → confirmation alert → slot removed from list.
+- [ ] 2j. All 7 day pills have a touch target that feels easy to tap with a thumb. No missed taps required.
+
+**Sign off:** `[ ]` All 10 steps pass → mark P2-012 DONE
+
+---
+
+### PHASE 3 — Lesson Request Auto-expiration (ticket P2-013, commit `9f826a0`)
+
+**Architecture:** Client-side: `useCoachRequests` hook detects expired pending rows on every fetch and batch-updates them to `status=expired`, then fires `lesson_expired` email. Server-side: `expire_past_lesson_requests()` pg_cron job runs every 15 min.
+
+**Pre-condition:** You need at least one lesson request row in Supabase where `preferred_date` is in the past and `status = 'pending'`. Either insert one directly via Supabase Studio, or create a request and then manually backdate `preferred_date` in Studio.
+
+- [ ] 3a. Insert/backdate a lesson request so `preferred_date` = yesterday, `preferred_time_start` = '09:00', `status` = 'pending'.
+- [ ] 3b. Open the coach app → Requests tab → Pending tab. The expired request must NOT appear here.
+- [ ] 3c. Past tab → the expired request IS visible with "Expired" status badge.
+- [ ] 3d. Check the player's email inbox for a "lesson_expired" notification email.
+- [ ] 3e. Create a NEW lesson request with a future date and time → confirm it stays in the Pending tab unaffected.
+- [ ] 3f. Check Supabase `lesson_requests` table → the backdated row has `status = 'expired'` and `responded_at` is populated.
+
+**Sign off:** `[ ]` All 6 steps pass → mark P2-013 DONE
+
+---
+
+### PHASE 4 — Lesson Packages UX (ticket P2-011, latest commit `b84487e`)
+
+**Architecture:** `LessonPackagesManager` hides the header "Add" button when `packages.length === 0`. Empty state shows only "Create First Package" CTA. When packages exist, only the "Add" button in the header is shown.
+
+**Pre-condition:** Apply the two required migrations to production Supabase before testing:
+- `supabase/migrations/20260626000000_lesson_packages.sql`
+- `supabase/migrations/20260626000001_lesson_requests_add_package_id.sql`
+
+- [ ] 4a. Sign in as a coach with **zero** lesson packages. Me tab → scroll to LESSON PACKAGES. Verify: only "Create First Package" button visible. No "Add" button in the section header.
+- [ ] 4b. Tap "Create First Package" → modal opens. Fill in title + price. Tap "Create Package."
+- [ ] 4c. Package appears in list with ACTIVE badge. Section header now shows "Add" button. "Create First Package" CTA is gone.
+- [ ] 4d. Tap pencil icon → edit modal opens with existing values pre-filled → save → list updates inline.
+- [ ] 4e. Tap ACTIVE badge → deactivation alert → confirm → badge changes to INACTIVE.
+- [ ] 4f. Tap INACTIVE badge → reactivation alert → confirm → badge returns to ACTIVE.
+- [ ] 4g. Tap trash icon → delete alert → confirm → package removed from list.
+- [ ] 4h. After deleting all packages: "Create First Package" CTA reappears. "Add" button disappears.
+- [ ] 4i. All icon buttons (pencil, trash) feel easy to tap — no missed taps at normal screen distance.
+
+**Sign off:** `[ ]` All 9 steps pass → mark P2-011 DONE
+
+---
+
+### PHASE 5 — Coach Certifications (ticket P2-014, commit `add9215`)
+
+**Architecture:** Removed `{ value: 'itf_4', label: 'ITF L4' }` from `ITF_OPTIONS`, added `{ value: 'ptr', label: 'PTR Certified' }` in `(coach)/me.tsx`.
+
+- [ ] 5a. Sign in as coach. Me tab → scroll to Profile section → find the certification row.
+- [ ] 5b. Chip options visible: **None · ITF L1 · ITF L2 · ITF L3 · PTR Certified**
+- [ ] 5c. "ITF L4" chip is **absent**.
+- [ ] 5d. Tap "PTR Certified" → chip highlights. Tap "Save All Changes" → no error.
+- [ ] 5e. Kill and reopen the app. Return to Me tab. "PTR Certified" chip remains selected.
+
+**Sign off:** `[ ]` All 5 steps pass → mark P2-014 DONE
+
+---
+
+## Code State (2026-06-27)
+
+| Commit | What |
+|--------|------|
+| `b84487e` | Auth: INITIAL\_SESSION pattern; design spec fixes (font sizes, touch targets, Colors.white) |
+| `add9215` | Packages UX, certifications (ITF L4 removed, PTR added) |
+| `9f826a0` | Lesson request auto-expiration (client + server + migration) |
+| `cbe79b0` | Coach availability day-selector UX rewrite |
+| `59cb374` | Auth: NativeAuthContext + Redirect guards |
+| `0629c3e` | Auth: settings.tsx guard + hooks ordering fix |
+
+---
+
 ## Completion Standard
 
 A task is DONE only when ALL of the following are true:
@@ -394,16 +502,11 @@ A task is DONE only when ALL of the following are true:
 - `settings.tsx`: added `useSession()` + `<Redirect>` guard; fixed hooks ordering (all hooks before conditional returns); `useEffect` now skips if `!session`
 - All sign-out handlers simplified to `supabase.auth.signOut()` — navigation handled automatically by the Redirect guards reacting to `onAuthStateChange(SIGNED_OUT)`
 
-**Bundle verified:** `expo export --platform ios` completed successfully (no compilation errors).
+**Third fix (2026-06-27, commit `b84487e`):** Replaced `getSession().then()` in `NativeAuthContext` with `INITIAL_SESSION` event pattern. The original had no `.catch()` — on cold start with no network, `AsyncStorage` throws and `setLoading(false)` never fires, leaving the app hung on a blank screen indefinitely.
 
-**Awaiting human QA on device:**
-1. Coach → Me tab → Sign Out → confirm → must land on login; back button blocked (exits app)
-2. Resident → Me tab → Sign Out → confirm → same result
-3. Coach → Settings screen → Sign Out → confirm → must land on login
-4. Kill app while signed out → reopen → login screen (no flash of authenticated content)
-5. Kill app while signed in → reopen → routes directly to correct role dashboard
-6. Authenticated user navigates to login screen directly → redirected back to dashboard
-7. After any sign-out: back-swipe / back button must not re-enter authenticated screens
+**Bundle verified:** TypeScript compilation clean across all changed files (`CoachAvailabilityEditor`, `LessonPackagesManager`, `NativeAuthContext`, layout guards, `settings.tsx`).
+
+**Awaiting human QA on device:** See "DEVICE QA RUNBOOK — PHASE 1" section above.
 
 ---
 
