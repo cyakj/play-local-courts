@@ -381,21 +381,29 @@ A task is DONE only when ALL of the following are true:
 
 ---
 
-### ~~P0-016~~ · ✅ DONE (2026-06-26, commit `7b9f9d0`) · Sign-out broken or hidden for resident and coach roles
+### ~~P0-016~~ · ⚠️ AWAITING DEVICE QA · Sign-out — complete auth architecture rewrite (2026-06-27)
 
-**Description:** `(resident)/me.tsx` sign-out handler called `signOut()` but had no explicit redirect, relying on a layout effect that may not fire reliably. Worse, the Sign Out button was nested inside `{profile && ...}` — if the profile query failed (e.g., schema issue), the button never rendered, trapping the user. `(coach)/me.tsx` had the same trap: the `loading || !profile` early return showed no sign-out button, so a coach with a missing coach row could not log out.
+**Root cause (re-opened):** The 2026-06-26 fix used `router.replace('/(auth)/login')` inside sign-out handlers. This silently failed because calling `router.replace` from within a nested Tabs navigator context attempts to replace within the Tabs scope — `(auth)/login` is not a valid tab route, so Expo Router ignores it. Sign-out appeared to fire but navigation never happened.
 
-**Fixes applied:**
-- `(resident)/me.tsx`: Added `router.replace('/(auth)/login')` to sign-out handler; moved Sign Out button outside the `profile` conditional so it renders in all non-loading states
-- `(resident)/me.tsx`: Fixed pre-existing TS2322 (`ntrp_rating` number→string)
-- `(coach)/me.tsx`: Split `if (loading || !profile)` into two guards; the `!profile` guard now shows a Sign Out button
+**Second root cause found (2026-06-27):** `settings.tsx` is a root Stack screen (not inside any protected group). It had no session guard at all, so signing out from settings left the user stuck on that screen. Additionally, the `useEffect` (profile load) was placed after conditional returns — a React hooks rules violation.
 
-**Manual QA:**
-1. Resident → Me tab → Sign Out → confirm → must land on login, back press exits app
-2. Resident in error state (e.g., offline) → Me tab → Sign Out button must still be visible
-3. Coach → Me tab → scroll to Sign Out → confirm → must land on login
-4. CM → Portfolio header menu button → Settings → Sign Out → must land on login
-5. After any sign-out: press back → must not re-enter authenticated screens
+**Architecture rewrite (commits `59cb374`, `0629c3e`):**
+- Created `src/context/NativeAuthContext.tsx` — single `onAuthStateChange` subscription for the whole app
+- Every protected group layout `((coach), (resident), (cm), (admin))` now uses `<Redirect href="/(auth)/login">` when `session === null` — fires before any screen renders, blocks back-nav
+- `(auth)/_layout.tsx` now redirects authenticated users to `/` to prevent auth loop
+- `settings.tsx`: added `useSession()` + `<Redirect>` guard; fixed hooks ordering (all hooks before conditional returns); `useEffect` now skips if `!session`
+- All sign-out handlers simplified to `supabase.auth.signOut()` — navigation handled automatically by the Redirect guards reacting to `onAuthStateChange(SIGNED_OUT)`
+
+**Bundle verified:** `expo export --platform ios` completed successfully (no compilation errors).
+
+**Awaiting human QA on device:**
+1. Coach → Me tab → Sign Out → confirm → must land on login; back button blocked (exits app)
+2. Resident → Me tab → Sign Out → confirm → same result
+3. Coach → Settings screen → Sign Out → confirm → must land on login
+4. Kill app while signed out → reopen → login screen (no flash of authenticated content)
+5. Kill app while signed in → reopen → routes directly to correct role dashboard
+6. Authenticated user navigates to login screen directly → redirected back to dashboard
+7. After any sign-out: back-swipe / back button must not re-enter authenticated screens
 
 ---
 
@@ -814,6 +822,8 @@ One or both of these table names is wrong. If `hoa_memberships` does not exist, 
 
 ### P2-011 · ⚠️ AWAITING QA · Lesson Packages — coach CRUD + player view + booking integration
 
+**UX fix (2026-06-27, commit `add9215`):** Empty state now shows only "Create First Package" (no competing Add button). When packages exist, "Add" appears in the section header only. Duplicate CTAs eliminated.
+
 **Description:** Full lesson packages feature. Coaches can create, edit, deactivate/reactivate, and delete packages from the Coach Me tab. Players see active packages on the coach profile screen and can optionally attach a package when submitting a lesson request. The `package_id` FK is nullable (`ON DELETE SET NULL`) so no existing data is affected.
 
 **Est. Hours:** 0 h remaining (code done, commit `9bac382`) · Migrations need applying to prod · Human QA required  
@@ -856,6 +866,63 @@ One or both of these table names is wrong. If `hoa_memberships` does not exist, 
 8. Submit the lesson request. Check `lesson_requests` table — verify `package_id` column is populated with the correct package UUID.
 9. Book again, skip package selection. Verify `lesson_requests.package_id` is `null`.
 10. If coach has no packages: verify no package selector appears, booking flow is unaffected.
+
+---
+
+### P2-012 · ⚠️ AWAITING DEVICE QA · Coach Availability — day-selector UX refactor (2026-06-27, commit `cbe79b0`)
+
+**Description:** Replaced grouped all-days list (excessive vertical scroll, poor one-handed UX) with a single-day view controlled by a sticky Sun–Sat pill row.
+
+**Changes:**
+- 7 day pills across the top (SUN–SAT), `minHeight: 44` for 44pt touch targets
+- Selected day highlighted in blue; other days with slots show a cyan dot
+- Only the selected day's slots shown below
+- Horizontal swipe via `PanResponder` advances/retreats one day
+- "Add Slot" button pre-fills the selected day in the modal
+- Modal day picker, time pickers, and location chips all preserved
+
+**Awaiting human QA on device:**
+1. Schedule tab → AVAILABILITY section shows 7 day pills
+2. Today's day is pre-selected on first open
+3. Tap a different day pill → only that day's slots appear
+4. Swipe left → advances one day; swipe right → retreats one day
+5. Cyan dot appears on pills with existing slots (not the selected day)
+6. Tap "Add Slot on [day]" → modal opens with that day pre-selected
+7. Add, edit, delete, copy all function correctly
+8. Scroll does not interfere with swipe (swipe requires clear horizontal gesture)
+
+---
+
+### P2-013 · ⚠️ AWAITING DEVICE QA · Lesson Request auto-expiration (2026-06-27, commit `9f826a0`)
+
+**Description:** Pending requests whose lesson time has passed now auto-expire and notify the player.
+
+**Changes:**
+- `useCoachRequests`: after each fetch, detects pending rows where `preferred_date + preferred_time_start < now()`, batch-updates to `status=expired`, fires `lesson_expired` email to player (fire-and-forget)
+- `send-booking-email` edge function: added `lesson_expired` email template (notifies player their request expired without coach response)
+- DB migration `20260627125740`: creates `expire_past_lesson_requests()` function; pg_cron job runs every 15 min if extension available; index on `(status, preferred_date, preferred_time_start)` for performance
+
+**Awaiting human QA on device:**
+1. Create a lesson request with a past `preferred_date` (e.g., yesterday)
+2. Open coach Requests tab → Pending tab should not show the expired request
+3. Past tab should show the request with Expired status
+4. Check player's email for `lesson_expired` notification
+5. A pending request with a future date should not be affected
+
+---
+
+### P2-014 · ✅ DONE (2026-06-27, commit `add9215`) · Coach certifications — remove ITF L4, add PTR Certified
+
+**Description:** Updated certification chips in `(coach)/me.tsx`.
+
+**Changes:** Removed `{ value: 'itf_4', label: 'ITF L4' }`, added `{ value: 'ptr', label: 'PTR Certified' }` to `ITF_OPTIONS`.
+
+**Note:** Coaches with existing `itf_certification = 'itf_4'` will see no chip highlighted — the value is preserved in the DB until they select a new certification. No migration needed.
+
+**Manual QA:**
+1. Coach Me screen → Profile section → ITF Certification row
+2. Chips visible: None, ITF L1, ITF L2, ITF L3, PTR Certified
+3. ITF L4 chip is absent
 
 ---
 
