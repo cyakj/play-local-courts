@@ -440,14 +440,16 @@ export function LessonPackagesManager() {
           <Package size={14} strokeWidth={1.8} color={Colors.cyan} />
           <Text style={styles.sectionLabel}>LESSON PACKAGES</Text>
         </View>
-        <TouchableOpacity
-          style={styles.addBtn}
-          onPress={openCreate}
-          activeOpacity={0.8}
-        >
-          <Plus size={13} strokeWidth={2.2} color={Colors.blue} />
-          <Text style={styles.addBtnLabel}>Add</Text>
-        </TouchableOpacity>
+        {!loading && packages.length > 0 && (
+          <TouchableOpacity
+            style={styles.addBtn}
+            onPress={openCreate}
+            activeOpacity={0.8}
+          >
+            <Plus size={13} strokeWidth={2.2} color={Colors.blue} />
+            <Text style={styles.addBtnLabel}>Add</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {loading && (

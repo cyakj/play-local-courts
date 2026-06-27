@@ -40,11 +40,11 @@ const GENDER_OPTIONS = [
 ];
 
 const ITF_OPTIONS = [
-  { value: 'none',  label: 'None'   },
-  { value: 'itf_1', label: 'ITF L1' },
-  { value: 'itf_2', label: 'ITF L2' },
-  { value: 'itf_3', label: 'ITF L3' },
-  { value: 'itf_4', label: 'ITF L4' },
+  { value: 'none',  label: 'None'          },
+  { value: 'itf_1', label: 'ITF L1'        },
+  { value: 'itf_2', label: 'ITF L2'        },
+  { value: 'itf_3', label: 'ITF L3'        },
+  { value: 'ptr',   label: 'PTR Certified' },
 ];
 
 const LOCATION_TYPE_OPTIONS = [
