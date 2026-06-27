@@ -126,6 +126,41 @@ export function useCoachRequests(): UseCoachRequestsResult {
         };
       });
 
+      // Auto-expire pending requests whose lesson time has passed
+      const now = new Date();
+      const toExpire = merged.filter(r => {
+        if (r.status !== 'pending') return false;
+        const lessonDt = new Date(`${r.preferredDate}T${r.preferredTimeStart}`);
+        return lessonDt < now;
+      });
+
+      if (toExpire.length > 0 && !cancelled) {
+        const ids = toExpire.map(r => r.id);
+        supabase
+          .from('lesson_requests')
+          .update({ status: 'expired', responded_at: new Date().toISOString() })
+          .in('id', ids)
+          .then(({ error: expErr }) => {
+            if (expErr) return;
+            // Notify each player that their request expired
+            for (const req of toExpire) {
+              sendNotificationEmail({
+                type: 'lesson_expired',
+                userId: req.playerId,
+                coachName: undefined,
+                lessonType: req.lessonType,
+                date: req.preferredDate,
+                startTime: req.preferredTimeStart,
+                endTime: req.preferredTimeEnd,
+              });
+            }
+          });
+        // Update local state immediately so expired rows move to "past"
+        for (const req of toExpire) {
+          req.status = 'expired';
+        }
+      }
+
       setRequests(merged);
       setLoading(false);
     }

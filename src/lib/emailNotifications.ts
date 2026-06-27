@@ -9,6 +9,7 @@ interface NotificationEmailPayload {
     | 'lesson_reminder'
     | 'lesson_request_received'
     | 'lesson_declined'
+    | 'lesson_expired'
     | 'match_confirmation'
     | 'match_reminder'
     | 'hoa_approved'

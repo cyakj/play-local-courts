@@ -16,7 +16,7 @@ interface EmailRequest {
   type:
     | 'booking_confirmation' | 'booking_cancellation' | 'booking_reminder'
     | 'lesson_confirmation'  | 'lesson_reminder'
-    | 'lesson_request_received' | 'lesson_declined'
+    | 'lesson_request_received' | 'lesson_declined' | 'lesson_expired'
     | 'match_confirmation'   | 'match_reminder'
     | 'hoa_approved'         | 'hoa_rejected';
   bookingId?: string;
@@ -279,6 +279,24 @@ const handler = async (req: Request): Promise<Response> => {
             <p style="color:#9AA3B8;">Unfortunately ${emailData.coachName ?? 'the coach'} was unable to accept your lesson request${emailData.date ? ` for ${formattedDate}` : ''}.</p>
             ${emailData.cancellationReason ? `<p style="color:#9AA3B8;"><strong>Reason:</strong> ${emailData.cancellationReason}</p>` : ''}
             <p style="color:#9AA3B8;font-size:13px;margin-top:16px;">You can browse other coaches or submit a new request with different dates in the TenisX app.</p>
+            <p style="color:#5A6379;font-size:12px;margin-top:32px;">TenisX · noreply@tenisx.ai</p>
+          </div>
+        `;
+        break;
+
+      case 'lesson_expired':
+        if (preferences && !preferences.lesson_confirmations) {
+          return new Response(JSON.stringify({ success: true, skipped: true }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+        subject = `Your lesson request has expired`;
+        htmlContent = `
+          <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0C0F18;color:#F5F8FF;padding:32px;border-radius:12px;">
+            <h1 style="color:#FF5C6B;font-size:22px;margin-bottom:8px;">Lesson Request Expired</h1>
+            <p style="color:#9AA3B8;margin-bottom:24px;">Hi ${userName},</p>
+            <p style="color:#F5F8FF;">Your lesson request${emailData.coachName ? ` with ${emailData.coachName}` : ''}${emailData.date ? ` for ${formattedDate}` : ''} was not accepted in time and has expired.</p>
+            <p style="color:#9AA3B8;font-size:13px;margin-top:16px;">You can browse other available coaches or send a new request in the TenisX app.</p>
             <p style="color:#5A6379;font-size:12px;margin-top:32px;">TenisX · noreply@tenisx.ai</p>
           </div>
         `;
