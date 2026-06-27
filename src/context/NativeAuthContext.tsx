@@ -14,13 +14,16 @@ export function NativeAuthProvider({ children }: { children: React.ReactNode }) 
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setLoading(false);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
+    // Use INITIAL_SESSION event (Supabase v2 recommended pattern).
+    // getSession() was removed because it has no error path: if it throws,
+    // setLoading(false) never fires and the app hangs on a blank screen.
+    // onAuthStateChange fires INITIAL_SESSION reliably even when offline
+    // (it reads from AsyncStorage, not the network).
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);
+      if (event === 'INITIAL_SESSION') {
+        setLoading(false);
+      }
     });
 
     return () => subscription.unsubscribe();

@@ -204,19 +204,19 @@ export function CoachAvailabilityEditor({ slots, onRefresh }: Props) {
                 <View style={styles.slotActions}>
                   <TouchableOpacity
                     onPress={() => openCopy(slot)}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
                     activeOpacity={0.7}>
                     <Copy size={15} color={theme.textMuted} strokeWidth={1.8} />
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => openEdit(slot)}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
                     activeOpacity={0.7}>
                     <Pencil size={15} color={theme.textMuted} strokeWidth={1.8} />
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => handleDelete(slot)}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
                     activeOpacity={0.7}>
                     <Trash2 size={15} color={Colors.negative} strokeWidth={1.8} />
                   </TouchableOpacity>
@@ -344,7 +344,7 @@ function useStyles(theme: ThemeTokens) {
     },
     dayPillText: {
       fontFamily: FontFamily.jetbrainsMonoSemiBold,
-      fontSize: 10,
+      fontSize: FontSize.eyebrow,
       color: theme.textMuted,
       letterSpacing: 0.4,
     },
@@ -461,15 +461,17 @@ function useStyles(theme: ThemeTokens) {
     chip: {
       paddingHorizontal: 12,
       paddingVertical: 9,
+      minHeight: 44,
       borderRadius: Radius.chip,
       borderWidth: 1,
+      justifyContent: 'center',
     },
     chipActive: {
       borderColor: Colors.blue,
       backgroundColor: 'rgba(45,107,255,0.15)',
     },
     chipText: {
-      fontFamily: FontFamily.manropeSemiBold,
+      fontFamily: FontFamily.jetbrainsMonoSemiBold,
       fontSize: FontSize.label,
     },
     chipTextActive: {
@@ -486,7 +488,7 @@ function useStyles(theme: ThemeTokens) {
     saveBtnText: {
       fontFamily: FontFamily.manropeSemiBold,
       fontSize: FontSize.body,
-      color: '#FFFFFF',
+      color: Colors.white,
     },
   }), [theme]);
 }

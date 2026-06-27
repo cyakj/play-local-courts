@@ -134,7 +134,7 @@ function PackageModal({ visible, editing, onClose, onCreate, onUpdate }: Package
       >
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <TouchableOpacity onPress={onClose} hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}>
             <X size={20} strokeWidth={2} color={theme.textSecondary} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>
@@ -354,14 +354,14 @@ function PackageRow({ pkg, onEdit, onToggle, onDelete }: PackageRowProps) {
           <TouchableOpacity
             style={styles.iconBtn}
             onPress={onEdit}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
           >
             <Pencil size={15} strokeWidth={1.8} color={theme.textMuted} />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.iconBtn}
             onPress={onDelete}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
           >
             <Trash2 size={15} strokeWidth={1.8} color={Colors.negative} />
           </TouchableOpacity>
@@ -461,7 +461,7 @@ export function LessonPackagesManager() {
       {error && (
         <View style={[styles.errorBanner, { borderColor: theme.border }]}>
           <Text style={styles.errorTxt}>{error}</Text>
-          <TouchableOpacity onPress={refresh} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <TouchableOpacity onPress={refresh} hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}>
             <Text style={styles.retryTxt}>Retry</Text>
           </TouchableOpacity>
         </View>
@@ -587,6 +587,7 @@ function useStyles(theme: ThemeTokens) {
       marginTop: 4,
       paddingHorizontal: 16,
       paddingVertical: 10,
+      minHeight: 44,
       backgroundColor: Colors.blue,
       borderRadius: Radius.sm,
     },
@@ -605,7 +606,7 @@ function useRowStyles(theme: ThemeTokens) {
       borderRadius: Radius.card,
       borderWidth: 1,
       borderColor: theme.border,
-      padding: 14,
+      padding: Spacing.cardPadding,
       gap: 8,
       marginBottom: 8,
     },
@@ -635,7 +636,7 @@ function useRowStyles(theme: ThemeTokens) {
     },
     typeChipTxt: {
       fontFamily: FontFamily.jetbrainsMonoSemiBold,
-      fontSize: 9,
+      fontSize: FontSize.eyebrow,
       color: Colors.blueHi,
       letterSpacing: 0.6,
     },
@@ -689,7 +690,7 @@ function useRowStyles(theme: ThemeTokens) {
     },
     statusTxt: {
       fontFamily: FontFamily.jetbrainsMonoSemiBold,
-      fontSize: 10,
+      fontSize: 12,
       letterSpacing: 0.6,
     },
     activeTxt: { color: Colors.positive },
@@ -699,7 +700,7 @@ function useRowStyles(theme: ThemeTokens) {
       gap: 12,
     },
     iconBtn: {
-      padding: 4,
+      padding: 8,
     },
   }), [theme]);
 }
@@ -763,10 +764,12 @@ function useModalStyles(theme: ThemeTokens) {
     chip: {
       paddingHorizontal: 14,
       paddingVertical: 9,
+      minHeight: 44,
       borderRadius: Radius.chip,
       borderWidth: 1,
       borderColor: theme.border,
       backgroundColor: theme.cardBg,
+      justifyContent: 'center',
     },
     chipActive: {
       borderColor: Colors.blue,
