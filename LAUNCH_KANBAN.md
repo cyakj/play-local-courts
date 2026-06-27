@@ -504,7 +504,13 @@ A task is DONE only when ALL of the following are true:
 
 **Third fix (2026-06-27, commit `b84487e`):** Replaced `getSession().then()` in `NativeAuthContext` with `INITIAL_SESSION` event pattern. The original had no `.catch()` — on cold start with no network, `AsyncStorage` throws and `setLoading(false)` never fires, leaving the app hung on a blank screen indefinitely.
 
-**Bundle verified:** TypeScript compilation clean across all changed files (`CoachAvailabilityEditor`, `LessonPackagesManager`, `NativeAuthContext`, layout guards, `settings.tsx`).
+**Fourth fix (2026-06-27, commit `42e71f3`) — two additional bugs found by final audit:**
+
+- **Root cause 3:** All three sign-out handlers (`(coach)/me.tsx`, `(resident)/me.tsx`, `settings.tsx`) called `supabase.auth.signOut()` fire-and-forget without `scope: 'local'`. This triggers an HTTP request to `/auth/v1/logout`. On poor mobile network, the call hangs indefinitely, `SIGN_OUT` is never dispatched, `onAuthStateChange` never fires, the Redirect guard never activates, and the user remains stuck on the authenticated screen with no feedback. Fixed: all handlers now use `await supabase.auth.signOut({ scope: 'local' })` — clears AsyncStorage immediately, fires `SIGN_OUT` synchronously, requires no network.
+
+- **Root cause 4:** `(coach)/me.tsx` loading-state branch (shown while profile is fetching) contained no sign-out button. A coach on a slow or failed network was completely trapped — the profile never loaded and there was no way to escape the screen. Fixed: sign-out button with footer layout added to the loading branch.
+
+**Bundle verified:** TypeScript compilation clean across all changed files.
 
 **Awaiting human QA on device:** See "DEVICE QA RUNBOOK — PHASE 1" section above.
 
