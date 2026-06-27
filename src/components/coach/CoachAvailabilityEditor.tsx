@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Modal,
+  PanResponder,
   ScrollView,
   StyleSheet,
   Text,
@@ -28,8 +29,8 @@ const TIME_OPTIONS = [
 
 const LOCATION_MODES = [
   { value: 'coach_facility', label: 'My Facility' },
-  { value: 'traveling',      label: 'Traveling' },
-  { value: 'both',           label: 'Either' },
+  { value: 'traveling',      label: 'Traveling'   },
+  { value: 'both',           label: 'Either'       },
 ];
 
 function fmtTime(t: string): string {
@@ -53,6 +54,7 @@ export function CoachAvailabilityEditor({ slots, onRefresh }: Props) {
   const styles = useStyles(theme);
   const insets = useSafeAreaInsets();
 
+  const [selectedDay, setSelectedDay] = useState(() => new Date().getDay());
   const [showModal, setShowModal]     = useState(false);
   const [editingSlot, setEditingSlot] = useState<CoachAvailabilitySlot | null>(null);
   const [newDay, setNewDay]           = useState(1);
@@ -61,18 +63,26 @@ export function CoachAvailabilityEditor({ slots, onRefresh }: Props) {
   const [newLocation, setNewLocation] = useState<string>('coach_facility');
   const [saving, setSaving]           = useState(false);
 
-  const grouped = useMemo(() => {
-    const g: Record<number, CoachAvailabilitySlot[]> = {};
-    slots.forEach(s => {
-      if (!g[s.day_of_week]) g[s.day_of_week] = [];
-      g[s.day_of_week].push(s);
-    });
-    return g;
-  }, [slots]);
+  const daySlots = useMemo(
+    () => slots.filter(s => s.day_of_week === selectedDay),
+    [slots, selectedDay],
+  );
+
+  const swipeRef = useRef(selectedDay);
+  swipeRef.current = selectedDay;
+
+  const panResponder = useMemo(() => PanResponder.create({
+    onMoveShouldSetPanResponder: (_, state) =>
+      Math.abs(state.dx) > Math.abs(state.dy) && Math.abs(state.dx) > 12,
+    onPanResponderRelease: (_, state) => {
+      if (state.dx < -40) setSelectedDay(d => Math.min(d + 1, 6));
+      else if (state.dx > 40) setSelectedDay(d => Math.max(d - 1, 0));
+    },
+  }), []);
 
   function openAdd() {
     setEditingSlot(null);
-    setNewDay(1);
+    setNewDay(selectedDay);
     setNewStart('09:00');
     setNewEnd('12:00');
     setNewLocation('coach_facility');
@@ -122,7 +132,6 @@ export function CoachAvailabilityEditor({ slots, onRefresh }: Props) {
     if (!user) { setSaving(false); return; }
 
     if (editingSlot) {
-      // Delete old row, then insert new one (handles key changes)
       const { error: delErr } = await supabase.from('coach_availability').delete().eq('id', editingSlot.id);
       if (delErr) { setSaving(false); Alert.alert('Error', delErr.message); return; }
     }
@@ -141,125 +150,154 @@ export function CoachAvailabilityEditor({ slots, onRefresh }: Props) {
   }
 
   const isEditing = editingSlot != null;
-  const modalTitle = isEditing ? 'Edit Availability Slot' : 'Add Availability Slot';
   const saveLabel  = saving ? 'Saving…' : isEditing ? 'Save Changes' : 'Add Slot';
-
   const validStart = TIME_OPTIONS.filter(t => t < newEnd);
   const validEnd   = TIME_OPTIONS.filter(t => t > newStart);
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerRow}>
-        <Text style={styles.sectionTitle}>AVAILABILITY</Text>
-        <TouchableOpacity
-          style={styles.addBtn}
-          onPress={openAdd}
-          activeOpacity={0.8}>
-          <Plus size={14} color={Colors.blue} strokeWidth={2.5} />
-          <Text style={styles.addBtnText}>Add Slot</Text>
-        </TouchableOpacity>
+      {/* Section header */}
+      <Text style={styles.sectionTitle}>AVAILABILITY</Text>
+
+      {/* Day selector pills — Sun through Sat */}
+      <View style={styles.dayRow}>
+        {DAY_SHORT.map((label, i) => {
+          const hasSlots = slots.some(s => s.day_of_week === i);
+          const active = selectedDay === i;
+          return (
+            <TouchableOpacity
+              key={i}
+              style={[styles.dayPill, active && styles.dayPillActive]}
+              onPress={() => setSelectedDay(i)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.dayPillText, active && styles.dayPillTextActive]}>{label}</Text>
+              {hasSlots && !active && <View style={styles.dayDot} />}
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
-      {slots.length === 0 ? (
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyText}>No availability slots yet.</Text>
-          <Text style={styles.emptySubText}>Tap "Add Slot" to set your weekly availability.</Text>
-        </View>
-      ) : (
-        [0, 1, 2, 3, 4, 5, 6].filter(d => grouped[d]).map(d => (
-          <View key={d} style={styles.dayGroup}>
-            <Text style={styles.dayLabel}>{DAY_NAMES[d]}</Text>
-            {grouped[d].map(slot => (
-              <View key={slot.id} style={styles.slotRow}>
+      {/* Slots for selected day — swipeable */}
+      <View {...panResponder.panHandlers}>
+        {daySlots.length === 0 ? (
+          <View style={[styles.emptyCard, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
+            <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+              No slots on {DAY_NAMES[selectedDay]}
+            </Text>
+            <Text style={[styles.emptySubText, { color: theme.textMuted }]}>
+              Swipe left/right to change day, or tap below to add.
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.slotList}>
+            {daySlots.map(slot => (
+              <View key={slot.id} style={[styles.slotRow, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
                 <View style={styles.slotInfo}>
-                  <Text style={styles.slotTime}>
+                  <Text style={[styles.slotTime, { color: theme.textPrimary }]}>
                     {fmtTime(normalizeTime(slot.start_time))} – {fmtTime(normalizeTime(slot.end_time))}
                   </Text>
-                  <Text style={styles.slotLocation}>
+                  <Text style={[styles.slotLocation, { color: theme.textMuted }]}>
                     {LOCATION_MODES.find(m => m.value === slot.location_mode)?.label ?? slot.location_mode ?? '—'}
                   </Text>
                 </View>
                 <View style={styles.slotActions}>
                   <TouchableOpacity
                     onPress={() => openCopy(slot)}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     activeOpacity={0.7}>
-                    <Copy size={14} color={Colors.fg2} strokeWidth={1.8} />
+                    <Copy size={15} color={theme.textMuted} strokeWidth={1.8} />
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => openEdit(slot)}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     activeOpacity={0.7}>
-                    <Pencil size={14} color={Colors.fg2} strokeWidth={1.8} />
+                    <Pencil size={15} color={theme.textMuted} strokeWidth={1.8} />
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => handleDelete(slot)}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     activeOpacity={0.7}>
-                    <Trash2 size={14} color={Colors.negative} strokeWidth={1.8} />
+                    <Trash2 size={15} color={Colors.negative} strokeWidth={1.8} />
                   </TouchableOpacity>
                 </View>
               </View>
             ))}
           </View>
-        ))
-      )}
+        )}
+
+        {/* Add slot for this day */}
+        <TouchableOpacity style={styles.addBtn} onPress={openAdd} activeOpacity={0.8}>
+          <Plus size={14} color={Colors.blue} strokeWidth={2.5} />
+          <Text style={styles.addBtnText}>Add Slot on {DAY_NAMES[selectedDay]}</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Add / Edit Modal */}
       <Modal visible={showModal} transparent animationType="slide" onRequestClose={() => setShowModal(false)}>
         <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setShowModal(false)} />
-        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-          <View style={styles.sheetHandle} />
-          <Text style={styles.sheetTitle}>{modalTitle}</Text>
+        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 20), backgroundColor: theme.cardBg, borderColor: theme.border }]}>
+          <View style={[styles.sheetHandle, { backgroundColor: theme.border }]} />
+          <Text style={[styles.sheetTitle, { color: theme.textPrimary }]}>
+            {isEditing ? 'Edit Availability Slot' : 'Add Availability Slot'}
+          </Text>
 
-          <Text style={styles.fieldLabel}>DAY OF WEEK</Text>
+          <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>DAY OF WEEK</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
             {[0, 1, 2, 3, 4, 5, 6].map(d => (
               <TouchableOpacity
                 key={d}
-                style={[styles.chip, newDay === d && styles.chipActive]}
+                style={[styles.chip, { borderColor: theme.border }, newDay === d && styles.chipActive]}
                 onPress={() => setNewDay(d)}
                 activeOpacity={0.7}>
-                <Text style={[styles.chipText, newDay === d && styles.chipTextActive]}>{DAY_SHORT[d]}</Text>
+                <Text style={[styles.chipText, { color: theme.textSecondary }, newDay === d && styles.chipTextActive]}>
+                  {DAY_SHORT[d]}
+                </Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
 
-          <Text style={styles.fieldLabel}>START TIME</Text>
+          <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>START TIME</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
             {validStart.map(t => (
               <TouchableOpacity
                 key={t}
-                style={[styles.chip, newStart === t && styles.chipActive]}
+                style={[styles.chip, { borderColor: theme.border }, newStart === t && styles.chipActive]}
                 onPress={() => setNewStart(t)}
                 activeOpacity={0.7}>
-                <Text style={[styles.chipText, newStart === t && styles.chipTextActive]}>{fmtTime(t)}</Text>
+                <Text style={[styles.chipText, { color: theme.textSecondary }, newStart === t && styles.chipTextActive]}>
+                  {fmtTime(t)}
+                </Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
 
-          <Text style={styles.fieldLabel}>END TIME</Text>
+          <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>END TIME</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
             {validEnd.map(t => (
               <TouchableOpacity
                 key={t}
-                style={[styles.chip, newEnd === t && styles.chipActive]}
+                style={[styles.chip, { borderColor: theme.border }, newEnd === t && styles.chipActive]}
                 onPress={() => setNewEnd(t)}
                 activeOpacity={0.7}>
-                <Text style={[styles.chipText, newEnd === t && styles.chipTextActive]}>{fmtTime(t)}</Text>
+                <Text style={[styles.chipText, { color: theme.textSecondary }, newEnd === t && styles.chipTextActive]}>
+                  {fmtTime(t)}
+                </Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
 
-          <Text style={styles.fieldLabel}>LOCATION</Text>
+          <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>LOCATION</Text>
           <View style={styles.chipRow}>
             {LOCATION_MODES.map(m => (
               <TouchableOpacity
                 key={m.value}
-                style={[styles.chip, newLocation === m.value && styles.chipActive]}
+                style={[styles.chip, { borderColor: theme.border }, newLocation === m.value && styles.chipActive]}
                 onPress={() => setNewLocation(m.value)}
                 activeOpacity={0.7}>
-                <Text style={[styles.chipText, newLocation === m.value && styles.chipTextActive]}>{m.label}</Text>
+                <Text style={[styles.chipText, { color: theme.textSecondary }, newLocation === m.value && styles.chipTextActive]}>
+                  {m.label}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -280,39 +318,52 @@ export function CoachAvailabilityEditor({ slots, onRefresh }: Props) {
 function useStyles(theme: ThemeTokens) {
   return useMemo(() => StyleSheet.create({
     container: { gap: 12 },
-    headerRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-    },
     sectionTitle: {
       fontFamily: FontFamily.jetbrainsMonoSemiBold,
       fontSize: FontSize.eyebrow,
       color: theme.textMuted,
       letterSpacing: 0.18,
     },
-    addBtn: {
+    dayRow: {
       flexDirection: 'row',
+      gap: 6,
+    },
+    dayPill: {
+      flex: 1,
       alignItems: 'center',
-      gap: 5,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderRadius: Radius.sm,
-      borderWidth: 1,
-      borderColor: 'rgba(45,107,255,0.35)',
-      backgroundColor: 'rgba(45,107,255,0.08)',
-    },
-    addBtnText: {
-      fontFamily: FontFamily.manropeSemiBold,
-      fontSize: FontSize.label,
-      color: Colors.blue,
-    },
-    emptyCard: {
-      backgroundColor: theme.cardBg,
-      borderRadius: Radius.card,
+      justifyContent: 'center',
+      minHeight: 44,
+      borderRadius: Radius.chip,
       borderWidth: 1,
       borderColor: theme.border,
-      paddingVertical: 28,
+      position: 'relative',
+    },
+    dayPillActive: {
+      borderColor: Colors.blue,
+      backgroundColor: 'rgba(45,107,255,0.15)',
+    },
+    dayPillText: {
+      fontFamily: FontFamily.jetbrainsMonoSemiBold,
+      fontSize: 10,
+      color: theme.textMuted,
+      letterSpacing: 0.4,
+    },
+    dayPillTextActive: {
+      color: Colors.blue,
+    },
+    dayDot: {
+      position: 'absolute',
+      bottom: 5,
+      width: 4,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: Colors.cyan,
+    },
+    slotList: { gap: 8 },
+    emptyCard: {
+      borderRadius: Radius.card,
+      borderWidth: 1,
+      paddingVertical: 24,
       paddingHorizontal: 20,
       alignItems: 'center',
       gap: 6,
@@ -320,47 +371,53 @@ function useStyles(theme: ThemeTokens) {
     emptyText: {
       fontFamily: FontFamily.manropeSemiBold,
       fontSize: FontSize.label,
-      color: theme.textSecondary,
       textAlign: 'center',
     },
     emptySubText: {
       fontFamily: FontFamily.manropeMedium,
       fontSize: FontSize.label,
-      color: theme.textMuted,
       textAlign: 'center',
-    },
-    dayGroup: { gap: 6 },
-    dayLabel: {
-      fontFamily: FontFamily.manropeSemiBold,
-      fontSize: FontSize.label,
-      color: theme.textSecondary,
+      lineHeight: 20,
     },
     slotRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: theme.cardBg,
       borderRadius: Radius.sm,
       borderWidth: 1,
-      borderColor: theme.border,
       paddingHorizontal: 14,
-      paddingVertical: 12,
+      paddingVertical: 13,
     },
     slotInfo: { flex: 1, gap: 2 },
     slotTime: {
       fontFamily: FontFamily.manropeSemiBold,
       fontSize: FontSize.label,
-      color: theme.textPrimary,
     },
     slotLocation: {
       fontFamily: FontFamily.manropeMedium,
       fontSize: FontSize.label,
-      color: theme.textMuted,
     },
     slotActions: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 14,
       paddingLeft: 8,
+    },
+    addBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      marginTop: 8,
+      paddingVertical: 13,
+      borderRadius: Radius.sm,
+      borderWidth: 1,
+      borderColor: 'rgba(45,107,255,0.30)',
+      backgroundColor: 'rgba(45,107,255,0.07)',
+    },
+    addBtnText: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: FontSize.label,
+      color: Colors.blue,
     },
     overlay: {
       flex: 1,
@@ -371,11 +428,9 @@ function useStyles(theme: ThemeTokens) {
       bottom: 0,
       left: 0,
       right: 0,
-      backgroundColor: theme.cardBg,
       borderTopLeftRadius: Radius.xl,
       borderTopRightRadius: Radius.xl,
       borderTopWidth: 1,
-      borderColor: theme.border,
       paddingHorizontal: Spacing.pagePx,
       paddingTop: 12,
       gap: 10,
@@ -384,20 +439,17 @@ function useStyles(theme: ThemeTokens) {
       width: 36,
       height: 4,
       borderRadius: 2,
-      backgroundColor: theme.border,
       alignSelf: 'center',
       marginBottom: 4,
     },
     sheetTitle: {
       fontFamily: FontFamily.spaceGroteskBold,
       fontSize: FontSize.cardTitle,
-      color: theme.textPrimary,
       letterSpacing: -0.2,
     },
     fieldLabel: {
       fontFamily: FontFamily.jetbrainsMonoSemiBold,
       fontSize: FontSize.eyebrow,
-      color: theme.textMuted,
       letterSpacing: 0.18,
       marginTop: 4,
     },
@@ -408,10 +460,9 @@ function useStyles(theme: ThemeTokens) {
     },
     chip: {
       paddingHorizontal: 12,
-      paddingVertical: 8,
+      paddingVertical: 9,
       borderRadius: Radius.chip,
       borderWidth: 1,
-      borderColor: theme.border,
     },
     chipActive: {
       borderColor: Colors.blue,
@@ -420,7 +471,6 @@ function useStyles(theme: ThemeTokens) {
     chipText: {
       fontFamily: FontFamily.manropeSemiBold,
       fontSize: FontSize.label,
-      color: theme.textSecondary,
     },
     chipTextActive: {
       color: Colors.blue,
