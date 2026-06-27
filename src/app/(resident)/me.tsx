@@ -82,7 +82,7 @@ export default function MeScreen() {
       {
         text: 'Sign out',
         style: 'destructive',
-        onPress: () => { supabase.auth.signOut(); },
+        onPress: async () => { await supabase.auth.signOut({ scope: 'local' }); },
       },
     ]);
   }

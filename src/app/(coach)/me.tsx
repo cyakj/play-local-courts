@@ -189,7 +189,7 @@ export default function CoachMeScreen() {
       {
         text: 'Sign Out',
         style: 'destructive',
-        onPress: () => { supabase.auth.signOut(); },
+        onPress: async () => { await supabase.auth.signOut({ scope: 'local' }); },
       },
     ]);
   }
@@ -200,6 +200,12 @@ export default function CoachMeScreen() {
         <Header variant="coach" />
         <View style={styles.loading}>
           <Text style={styles.loadingText}>Loading…</Text>
+        </View>
+        <View style={styles.footer}>
+          <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.8}>
+            <LogOut size={16} color={Colors.negative} strokeWidth={1.8} />
+            <Text style={styles.signOutText}>Sign Out</Text>
+          </TouchableOpacity>
         </View>
       </View>
     );

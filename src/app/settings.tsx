@@ -78,7 +78,7 @@ export default function SettingsScreen() {
       {
         text: 'Sign Out',
         style: 'destructive',
-        onPress: () => { supabase.auth.signOut(); },
+        onPress: async () => { await supabase.auth.signOut({ scope: 'local' }); },
       },
     ]);
   }
