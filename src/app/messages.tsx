@@ -155,7 +155,15 @@ export default function MessagesScreen() {
       .insert({ sender_id: userId, receiver_id: activeConvo.partnerId, content: draft.trim() })
       .select()
       .single();
-    if (newMsg) setThread((prev) => [...prev, newMsg]);
+    if (newMsg) {
+      setThread((prev) => [...prev, newMsg]);
+      // Notify recipient — throttled to once per 30 min per conversation
+      supabase.functions
+        .invoke('send-message-notification', {
+          body: { senderId: userId, receiverId: activeConvo.partnerId },
+        })
+        .catch(() => {});
+    }
     setDraft('');
     setSending(false);
     setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 100);
