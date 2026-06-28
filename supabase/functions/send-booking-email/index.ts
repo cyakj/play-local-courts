@@ -4,6 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { Resend } from "npm:resend@2.0.0";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+const fromEmail = Deno.env.get("FROM_EMAIL") ?? "noreply@tenisx.ai";
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
@@ -17,7 +18,9 @@ interface EmailRequest {
     | 'booking_confirmation' | 'booking_cancellation' | 'booking_reminder'
     | 'lesson_confirmation'  | 'lesson_reminder'
     | 'lesson_request_received' | 'lesson_declined' | 'lesson_expired'
+    | 'lesson_expired_coach'
     | 'match_confirmation'   | 'match_reminder'
+    | 'match_request_received' | 'match_declined'
     | 'hoa_approved'         | 'hoa_rejected';
   bookingId?: string;
   lessonId?: string;
@@ -302,6 +305,67 @@ const handler = async (req: Request): Promise<Response> => {
         `;
         break;
 
+      case 'lesson_expired_coach':
+        if (preferences && !preferences.lesson_confirmations) {
+          return new Response(JSON.stringify({ success: true, skipped: true }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+        subject = `Lesson request from ${playerName ?? 'a student'} has expired`;
+        htmlContent = `
+          <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0C0F18;color:#F5F8FF;padding:32px;border-radius:12px;">
+            <h1 style="color:#FF5C6B;font-size:22px;margin-bottom:8px;">Lesson Request Expired</h1>
+            <p style="color:#9AA3B8;margin-bottom:24px;">Hi ${userName},</p>
+            <p style="color:#F5F8FF;">A lesson request from <strong>${playerName ?? 'a student'}</strong>${emailData.date ? ` for ${formattedDate}` : ''} expired without a response.</p>
+            <p style="color:#9AA3B8;font-size:13px;margin-top:16px;">The request has been automatically closed. The student has been notified and may reach out again.</p>
+            <p style="color:#5A6379;font-size:12px;margin-top:32px;">TenisX · noreply@tenisx.ai</p>
+          </div>
+        `;
+        break;
+
+      case 'match_request_received':
+        if (preferences && !preferences.match_confirmations) {
+          return new Response(JSON.stringify({ success: true, skipped: true }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+        subject = `New Match Challenge from ${playerName ?? 'a player'}`;
+        htmlContent = `
+          <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0C0F18;color:#F5F8FF;padding:32px;border-radius:12px;">
+            <h1 style="color:#D6FF3D;font-size:22px;margin-bottom:8px;">New Match Challenge</h1>
+            <p style="color:#9AA3B8;margin-bottom:24px;">Hi ${userName},</p>
+            <p style="color:#F5F8FF;">You've received a match challenge from <strong>${playerName ?? 'another player'}</strong>.</p>
+            <div style="background:#161A26;border:1px solid #D6FF3D44;border-radius:10px;padding:20px;margin-bottom:20px;border-left:4px solid #D6FF3D;">
+              ${emailData.matchType ? `<p style="margin:6px 0;"><strong>Match Type:</strong> ${emailData.matchType}</p>` : ''}
+              ${emailData.date ? `<p style="margin:6px 0;"><strong>Proposed Date:</strong> ${formattedDate}</p>` : ''}
+              ${emailData.startTime ? `<p style="margin:6px 0;"><strong>Proposed Time:</strong> ${emailData.startTime}${emailData.endTime ? ` – ${emailData.endTime}` : ''}</p>` : ''}
+              ${emailData.location ? `<p style="margin:6px 0;"><strong>Location:</strong> ${emailData.location}</p>` : ''}
+            </div>
+            <p style="color:#9AA3B8;font-size:13px;">Open TenisX to accept or decline. This request expires in 48 hours.</p>
+            <p style="color:#5A6379;font-size:12px;margin-top:32px;">TenisX · noreply@tenisx.ai</p>
+          </div>
+        `;
+        break;
+
+      case 'match_declined':
+        if (preferences && !preferences.match_confirmations) {
+          return new Response(JSON.stringify({ success: true, skipped: true }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+        subject = `Your match request was declined`;
+        htmlContent = `
+          <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0C0F18;color:#F5F8FF;padding:32px;border-radius:12px;">
+            <h1 style="color:#FF5C6B;font-size:22px;margin-bottom:8px;">Match Request Declined</h1>
+            <p style="color:#9AA3B8;margin-bottom:24px;">Hi ${userName},</p>
+            <p style="color:#F5F8FF;">${emailData.opponentName ?? 'Your opponent'} was unable to accept your match request${emailData.date ? ` for ${formattedDate}` : ''}.</p>
+            ${emailData.cancellationReason ? `<p style="color:#9AA3B8;margin-top:8px;"><strong>Message:</strong> ${emailData.cancellationReason}</p>` : ''}
+            <p style="color:#9AA3B8;font-size:13px;margin-top:16px;">You can challenge other players in the TenisX app.</p>
+            <p style="color:#5A6379;font-size:12px;margin-top:32px;">TenisX · noreply@tenisx.ai</p>
+          </div>
+        `;
+        break;
+
       case 'match_confirmation':
         if (preferences && !preferences.match_confirmations) {
           return new Response(JSON.stringify({ success: true, skipped: true }), {
@@ -384,7 +448,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const emailResponse = await resend.emails.send({
-      from: "TenisX <noreply@tenisx.ai>",
+      from: `TenisX <${fromEmail}>`,
       to: [userEmail],
       subject,
       html: htmlContent,
