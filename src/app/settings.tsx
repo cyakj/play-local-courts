@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Redirect, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSession } from '@/context/NativeAuthContext';
@@ -72,20 +72,24 @@ export default function SettingsScreen() {
   if (loading) return null;
   if (!session) return <Redirect href="/(auth)/login" />;
 
+  async function doSignOut() {
+    console.log('[AUTH] supabase.auth.signOut() called');
+    const { error } = await supabase.auth.signOut({ scope: 'local' });
+    if (error) console.error('[AUTH] signOut error:', error.message);
+    else console.log('[AUTH] signOut completed — awaiting SIGNED_OUT event → AuthGuard redirect');
+  }
+
   function signOut() {
     console.log('[AUTH] Sign out button pressed (Settings)');
+    if (Platform.OS === 'web') {
+      // Alert.alert() renders inside an aria-hidden ancestor on Expo web,
+      // blocking the confirmation button. Sign out directly on web.
+      void doSignOut();
+      return;
+    }
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign Out',
-        style: 'destructive',
-        onPress: async () => {
-          console.log('[AUTH] supabase.auth.signOut() called');
-          const { error } = await supabase.auth.signOut({ scope: 'local' });
-          if (error) console.error('[AUTH] signOut error:', error.message);
-          else console.log('[AUTH] signOut completed — awaiting SIGNED_OUT event → AuthGuard redirect');
-        },
-      },
+      { text: 'Sign Out', style: 'destructive', onPress: doSignOut },
     ]);
   }
 
