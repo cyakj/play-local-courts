@@ -10,14 +10,18 @@ interface NotificationEmailPayload {
     | 'lesson_request_received'
     | 'lesson_declined'
     | 'lesson_expired'
+    | 'lesson_expired_coach'
     | 'match_confirmation'
     | 'match_reminder'
+    | 'match_request_received'
+    | 'match_declined'
     | 'hoa_approved'
     | 'hoa_rejected';
   userId: string;
   playerId?: string;
   bookingId?: string;
   lessonId?: string;
+  matchId?: string;
   courtName?: string;
   coachName?: string;
   playerName?: string;
