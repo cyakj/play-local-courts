@@ -42,6 +42,7 @@ import {
 } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
+import { sendNotificationEmail } from '@/lib/emailNotifications';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useTheme } from '@/context/ThemeContext';
 import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/design';
@@ -504,6 +505,16 @@ async function acceptRequest(requestId: string, challengerId: string, currentUse
       sender_id: currentUserId, receiver_id: challengerId, content: `Match accepted — ${message}`,
     });
   }
+
+  // Notify challenger — fire and forget
+  void (async () => {
+    const { data: prof } = await supabase.from('profiles').select('full_name').eq('id', currentUserId).single();
+    sendNotificationEmail({
+      type: 'match_confirmation',
+      userId: challengerId,
+      opponentName: (prof as any)?.full_name ?? 'Your opponent',
+    });
+  })();
 }
 
 async function declineRequest(requestId: string, challengerId: string, currentUserId: string, message: string) {
@@ -514,6 +525,17 @@ async function declineRequest(requestId: string, challengerId: string, currentUs
       sender_id: currentUserId, receiver_id: challengerId, content: `Request declined — ${message}`,
     });
   }
+
+  // Notify challenger — fire and forget
+  void (async () => {
+    const { data: prof } = await supabase.from('profiles').select('full_name').eq('id', currentUserId).single();
+    sendNotificationEmail({
+      type: 'match_declined',
+      userId: challengerId,
+      opponentName: (prof as any)?.full_name ?? 'Your opponent',
+      cancellationReason: message || undefined,
+    });
+  })();
 }
 
 async function rescheduleMatch(matchId: string, opponentId: string, currentUserId: string, message: string) {
@@ -2132,6 +2154,16 @@ function MatchRequestSheet({
         availability_type: availType,
         message:          message.trim() || null,
         status:           'pending',
+      });
+      // Notify opponent of new challenge — fire and forget
+      sendNotificationEmail({
+        type: 'match_request_received',
+        userId: opponent.id,
+        playerId: currentUserId,
+        date: dateStr,
+        startTime: timeSlot,
+        endTime: timeEnd,
+        matchType: matchType as string,
       });
     }
     setSending(false);
