@@ -140,14 +140,26 @@ export function useCoachRequests(): UseCoachRequestsResult {
           .from('lesson_requests')
           .update({ status: 'expired', responded_at: new Date().toISOString() })
           .in('id', ids)
-          .then(({ error: expErr }) => {
+          .then(async ({ error: expErr }) => {
             if (expErr) return;
-            // Notify each player that their request expired
+            const { data: { user: coachUser } } = await supabase.auth.getUser();
+            if (!coachUser) return;
             for (const req of toExpire) {
+              // Notify player
               sendNotificationEmail({
                 type: 'lesson_expired',
                 userId: req.playerId,
                 coachName: undefined,
+                lessonType: req.lessonType,
+                date: req.preferredDate,
+                startTime: req.preferredTimeStart,
+                endTime: req.preferredTimeEnd,
+              });
+              // Notify coach
+              sendNotificationEmail({
+                type: 'lesson_expired_coach',
+                userId: coachUser.id,
+                playerId: req.playerId,
                 lessonType: req.lessonType,
                 date: req.preferredDate,
                 startTime: req.preferredTimeStart,
