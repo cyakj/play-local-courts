@@ -73,12 +73,18 @@ export default function SettingsScreen() {
   if (!session) return <Redirect href="/(auth)/login" />;
 
   function signOut() {
+    console.log('[AUTH] Sign out button pressed (Settings)');
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Sign Out',
         style: 'destructive',
-        onPress: async () => { await supabase.auth.signOut({ scope: 'local' }); },
+        onPress: async () => {
+          console.log('[AUTH] supabase.auth.signOut() called');
+          const { error } = await supabase.auth.signOut({ scope: 'local' });
+          if (error) console.error('[AUTH] signOut error:', error.message);
+          else console.log('[AUTH] signOut completed — awaiting SIGNED_OUT event → AuthGuard redirect');
+        },
       },
     ]);
   }
@@ -109,6 +115,16 @@ export default function SettingsScreen() {
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={{ maxWidth: MaxWidth, width: '100%', alignSelf: 'center' }}>
+
+          {/* Auth debug panel — DEV only */}
+          {__DEV__ && (
+            <View style={styles.debugPanel}>
+              <Text style={styles.debugTitle}>DEV · AUTH STATE</Text>
+              <Text style={styles.debugLine}>session: {session ? 'PRESENT' : 'NULL'}</Text>
+              <Text style={styles.debugLine}>user: {session?.user?.email ?? '—'}</Text>
+              <Text style={styles.debugLine}>loading: {String(loading)}</Text>
+            </View>
+          )}
 
           {/* Profile card */}
           <View style={[styles.profileCard, { backgroundColor: theme.cardBg }]}>
@@ -343,6 +359,28 @@ const styles = StyleSheet.create({
   },
   linkLabel: { fontFamily: FontFamily.interSemiBold, fontSize: 14, color: Colors.textPrimary },
   linkDesc: { fontFamily: FontFamily.interRegular, fontSize: 12, color: Colors.textMuted, marginTop: 1 },
+
+  debugPanel: {
+    backgroundColor: '#0A1628',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#2DE0FF40',
+    marginBottom: 4,
+  },
+  debugTitle: {
+    fontFamily: FontFamily.jetbrainsMonoSemiBold,
+    fontSize: 10,
+    color: '#2DE0FF',
+    letterSpacing: 1.4,
+    marginBottom: 6,
+  },
+  debugLine: {
+    fontFamily: FontFamily.jetbrainsMonoSemiBold,
+    fontSize: 11,
+    color: '#9AA3B8',
+    lineHeight: 18,
+  },
 
   signOutCard: {
     backgroundColor: '#FEF2F2',

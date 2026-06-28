@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Alert,
   ScrollView,
@@ -8,14 +8,12 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { LogOut } from 'lucide-react-native';
 import { Header } from '@/components/ui/Header';
 import { useTheme } from '@/context/ThemeContext';
 import { useCoachProfile } from '@/hooks/useCoachProfile';
 import { LessonPackagesManager } from '@/components/coach/LessonPackagesManager';
 import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/design';
 import type { ThemeTokens } from '@/constants/theme-tokens';
-import { supabase } from '@/lib/supabase';
 
 const NOTICE_OPTIONS = [1, 2, 4, 8, 12, 24, 48, 72];
 const ADVANCE_OPTIONS = [7, 14, 21, 30, 60, 90];
@@ -183,29 +181,12 @@ export default function CoachMeScreen() {
     );
   }
 
-  async function handleSignOut() {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign Out',
-        style: 'destructive',
-        onPress: async () => { await supabase.auth.signOut({ scope: 'local' }); },
-      },
-    ]);
-  }
-
   if (loading) {
     return (
       <View style={[styles.screen, { backgroundColor: theme.pageBg }]}>
         <Header variant="coach" />
         <View style={styles.loading}>
           <Text style={styles.loadingText}>Loading…</Text>
-        </View>
-        <View style={styles.footer}>
-          <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.8}>
-            <LogOut size={16} color={Colors.negative} strokeWidth={1.8} />
-            <Text style={styles.signOutText}>Sign Out</Text>
-          </TouchableOpacity>
         </View>
       </View>
     );
@@ -217,10 +198,6 @@ export default function CoachMeScreen() {
         <Header variant="coach" />
         <View style={styles.loading}>
           <Text style={styles.loadingText}>Coach profile not found.</Text>
-          <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.8}>
-            <LogOut size={16} color={Colors.negative} strokeWidth={1.8} />
-            <Text style={styles.signOutText}>Sign Out</Text>
-          </TouchableOpacity>
         </View>
       </View>
     );
@@ -501,14 +478,8 @@ export default function CoachMeScreen() {
 
       </ScrollView>
 
-      {/* Sign out — outside ScrollView so PackageModal cannot block touches */}
+      {/* Payment Settings — not yet available */}
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.8}>
-          <LogOut size={16} color={Colors.negative} strokeWidth={1.8} />
-          <Text style={styles.signOutText}>Sign Out</Text>
-        </TouchableOpacity>
-
-        {/* Payment Settings — not yet available */}
         <View style={styles.comingSoonCard}>
           <Text style={styles.comingSoonText}>Payment Settings</Text>
           <Text style={styles.comingSoonSub}>Coming in a future update</Text>
@@ -614,22 +585,6 @@ function useStyles(theme: ThemeTokens) {
     },
     chipTextActive: {
       color: Colors.blue,
-    },
-    signOutBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 8,
-      marginTop: 10,
-      paddingVertical: 14,
-      borderRadius: Radius.button,
-      borderWidth: 1,
-      borderColor: 'rgba(255,92,107,0.30)',
-    },
-    signOutText: {
-      fontFamily: FontFamily.manropeSemiBold,
-      fontSize: FontSize.body,
-      color: Colors.negative,
     },
     comingSoonCard: {
       backgroundColor: theme.cardBg,

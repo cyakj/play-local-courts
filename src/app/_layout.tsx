@@ -13,15 +13,36 @@ import {
 } from '@expo-google-fonts/inter';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { setBackgroundColorAsync } from 'expo-system-ui';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 
 import { ThemeProvider, STORAGE_KEY } from '@/context/ThemeContext';
-import { NativeAuthProvider } from '@/context/NativeAuthContext';
+import { NativeAuthProvider, useSession } from '@/context/NativeAuthContext';
 import type { ThemeMode } from '@/constants/theme-tokens';
+
+// Single authoritative auth guard — fires exactly once per session change,
+// preventing the race condition that occurs when multiple layout <Redirect>
+// components call router.replace() simultaneously.
+function AuthGuard() {
+  const { session, loading } = useSession();
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (loading) return;
+    const inAuth = segments[0] === '(auth)';
+    console.log(`[AUTH] Guard — session:${!!session} segment:${segments[0] ?? 'root'} inAuth:${inAuth}`);
+    if (!session && !inAuth) {
+      console.log('[AUTH] → router.replace /(auth)/login');
+      router.replace('/(auth)/login');
+    }
+  }, [session, loading, segments]);
+
+  return null;
+}
 
 SplashScreen.preventAutoHideAsync();
 setBackgroundColorAsync('#0C0F18');
@@ -59,6 +80,7 @@ export default function RootLayout() {
 
   return (
     <NativeAuthProvider>
+      <AuthGuard />
       <ThemeProvider initialMode={initialTheme}>
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }}>
           <Stack.Screen name="(auth)" />
