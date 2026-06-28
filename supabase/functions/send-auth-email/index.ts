@@ -1,7 +1,8 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "npm:resend@2.0.0";
 
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+const resend    = new Resend(Deno.env.get("RESEND_API_KEY"));
+const fromEmail = Deno.env.get("FROM_EMAIL") ?? "noreply@tenisx.ai";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -43,7 +44,7 @@ const handler = async (req: Request): Promise<Response> => {
     let htmlContent = "";
 
     if (email_action_type === "signup") {
-      subject = "Welcome! Confirm your coach account";
+      subject = "Welcome to TenisX — confirm your email";
       htmlContent = `
         <!DOCTYPE html>
         <html>
@@ -51,26 +52,30 @@ const handler = async (req: Request): Promise<Response> => {
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
           </head>
-          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
-              <h1 style="color: white; margin: 0; font-size: 28px;">Welcome to Our Platform!</h1>
-            </div>
-            <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px;">
-              <p style="font-size: 16px; margin-bottom: 20px;">Hi there,</p>
-              <p style="font-size: 16px; margin-bottom: 20px;">Thank you for registering as a coach! To complete your registration and start connecting with players, please confirm your email address.</p>
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${confirmLink}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 30px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block; font-size: 16px;">Confirm Email Address</a>
+          <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.6;background:#0C0F18;margin:0;padding:20px;">
+            <div style="max-width:600px;margin:0 auto;">
+              <div style="background:#0F2A57;padding:32px;border-radius:12px 12px 0 0;text-align:center;">
+                <h1 style="color:#2DE0FF;margin:0;font-size:28px;font-weight:700;letter-spacing:-0.02em;">TenisX</h1>
+                <p style="color:#9AA3B8;margin:8px 0 0;font-size:13px;text-transform:uppercase;letter-spacing:0.18em;">Welcome</p>
               </div>
-              <p style="font-size: 14px; color: #666; margin-top: 30px;">If the button doesn't work, copy and paste this link into your browser:</p>
-              <p style="font-size: 12px; color: #999; word-break: break-all;">${confirmLink}</p>
-              <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
-              <p style="font-size: 12px; color: #999;">If you didn't create this account, you can safely ignore this email.</p>
+              <div style="background:#161A26;padding:32px;border-radius:0 0 12px 12px;border:1px solid #232838;">
+                <p style="color:#F5F8FF;font-size:16px;margin-bottom:16px;">Hi there,</p>
+                <p style="color:#9AA3B8;font-size:16px;margin-bottom:24px;">You're almost in. Confirm your email address to activate your TenisX account.</p>
+                <div style="text-align:center;margin:32px 0;">
+                  <a href="${confirmLink}" style="background:#2D6BFF;color:#F5F8FF;padding:14px 32px;text-decoration:none;border-radius:8px;font-weight:600;display:inline-block;font-size:16px;">Confirm Email Address</a>
+                </div>
+                <p style="font-size:13px;color:#7A839A;margin-top:24px;">If the button doesn't work, copy and paste this link:</p>
+                <p style="font-size:12px;color:#5A6379;word-break:break-all;">${confirmLink}</p>
+                <hr style="border:none;border-top:1px solid #232838;margin:28px 0;">
+                <p style="font-size:12px;color:#5A6379;">Didn't create this account? You can safely ignore this email.</p>
+                <p style="font-size:12px;color:#5A6379;margin-top:16px;">TenisX · noreply@tenisx.ai</p>
+              </div>
             </div>
           </body>
         </html>
       `;
     } else if (email_action_type === "recovery") {
-      subject = "Reset your password";
+      subject = "TenisX — reset your password";
       htmlContent = `
         <!DOCTYPE html>
         <html>
@@ -78,20 +83,24 @@ const handler = async (req: Request): Promise<Response> => {
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
           </head>
-          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
-              <h1 style="color: white; margin: 0; font-size: 28px;">Password Reset</h1>
-            </div>
-            <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px;">
-              <p style="font-size: 16px; margin-bottom: 20px;">Hi there,</p>
-              <p style="font-size: 16px; margin-bottom: 20px;">We received a request to reset your password. Click the button below to create a new password:</p>
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${confirmLink}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 30px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block; font-size: 16px;">Reset Password</a>
+          <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.6;background:#0C0F18;margin:0;padding:20px;">
+            <div style="max-width:600px;margin:0 auto;">
+              <div style="background:#0F2A57;padding:32px;border-radius:12px 12px 0 0;text-align:center;">
+                <h1 style="color:#2DE0FF;margin:0;font-size:28px;font-weight:700;letter-spacing:-0.02em;">TenisX</h1>
+                <p style="color:#9AA3B8;margin:8px 0 0;font-size:13px;text-transform:uppercase;letter-spacing:0.18em;">Password Reset</p>
               </div>
-              <p style="font-size: 14px; color: #666; margin-top: 30px;">If the button doesn't work, copy and paste this link into your browser:</p>
-              <p style="font-size: 12px; color: #999; word-break: break-all;">${confirmLink}</p>
-              <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
-              <p style="font-size: 12px; color: #999;">If you didn't request a password reset, you can safely ignore this email.</p>
+              <div style="background:#161A26;padding:32px;border-radius:0 0 12px 12px;border:1px solid #232838;">
+                <p style="color:#F5F8FF;font-size:16px;margin-bottom:16px;">Hi there,</p>
+                <p style="color:#9AA3B8;font-size:16px;margin-bottom:24px;">We received a request to reset your TenisX password. Click the button below to choose a new one.</p>
+                <div style="text-align:center;margin:32px 0;">
+                  <a href="${confirmLink}" style="background:#2D6BFF;color:#F5F8FF;padding:14px 32px;text-decoration:none;border-radius:8px;font-weight:600;display:inline-block;font-size:16px;">Reset Password</a>
+                </div>
+                <p style="font-size:13px;color:#7A839A;margin-top:24px;">If the button doesn't work, copy and paste this link:</p>
+                <p style="font-size:12px;color:#5A6379;word-break:break-all;">${confirmLink}</p>
+                <hr style="border:none;border-top:1px solid #232838;margin:28px 0;">
+                <p style="font-size:12px;color:#5A6379;">Didn't request a password reset? You can safely ignore this email — your account is safe.</p>
+                <p style="font-size:12px;color:#5A6379;margin-top:16px;">TenisX · noreply@tenisx.ai</p>
+              </div>
             </div>
           </body>
         </html>
@@ -99,7 +108,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const emailResponse = await resend.emails.send({
-      from: "Your Platform <onboarding@resend.dev>",
+      from: `TenisX <${fromEmail}>`,
       to: [user.email],
       subject: subject,
       html: htmlContent,
