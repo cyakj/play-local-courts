@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { Header } from '@/components/ui/Header';
 import { useTheme } from '@/context/ThemeContext';
 import { useCoachSchedule } from '@/hooks/useCoachSchedule';
 import { useCoachAvailability } from '@/hooks/useCoachAvailability';
 import { CoachWeekView } from '@/components/coach/CoachWeekView';
 import { CoachAvailabilityEditor } from '@/components/coach/CoachAvailabilityEditor';
+import { CoachWeeklyScheduleModal } from '@/components/coach/CoachWeeklyScheduleModal';
 import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/design';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 import { supabase } from '@/lib/supabase';
@@ -26,6 +27,7 @@ export default function CoachScheduleScreen() {
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [coachId, setCoachId] = useState<string | null>(null);
+  const [showWeeklyModal, setShowWeeklyModal] = useState(false);
 
   useMemo(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -61,7 +63,27 @@ export default function CoachScheduleScreen() {
   return (
     <View style={[styles.screen, { backgroundColor: theme.pageBg }]}>
       <Header variant="coach" />
+      {/* Weekly schedule read-only modal */}
+      <CoachWeeklyScheduleModal
+        visible={showWeeklyModal}
+        onClose={() => setShowWeeklyModal(false)}
+        weekStart={weekStart}
+        lessonsByDate={lessonsByDate}
+        availabilitySlots={weeklySlots}
+      />
+
       <ScrollView contentContainerStyle={styles.content}>
+        {/* View Weekly Schedule button */}
+        <TouchableOpacity
+          style={styles.weeklyBtn}
+          onPress={() => setShowWeeklyModal(true)}
+          activeOpacity={0.85}
+          testID="view-weekly-schedule-btn"
+        >
+          <CalendarDays size={15} color={Colors.cyan} strokeWidth={2} />
+          <Text style={styles.weeklyBtnText}>View Weekly Schedule</Text>
+        </TouchableOpacity>
+
         {/* Week nav */}
         <View style={styles.weekNav}>
           <TouchableOpacity onPress={prevWeek} style={styles.navBtn} activeOpacity={0.7}>
@@ -113,6 +135,22 @@ function useStyles(theme: ThemeTokens) {
       padding: Spacing.pagePx,
       paddingBottom: 100,
       gap: 20,
+    },
+    weeklyBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      paddingVertical: 13,
+      borderRadius: Radius.sm,
+      borderWidth: 1,
+      borderColor: 'rgba(45,224,255,0.30)',
+      backgroundColor: 'rgba(45,224,255,0.07)',
+    },
+    weeklyBtnText: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: FontSize.label,
+      color: Colors.cyan,
     },
     weekNav: {
       flexDirection: 'row',
