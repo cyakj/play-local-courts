@@ -102,10 +102,61 @@
 
 ---
 
-## Code State (2026-06-27)
+### PHASE 6 — Match v2: Playtomic-style Open Match Discovery (commits `c1b047f`)
+
+**Architecture:** `match.tsx` replaced with `MatchDiscovery` component backed by `open_match_listings` table. Create Match wizard at `/match/new` writes a listing row; `/match/[id]` is the detail page. Player challenge flow (MatchRequestSheet + PlayerLookup) retained as secondary action. `match_request_received` notification preserved. `match_confirmation`/`match_declined` notifications were on the old accept/decline UI which was removed in v2 — those two types are no longer triggered.
+
+- [ ] 6a. Sign in as Resident → Match (VS) tab. Verify "Matches" heading and `MatchDiscovery` filter bar render. No crash.
+- [ ] 6b. Filter bar: date picker, format chips (Singles/Doubles/Casual), NTRP slider, gender chips all respond. Filters narrow the listing list (or show an empty state if no listings exist for that filter combo).
+- [ ] 6c. Empty state: with no matching open listings, a descriptive empty-state message is visible rather than a blank screen.
+- [ ] 6d. Tap **Create Match** CTA (blue button in hero). Verify navigation to `/match/new` Create Match wizard.
+- [ ] 6e. In the wizard: select format (Singles / Doubles). Verify WeatherTimeWheel renders with outdoor weather preview and allows date + time selection.
+- [ ] 6f. Location tab — **HOA Courts**: verify courts from the HOA `courts` table appear. Select one.
+- [ ] 6g. Location tab — **Other Locations**: verify external facilities from `tennis_facilities` table appear (Bayamon Tennis Center should be seeded for PR region).
+- [ ] 6h. Add Players: tap Add Players button → AddPlayersSheet opens → contacts permission dialog appears. Grant permission → contacts from device appear in search.
+- [ ] 6i. Submit the form → verify an `open_match_listings` row is inserted in Supabase. Navigating back to the Match tab shows the new listing in MatchDiscovery without a manual refresh.
+- [ ] 6j. Tap a listing card → navigates to `/match/[id]` detail page. Format, date, time, location, note all visible.
+- [ ] 6k. Non-creator taps **Join** → row inserted into `open_match_listing_participants`.
+- [ ] 6l. Creator sees a participant list and an **Invite** button on their own listing.
+- [ ] 6m. Tap the search icon (Player Lookup) in the hero → `PlayerLookupModal` opens. Search for a player by name.
+- [ ] 6n. Tap **Challenge** on a player → `MatchRequestSheet` opens. Send a request → verify `match_requests` row inserted in Supabase AND a `match_request_received` email notification is triggered (check recipient's inbox).
+
+**Sign off:** `[ ]` All 14 steps pass → Match v2 DONE
+
+---
+
+### PHASE 7 — Coach Schedule Control Panel + Clinics (commit `0814df1`)
+
+**Architecture:** `schedule.tsx` replaced with daily timeline view (`CoachDailyTimeline` + `CoachDatePickerSheet`). `schedule-settings.tsx` is the blockout/global hours editor (hidden route, accessed via gear icon). `schedule-week.tsx` is the landscape week calendar (accessed via calendar-range icon). `clinics.tsx` (coach-side) is a hidden tab accessible from within `schedule.tsx`. `clinic/[id].tsx` is the public clinic detail. All three backing tables (`coach_schedule_private_settings`, `coach_teaching_blocks`, `coach_clinics`) confirmed in remote Supabase.
+
+- [ ] 7a. Sign in as Coach → Schedule tab. Verify **daily timeline** renders with today's date shown. No crash. Color key (L/F/T/E/U legend) is visible.
+- [ ] 7b. Tap the date area / forward arrow → date advances by one day. Timeline updates for the new date.
+- [ ] 7c. Tap the **calendar-range icon** (week view button) → navigates to `schedule-week` screen. Verify landscape orientation activates automatically. Week grid renders with all 7 days. Tap Back → returns to schedule.
+- [ ] 7d. Tap the **SlidersHorizontal / gear icon** → navigates to `schedule-settings` screen. Verify Global Hours, Teaching Blocks, and Blockouts sections all render with data from Supabase (or empty states).
+- [ ] 7e. In `schedule-settings`: add a blockout (e.g., next Saturday). Tap Save. Verify blockout row appears. Navigate back to daily timeline — verify the blockout date shows as Unavailable on the timeline.
+- [ ] 7f. In `schedule-settings`: set or update Global Hours for a day. Save. Verify timeline reflects the change.
+- [ ] 7g. Tap the **Plus icon** on the `schedule.tsx` header → `CreateClinicSheet` opens (clinic creation modal). Fill in: name, date (use WeatherTimeWheel), duration, location, skill range, age group, max players. Tap Create.
+- [ ] 7h. Verify clinic row inserted in `coach_clinics` table in Supabase.
+- [ ] 7i. Navigate to `clinics.tsx` (accessible from the Plus CTA or any future nav entry). Verify newly created clinic appears in the list.
+- [ ] 7j. Navigate to `/clinic/[id]` for the new clinic. Verify all details render: name, date, time, location, player count. `LessonWeather` widget shows weather for the clinic date if within the 7-day forecast window.
+- [ ] 7k. Non-coach user taps **Join Clinic** on `/clinic/[id]` → confirm join action updates participant count.
+- [ ] 7l. Existing launch-sprint coach hooks (`useCoachSchedule`, `useCoachAvailability`, `useCoachRequests`) still function — Requests tab still shows pending lesson requests with correct count badge.
+
+**Sign off:** `[ ]` All 12 steps pass → Coach Schedule Control Panel + Clinics DONE
+
+---
+
+## Code State (2026-06-29)
 
 | Commit | What |
 |--------|------|
+| `0814df1` | feat(coach): Coach Schedule Control Panel + Clinics (codex import) |
+| `c1b047f` | feat(match): Match v2 — Playtomic-style open match discovery (codex import) |
+| `1d6f638` | test(coach): 40 automated logic tests for scheduling and lifecycle |
+| `6eea41d` | feat(coach): add read-only weekly schedule modal |
+| `e717787` | fix(coach): availability slots — delete, sort, duplicate/overlap validation |
+| `6bfd494` | fix(coach): lesson request lifecycle — filter, cancel, expire |
+| `47e9a74` | fix(auth): bypass Alert.alert() on web to unblock sign-out |
 | `b84487e` | Auth: INITIAL\_SESSION pattern; design spec fixes (font sizes, touch targets, Colors.white) |
 | `add9215` | Packages UX, certifications (ITF L4 removed, PTR added) |
 | `9f826a0` | Lesson request auto-expiration (client + server + migration) |
@@ -1202,3 +1253,9 @@ Submit to TestFlight (internal testers)
 | Supabase `site_url` in `config.toml` is `localhost:3000` — production project must have correct URL | Medium | Verify production Supabase project Auth settings, not just `config.toml` |
 | `hoa_memberships` vs `hoa_members` — if both tables exist, wrong data may silently appear | High | Resolve in P1-003 by checking actual DB schema |
 | No user sign-up flow for residents (they can only join via invite or admin DB add) | Medium | Clarify intended onboarding path with product owner before public launch |
+| **Match v2** — `match_confirmation` and `match_declined` notifications removed: the accept/decline UI was part of the old match.tsx and is absent from the codex MatchDiscovery version. Opponents receive no email when they accept or decline a challenge via MatchRequestSheet. | High | Re-add accept/decline notification calls in MatchRequestSheet when acceptance UI is built back in, or wire notifications into the `match_requests` Supabase trigger |
+| **Match v2** — `open_match_listing_participants` INSERT policy requires `listing.creator_id <> auth.uid()` for self-join. Creators cannot join their own listing. Intended behavior — but confirm this is acceptable UX before launch. | Low | Verify with product owner; if self-join is needed, update the RLS policy |
+| **Match v2** — `AddPlayersSheet` uses `expo-contacts/legacy`. The `/legacy` import path is deprecated in Expo SDK 56; may generate a deprecation warning in the build. No functional impact now but should be migrated to `expo-contacts` direct import before SDK 57. | Low | Monitor build output for deprecation warnings; migrate when Expo SDK is bumped |
+| **Coach Schedule** — `schedule-week.tsx` uses `expo-screen-orientation` installed via `npm install` (not `expo install`). Version `^56.0.5` may not be pinned to the exact SDK 56 peer. Confirm no build errors when EAS builds the iOS binary. | Medium | Verify EAS build log after first iOS build with this package added |
+| **Clinics** — `ClinicDiscovery` component is checked in but not wired into the resident `coaches.tsx` screen. Residents cannot browse or discover clinics from the app. Clinics are only accessible by coaches (creation) and via direct `/clinic/[id]` deep link. | Medium | Wire `ClinicDiscovery` into `coaches.tsx` or add a dedicated Clinics discovery entry point for residents |
+| **Coach Schedule** — New hooks (`useCoachDailyTimeline`, `useCoachWeekTimeline`, `useCoachBlockouts`, etc.) coexist alongside launch-sprint hooks (`useCoachSchedule`, `useCoachAvailability`). Both hook families read from overlapping coach-domain tables. Confirm no double-subscription conflicts cause unexpected UI state. | Low | Test schedule tab and requests tab simultaneously during Phase 7 QA |
