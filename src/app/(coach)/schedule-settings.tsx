@@ -11,7 +11,9 @@ import {
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { AlertTriangle, ChevronRight, RotateCcw, Save } from 'lucide-react-native';
 import { Header } from '@/components/ui/Header';
+import { CoachAvailabilityEditor } from '@/components/coach/CoachAvailabilityEditor';
 import { CoachDaySetupSheet } from '@/components/coach/schedule/CoachDaySetupSheet';
+import { useCoachAvailability } from '@/hooks/useCoachAvailability';
 import { useCoachBlockouts } from '@/hooks/useCoachBlockouts';
 import { useCoachGlobalHours } from '@/hooks/useCoachGlobalHours';
 import { useCoachTeachingBlocks } from '@/hooks/useCoachTeachingBlocks';
@@ -91,6 +93,7 @@ export default function ScheduleSettingsScreen() {
   const globalHours = useCoachGlobalHours(coachId);
   const teachingBlocks = useCoachTeachingBlocks(coachId);
   const blockouts = useCoachBlockouts(coachId);
+  const { weeklySlots, refresh: refreshSlots } = useCoachAvailability(coachId);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setCoachId(user?.id ?? null));
@@ -303,10 +306,7 @@ export default function ScheduleSettingsScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.intro}>
           <Text style={styles.eyebrow}>WEEKLY RULES</Text>
-          <Text style={styles.introTitle}>Coaching Boundaries</Text>
-          <Text style={styles.introBody}>
-            Tap a day to set its boundary, teaching blocks, and unavailable times.
-          </Text>
+          <Text style={styles.introTitle}>Schedule Settings</Text>
         </View>
 
         {dirty && (
@@ -325,6 +325,15 @@ export default function ScheduleSettingsScreen() {
         )}
         {(saveError || queryError) && <Text style={styles.error}>{saveError ?? queryError}</Text>}
         {!!savedMessage && <Text style={styles.success}>{savedMessage}</Text>}
+
+        {/* Availability slots — day-pill editor */}
+        <CoachAvailabilityEditor slots={weeklySlots} onRefresh={refreshSlots} />
+
+        {/* Coaching boundaries — global hours, teaching blocks, blockouts */}
+        <Text style={styles.eyebrow}>COACHING BOUNDARIES</Text>
+        <Text style={styles.introBody}>
+          Tap a day to set its boundary, teaching blocks, and unavailable times.
+        </Text>
 
         <View style={styles.dayList}>
           {draft.globalHours.map(boundary => {

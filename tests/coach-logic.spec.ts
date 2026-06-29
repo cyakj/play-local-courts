@@ -414,30 +414,29 @@ test.describe('Weekly schedule viewer', () => {
     expect(exists).toBe(true);
   });
 
-  test('schedule.tsx contains View Weekly Schedule button', async () => {
+  test('schedule.tsx uses CoachDailyTimeline and routes to schedule-week', async () => {
+    // New architecture: daily timeline view + navigation to schedule-week for landscape week view
     const fs = await import('fs');
     const content = fs.readFileSync(
       'C:\\Users\\info\\tenisx-native\\src\\app\\(coach)\\schedule.tsx',
       'utf-8'
     );
-    expect(content).toContain('View Weekly Schedule');
-    expect(content).toContain('CoachWeeklyScheduleModal');
-    expect(content).toContain('showWeeklyModal');
+    expect(content).toContain('CoachDailyTimeline');
+    expect(content).toContain('CoachDatePickerSheet');
+    expect(content).toContain('schedule-week');
   });
 
-  test('CoachWeeklyScheduleModal has no editing controls', async () => {
+  test('schedule-settings.tsx contains CoachAvailabilityEditor with day-pill UX', async () => {
+    // Availability editor moved from schedule.tsx to schedule-settings.tsx (commit regression fix)
     const fs = await import('fs');
     const content = fs.readFileSync(
-      'C:\\Users\\info\\tenisx-native\\src\\components\\coach\\CoachWeeklyScheduleModal.tsx',
+      'C:\\Users\\info\\tenisx-native\\src\\app\\(coach)\\schedule-settings.tsx',
       'utf-8'
     );
-    // Should NOT contain edit/save/delete controls
-    expect(content).not.toContain('handleSave');
-    expect(content).not.toContain('handleDelete');
-    expect(content).not.toContain('handleEdit');
-    // Should contain the close button and read-only testID
-    expect(content).toContain('weekly-schedule-modal');
-    expect(content).toContain('weekly-schedule-close-btn');
+    expect(content).toContain('CoachAvailabilityEditor');
+    expect(content).toContain('useCoachAvailability');
+    expect(content).toContain('weeklySlots');
+    expect(content).toContain('refreshSlots');
   });
 
   test('lesson blocks render from sample data (logic test)', () => {
