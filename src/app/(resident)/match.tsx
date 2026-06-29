@@ -31,6 +31,7 @@ import {
   MapPin,
   Menu,
   MessageCircle,
+  Plus,
   Search,
   SlidersHorizontal,
   Sun,
@@ -44,6 +45,7 @@ import {
 import { supabase } from '@/lib/supabase';
 import { sendNotificationEmail } from '@/lib/emailNotifications';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { MatchDiscovery } from '@/components/match/MatchDiscovery';
 import { useTheme } from '@/context/ThemeContext';
 import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/design';
 import { useWeather, getWeatherForDate } from '@/hooks/useWeather';
@@ -66,7 +68,7 @@ const CARD_RADIUS = Radius.lg; // 20px — premium card feel matching Stitch ref
 type MatchType           = 'singles' | 'doubles' | 'mixed_doubles' | 'hitting_session';
 type MatchLifecycleStatus = 'scheduled' | 'reschedule_requested' | 'cancelled' | 'completed';
 type RescheduleStatus     = 'pending' | 'accepted' | 'declined' | 'cancelled';
-type DateMode             = 'today' | 'tomorrow' | 'this_weekend' | 'pick';
+type DateMode             = 'today' | 'tomorrow' | 'pick';
 type TimeMode             = 'morning' | 'afternoon' | 'evening' | 'custom';
 
 interface RescheduleRequest {
@@ -159,7 +161,6 @@ const DISTANCE_OPTIONS = [5, 10, 25, 50];
 const DATE_PRESETS: { mode: DateMode; label: string }[] = [
   { mode: 'today',        label: 'Today' },
   { mode: 'tomorrow',     label: 'Tomorrow' },
-  { mode: 'this_weekend', label: 'This Weekend' },
   { mode: 'pick',         label: 'Pick Date' },
 ];
 
@@ -183,13 +184,6 @@ const REQUEST_AVAILABILITY: { value: string; label: string }[] = [
 
 const REQUEST_DURATIONS = [60, 90, 120];
 
-const REQUEST_COURT_TYPES: { value: string | null; label: string }[] = [
-  { value: 'hard',  label: 'Hard' },
-  { value: 'clay',  label: 'Clay' },
-  { value: 'grass', label: 'Grass' },
-  { value: null,    label: 'Any' },
-];
-
 const REQUEST_TIME_SLOTS: string[] = Array.from({ length: 33 }, (_, i) => {
   const totalMins = 6 * 60 + i * 30;
   const h = Math.floor(totalMins / 60);
@@ -200,414 +194,11 @@ const REQUEST_TIME_SLOTS: string[] = Array.from({ length: 33 }, (_, i) => {
 const REQ_MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const REQ_DAY_LABELS  = ['Su','Mo','Tu','We','Th','Fr','Sa'];
 
-// ─── Mock data (dev/preview only — never shown in production runtime) ─────────
-
-const MOCK_RECOMMENDED: RecommendedPlayer[] = [
-  {
-    id: 'mock-r1',
-    name: 'Alex Rodriguez',
-    avatarUrl: null,
-    utrRating: 8.3,
-    ntrpRating: 4.5,
-    preferredTimes: ['Evenings'],
-    preferredCourt: 'Riverside Courts',
-  },
-  {
-    id: 'mock-r2',
-    name: 'Ethan Lee',
-    avatarUrl: null,
-    utrRating: 8.1,
-    ntrpRating: 4.0,
-    preferredTimes: ['Weekends'],
-    preferredCourt: 'Bayview Courts',
-  },
-  {
-    id: 'mock-r3',
-    name: 'Marcus Kim',
-    avatarUrl: null,
-    utrRating: 7.8,
-    ntrpRating: 3.5,
-    preferredTimes: ['Mornings'],
-    preferredCourt: 'Central Park TC',
-  },
-];
-
-const MOCK_INCOMING: IncomingRequest[] = [
-  {
-    id: 'mock-inc-1',
-    matchType: 'singles',
-    date: '2026-06-08',
-    timeStart: '16:00',
-    timeEnd: '17:30',
-    location: 'The Greens Court',
-    challenger: { id: 'mock-p1', name: 'Michael Torres', avatarUrl: null, utrRating: 8.1, ntrpRating: 4.5 },
-    status: 'pending',
-    mockWeatherTemp: 84,
-    mockWeatherCond: 'sunny',
-  },
-  {
-    id: 'mock-inc-2',
-    matchType: 'doubles',
-    date: '2026-06-09',
-    timeStart: '10:00',
-    timeEnd: '11:30',
-    location: 'Bayview Courts',
-    challenger: { id: 'mock-p2', name: 'Jordan Park', avatarUrl: null, utrRating: 7.6, ntrpRating: 4.0 },
-    status: 'pending',
-    mockWeatherTemp: 77,
-    mockWeatherCond: 'partly_cloudy',
-  },
-];
-
-const MOCK_UPCOMING: UpcomingMatch[] = [
-  {
-    id: 'mock-up-1',
-    matchType: 'singles',
-    date: '2026-06-05',
-    timeStart: '18:00',
-    timeEnd: '20:00',
-    location: 'Riverside Courts',
-    player1: { id: 'mock-opp-1', name: 'Alex Rodriguez', avatarUrl: null, utrRating: 8.3, ntrpRating: 4.5 },
-    player2: { id: 'mock-me', name: 'Me', avatarUrl: null, utrRating: null, ntrpRating: null },
-    player3: null,
-    player4: null,
-    status: 'scheduled' as MatchLifecycleStatus,
-    pendingReschedule: null,
-    mockWeatherTemp: 80,
-    mockWeatherCond: 'sunny',
-  },
-  {
-    id: 'mock-up-2',
-    matchType: 'doubles',
-    date: '2026-06-08',
-    timeStart: '16:00',
-    timeEnd: '18:00',
-    location: 'Bayview Courts',
-    player1: { id: 'mock-opp-2', name: 'Ethan Lee', avatarUrl: null, utrRating: 8.1, ntrpRating: 4.0 },
-    player2: { id: 'mock-me', name: 'Me', avatarUrl: null, utrRating: null, ntrpRating: null },
-    player3: { id: 'mock-opp-3', name: 'Marcus Kim', avatarUrl: null, utrRating: 7.8, ntrpRating: 3.5 },
-    player4: null,
-    status: 'scheduled' as MatchLifecycleStatus,
-    pendingReschedule: null,
-  },
-];
-
-// ─── Data hook ────────────────────────────────────────────────────────────────
-
-function useMatchData(userId: string) {
-  const [recommended, setRecommended] = useState<RecommendedPlayer[]>([]);
-  const [incoming, setIncoming]       = useState<IncomingRequest[]>([]);
-  const [upcoming, setUpcoming]       = useState<UpcomingMatch[]>([]);
-  const [loading, setLoading]         = useState(true);
-  const [error, setError]             = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    if (!userId) return;
-    setLoading(true);
-    setError(null);
-
-    const profilesNeeded = new Set<string>();
-
-    const [reqResult, matchResult, prefResult] = await Promise.all([
-      supabase
-        .from('match_requests')
-        .select('id, match_type, date, time_start, time_end, location, challenger_id, status')
-        .eq('opponent_id', userId)
-        .eq('status', 'pending')
-        .gt('expires_at', new Date().toISOString())
-        .order('date', { ascending: true }),
-
-      supabase
-        .from('matches')
-        .select('id, match_type, status, date, time_start, time_end, location, player1_id, player2_id, player3_id, player4_id')
-        .or(`player1_id.eq.${userId},player2_id.eq.${userId},player3_id.eq.${userId},player4_id.eq.${userId}`)
-        .in('status', ['scheduled', 'reschedule_requested'])
-        .gte('date', new Date().toISOString().split('T')[0])
-        .order('date', { ascending: true }),
-
-      supabase
-        .from('match_preferences')
-        .select('user_id')
-        .eq('looking_to_play', true)
-        .neq('user_id', userId)
-        .limit(20),
-    ]);
-
-    if (reqResult.error || matchResult.error || prefResult.error) {
-      setError('Could not load match data. Check your connection and try again.');
-      setLoading(false);
-      return;
-    }
-
-    const rawRequests = reqResult.data ?? [];
-    const rawMatches  = matchResult.data ?? [];
-    const prefUserIds = (prefResult.data ?? []).map((p) => p.user_id);
-
-    rawRequests.forEach((r) => profilesNeeded.add(r.challenger_id));
-    rawMatches.forEach((m) => {
-      [m.player1_id, m.player2_id, m.player3_id, m.player4_id].forEach((id) => {
-        if (id) profilesNeeded.add(id);
-      });
-    });
-    prefUserIds.forEach((id) => profilesNeeded.add(id));
-
-    type ProfileRow = {
-      id: string;
-      full_name: string | null;
-      avatar_url: string | null;
-      utr_rating: number | null;
-      ntrp_rating: number | null;
-      preferred_court_locations: string | null;
-    };
-
-    let profileRows: ProfileRow[] = [];
-    const allIds = [...profilesNeeded];
-    if (allIds.length > 0) {
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, full_name, avatar_url, utr_rating, ntrp_rating, preferred_court_locations')
-        .in('id', allIds);
-      profileRows = (data ?? []) as ProfileRow[];
-    }
-
-    const profileMap = new Map<string, ProfileRow>();
-    profileRows.forEach((p) => profileMap.set(p.id, p));
-
-    function toPlayer(id: string): MatchPlayer {
-      const p = profileMap.get(id);
-      return {
-        id,
-        name:       p?.full_name ?? 'Unknown',
-        avatarUrl:  p?.avatar_url ?? null,
-        utrRating:  p?.utr_rating ?? null,
-        ntrpRating: p?.ntrp_rating ?? null,
-      };
-    }
-
-    if (prefUserIds.length > 0) {
-      const { data: prefDetails } = await supabase
-        .from('match_preferences')
-        .select('user_id, preferred_times')
-        .in('user_id', prefUserIds);
-      const prefMap = new Map((prefDetails ?? []).map((p) => [p.user_id, p]));
-
-      setRecommended(
-        prefUserIds.map((uid) => {
-          const profile = profileMap.get(uid);
-          const pref    = prefMap.get(uid);
-          return {
-            id:             uid,
-            name:           profile?.full_name ?? 'Unknown',
-            avatarUrl:      profile?.avatar_url ?? null,
-            utrRating:      profile?.utr_rating ?? null,
-            ntrpRating:     profile?.ntrp_rating ?? null,
-            preferredTimes: pref?.preferred_times ?? [],
-            preferredCourt: profile?.preferred_court_locations ?? null,
-          };
-        })
-      );
-    } else {
-      setRecommended([]);
-    }
-
-    setIncoming(
-      rawRequests.map((r) => ({
-        id:         r.id,
-        matchType:  (r.match_type as MatchType) ?? 'singles',
-        date:       r.date,
-        timeStart:  r.time_start,
-        timeEnd:    r.time_end,
-        location:   r.location,
-        challenger: toPlayer(r.challenger_id),
-        status:     r.status as IncomingRequest['status'],
-      }))
-    );
-
-    // Fetch pending reschedule requests for active matches
-    const rescheduleMap = new Map<string, RescheduleRequest>();
-    if (rawMatches.length > 0) {
-      const { data: rrs } = await supabase
-        .from('match_reschedule_requests')
-        .select('id, match_id, requester_user_id, proposed_date, proposed_start_time, proposed_end_time, reason, message, status')
-        .in('match_id', rawMatches.map((m) => m.id))
-        .eq('status', 'pending');
-      (rrs ?? []).forEach((r) => {
-        rescheduleMap.set(r.match_id, {
-          id:               r.id,
-          matchId:          r.match_id,
-          requesterUserId:  r.requester_user_id,
-          proposedDate:     r.proposed_date ?? null,
-          proposedStartTime: r.proposed_start_time ?? null,
-          proposedEndTime:  r.proposed_end_time ?? null,
-          reason:           r.reason ?? null,
-          message:          r.message ?? null,
-          status:           r.status as RescheduleStatus,
-        });
-      });
-    }
-
-    setUpcoming(
-      rawMatches.map((m) => ({
-        id:                m.id,
-        matchType:         (m.match_type as MatchType) ?? 'singles',
-        date:              m.date,
-        timeStart:         m.time_start,
-        timeEnd:           m.time_end ?? null,
-        location:          m.location,
-        player1:           toPlayer(m.player1_id),
-        player2:           toPlayer(m.player2_id),
-        player3:           m.player3_id ? toPlayer(m.player3_id) : null,
-        player4:           m.player4_id ? toPlayer(m.player4_id) : null,
-        status:            (m.status as MatchLifecycleStatus) ?? 'scheduled',
-        pendingReschedule: rescheduleMap.get(m.id) ?? null,
-      }))
-    );
-
-    setLoading(false);
-  }, [userId]);
-
-  useFocusEffect(useCallback(() => { load(); }, [load]));
-
-  return { recommended, incoming, upcoming, loading, error, reload: load };
-}
-
-// ─── Action helpers ───────────────────────────────────────────────────────────
-
-async function acceptRequest(requestId: string, challengerId: string, currentUserId: string, message: string) {
-  if (requestId.startsWith('mock-')) return;
-
-  // Fetch full request so we can populate the matches row
-  const { data: req } = await supabase
-    .from('match_requests')
-    .select('match_type, court_type, date, time_start, time_end, location')
-    .eq('id', requestId)
-    .single();
-
-  await supabase.from('match_requests').update({ status: 'accepted' }).eq('id', requestId);
-
-  if (req?.date && req?.time_start) {
-    await supabase.from('matches').insert({
-      match_request_id: requestId,
-      player1_id:  challengerId,
-      player2_id:  currentUserId,
-      match_type:  req.match_type ?? 'singles',
-      court_type:  req.court_type ?? 'hard',
-      location:    req.location   ?? '',
-      date:        req.date,
-      time_start:  req.time_start,
-      time_end:    req.time_end ?? null,
-      status:      'scheduled',
-    });
-  }
-
-  if (message) {
-    await supabase.from('messages').insert({
-      sender_id: currentUserId, receiver_id: challengerId, content: `Match accepted — ${message}`,
-    });
-  }
-
-  // Notify challenger — fire and forget
-  void (async () => {
-    const { data: prof } = await supabase.from('profiles').select('full_name').eq('id', currentUserId).single();
-    sendNotificationEmail({
-      type: 'match_confirmation',
-      userId: challengerId,
-      opponentName: (prof as any)?.full_name ?? 'Your opponent',
-    });
-  })();
-}
-
-async function declineRequest(requestId: string, challengerId: string, currentUserId: string, message: string) {
-  if (requestId.startsWith('mock-')) return;
-  await supabase.from('match_requests').update({ status: 'declined' }).eq('id', requestId);
-  if (message) {
-    await supabase.from('messages').insert({
-      sender_id: currentUserId, receiver_id: challengerId, content: `Request declined — ${message}`,
-    });
-  }
-
-  // Notify challenger — fire and forget
-  void (async () => {
-    const { data: prof } = await supabase.from('profiles').select('full_name').eq('id', currentUserId).single();
-    sendNotificationEmail({
-      type: 'match_declined',
-      userId: challengerId,
-      opponentName: (prof as any)?.full_name ?? 'Your opponent',
-      cancellationReason: message || undefined,
-    });
-  })();
-}
-
-async function rescheduleMatch(matchId: string, opponentId: string, currentUserId: string, message: string) {
-  if (matchId.startsWith('mock-')) return;
-  await supabase.from('match_reschedule_requests').insert({
-    match_id:          matchId,
-    requester_user_id: currentUserId,
-    message:           message || null,
-    status:            'pending',
-  });
-  await supabase.from('matches').update({ status: 'reschedule_requested' }).eq('id', matchId);
-  await supabase.from('messages').insert({
-    sender_id:   currentUserId,
-    receiver_id: opponentId,
-    content:     message ? `Reschedule request — ${message}` : 'Reschedule requested.',
-  });
-}
-
-async function cancelMatch(matchId: string, opponentId: string, currentUserId: string, message: string) {
-  if (matchId.startsWith('mock-')) return;
-  await supabase.from('matches').update({ status: 'cancelled' }).eq('id', matchId);
-  await supabase.from('messages').insert({
-    sender_id:   currentUserId,
-    receiver_id: opponentId,
-    content:     message ? `Match cancelled — ${message}` : 'Match cancelled.',
-  });
-}
-
-async function acceptReschedule(
-  rescheduleId: string, matchId: string,
-  proposedDate: string | null, proposedStart: string | null, proposedEnd: string | null,
-  requesterId: string, currentUserId: string, message: string,
-) {
-  if (matchId.startsWith('mock-')) return;
-  await supabase.from('match_reschedule_requests').update({
-    status: 'accepted', resolved_at: new Date().toISOString(),
-  }).eq('id', rescheduleId);
-  await supabase.from('matches').update({
-    status:     'scheduled' as const,
-    ...(proposedDate  ? { date:       proposedDate }  : {}),
-    ...(proposedStart ? { time_start: proposedStart } : {}),
-    ...(proposedEnd   ? { time_end:   proposedEnd }   : {}),
-  }).eq('id', matchId);
-  await supabase.from('messages').insert({
-    sender_id:   currentUserId,
-    receiver_id: requesterId,
-    content:     message ? `Reschedule accepted — ${message}` : 'New time accepted.',
-  });
-}
-
-async function declineReschedule(
-  rescheduleId: string, matchId: string,
-  requesterId: string, currentUserId: string, message: string,
-) {
-  if (matchId.startsWith('mock-')) return;
-  await supabase.from('match_reschedule_requests').update({
-    status: 'declined', resolved_at: new Date().toISOString(),
-  }).eq('id', rescheduleId);
-  await supabase.from('matches').update({ status: 'scheduled' }).eq('id', matchId);
-  await supabase.from('messages').insert({
-    sender_id:   currentUserId,
-    receiver_id: requesterId,
-    content:     message ? `Reschedule declined — ${message}` : 'New time declined, original match stands.',
-  });
-}
-
 // ─── Utility helpers ──────────────────────────────────────────────────────────
 
 function buildDateLabel(mode: DateMode, date: Date | null): string {
   if (mode === 'today')        return 'Today';
   if (mode === 'tomorrow')     return 'Tomorrow';
-  if (mode === 'this_weekend') return 'This Weekend';
   if (mode === 'pick' && date) {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
@@ -1489,609 +1080,6 @@ const secS = StyleSheet.create({
   emptyText: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label, flex: 1 },
 });
 
-// ─── Recommended Player Card ──────────────────────────────────────────────────
-
-function RecommendedPlayerCard({
-  player,
-  onRequest,
-  onMessage,
-}: {
-  player: RecommendedPlayer;
-  onRequest: () => void;
-  onMessage: (id: string) => void;
-}) {
-  const { theme } = useTheme();
-
-  return (
-    <View style={[rcS.card, { backgroundColor: theme.cardBg, borderColor: theme.border }, theme.shadowCard]}>
-      {/* Avatar + name */}
-      <View style={rcS.topRow}>
-        <PlayerAvatar player={player} size={52} />
-        <View style={rcS.nameCol}>
-          <Text style={[rcS.name, { color: theme.textPrimary }]} numberOfLines={2}>{player.name}</Text>
-          <RatingLine player={player} />
-        </View>
-      </View>
-
-      {/* Meta */}
-      <View style={rcS.meta}>
-        {player.preferredTimes.length > 0 && (
-          <View style={rcS.metaRow}>
-            <Clock size={12} color={theme.textMuted} strokeWidth={1.5} />
-            <Text style={[rcS.metaText, { color: theme.textSecondary }]} numberOfLines={1}>
-              {player.preferredTimes[0]}
-            </Text>
-          </View>
-        )}
-        {player.preferredCourt != null && (
-          <View style={rcS.metaRow}>
-            <MapPin size={12} color={theme.textMuted} strokeWidth={1.5} />
-            <Text style={[rcS.metaText, { color: theme.textSecondary }]} numberOfLines={1}>
-              {player.preferredCourt}
-            </Text>
-          </View>
-        )}
-      </View>
-
-      {/* Actions */}
-      <View style={rcS.actions}>
-        <TouchableOpacity
-          style={[rcS.btn, { borderColor: GREEN }]}
-          onPress={onRequest}
-          activeOpacity={0.8}>
-          <Text style={[rcS.btnText, { color: GREEN }]}>Request</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[rcS.btn, { borderColor: BLUE }]}
-          onPress={() => onMessage(player.id)}
-          activeOpacity={0.8}>
-          <Text style={[rcS.btnText, { color: BLUE }]}>Chat</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-}
-
-const rcS = StyleSheet.create({
-  card:    { width: REC_CARD_W, borderRadius: CARD_RADIUS, borderWidth: 1, padding: Spacing.cardPadding, marginRight: 12, gap: 14 },
-  topRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  nameCol: { flex: 1 },
-  name:    { fontFamily: FontFamily.spaceGroteskBold, fontSize: 15, lineHeight: 20 },
-  meta:    { gap: 7 },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  metaText: { fontFamily: FontFamily.manropeMedium, fontSize: 12, flex: 1 },
-  actions: { flexDirection: 'row', gap: 8 },
-  btn: {
-    flex: 1, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1.5, borderRadius: Radius.button,
-    paddingVertical: 11, minHeight: 42,
-  },
-  btnText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 12 },
-});
-
-// ─── Recommended Players Section ──────────────────────────────────────────────
-
-function RecommendedPlayersSection({ players, loading, currentUserId, onRequest }: {
-  players: RecommendedPlayer[]; loading: boolean; currentUserId: string; onRequest: (player: RecommendedPlayer) => void;
-}) {
-  const { theme } = useTheme();
-  return (
-    <View style={sectionStyle}>
-      <SectionHeader title="Recommended" />
-      {loading ? (
-        <View style={{ paddingHorizontal: Spacing.pagePx }}>
-          <Skeleton width={REC_CARD_W} height={200} borderRadius={CARD_RADIUS} />
-        </View>
-      ) : players.length === 0 ? (
-        <EmptyRow
-          icon={<Search size={15} color={theme.textMuted} strokeWidth={1.5} />}
-          text="No players yet — try Player Lookup."
-        />
-      ) : (
-        <FlatList
-          data={players}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(p) => p.id}
-          contentContainerStyle={{ paddingHorizontal: Spacing.pagePx, paddingBottom: 4 }}
-          renderItem={({ item }) => (
-            <RecommendedPlayerCard
-              player={item}
-              onRequest={() => onRequest(item)}
-              onMessage={(id) => router.push(`/messages?partner=${id}`)}
-            />
-          )}
-        />
-      )}
-    </View>
-  );
-}
-
-// ─── Incoming Request Card ────────────────────────────────────────────────────
-
-function IncomingRequestCard({
-  request,
-  currentUserId,
-  onAccept,
-  onDecline,
-  onMessage,
-}: {
-  request: IncomingRequest;
-  currentUserId: string;
-  onAccept: (r: IncomingRequest) => void;
-  onDecline: (r: IncomingRequest) => void;
-  onMessage: (id: string) => void;
-}) {
-  const { theme } = useTheme();
-  const isDoubles = request.matchType === 'doubles' || request.matchType === 'mixed_doubles';
-
-  return (
-    <View style={[incS.card, { backgroundColor: theme.cardBg, borderColor: theme.border }, theme.shadowCard]}>
-      <View style={incS.rail} />
-      <View style={incS.body}>
-        {/* Challenger row */}
-        <View style={incS.playerRow}>
-          <PlayerAvatar player={request.challenger} size={46} />
-          <View style={{ flex: 1 }}>
-            <Text style={[incS.name, { color: theme.textPrimary }]}>{request.challenger.name}</Text>
-            <RatingLine player={request.challenger} />
-          </View>
-        </View>
-
-        {/* Match details + weather */}
-        <View style={incS.meta}>
-          <View style={incS.metaRow}>
-            <MatchTypeIcon type={request.matchType} color={theme.textMuted} size={13} />
-            <Text style={[incS.metaText, { color: theme.textSecondary }]}>{matchTypeLabel(request.matchType)}</Text>
-          </View>
-          {request.date && (
-            <View style={incS.metaRow}>
-              <Calendar size={13} color={theme.textMuted} strokeWidth={1.5} />
-              <Text style={[incS.metaText, { color: theme.textSecondary }]}>
-                {formatMatchDate(request.date)} · {formatMatchTime(request.timeStart, request.timeEnd)}
-              </Text>
-            </View>
-          )}
-          {request.location && (
-            <View style={incS.metaRow}>
-              <MapPin size={13} color={theme.textMuted} strokeWidth={1.5} />
-              <Text style={[incS.metaText, { color: theme.textSecondary }]} numberOfLines={1}>{request.location}</Text>
-            </View>
-          )}
-          {/* Weather as inline meta row */}
-          {request.mockWeatherTemp != null
-            ? (
-              <View style={incS.metaRow}>
-                <MatchWeatherWidget temp={request.mockWeatherTemp} condition={request.mockWeatherCond ?? 'sunny'} />
-              </View>
-            )
-            : <WeatherForCard location={request.location} date={request.date} />}
-        </View>
-
-        {/* Doubles team preview */}
-        {isDoubles && (
-          <View style={incS.doublesRow}>
-            <PlayerAvatar player={request.challenger} size={28} />
-            <View style={[incS.youSlot, { borderColor: BLUE, backgroundColor: theme.selectedBg }]}>
-              <Text style={[incS.youLabel, { color: BLUE }]}>YOU</Text>
-            </View>
-            <Text style={[incS.vsText, { color: theme.textMuted }]}>vs</Text>
-            <View style={[incS.emptySlot, { borderColor: theme.border }]} />
-            <View style={[incS.emptySlot, { borderColor: theme.border }]} />
-            <Text style={[incS.doublesHint, { color: theme.textMuted }]}>+2 players TBD</Text>
-          </View>
-        )}
-
-        {/* Actions */}
-        <View style={incS.btns}>
-          <TouchableOpacity style={[incS.btn, { borderColor: GREEN }]} onPress={() => onAccept(request)} activeOpacity={0.8}>
-            <CheckCircle2 size={13} color={GREEN} strokeWidth={1.5} />
-            <Text style={[incS.btnText, { color: GREEN }]}>Accept</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[incS.btn, { borderColor: BLUE }]} onPress={() => onMessage(request.challenger.id)} activeOpacity={0.8}>
-            <MessageCircle size={13} color={BLUE} strokeWidth={1.5} />
-            <Text style={[incS.btnText, { color: BLUE }]}>Chat</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[incS.btn, { borderColor: RED }]} onPress={() => onDecline(request)} activeOpacity={0.8}>
-            <XCircle size={13} color={RED} strokeWidth={1.5} />
-            <Text style={[incS.btnText, { color: RED }]}>Decline</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
-  );
-}
-
-const incS = StyleSheet.create({
-  card:      { width: INC_CARD_W, borderRadius: CARD_RADIUS, borderWidth: 1, overflow: 'hidden', flexDirection: 'row', marginRight: 12 },
-  rail:      { width: 5, backgroundColor: BLUE, flexShrink: 0 },
-  body:      { flex: 1, padding: Spacing.cardPadding, gap: 12 },
-  playerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  name:      { fontFamily: FontFamily.spaceGroteskBold, fontSize: 15, lineHeight: 20 },
-  meta:      { gap: 7 },
-  metaRow:   { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  metaText:  { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label, flex: 1 },
-  doublesRow:{ flexDirection: 'row', alignItems: 'center', gap: 6 },
-  youSlot:   { width: 28, height: 28, borderRadius: 14, borderWidth: 1.5, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' },
-  youLabel:  { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: 7, letterSpacing: 0.5 },
-  vsText:    { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: 10, marginHorizontal: 2 },
-  emptySlot: { width: 28, height: 28, borderRadius: 14, borderWidth: 1.5, borderStyle: 'dashed' },
-  doublesHint: { fontFamily: FontFamily.manropeMedium, fontSize: 10, flex: 1 },
-  btns:      { flexDirection: 'row', gap: 6 },
-  btn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 4, borderWidth: 1.5, borderRadius: Radius.button, paddingVertical: 10, minHeight: 44,
-  },
-  btnText:   { fontFamily: FontFamily.manropeSemiBold, fontSize: 12 },
-});
-
-// ─── Incoming Requests Section ────────────────────────────────────────────────
-
-function IncomingRequestsSection({ requests, loading, currentUserId, onAccept, onDecline }: {
-  requests: IncomingRequest[]; loading: boolean; currentUserId: string;
-  onAccept: (r: IncomingRequest) => void; onDecline: (r: IncomingRequest) => void;
-}) {
-  const { theme } = useTheme();
-  return (
-    <View style={sectionStyle}>
-      <SectionHeader title="Incoming" count={requests.length} />
-      {loading ? (
-        <View style={{ paddingHorizontal: Spacing.pagePx }}>
-          <Skeleton width={INC_CARD_W} height={210} borderRadius={CARD_RADIUS} />
-        </View>
-      ) : requests.length === 0 ? (
-        <EmptyRow
-          icon={<CheckCircle2 size={15} color={theme.textMuted} strokeWidth={1.5} />}
-          text="No pending requests."
-        />
-      ) : (
-        <FlatList
-          data={requests}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(r) => r.id}
-          contentContainerStyle={{ paddingHorizontal: Spacing.pagePx, paddingBottom: 4 }}
-          renderItem={({ item }) => (
-            <IncomingRequestCard
-              request={item}
-              currentUserId={currentUserId}
-              onAccept={onAccept}
-              onDecline={onDecline}
-              onMessage={(id) => router.push(`/messages?partner=${id}`)}
-            />
-          )}
-        />
-      )}
-    </View>
-  );
-}
-
-// ─── Upcoming Match Card ──────────────────────────────────────────────────────
-
-function UpcomingMatchCard({
-  match,
-  currentUserId,
-  onMessage,
-  onReschedule,
-  onCancel,
-  onAcceptReschedule,
-  onDeclineReschedule,
-}: {
-  match: UpcomingMatch;
-  currentUserId: string;
-  onMessage: (id: string) => void;
-  onReschedule: (m: UpcomingMatch) => void;
-  onCancel: (m: UpcomingMatch) => void;
-  onAcceptReschedule: (m: UpcomingMatch) => void;
-  onDeclineReschedule: (m: UpcomingMatch) => void;
-}) {
-  const { theme }         = useTheme();
-  const isDoubles         = match.matchType === 'doubles' || match.matchType === 'mixed_doubles';
-  const opponent          = match.player1.id === currentUserId ? match.player2 : match.player1;
-  const isPendingReschedule = match.status === 'reschedule_requested';
-  const isRequester       = isPendingReschedule && match.pendingReschedule?.requesterUserId === currentUserId;
-
-  return (
-    <View style={[upS.card, { backgroundColor: theme.cardBg, borderColor: theme.border }, theme.shadowCard]}>
-      <View style={upS.rail} />
-      <View style={upS.body}>
-        <View style={upS.topRow}>
-          <View style={{ flex: 1, gap: 12 }}>
-            {isDoubles ? (
-              <>
-                <View style={upS.matchLabelRow}>
-                  <MatchTypeIcon type={match.matchType} color={theme.textMuted} size={15} />
-                  <Text style={[upS.matchLabel, { color: theme.textPrimary }]}>{matchTypeLabel(match.matchType)}</Text>
-                </View>
-                <View style={upS.doublesTeams}>
-                  <View style={upS.doublesTeam}>
-                    <PlayerAvatar player={match.player1} size={32} />
-                    <PlayerAvatar player={match.player2} size={32} />
-                  </View>
-                  <Text style={[upS.vsText, { color: theme.textMuted }]}>vs</Text>
-                  <View style={upS.doublesTeam}>
-                    {match.player3
-                      ? <PlayerAvatar player={match.player3} size={32} />
-                      : <View style={[upS.emptySlot, { borderColor: theme.border }]} />}
-                    {match.player4
-                      ? <PlayerAvatar player={match.player4} size={32} />
-                      : <View style={[upS.emptySlot, { borderColor: theme.border }]} />}
-                  </View>
-                </View>
-              </>
-            ) : (
-              <View style={upS.opponentRow}>
-                <PlayerAvatar player={opponent} size={48} />
-                <View style={{ flex: 1 }}>
-                  <Text style={[upS.opponentName, { color: theme.textPrimary }]} numberOfLines={1}>{opponent.name}</Text>
-                  <View style={[upS.matchLabelRow, { marginTop: 4 }]}>
-                    <MatchTypeIcon type={match.matchType} color={theme.textMuted} size={12} />
-                    <Text style={[upS.matchTypeSub, { color: theme.textSecondary }]}>{matchTypeLabel(match.matchType)}</Text>
-                  </View>
-                  <RatingLine player={opponent} />
-                </View>
-              </View>
-            )}
-
-            <View style={upS.meta}>
-              <View style={upS.metaRow}>
-                <Calendar size={13} color={theme.textMuted} strokeWidth={1.5} />
-                <Text style={[upS.metaText, { color: theme.textSecondary }]}>
-                  {formatMatchDate(match.date)} · {formatMatchTime(match.timeStart, match.timeEnd)}
-                </Text>
-              </View>
-              <View style={upS.metaRow}>
-                <MapPin size={13} color={theme.textMuted} strokeWidth={1.5} />
-                <Text style={[upS.metaText, { color: theme.textSecondary }]} numberOfLines={1}>{match.location}</Text>
-              </View>
-              {/* Weather inline with meta */}
-              {match.mockWeatherTemp != null
-                ? (
-                  <View style={upS.metaRow}>
-                    <MatchWeatherWidget temp={match.mockWeatherTemp} condition={match.mockWeatherCond ?? 'sunny'} />
-                  </View>
-                )
-                : <WeatherForCard location={match.location} date={match.date} />}
-            </View>
-
-            {/* Reschedule pending banner */}
-            {isPendingReschedule && (
-              <View style={[upS.rescheduleBanner, { backgroundColor: theme.selectedBg, borderColor: GREEN }]}>
-                <Clock size={12} color={GREEN} strokeWidth={1.5} />
-                <Text style={[upS.rescheduleText, { color: GREEN }]}>
-                  {isRequester ? 'Reschedule pending — awaiting response' : 'New time proposed — review below'}
-                </Text>
-              </View>
-            )}
-          </View>
-        </View>
-
-        {isPendingReschedule ? (
-          isRequester ? (
-            <View style={upS.btns}>
-              <TouchableOpacity style={[upS.btn, { borderColor: BLUE, flex: 1 }]} onPress={() => onMessage(opponent.id)} activeOpacity={0.8}>
-                <MessageCircle size={13} color={BLUE} strokeWidth={1.5} />
-                <Text style={[upS.btnText, { color: BLUE }]}>Chat</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[upS.btn, { borderColor: RED, flex: 1 }]} onPress={() => onCancel(match)} activeOpacity={0.8}>
-                <XCircle size={13} color={RED} strokeWidth={1.5} />
-                <Text style={[upS.btnText, { color: RED }]}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={upS.btns}>
-              <TouchableOpacity style={[upS.btn, { borderColor: GREEN, flex: 2 }]} onPress={() => onAcceptReschedule(match)} activeOpacity={0.8}>
-                <CheckCircle2 size={13} color={GREEN} strokeWidth={1.5} />
-                <Text style={[upS.btnText, { color: GREEN }]}>Accept New Time</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[upS.btn, { borderColor: RED, flex: 1 }]} onPress={() => onDeclineReschedule(match)} activeOpacity={0.8}>
-                <XCircle size={13} color={RED} strokeWidth={1.5} />
-                <Text style={[upS.btnText, { color: RED }]}>Decline</Text>
-              </TouchableOpacity>
-            </View>
-          )
-        ) : (
-          <View style={upS.btns}>
-            <TouchableOpacity style={[upS.btn, { borderColor: BLUE }]} onPress={() => onMessage(opponent.id)} activeOpacity={0.8}>
-              <MessageCircle size={13} color={BLUE} strokeWidth={1.5} />
-              <Text style={[upS.btnText, { color: BLUE }]}>Chat</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[upS.btn, { borderColor: GREEN }]} onPress={() => onReschedule(match)} activeOpacity={0.8}>
-              <Clock size={13} color={GREEN} strokeWidth={1.5} />
-              <Text style={[upS.btnText, { color: GREEN }]}>Reschedule</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[upS.btn, { borderColor: RED }]} onPress={() => onCancel(match)} activeOpacity={0.8}>
-              <XCircle size={13} color={RED} strokeWidth={1.5} />
-              <Text style={[upS.btnText, { color: RED }]}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
-    </View>
-  );
-}
-
-const upS = StyleSheet.create({
-  card:         { borderRadius: CARD_RADIUS, borderWidth: 1, overflow: 'hidden', flexDirection: 'row', marginBottom: Spacing.cardGap },
-  rail:         { width: 5, backgroundColor: GREEN, flexShrink: 0 },
-  body:         { flex: 1, padding: Spacing.cardPadding, gap: 14 },
-  topRow:       { flexDirection: 'row', gap: 12 },
-  matchLabelRow:{ flexDirection: 'row', alignItems: 'center', gap: 6 },
-  matchLabel:   { fontFamily: FontFamily.spaceGroteskBold, fontSize: 16 },
-  matchTypeSub: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label },
-  doublesTeams: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  doublesTeam:  { flexDirection: 'row', gap: 6 },
-  vsText:       { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: 11 },
-  emptySlot:    { width: 32, height: 32, borderRadius: 16, borderWidth: 1.5, borderStyle: 'dashed', flexShrink: 0 },
-  opponentRow:  { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
-  opponentName: { fontFamily: FontFamily.spaceGroteskBold, fontSize: 17 },
-  meta:         { gap: 7 },
-  metaRow:      { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  metaText:     { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label, flex: 1 },
-  btns:         { flexDirection: 'row', gap: 8 },
-  btn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 5, borderWidth: 1.5, borderRadius: Radius.button, paddingVertical: 10, minHeight: 44,
-  },
-  btnText:          { fontFamily: FontFamily.manropeSemiBold, fontSize: 12 },
-  rescheduleBanner: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: Radius.sm, paddingHorizontal: 10, paddingVertical: 7 },
-  rescheduleText:   { fontFamily: FontFamily.manropeSemiBold, fontSize: 12, flex: 1 },
-});
-
-// ─── Upcoming Matches Section ─────────────────────────────────────────────────
-
-function UpcomingMatchesSection({ matches, loading, currentUserId, onReschedule, onCancel, onAcceptReschedule, onDeclineReschedule }: {
-  matches: UpcomingMatch[]; loading: boolean; currentUserId: string;
-  onReschedule: (m: UpcomingMatch) => void;
-  onCancel: (m: UpcomingMatch) => void;
-  onAcceptReschedule: (m: UpcomingMatch) => void;
-  onDeclineReschedule: (m: UpcomingMatch) => void;
-}) {
-  const { theme } = useTheme();
-  return (
-    <View style={[sectionStyle, { paddingHorizontal: Spacing.pagePx }]}>
-      <SectionHeader title="My Upcoming Matches" />
-      {loading ? (
-        <View style={{ gap: 12 }}>
-          <Skeleton width="100%" height={150} borderRadius={CARD_RADIUS} />
-          <Skeleton width="100%" height={150} borderRadius={CARD_RADIUS} />
-        </View>
-      ) : matches.length === 0 ? (
-        <EmptyRow
-          icon={<Calendar size={15} color={theme.textMuted} strokeWidth={1.5} />}
-          text="No upcoming matches — request a player above."
-        />
-      ) : (
-        matches.map((m) => (
-          <UpcomingMatchCard
-            key={m.id}
-            match={m}
-            currentUserId={currentUserId}
-            onMessage={(id) => router.push(`/messages?partner=${id}`)}
-            onReschedule={onReschedule}
-            onCancel={onCancel}
-            onAcceptReschedule={onAcceptReschedule}
-            onDeclineReschedule={onDeclineReschedule}
-          />
-        ))
-      )}
-    </View>
-  );
-}
-
-// ─── Quick Replies ────────────────────────────────────────────────────────────
-
-function QuickReplies({ replies, onSelect }: { replies: { label: string; text: string }[]; onSelect: (t: string) => void }) {
-  const { theme } = useTheme();
-  return (
-    <View style={qrS.row}>
-      {replies.map((r) => (
-        <TouchableOpacity
-          key={r.label}
-          style={[qrS.chip, { borderColor: theme.border, backgroundColor: theme.surface2 }]}
-          onPress={() => onSelect(r.text)}
-          activeOpacity={0.7}>
-          <Text style={[qrS.text, { color: theme.textSecondary }]}>{r.label}</Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
-}
-
-const qrS = StyleSheet.create({
-  row:  { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginVertical: 12 },
-  chip: { borderRadius: Radius.pill, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 8 },
-  text: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label },
-});
-
-// ─── Action Sheet ─────────────────────────────────────────────────────────────
-
-function ActionSheet({
-  visible, title, primaryLabel, secondaryLabel, primaryColor, quickReplies,
-  onPrimary, onSecondary, onDismiss,
-}: {
-  visible: boolean; title: string; primaryLabel: string; secondaryLabel: string;
-  primaryColor: string; quickReplies: { label: string; text: string }[];
-  onPrimary: (msg: string) => Promise<void>; onSecondary: () => Promise<void>;
-  onDismiss: () => void;
-}) {
-  const { theme }   = useTheme();
-  const [msg, setMsg] = useState('');
-  const [busy, setBusy] = useState(false);
-
-  async function handlePrimary() {
-    setBusy(true); await onPrimary(msg.trim()); setBusy(false); setMsg('');
-  }
-  async function handleSecondary() {
-    setBusy(true); await onSecondary(); setBusy(false); setMsg('');
-  }
-
-  return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onDismiss}>
-      <View style={[asS.backdrop, { backgroundColor: theme.backdrop }]}>
-        <TouchableOpacity style={{ flex: 1 }} onPress={onDismiss} activeOpacity={1} />
-        <View style={[asS.sheet, { backgroundColor: theme.sheetBg }, theme.shadowSheet]}>
-          <View style={[asS.handle, { backgroundColor: theme.border }]} />
-          <View style={asS.headerRow}>
-            <Text style={[asS.title, { color: theme.textPrimary }]}>{title}</Text>
-            <TouchableOpacity onPress={onDismiss} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <X size={20} color={theme.textMuted} strokeWidth={1.5} />
-            </TouchableOpacity>
-          </View>
-          <Text style={[asS.label, { color: theme.textSecondary }]}>Add a message (optional)</Text>
-          <QuickReplies replies={quickReplies} onSelect={setMsg} />
-          <TextInput
-            style={[asS.input, { borderColor: theme.border, backgroundColor: theme.inputBg, color: theme.textPrimary }]}
-            value={msg}
-            onChangeText={setMsg}
-            placeholder="Write a note…"
-            placeholderTextColor={theme.textDisabled}
-            multiline
-            numberOfLines={3}
-          />
-          <View style={asS.ctaRow}>
-            <TouchableOpacity
-              style={[asS.cta, { backgroundColor: primaryColor, flex: 2 }]}
-              onPress={handlePrimary}
-              disabled={busy}
-              activeOpacity={0.85}>
-              {busy
-                ? <ActivityIndicator color="#FFF" size="small" />
-                : <Text style={asS.ctaText}>{primaryLabel}</Text>}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[asS.ctaSec, { borderColor: primaryColor, flex: 1 }]}
-              onPress={handleSecondary}
-              disabled={busy}
-              activeOpacity={0.85}>
-              <Text style={[asS.ctaSecText, { color: primaryColor }]}>{secondaryLabel}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-const asS = StyleSheet.create({
-  backdrop:  { flex: 1, justifyContent: 'flex-end' },
-  sheet:     { borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, paddingHorizontal: Spacing.pagePx, paddingBottom: 40, paddingTop: 12 },
-  handle:    { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  title:     { fontFamily: FontFamily.spaceGroteskBold, fontSize: 20 },
-  label:     { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label },
-  input: {
-    borderWidth: 1.5, borderRadius: Radius.sm, padding: 14,
-    fontFamily: FontFamily.manropeMedium, fontSize: FontSize.body,
-    minHeight: 80, textAlignVertical: 'top',
-  },
-  ctaRow:   { flexDirection: 'row', gap: 10, marginTop: 16 },
-  cta:      { borderRadius: Radius.button, paddingVertical: 14, alignItems: 'center', justifyContent: 'center', minHeight: Spacing.tapTarget },
-  ctaText:  { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.body, color: '#FFF' },
-  ctaSec:   { borderRadius: Radius.button, borderWidth: 1.5, paddingVertical: 14, alignItems: 'center', justifyContent: 'center', minHeight: Spacing.tapTarget },
-  ctaSecText: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.body },
-});
-
 // ─── Match Request Sheet ──────────────────────────────────────────────────────
 
 function MatchRequestSheet({
@@ -2114,7 +1102,6 @@ function MatchRequestSheet({
   const [date,       setDate]       = useState<Date | null>(null);
   const [timeSlot,   setTimeSlot]   = useState<string | null>(null);
   const [duration,   setDuration]   = useState<number>(90);
-  const [courtType,  setCourtType]  = useState<string | null>(null);
   const [message,    setMessage]    = useState<string>('');
   const [showCal,    setShowCal]    = useState(false);
   const [sending,    setSending]    = useState(false);
@@ -2127,7 +1114,6 @@ function MatchRequestSheet({
       setDate(null);
       setTimeSlot(null);
       setDuration(90);
-      setCourtType(null);
       setMessage('');
       setShowCal(false);
       setSending(false);
@@ -2146,7 +1132,7 @@ function MatchRequestSheet({
         challenger_id:    currentUserId,
         opponent_id:      opponent.id,
         match_type:       matchType as any,
-        court_type:       courtType as any,
+        court_type:       null,
         date:             dateStr,
         time_start:       timeSlot,
         time_end:         timeEnd,
@@ -2155,15 +1141,14 @@ function MatchRequestSheet({
         message:          message.trim() || null,
         status:           'pending',
       });
-      // Notify opponent of new challenge — fire and forget
-      sendNotificationEmail({
-        type: 'match_request_received',
-        userId: opponent.id,
-        playerId: currentUserId,
-        date: dateStr,
-        startTime: timeSlot,
-        endTime: timeEnd,
-        matchType: matchType as string,
+      void sendNotificationEmail({
+        type:       'match_request_received',
+        userId:     opponent.id,
+        playerId:   currentUserId,
+        date:       dateStr,
+        startTime:  timeSlot,
+        endTime:    timeEnd,
+        matchType:  matchType as string,
       });
     }
     setSending(false);
@@ -2285,23 +1270,6 @@ function MatchRequestSheet({
                       onPress={() => setDuration(d)}
                       activeOpacity={0.8}>
                       <Text style={[mrS.pillText, { color: active ? BLUE : theme.textSecondary }]}>{d} min</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              {/* Court Surface */}
-              <Text style={[mrS.sectionLabel, { color: theme.textSecondary }]}>Preferred Surface</Text>
-              <View style={mrS.pillRow}>
-                {REQUEST_COURT_TYPES.map(ct => {
-                  const active = courtType === ct.value;
-                  return (
-                    <TouchableOpacity
-                      key={ct.label}
-                      style={[mrS.pill, { borderColor: active ? BLUE : theme.border, backgroundColor: active ? BLUE + '22' : 'transparent' }]}
-                      onPress={() => setCourtType(ct.value)}
-                      activeOpacity={0.8}>
-                      <Text style={[mrS.pillText, { color: active ? BLUE : theme.textSecondary }]}>{ct.label}</Text>
                     </TouchableOpacity>
                   );
                 })}
@@ -2520,22 +1488,7 @@ export default function MatchScreen() {
   const [userId, setUserId]                   = useState('');
   const [avatarInitials, setAvatarInitials]   = useState('ME');
   const [showLookup, setShowLookup]           = useState(false);
-  const { recommended, incoming, upcoming, loading, error, reload } = useMatchData(userId);
-  const [filters, setFilters] = useState<MatchFilters>(DEFAULT_FILTERS);
-  const [showFilters, setShowFilters] = useState(false);
-
-  // Client-side filter recommended players by NTRP level and format
-  const filteredRecommended = recommended.filter((p) => {
-    return (p.ntrpRating == null || filters.selectedNtrpLevels.includes(p.ntrpRating));
-  });
-
-  const [requestTarget,         setRequestTarget]         = useState<RecommendedPlayer | MatchPlayer | null>(null);
-  const [acceptTarget,          setAcceptTarget]          = useState<IncomingRequest | null>(null);
-  const [declineTarget,         setDeclineTarget]          = useState<IncomingRequest | null>(null);
-  const [rescheduleTarget,      setRescheduleTarget]       = useState<UpcomingMatch | null>(null);
-  const [cancelTarget,          setCancelTarget]           = useState<UpcomingMatch | null>(null);
-  const [acceptReschTarget,     setAcceptReschTarget]      = useState<UpcomingMatch | null>(null);
-  const [declineReschTarget,    setDeclineReschTarget]     = useState<UpcomingMatch | null>(null);
+  const [requestTarget, setRequestTarget] = useState<RecommendedPlayer | MatchPlayer | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
@@ -2549,10 +1502,6 @@ export default function MatchScreen() {
       if (p?.full_name) setAvatarInitials(getInitials(p.full_name));
     });
   }, []);
-
-  function getOpponent(match: UpcomingMatch): MatchPlayer {
-    return match.player1.id === userId ? match.player2 : match.player1;
-  }
 
   return (
     <View style={[scrS.root, { backgroundColor: theme.pageBg }]}>
@@ -2569,213 +1518,33 @@ export default function MatchScreen() {
 
         {/* Hero */}
         <View style={scrS.hero}>
-          <View style={{ flex: 1, paddingRight: 12 }}>
-            <Text style={[scrS.pageTitle, { color: theme.textPrimary }]}>Match</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={[scrS.pageTitle, { color: theme.textPrimary }]}>Matches</Text>
             <Text style={[scrS.pageSub, { color: theme.textSecondary }]}>
-              Find the right players. Play more tennis.
+              Discover open matches and join players nearby.
             </Text>
           </View>
-          <TouchableOpacity
-            style={[scrS.lookupBtn, { borderColor: BLUE, backgroundColor: theme.cardBg }]}
-            onPress={() => setShowLookup(true)}
-            activeOpacity={0.8}>
-            <User size={14} color={BLUE} strokeWidth={1.5} />
-            <Text style={scrS.lookupBtnText}>Player Lookup</Text>
-          </TouchableOpacity>
+          <View style={scrS.heroActions}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Create a match"
+              style={scrS.newMatchBtn}
+              onPress={() => router.push('/match/new')}>
+              <Plus size={16} color={Colors.white} />
+              <Text style={scrS.newMatchBtnText}>Create Match</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Find a player"
+              style={[scrS.lookupBtn, { backgroundColor: theme.cardBg, borderColor: theme.border }]}
+              onPress={() => setShowLookup(true)}>
+              <Search size={18} color={BLUE} />
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* Filter bar */}
-        <View style={scrS.filterWrap}>
-          <FilterBar filters={filters} onEdit={() => setShowFilters(true)} />
-          <ResultsContext filters={filters} matchingCount={filteredRecommended.length} loading={loading} />
-        </View>
-
-        {/* Error banner */}
-        {error != null && (
-          <TouchableOpacity
-            style={[scrS.errorBanner, { backgroundColor: theme.cardBg, borderColor: RED }]}
-            onPress={reload}
-            activeOpacity={0.8}>
-            <XCircle size={15} color={RED} strokeWidth={1.5} />
-            <Text style={[scrS.errorText, { color: RED }]}>{error}</Text>
-            <Text style={[scrS.errorRetry, { color: theme.textMuted }]}>Tap to retry</Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Sections */}
-        <RecommendedPlayersSection players={filteredRecommended} loading={loading} currentUserId={userId} onRequest={setRequestTarget} />
-        <IncomingRequestsSection
-          requests={incoming} loading={loading} currentUserId={userId}
-          onAccept={setAcceptTarget} onDecline={setDeclineTarget}
-        />
-        <UpcomingMatchesSection
-          matches={upcoming} loading={loading} currentUserId={userId}
-          onReschedule={setRescheduleTarget} onCancel={setCancelTarget}
-          onAcceptReschedule={setAcceptReschTarget} onDeclineReschedule={setDeclineReschTarget}
-        />
+        <MatchDiscovery userId={userId} />
       </ScrollView>
-
-      {/* Accept */}
-      <ActionSheet
-        visible={acceptTarget != null}
-        title="Accept Match"
-        primaryLabel="Send & Accept"
-        secondaryLabel="Accept Only"
-        primaryColor={GREEN}
-        quickReplies={[
-          { label: 'Looking forward to it', text: 'Looking forward to it.' },
-          { label: 'Sounds great',          text: 'Sounds great — see you then.' },
-          { label: "Let's do it",           text: "Let's do it." },
-        ]}
-        onPrimary={async (msg) => {
-          if (!acceptTarget) return;
-          await acceptRequest(acceptTarget.id, acceptTarget.challenger.id, userId, msg);
-          setAcceptTarget(null); reload();
-        }}
-        onSecondary={async () => {
-          if (!acceptTarget) return;
-          await acceptRequest(acceptTarget.id, acceptTarget.challenger.id, userId, '');
-          setAcceptTarget(null); reload();
-        }}
-        onDismiss={() => setAcceptTarget(null)}
-      />
-
-      {/* Decline */}
-      <ActionSheet
-        visible={declineTarget != null}
-        title="Decline Request"
-        primaryLabel="Send & Decline"
-        secondaryLabel="Decline Only"
-        primaryColor={RED}
-        quickReplies={[
-          { label: 'Already have plans',   text: 'Sorry, already have plans.' },
-          { label: "Can't make that time", text: "Can't make that time." },
-          { label: 'Suggest another day',  text: 'Maybe another day works?' },
-        ]}
-        onPrimary={async (msg) => {
-          if (!declineTarget) return;
-          await declineRequest(declineTarget.id, declineTarget.challenger.id, userId, msg);
-          setDeclineTarget(null); reload();
-        }}
-        onSecondary={async () => {
-          if (!declineTarget) return;
-          await declineRequest(declineTarget.id, declineTarget.challenger.id, userId, '');
-          setDeclineTarget(null); reload();
-        }}
-        onDismiss={() => setDeclineTarget(null)}
-      />
-
-      {/* Reschedule */}
-      <ActionSheet
-        visible={rescheduleTarget != null}
-        title="Reschedule Match"
-        primaryLabel="Send Reschedule"
-        secondaryLabel="Just Notify"
-        primaryColor={GREEN}
-        quickReplies={[
-          { label: 'Suggest new time',  text: "Can we find a new time?" },
-          { label: 'Work conflict',     text: "Work came up — can we move it?" },
-          { label: 'Weather concern',   text: "Weather looks rough — reschedule?" },
-        ]}
-        onPrimary={async (msg) => {
-          if (!rescheduleTarget) return;
-          await rescheduleMatch(rescheduleTarget.id, getOpponent(rescheduleTarget).id, userId, msg);
-          setRescheduleTarget(null);
-        }}
-        onSecondary={async () => {
-          if (!rescheduleTarget) return;
-          await rescheduleMatch(rescheduleTarget.id, getOpponent(rescheduleTarget).id, userId, '');
-          setRescheduleTarget(null);
-        }}
-        onDismiss={() => setRescheduleTarget(null)}
-      />
-
-      {/* Cancel */}
-      <ActionSheet
-        visible={cancelTarget != null}
-        title="Cancel Match"
-        primaryLabel="Send & Cancel"
-        secondaryLabel="Cancel Only"
-        primaryColor={RED}
-        quickReplies={[
-          { label: 'Something came up', text: 'Sorry, something came up.' },
-          { label: 'Need to cancel',    text: 'I need to cancel.' },
-          { label: 'Weather',           text: "Weather isn't great — let's find another time." },
-        ]}
-        onPrimary={async (msg) => {
-          if (!cancelTarget) return;
-          await cancelMatch(cancelTarget.id, getOpponent(cancelTarget).id, userId, msg);
-          setCancelTarget(null); reload();
-        }}
-        onSecondary={async () => {
-          if (!cancelTarget) return;
-          await cancelMatch(cancelTarget.id, getOpponent(cancelTarget).id, userId, '');
-          setCancelTarget(null); reload();
-        }}
-        onDismiss={() => setCancelTarget(null)}
-      />
-
-      {/* Filter sheet */}
-      <MatchFiltersSheet
-        visible={showFilters}
-        filters={filters}
-        onApply={setFilters}
-        onDismiss={() => setShowFilters(false)}
-      />
-
-      {/* Accept Reschedule */}
-      <ActionSheet
-        visible={acceptReschTarget != null}
-        title="Accept New Time"
-        primaryLabel="Confirm & Accept"
-        secondaryLabel="Accept Only"
-        primaryColor={GREEN}
-        quickReplies={[
-          { label: 'Works for me',       text: 'Works for me!' },
-          { label: 'See you then',       text: 'See you then.' },
-          { label: 'Thanks for the flexibility', text: 'Thanks for the flexibility.' },
-        ]}
-        onPrimary={async (msg) => {
-          if (!acceptReschTarget?.pendingReschedule) return;
-          const pr = acceptReschTarget.pendingReschedule;
-          await acceptReschedule(pr.id, acceptReschTarget.id, pr.proposedDate, pr.proposedStartTime, pr.proposedEndTime, pr.requesterUserId, userId, msg);
-          setAcceptReschTarget(null); reload();
-        }}
-        onSecondary={async () => {
-          if (!acceptReschTarget?.pendingReschedule) return;
-          const pr = acceptReschTarget.pendingReschedule;
-          await acceptReschedule(pr.id, acceptReschTarget.id, pr.proposedDate, pr.proposedStartTime, pr.proposedEndTime, pr.requesterUserId, userId, '');
-          setAcceptReschTarget(null); reload();
-        }}
-        onDismiss={() => setAcceptReschTarget(null)}
-      />
-
-      {/* Decline Reschedule */}
-      <ActionSheet
-        visible={declineReschTarget != null}
-        title="Decline New Time"
-        primaryLabel="Send & Decline"
-        secondaryLabel="Decline Only"
-        primaryColor={RED}
-        quickReplies={[
-          { label: "Original time works", text: "Original time still works for me." },
-          { label: "Can't make new time", text: "Sorry, that new time doesn't work for me." },
-          { label: 'Let\'s keep original', text: "Let's keep the original time." },
-        ]}
-        onPrimary={async (msg) => {
-          if (!declineReschTarget?.pendingReschedule) return;
-          const pr = declineReschTarget.pendingReschedule;
-          await declineReschedule(pr.id, declineReschTarget.id, pr.requesterUserId, userId, msg);
-          setDeclineReschTarget(null); reload();
-        }}
-        onSecondary={async () => {
-          if (!declineReschTarget?.pendingReschedule) return;
-          const pr = declineReschTarget.pendingReschedule;
-          await declineReschedule(pr.id, declineReschTarget.id, pr.requesterUserId, userId, '');
-          setDeclineReschTarget(null); reload();
-        }}
-        onDismiss={() => setDeclineReschTarget(null)}
-      />
 
       <PlayerLookupModal
         visible={showLookup}
@@ -2787,7 +1556,7 @@ export default function MatchScreen() {
         visible={requestTarget != null}
         opponent={requestTarget}
         currentUserId={userId}
-        onSend={reload}
+        onSend={() => {}}
         onDismiss={() => setRequestTarget(null)}
       />
     </View>
@@ -2810,13 +1579,22 @@ const scrS = StyleSheet.create({
     fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label,
     marginTop: 4, lineHeight: 20,
   },
+  heroActions: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    marginTop: 4,
+  },
   lookupBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
+    width: 44, height: 44,
+    alignItems: 'center', justifyContent: 'center',
     borderWidth: 1.5, borderRadius: Radius.button,
-    paddingHorizontal: 14, paddingVertical: 11,
-    alignSelf: 'flex-start', marginTop: 8,
   },
   lookupBtnText: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label, color: BLUE },
+  newMatchBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: Colors.blue, borderRadius: Radius.button,
+    paddingHorizontal: 14, paddingVertical: 11,
+  },
+  newMatchBtnText: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label, color: Colors.white },
   filterWrap: { marginBottom: Spacing.s8 },
   errorBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
