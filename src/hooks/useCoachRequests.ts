@@ -12,8 +12,8 @@ export interface CoachLessonRequest {
   skillLevel: string;
   preferredDate: string;
   preferredDates: string[] | null;
-  preferredTimeStart: string;
-  preferredTimeEnd: string;
+  preferredTimeStart: string | null;
+  preferredTimeEnd: string | null;
   confirmedDate: string | null;
   confirmedTimeStart: string | null;
   confirmedTimeEnd: string | null;
@@ -35,7 +35,7 @@ interface UseCoachRequestsResult {
   loading: boolean;
   error: string | null;
   refresh: () => void;
-  accept: (id: string, confirmedDate: string, confirmedStart: string, confirmedEnd: string) => Promise<string | null>;
+  accept: (id: string, confirmedDate: string, confirmedStart: string | null, confirmedEnd: string | null) => Promise<string | null>;
   decline: (id: string, reason?: string) => Promise<string | null>;
   markComplete: (id: string) => Promise<string | null>;
   markNoShow: (id: string) => Promise<string | null>;
@@ -45,6 +45,23 @@ interface UseCoachRequestsResult {
 const PENDING_STATUSES  = ['pending'];
 const UPCOMING_STATUSES = ['approved', 'confirmed'];
 const PAST_STATUSES     = ['completed', 'declined', 'expired', 'cancelled', 'coach_cancelled', 'no_show'];
+
+// Returns the lesson start datetime for upcoming/past classification.
+// For approved/confirmed lessons uses confirmed date+time if set, else preferred.
+function lessonStartDt(r: CoachLessonRequest): Date {
+  const d = r.confirmedDate ?? r.preferredDate;
+  const t = r.confirmedTimeStart ?? r.preferredTimeStart;
+  const raw = new Date(`${d}T${t ?? '00:00:00'}`);
+  return isNaN(raw.getTime()) ? new Date(0) : raw;
+}
+
+// Returns the preferred start datetime for pending expiry classification.
+// If no time is set, uses end-of-day so the request stays visible until the date passes.
+function pendingStartDt(r: CoachLessonRequest): Date {
+  const t = r.preferredTimeStart ?? '23:59:59';
+  const raw = new Date(`${r.preferredDate}T${t}`);
+  return isNaN(raw.getTime()) ? new Date(0) : raw;
+}
 
 export function useCoachRequests(): UseCoachRequestsResult {
   const [requests, setRequests] = useState<CoachLessonRequest[]>([]);
@@ -109,8 +126,8 @@ export function useCoachRequests(): UseCoachRequestsResult {
           skillLevel:        r.skill_level as string,
           preferredDate:     r.preferred_date as string,
           preferredDates:    r.preferred_dates as string[] | null,
-          preferredTimeStart: r.preferred_time_start as string,
-          preferredTimeEnd:  r.preferred_time_end as string,
+          preferredTimeStart: r.preferred_time_start as string | null,
+          preferredTimeEnd:  r.preferred_time_end as string | null,
           confirmedDate:     r.confirmed_date as string | null,
           confirmedTimeStart: r.confirmed_time_start as string | null,
           confirmedTimeEnd:  r.confirmed_time_end as string | null,
@@ -126,12 +143,14 @@ export function useCoachRequests(): UseCoachRequestsResult {
         };
       });
 
-      // Auto-expire pending requests whose lesson time has passed
+      // Auto-expire pending requests whose preferred lesson time has passed.
+      // Handles null preferred_time_start: treat as end-of-day (23:59:59).
       const now = new Date();
       const toExpire = merged.filter(r => {
         if (r.status !== 'pending') return false;
-        const lessonDt = new Date(`${r.preferredDate}T${r.preferredTimeStart}`);
-        return lessonDt < now;
+        const t = r.preferredTimeStart ?? '23:59:59';
+        const lessonDt = new Date(`${r.preferredDate}T${t}`);
+        return !isNaN(lessonDt.getTime()) && lessonDt < now;
       });
 
       if (toExpire.length > 0 && !cancelled) {
@@ -152,8 +171,8 @@ export function useCoachRequests(): UseCoachRequestsResult {
                 coachName: undefined,
                 lessonType: req.lessonType,
                 date: req.preferredDate,
-                startTime: req.preferredTimeStart,
-                endTime: req.preferredTimeEnd,
+                startTime: req.preferredTimeStart ?? undefined,
+                endTime: req.preferredTimeEnd ?? undefined,
               });
               // Notify coach
               sendNotificationEmail({
@@ -162,8 +181,8 @@ export function useCoachRequests(): UseCoachRequestsResult {
                 playerId: req.playerId,
                 lessonType: req.lessonType,
                 date: req.preferredDate,
-                startTime: req.preferredTimeStart,
-                endTime: req.preferredTimeEnd,
+                startTime: req.preferredTimeStart ?? undefined,
+                endTime: req.preferredTimeEnd ?? undefined,
               });
             }
           });
@@ -192,7 +211,7 @@ export function useCoachRequests(): UseCoachRequestsResult {
     };
   }, [tickState]);
 
-  async function accept(id: string, confirmedDate: string, confirmedStart: string, confirmedEnd: string): Promise<string | null> {
+  async function accept(id: string, confirmedDate: string, confirmedStart: string | null, confirmedEnd: string | null): Promise<string | null> {
     const { error: e } = await supabase
       .from('lesson_requests')
       .update({
@@ -219,8 +238,8 @@ export function useCoachRequests(): UseCoachRequestsResult {
         coachName: (prof as any)?.full_name ?? 'Your Coach',
         lessonType: (lesson as any).lesson_type,
         date: confirmedDate,
-        startTime: confirmedStart,
-        endTime: confirmedEnd,
+        startTime: confirmedStart ?? undefined,
+        endTime: confirmedEnd ?? undefined,
       });
     })();
 
@@ -293,18 +312,55 @@ export function useCoachRequests(): UseCoachRequestsResult {
   }
 
   async function cancelLesson(id: string): Promise<string | null> {
-    const { error: e } = await supabase
+    const { data, error: e } = await supabase
       .from('lesson_requests')
-      .update({ status: 'coach_cancelled', cancelled_by: 'coach' })
-      .eq('id', id);
+      .update({
+        status: 'coach_cancelled',
+        cancelled_by: 'coach',
+        responded_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select('id');
     if (e) return e.message;
+    // If RLS silently blocked the update, data will be empty
+    if (!data || data.length === 0) return 'Could not cancel lesson — please try again.';
+
+    // Notify the player — fire and forget
+    void (async () => {
+      const [{ data: lesson }, { data: auth }] = await Promise.all([
+        supabase.from('lesson_requests').select('player_id, lesson_type, confirmed_date, preferred_date, confirmed_time_start, preferred_time_start, confirmed_time_end, preferred_time_end').eq('id', id).single(),
+        supabase.auth.getUser(),
+      ]);
+      if (!lesson) return;
+      const { data: prof } = await supabase.from('profiles').select('full_name').eq('id', auth.user?.id ?? '').single();
+      sendNotificationEmail({
+        type: 'lesson_cancelled',
+        userId: (lesson as any).player_id,
+        coachName: (prof as any)?.full_name ?? 'Your Coach',
+        lessonType: (lesson as any).lesson_type,
+        date: (lesson as any).confirmed_date ?? (lesson as any).preferred_date,
+        startTime: (lesson as any).confirmed_time_start ?? (lesson as any).preferred_time_start ?? undefined,
+        endTime: (lesson as any).confirmed_time_end ?? (lesson as any).preferred_time_end ?? undefined,
+      });
+    })();
+
     refresh();
     return null;
   }
 
-  const pending  = requests.filter(r => PENDING_STATUSES.includes(r.status));
-  const upcoming = requests.filter(r => UPCOMING_STATUSES.includes(r.status));
-  const past     = requests.filter(r => PAST_STATUSES.includes(r.status));
+  // Filter at render time so the lists update immediately as time passes.
+  const nowForFilter = new Date();
+  const pending  = requests.filter(r =>
+    PENDING_STATUSES.includes(r.status) && pendingStartDt(r) >= nowForFilter
+  );
+  const upcoming = requests.filter(r =>
+    UPCOMING_STATUSES.includes(r.status) && lessonStartDt(r) > nowForFilter
+  );
+  const past = requests.filter(r =>
+    PAST_STATUSES.includes(r.status) ||
+    (UPCOMING_STATUSES.includes(r.status) && lessonStartDt(r) <= nowForFilter) ||
+    (PENDING_STATUSES.includes(r.status) && pendingStartDt(r) < nowForFilter)
+  );
 
   return { pending, upcoming, past, loading, error, refresh, accept, decline, markComplete, markNoShow, cancelLesson };
 }

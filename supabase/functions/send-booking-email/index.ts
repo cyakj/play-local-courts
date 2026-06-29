@@ -17,8 +17,8 @@ interface EmailRequest {
   type:
     | 'booking_confirmation' | 'booking_cancellation' | 'booking_reminder'
     | 'lesson_confirmation'  | 'lesson_reminder'
-    | 'lesson_request_received' | 'lesson_declined' | 'lesson_expired'
-    | 'lesson_expired_coach'
+    | 'lesson_request_received' | 'lesson_declined' | 'lesson_cancelled'
+    | 'lesson_expired' | 'lesson_expired_coach'
     | 'match_confirmation'   | 'match_reminder'
     | 'match_request_received' | 'match_declined'
     | 'hoa_approved'         | 'hoa_rejected';
@@ -282,6 +282,30 @@ const handler = async (req: Request): Promise<Response> => {
             <p style="color:#9AA3B8;">Unfortunately ${emailData.coachName ?? 'the coach'} was unable to accept your lesson request${emailData.date ? ` for ${formattedDate}` : ''}.</p>
             ${emailData.cancellationReason ? `<p style="color:#9AA3B8;"><strong>Reason:</strong> ${emailData.cancellationReason}</p>` : ''}
             <p style="color:#9AA3B8;font-size:13px;margin-top:16px;">You can browse other coaches or submit a new request with different dates in the TenisX app.</p>
+            <p style="color:#5A6379;font-size:12px;margin-top:32px;">TenisX · noreply@tenisx.ai</p>
+          </div>
+        `;
+        break;
+
+      case 'lesson_cancelled':
+        if (preferences && !preferences.lesson_confirmations) {
+          return new Response(JSON.stringify({ success: true, skipped: true }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+        subject = `Your lesson with ${emailData.coachName ?? 'your coach'} has been cancelled`;
+        htmlContent = `
+          <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0C0F18;color:#F5F8FF;padding:32px;border-radius:12px;">
+            <h1 style="color:#FF5C6B;font-size:22px;margin-bottom:8px;">Lesson Cancelled</h1>
+            <p style="color:#9AA3B8;margin-bottom:24px;">Hi ${userName},</p>
+            <p style="color:#F5F8FF;">${emailData.coachName ?? 'Your coach'} has cancelled your upcoming lesson${emailData.date ? ` on ${formattedDate}` : ''}.</p>
+            <div style="background:#161A26;border:1px solid #FF5C6B44;border-radius:10px;padding:20px;margin:20px 0;border-left:4px solid #FF5C6B;">
+              ${emailData.coachName ? `<p style="margin:6px 0;"><strong>Coach:</strong> ${emailData.coachName}</p>` : ''}
+              ${emailData.lessonType ? `<p style="margin:6px 0;"><strong>Lesson Type:</strong> ${emailData.lessonType}</p>` : ''}
+              ${emailData.date ? `<p style="margin:6px 0;"><strong>Date:</strong> ${formattedDate}</p>` : ''}
+              ${emailData.startTime ? `<p style="margin:6px 0;"><strong>Time:</strong> ${emailData.startTime}${emailData.endTime ? ` – ${emailData.endTime}` : ''}</p>` : ''}
+            </div>
+            <p style="color:#9AA3B8;font-size:13px;">You can browse other coaches and book a new session in the TenisX app.</p>
             <p style="color:#5A6379;font-size:12px;margin-top:32px;">TenisX · noreply@tenisx.ai</p>
           </div>
         `;

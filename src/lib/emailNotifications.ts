@@ -9,6 +9,7 @@ interface NotificationEmailPayload {
     | 'lesson_reminder'
     | 'lesson_request_received'
     | 'lesson_declined'
+    | 'lesson_cancelled'
     | 'lesson_expired'
     | 'lesson_expired_coach'
     | 'match_confirmation'
