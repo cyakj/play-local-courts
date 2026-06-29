@@ -109,7 +109,8 @@ export function useCoachAvailability(
         supabase
           .from('coach_availability')
           .select('*')
-          .eq('coach_id', coachId!),
+          .eq('coach_id', coachId!)
+          .order('start_time', { ascending: true }),
         supabase
           .from('coach_unavailability')
           .select('id, coach_id, type, start_date, end_date, recurs_annually, title')

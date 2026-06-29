@@ -64,7 +64,11 @@ export function CoachAvailabilityEditor({ slots, onRefresh }: Props) {
   const [saving, setSaving]           = useState(false);
 
   const daySlots = useMemo(
-    () => slots.filter(s => s.day_of_week === selectedDay),
+    () =>
+      slots
+        .filter(s => s.day_of_week === selectedDay)
+        .slice()
+        .sort((a, b) => normalizeTime(a.start_time).localeCompare(normalizeTime(b.start_time))),
     [slots, selectedDay],
   );
 
@@ -117,8 +121,13 @@ export function CoachAvailabilityEditor({ slots, onRefresh }: Props) {
           text: 'Remove',
           style: 'destructive',
           onPress: async () => {
-            const { error } = await supabase.from('coach_availability').delete().eq('id', slot.id);
+            const { data, error } = await supabase
+              .from('coach_availability')
+              .delete()
+              .eq('id', slot.id)
+              .select('id');
             if (error) { Alert.alert('Error', error.message); return; }
+            if (!data || data.length === 0) { Alert.alert('Error', 'Slot not found or could not be removed.'); return; }
             onRefresh();
           },
         },
@@ -128,6 +137,39 @@ export function CoachAvailabilityEditor({ slots, onRefresh }: Props) {
 
   async function handleSave() {
     setSaving(true);
+
+    // Validate start < end (UI chips already enforce this, but double-check)
+    if (newStart >= newEnd) {
+      setSaving(false);
+      Alert.alert('Invalid Times', 'Start time must be before end time.');
+      return;
+    }
+
+    // Check for exact duplicate among other slots on the same day
+    const otherSlots = slots.filter(s =>
+      s.day_of_week === newDay && (!editingSlot || s.id !== editingSlot.id)
+    );
+    const isExactDuplicate = otherSlots.some(s =>
+      normalizeTime(s.start_time) === newStart && normalizeTime(s.end_time) === newEnd
+    );
+    if (isExactDuplicate) {
+      setSaving(false);
+      Alert.alert('Duplicate Slot', 'This availability already exists.');
+      return;
+    }
+
+    // Check for overlapping slots: new_start < existing_end AND new_end > existing_start
+    const hasOverlap = otherSlots.some(s => {
+      const existStart = normalizeTime(s.start_time);
+      const existEnd   = normalizeTime(s.end_time);
+      return newStart < existEnd && newEnd > existStart;
+    });
+    if (hasOverlap) {
+      setSaving(false);
+      Alert.alert('Schedule Conflict', 'This slot overlaps with an existing availability window. Please adjust the times or remove the conflicting slot first.');
+      return;
+    }
+
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setSaving(false); return; }
 
