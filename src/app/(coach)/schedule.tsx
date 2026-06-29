@@ -1,209 +1,691 @@
-import { useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
+import {
+  CalendarDays,
+  CalendarRange,
+  Info,
+  Plus,
+  SlidersHorizontal,
+} from 'lucide-react-native';
 import { Header } from '@/components/ui/Header';
+import { CoachDailyTimeline } from '@/components/coach/schedule/CoachDailyTimeline';
+import { CoachDatePickerSheet } from '@/components/coach/schedule/CoachDatePickerSheet';
+import { CreateClinicSheet } from '@/components/coaching/CreateClinicSheet';
+import { useCoachDailyTimeline, type TimelineItem } from '@/hooks/useCoachDailyTimeline';
+import { useCoachProfile } from '@/hooks/useCoachProfile';
 import { useTheme } from '@/context/ThemeContext';
-import { useCoachSchedule } from '@/hooks/useCoachSchedule';
-import { useCoachAvailability } from '@/hooks/useCoachAvailability';
-import { CoachWeekView } from '@/components/coach/CoachWeekView';
-import { CoachAvailabilityEditor } from '@/components/coach/CoachAvailabilityEditor';
-import { CoachWeeklyScheduleModal } from '@/components/coach/CoachWeeklyScheduleModal';
-import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/design';
-import type { ThemeTokens } from '@/constants/theme-tokens';
 import { supabase } from '@/lib/supabase';
+import { Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing } from '@/constants/design';
+import type { ThemeTokens } from '@/constants/theme-tokens';
+import type { CoachLessonRequest } from '@/hooks/useCoachRequests';
 
-function getMonday(d: Date): Date {
-  const date = new Date(d);
-  const day = date.getDay();
-  const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-  date.setDate(diff);
+const KEY_ITEMS = [
+  { code: 'L', label: 'Booked Lesson', color: Colors.positive, dark: true },
+  { code: 'F', label: 'Open Facility Slot', color: Colors.blue, dark: false },
+  { code: 'T', label: 'Open Travel Slot', color: Colors.volt, dark: true },
+  { code: 'E', label: 'Open Either Slot', color: '#7A839A', dark: false },
+  { code: 'U', label: 'Unavailable', color: '#333A4D', dark: false },
+];
+
+function startOfToday(): Date {
+  const date = new Date();
   date.setHours(0, 0, 0, 0);
   return date;
+}
+
+function addDays(date: Date, days: number): Date {
+  const value = new Date(date);
+  value.setDate(value.getDate() + days);
+  value.setHours(0, 0, 0, 0);
+  return value;
+}
+
+function dateKey(date: Date): string {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
+interface ScheduleClinic {
+  id: string;
+  name: string;
+  startTime: string;
+  durationMinutes: number;
+  location: string;
+  enrolledCount: number;
+  maxPlayers: number;
 }
 
 export default function CoachScheduleScreen() {
   const { theme } = useTheme();
   const styles = useStyles(theme);
-  const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const params = useLocalSearchParams<{ date?: string }>();
   const [coachId, setCoachId] = useState<string | null>(null);
-  const [showWeeklyModal, setShowWeeklyModal] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const raw = Array.isArray(params.date) ? params.date[0] : params.date;
+    if (raw) {
+      const parsed = new Date(`${raw}T12:00:00`);
+      if (!Number.isNaN(parsed.getTime())) {
+        parsed.setHours(0, 0, 0, 0);
+        return parsed;
+      }
+    }
+    return startOfToday();
+  });
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [keyOpen, setKeyOpen] = useState(false);
+  const [createClinicOpen, setCreateClinicOpen] = useState(false);
+  const [dayClinics, setDayClinics] = useState<ScheduleClinic[]>([]);
+  const [clinicsRefreshTick, setClinicsRefreshTick] = useState(0);
+  const { profile: coachProfile } = useCoachProfile();
+  const timeline = useCoachDailyTimeline(coachId, selectedDate);
 
-  useMemo(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) setCoachId(user.id);
-    });
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => setCoachId(user?.id ?? null));
   }, []);
 
-  const { lessonsByDate, loading: schedLoading, refresh: refreshSchedule } = useCoachSchedule(weekStart);
-  const { weeklySlots, loading: slotsLoading, error: slotsError, refresh: refreshSlots } = useCoachAvailability(coachId);
+  useEffect(() => {
+    if (!coachId) return;
+    let cancelled = false;
+    const dayKey = dateKey(selectedDate);
+    async function loadClinics() {
+      const { data: rows } = await (supabase as any)
+        .from('coach_clinics')
+        .select('id, name, start_time, duration_minutes, location, max_players')
+        .eq('coach_id', coachId)
+        .eq('date', dayKey)
+        .neq('status', 'canceled')
+        .order('start_time', { ascending: true });
 
-  function prevWeek() {
-    const d = new Date(weekStart);
-    d.setDate(d.getDate() - 7);
-    setWeekStart(d);
-    setSelectedDate(d);
+      if (cancelled || !rows || rows.length === 0) { if (!cancelled) setDayClinics([]); return; }
+      const ids = (rows as any[]).map((r: any) => r.id as string);
+      const { data: counts } = await (supabase as any).rpc('clinic_enrollment_counts', { clinic_ids: ids });
+      const countMap = new Map<string, number>(
+        ((counts ?? []) as any[]).map((r: any) => [r.clinic_id as string, r.enrolled_count as number]),
+      );
+      if (!cancelled) {
+        setDayClinics(
+          (rows as any[]).map((r: any): ScheduleClinic => ({
+            id:              r.id,
+            name:            r.name,
+            startTime:       r.start_time,
+            durationMinutes: r.duration_minutes,
+            location:        r.location,
+            enrolledCount:   countMap.get(r.id) ?? 0,
+            maxPlayers:      r.max_players,
+          })),
+        );
+      }
+    }
+    void loadClinics();
+    return () => { cancelled = true; };
+  }, [coachId, selectedDate, clinicsRefreshTick]);
+
+  const today = startOfToday();
+  const tomorrow = addDays(today, 1);
+  const selectedKey = dateKey(selectedDate);
+  const maxAdvanceDays = Math.max(coachProfile?.maxAdvanceBookingDays ?? 60, 1);
+  const selectedDateLabel = selectedDate.toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+  });
+
+  async function handleAccept(request: CoachLessonRequest) {
+    const error = await timeline.accept(
+      request.id,
+      selectedKey,
+      request.preferredTimeStart,
+      request.preferredTimeEnd,
+    );
+    if (error) Alert.alert('Unable to accept request', error);
   }
 
-  function nextWeek() {
-    const d = new Date(weekStart);
-    d.setDate(d.getDate() + 7);
-    setWeekStart(d);
-    setSelectedDate(d);
+  async function handleDecline(request: CoachLessonRequest) {
+    Alert.alert(
+      'Decline request?',
+      `Decline the request from ${request.playerName ?? 'this player'}?`,
+      [
+        { text: 'Keep Request', style: 'cancel' },
+        {
+          text: 'Decline',
+          style: 'destructive',
+          onPress: async () => {
+            const error = await timeline.decline(request.id);
+            if (error) Alert.alert('Unable to decline request', error);
+          },
+        },
+      ],
+    );
   }
 
-  const weekLabel = useMemo(() => {
-    const end = new Date(weekStart);
-    end.setDate(end.getDate() + 6);
-    const startFmt = weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    const endFmt   = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    return `${startFmt} – ${endFmt}`;
-  }, [weekStart]);
+  async function handleCancelLesson(request: CoachLessonRequest, reason?: string) {
+    const error = await timeline.cancelLesson(request.id, reason);
+    if (error) Alert.alert('Unable to cancel lesson', error);
+  }
+
+  async function handleMarkComplete(request: CoachLessonRequest) {
+    const error = await timeline.markComplete(request.id);
+    if (error) Alert.alert('Unable to mark lesson complete', error);
+  }
+
+  async function handleMarkNoShow(request: CoachLessonRequest) {
+    const error = await timeline.markNoShow(request.id);
+    if (error) Alert.alert('Unable to record no-show', error);
+  }
+
+  function handleEditRule(item: Extract<TimelineItem, { kind: 'open' }>) {
+    if (item.sourceKind === 'legacy') {
+      Alert.alert('Legacy availability', 'This slot is managed by the existing player booking system.');
+      return;
+    }
+    router.push({
+      pathname: '/(coach)/schedule-settings',
+      params: {
+        day: String(selectedDate.getDay()),
+        blockId: item.sourceIds[0],
+      },
+    } as any);
+  }
+
+  function handleEditUnavailable(item: Extract<TimelineItem, { kind: 'unavailable' }>) {
+    if (item.sourceKind === 'legacy') {
+      Alert.alert('Legacy unavailable time', 'This date range is managed by the existing player booking system.');
+      return;
+    }
+    router.push({
+      pathname: '/(coach)/schedule-settings',
+      params: {
+        day: String(selectedDate.getDay()),
+        blockoutId: item.id.replace('blockout-', ''),
+      },
+    } as any);
+  }
+
+  async function handleRemoveUnavailable(item: Extract<TimelineItem, { kind: 'unavailable' }>) {
+    if (item.sourceKind !== 'blockout') return;
+    Alert.alert(
+      'Remove unavailable time?',
+      'This removes the unavailable time from your schedule rules.',
+      [
+        { text: 'Keep', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            const id = item.id.replace('blockout-', '');
+            const { error } = await (supabase as any)
+              .from('coach_blockouts')
+              .delete()
+              .eq('id', id)
+              .eq('coach_id', coachId);
+            if (error) Alert.alert('Unable to remove unavailable time', error.message);
+            else await timeline.refreshRules();
+          },
+        },
+      ],
+    );
+  }
 
   return (
-    <View style={[styles.screen, { backgroundColor: theme.pageBg }]}>
+    <View style={styles.screen}>
       <Header variant="coach" />
-      {/* Weekly schedule read-only modal */}
-      <CoachWeeklyScheduleModal
-        visible={showWeeklyModal}
-        onClose={() => setShowWeeklyModal(false)}
-        weekStart={weekStart}
-        lessonsByDate={lessonsByDate}
-        availabilitySlots={weeklySlots}
-      />
-
-      <ScrollView contentContainerStyle={styles.content}>
-        {/* View Weekly Schedule button */}
-        <TouchableOpacity
-          style={styles.weeklyBtn}
-          onPress={() => setShowWeeklyModal(true)}
-          activeOpacity={0.85}
-          testID="view-weekly-schedule-btn"
-        >
-          <CalendarDays size={15} color={Colors.cyan} strokeWidth={2} />
-          <Text style={styles.weeklyBtnText}>View Weekly Schedule</Text>
-        </TouchableOpacity>
-
-        {/* Week nav */}
-        <View style={styles.weekNav}>
-          <TouchableOpacity onPress={prevWeek} style={styles.navBtn} activeOpacity={0.7}>
-            <ChevronLeft size={18} color={theme.textSecondary} strokeWidth={2} />
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.topActions}>
+          <TouchableOpacity
+            style={[styles.manageAvailabilityButton, { flex: 1 }]}
+            onPress={() => router.push('/(coach)/schedule-settings' as any)}
+            activeOpacity={0.78}>
+            <SlidersHorizontal size={20} color={Colors.cyan} />
+            <View style={styles.manageCopy}>
+              <Text style={styles.manageAvailabilityLabel}>Manage Schedule</Text>
+              <Text style={styles.manageAvailabilityBody}>
+                Set coaching boundaries and teaching blocks.
+              </Text>
+            </View>
           </TouchableOpacity>
-          <Text style={styles.weekLabel}>{weekLabel}</Text>
-          <TouchableOpacity onPress={nextWeek} style={styles.navBtn} activeOpacity={0.7}>
-            <ChevronRight size={18} color={theme.textSecondary} strokeWidth={2} />
+          <TouchableOpacity
+            style={styles.createClinicButton}
+            onPress={() => setCreateClinicOpen(true)}
+            activeOpacity={0.78}>
+            <Plus size={20} color={Colors.cyan} />
+            <Text style={styles.createClinicLabel}>Clinic</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Week view */}
-        <CoachWeekView
-          weekStart={weekStart}
-          lessonsByDate={lessonsByDate}
-          selectedDate={selectedDate}
-          onSelectDate={setSelectedDate}
-        />
-
-        {/* Availability block editor */}
-        {slotsLoading ? (
-          <View style={styles.loadingRow}>
-            <ActivityIndicator size="small" color={Colors.blue} />
-            <Text style={styles.loadingText}>Loading availability…</Text>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryDate}>{selectedDateLabel}</Text>
+          <View style={styles.metrics}>
+            <Metric value={timeline.summary.lessons} label="Lessons" />
+            <Metric value={timeline.summary.openSlots} label="Open Slots" />
+            <Metric value={timeline.summary.unavailable} label="Unavailable Blocks" />
           </View>
-        ) : slotsError ? (
-          <View style={styles.errorCard}>
-            <Text style={styles.errorText}>Could not load availability.</Text>
-            <Text style={styles.errorDetail}>{slotsError}</Text>
-            <TouchableOpacity onPress={refreshSlots} activeOpacity={0.7}>
-              <Text style={styles.retryText}>Try again</Text>
-            </TouchableOpacity>
+        </View>
+
+        <View style={styles.dateSelector}>
+          <DateChip
+            label="Today"
+            active={selectedKey === dateKey(today)}
+            onPress={() => setSelectedDate(today)}
+          />
+          <DateChip
+            label="Tomorrow"
+            active={selectedKey === dateKey(tomorrow)}
+            onPress={() => setSelectedDate(tomorrow)}
+          />
+          <TouchableOpacity
+            style={styles.calendarButton}
+            onPress={() => setDatePickerOpen(true)}
+            activeOpacity={0.78}>
+            <CalendarDays size={20} color={Colors.cyan} />
+            <Text style={styles.calendarButtonText}>Select Date</Text>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity
+          style={styles.weekButton}
+          onPress={() => router.push({
+            pathname: '/(coach)/schedule-week',
+            params: { date: selectedKey },
+          } as any)}
+          activeOpacity={0.78}>
+          <CalendarRange size={20} color={Colors.cyan} />
+          <Text style={styles.weekButtonText}>Week View</Text>
+        </TouchableOpacity>
+
+        <View style={styles.timelineHeading}>
+          <View>
+            <Text style={styles.eyebrow}>DAILY TIMELINE</Text>
+            <Text style={styles.selectedDate}>{selectedDateLabel}</Text>
+          </View>
+          <TouchableOpacity style={styles.infoButton} onPress={() => setKeyOpen(value => !value)}>
+            <Info size={20} color={theme.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
+        {keyOpen && <ScheduleKey />}
+
+        {!!timeline.error && <Text style={styles.error}>{timeline.error}</Text>}
+
+        {!timeline.loading && timeline.items.length === 0 ? (
+          <View style={styles.emptyState}>
+            <CalendarDays size={42} color={theme.textMuted} />
+            <Text style={styles.emptyTitle}>No lessons or open slots scheduled for this day.</Text>
           </View>
         ) : (
-          <CoachAvailabilityEditor
-            slots={weeklySlots}
-            onRefresh={refreshSlots}
+          <CoachDailyTimeline
+            items={timeline.items}
+            loading={timeline.loading}
+            selectedDateLabel={selectedDateLabel}
+            onAccept={handleAccept}
+            onDecline={handleDecline}
+            onCancelLesson={handleCancelLesson}
+            onMarkComplete={handleMarkComplete}
+            onMarkNoShow={handleMarkNoShow}
+            onEditRule={handleEditRule}
+            onEditUnavailable={handleEditUnavailable}
+            onRemoveUnavailable={handleRemoveUnavailable}
+            onRescheduleSuccess={timeline.refreshRequests}
           />
         )}
+
+        {/* Clinics for this day */}
+        {dayClinics.length > 0 && (
+          <>
+            <Text style={styles.eyebrow}>CLINICS</Text>
+            {dayClinics.map(clinic => {
+              const [h, m] = clinic.startTime.slice(0, 5).split(':').map(Number);
+              const timeLabel = `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
+              return (
+                <TouchableOpacity
+                  key={clinic.id}
+                  style={styles.clinicCard}
+                  onPress={() => router.push('/(coach)/clinics' as any)}
+                  activeOpacity={0.8}>
+                  <View style={styles.clinicTimeCol}>
+                    <Text style={styles.clinicTime}>{timeLabel}</Text>
+                    <Text style={styles.clinicDur}>{clinic.durationMinutes}m</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.clinicName}>{clinic.name}</Text>
+                    <Text style={styles.clinicLocation} numberOfLines={1}>{clinic.location}</Text>
+                    <Text style={styles.clinicCount}>
+                      {clinic.enrolledCount} / {clinic.maxPlayers} players
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </>
+        )}
       </ScrollView>
+
+      <CoachDatePickerSheet
+        visible={datePickerOpen}
+        selectedDate={selectedDate}
+        maxDays={maxAdvanceDays}
+        onSelect={setSelectedDate}
+        onClose={() => setDatePickerOpen(false)}
+      />
+      <CreateClinicSheet
+        visible={createClinicOpen}
+        initial={{ date: dateKey(selectedDate) }}
+        onClose={() => setCreateClinicOpen(false)}
+        onSaved={() => {
+          setCreateClinicOpen(false);
+          setClinicsRefreshTick(t => t + 1);
+        }}
+      />
+    </View>
+  );
+}
+
+function Metric({ value, label }: { value: number; label: string }) {
+  const { theme } = useTheme();
+  const styles = useStyles(theme);
+  return (
+    <View style={styles.metric}>
+      <Text style={styles.metricValue}>{value}</Text>
+      <Text style={styles.metricLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function DateChip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  const { theme } = useTheme();
+  const styles = useStyles(theme);
+  return (
+    <TouchableOpacity
+      style={[styles.dateChip, active && styles.dateChipActive]}
+      onPress={onPress}
+      activeOpacity={0.76}>
+      <Text style={[styles.dateChipText, active && styles.dateChipTextActive]}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function ScheduleKey() {
+  const { theme } = useTheme();
+  const styles = useStyles(theme);
+  return (
+    <View style={styles.key}>
+      <View style={styles.keyGrid}>
+        {KEY_ITEMS.map(item => (
+          <View key={item.code} style={styles.keyItem}>
+            <View style={[styles.keyCode, { backgroundColor: item.color }]}>
+              <Text style={[styles.keyCodeText, item.dark && styles.keyCodeDark]}>{item.code}</Text>
+            </View>
+            <Text style={styles.keyLabel}>{item.label}</Text>
+          </View>
+        ))}
+      </View>
+      <Text style={styles.keyNote}>Private/internal availability is muted. Pending requests remain in Requests.</Text>
     </View>
   );
 }
 
 function useStyles(theme: ThemeTokens) {
   return useMemo(() => StyleSheet.create({
-    screen: { flex: 1 },
+    screen: { flex: 1, backgroundColor: theme.pageBg },
     content: {
+      width: '100%',
+      maxWidth: MaxWidth,
+      alignSelf: 'center',
       padding: Spacing.pagePx,
-      paddingBottom: 100,
+      paddingBottom: 110,
       gap: 20,
     },
-    weeklyBtn: {
+    topActions: {
+      flexDirection: 'row',
+      alignItems: 'stretch',
+      gap: 10,
+    },
+    manageAvailabilityButton: {
+      minHeight: 72,
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
-      gap: 8,
-      paddingVertical: 13,
-      borderRadius: Radius.sm,
+      gap: 12,
+      paddingHorizontal: 16,
+      borderRadius: Radius.button,
       borderWidth: 1,
-      borderColor: 'rgba(45,224,255,0.30)',
-      backgroundColor: 'rgba(45,224,255,0.07)',
+      borderColor: theme.borderStrong,
+      backgroundColor: theme.cardBg,
     },
-    weeklyBtnText: {
+    manageCopy: { flex: 1, gap: 2 },
+    manageAvailabilityLabel: {
       fontFamily: FontFamily.manropeSemiBold,
-      fontSize: FontSize.label,
+      fontSize: FontSize.body,
+      color: theme.textPrimary,
+    },
+    manageAvailabilityBody: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: 12,
+      lineHeight: 17,
+      color: theme.textMuted,
+    },
+    createClinicButton: {
+      minHeight: 72,
+      width: 72,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 5,
+      borderRadius: Radius.button,
+      borderWidth: 1,
+      borderColor: 'rgba(45,224,255,0.32)',
+      backgroundColor: 'rgba(45,224,255,0.08)',
+    },
+    createClinicLabel: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: 11,
       color: Colors.cyan,
     },
-    weekNav: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-    },
-    navBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: Radius.sm,
+    summaryCard: {
+      borderRadius: Radius.card,
       borderWidth: 1,
       borderColor: theme.border,
+      backgroundColor: theme.cardBg,
+      padding: Spacing.cardPadding,
+      gap: 16,
+      ...theme.shadowCard,
+    },
+    summaryDate: {
+      fontFamily: FontFamily.spaceGroteskBold,
+      fontSize: FontSize.cardTitle,
+      color: theme.textPrimary,
+    },
+    metrics: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 16 },
+    metric: { width: '50%', gap: 2 },
+    metricValue: {
+      fontFamily: FontFamily.spaceGroteskBold,
+      fontSize: FontSize.statValue,
+      color: theme.textPrimary,
+    },
+    metricLabel: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: 12,
+      color: theme.textMuted,
+    },
+    dateSelector: { flexDirection: 'row', gap: 8 },
+    dateChip: {
+      flex: 1,
+      minHeight: 48,
       alignItems: 'center',
       justifyContent: 'center',
+      paddingHorizontal: 8,
+      borderRadius: Radius.chip,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.cardBg,
     },
-    weekLabel: {
+    dateChipActive: {
+      borderColor: Colors.cyan,
+      backgroundColor: 'rgba(45,224,255,0.10)',
+    },
+    dateChipText: {
       fontFamily: FontFamily.manropeSemiBold,
       fontSize: FontSize.label,
       color: theme.textSecondary,
     },
-    loadingRow: {
+    dateChipTextActive: { color: Colors.cyan },
+    calendarButton: {
+      flex: 1.25,
+      minHeight: 48,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 10,
-      paddingVertical: 20,
+      gap: 8,
+      paddingHorizontal: 8,
+      borderRadius: Radius.chip,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.cardBg,
     },
-    loadingText: {
-      fontFamily: FontFamily.manropeMedium,
+    weekButton: {
+      minHeight: 52,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      borderRadius: Radius.chip,
+      borderWidth: 1,
+      borderColor: 'rgba(45,224,255,0.32)',
+      backgroundColor: 'rgba(45,224,255,0.08)',
+    },
+    calendarButtonText: {
+      fontFamily: FontFamily.manropeSemiBold,
       fontSize: FontSize.label,
-      color: theme.textMuted,
+      color: theme.textSecondary,
     },
-    errorCard: {
-      backgroundColor: 'rgba(255,92,107,0.08)',
+    weekButtonText: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: FontSize.label,
+      color: Colors.cyan,
+    },
+    timelineHeading: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    eyebrow: {
+      fontFamily: FontFamily.jetbrainsMonoSemiBold,
+      fontSize: FontSize.eyebrow,
+      letterSpacing: 1.4,
+      color: Colors.cyan,
+    },
+    selectedDate: {
+      marginTop: 4,
+      fontFamily: FontFamily.spaceGroteskBold,
+      fontSize: FontSize.sectionTitle,
+      color: theme.textPrimary,
+    },
+    infoButton: {
+      width: 48,
+      height: 48,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: Radius.sm,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    key: {
+      padding: 16,
+      gap: 14,
       borderRadius: Radius.card,
       borderWidth: 1,
-      borderColor: 'rgba(255,92,107,0.2)',
-      padding: 20,
-      alignItems: 'center',
-      gap: 8,
+      borderColor: theme.border,
+      backgroundColor: theme.surface2,
     },
-    errorText: {
-      fontFamily: FontFamily.manropeSemiBold,
+    keyGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+    keyItem: { width: '47%', flexDirection: 'row', alignItems: 'center', gap: 8 },
+    keyCode: {
+      width: 30,
+      height: 30,
+      borderRadius: Radius.xs,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    keyCodeText: {
+      fontFamily: FontFamily.jetbrainsMonoSemiBold,
+      fontSize: 11,
+      color: '#F5F8FF',
+    },
+    keyCodeDark: { color: '#0C0F18' },
+    keyLabel: {
+      flex: 1,
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: 12,
+      color: theme.textSecondary,
+    },
+    keyNote: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.label,
+      lineHeight: 20,
+      color: theme.textMuted,
+    },
+    error: {
+      padding: 12,
+      borderRadius: Radius.sm,
+      backgroundColor: 'rgba(255,92,107,0.10)',
+      fontFamily: FontFamily.manropeMedium,
       fontSize: FontSize.label,
       color: Colors.negative,
     },
-    errorDetail: {
+    emptyState: {
+      minHeight: 260,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 14,
+      padding: 24,
+      borderRadius: Radius.card,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.cardBg,
+    },
+    emptyTitle: {
+      maxWidth: 290,
+      fontFamily: FontFamily.spaceGroteskBold,
+      fontSize: FontSize.cardTitle,
+      lineHeight: 24,
+      textAlign: 'center',
+      color: theme.textPrimary,
+    },
+    clinicCard: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 14,
+      backgroundColor: 'rgba(45,107,255,0.08)',
+      borderWidth: 1,
+      borderColor: 'rgba(45,107,255,0.25)',
+      borderRadius: Radius.card,
+      padding: 14,
+      marginBottom: 10,
+    },
+    clinicTimeCol: { width: 52, gap: 2 },
+    clinicTime: {
+      fontFamily: FontFamily.jetbrainsMonoSemiBold,
+      fontSize: FontSize.label,
+      color: Colors.blue,
+    },
+    clinicDur: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.metadata,
+      color: theme.textMuted,
+    },
+    clinicName: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: FontSize.body,
+      color: theme.textPrimary,
+    },
+    clinicLocation: {
       fontFamily: FontFamily.manropeMedium,
       fontSize: FontSize.label,
-      color: theme.textMuted,
-      textAlign: 'center',
+      color: theme.textSecondary,
+      marginTop: 3,
     },
-    retryText: {
+    clinicCount: {
       fontFamily: FontFamily.manropeSemiBold,
       fontSize: FontSize.label,
       color: Colors.blue,
