@@ -76,8 +76,8 @@ export function CoachWeekCalendar({
 }: {
   days: Date[];
   itemsByDate: Map<string, WeekScheduleItem[]>;
-  onCancelLesson: (item: Extract<WeekScheduleItem, { kind: 'lesson' }>) => Promise<void>;
-  onMakeUnavailable: (item: Extract<WeekScheduleItem, { kind: 'open' }>) => Promise<void>;
+  onCancelLesson?: (item: Extract<WeekScheduleItem, { kind: 'lesson' }>) => Promise<void>;
+  onMakeUnavailable?: (item: Extract<WeekScheduleItem, { kind: 'open' }>) => Promise<void>;
 }) {
   const { theme } = useTheme();
   const styles = useStyles(theme);
@@ -202,8 +202,8 @@ function SlotPopover({
 }: {
   selection: { item: WeekScheduleItem; anchor: LayoutRectangle } | null;
   onClose: () => void;
-  onCancelLesson: (item: Extract<WeekScheduleItem, { kind: 'lesson' }>) => Promise<void>;
-  onMakeUnavailable: (item: Extract<WeekScheduleItem, { kind: 'open' }>) => Promise<void>;
+  onCancelLesson?: (item: Extract<WeekScheduleItem, { kind: 'lesson' }>) => Promise<void>;
+  onMakeUnavailable?: (item: Extract<WeekScheduleItem, { kind: 'open' }>) => Promise<void>;
   onReschedule: (request: Extract<WeekScheduleItem, { kind: 'lesson' }>['request']) => void;
 }) {
   const { theme } = useTheme();
@@ -256,15 +256,17 @@ function SlotPopover({
                 time={item.start}
                 location={item.request.facilityName ?? item.request.locationNote}
               />
-              <PopoverAction
-                label="Reschedule Lesson"
-                primary
-                icon={<RotateCcw size={18} color="#F5F8FF" />}
-                onPress={() => {
-                  onClose();
-                  setTimeout(() => onReschedule(item.request), 0);
-                }}
-              />
+              {!!onCancelLesson && (
+                <PopoverAction
+                  label="Reschedule Lesson"
+                  primary
+                  icon={<RotateCcw size={18} color="#F5F8FF" />}
+                  onPress={() => {
+                    onClose();
+                    setTimeout(() => onReschedule(item.request), 0);
+                  }}
+                />
+              )}
               <PopoverAction
                 label="Message Student"
                 icon={<MessageCircle size={18} color={theme.textSecondary} />}
@@ -286,25 +288,27 @@ function SlotPopover({
                   } as any);
                 }}
               />
-              <PopoverAction
-                label="Cancel Lesson"
-                destructive
-                onPress={() => Alert.alert(
-                  'Cancel lesson?',
-                  'The student will be notified. The slot will not be promoted or automatically refilled.',
-                  [
-                    { text: 'Keep Lesson', style: 'cancel' },
-                    {
-                      text: 'Cancel Lesson',
-                      style: 'destructive',
-                      onPress: async () => {
-                        await onCancelLesson(item);
-                        onClose();
+              {!!onCancelLesson && (
+                <PopoverAction
+                  label="Cancel Lesson"
+                  destructive
+                  onPress={() => Alert.alert(
+                    'Cancel lesson?',
+                    'The student will be notified. The slot will not be promoted or automatically refilled.',
+                    [
+                      { text: 'Keep Lesson', style: 'cancel' },
+                      {
+                        text: 'Cancel Lesson',
+                        style: 'destructive',
+                        onPress: async () => {
+                          await onCancelLesson(item);
+                          onClose();
+                        },
                       },
-                    },
-                  ],
-                )}
-              />
+                    ],
+                  )}
+                />
+              )}
             </>
           )}
 
@@ -323,25 +327,29 @@ function SlotPopover({
               <Text style={styles.detail}>
                 {item.publiclyBookable ? 'Public and bookable' : 'Private / internal'}
               </Text>
-              <PopoverAction
-                label="Edit Slot"
-                primary
-                icon={<Pencil size={18} color="#F5F8FF" />}
-                onPress={() => router.push({
-                  pathname: '/(coach)/schedule-settings',
-                  params: {
-                    day: String(new Date(`${item.date}T12:00:00`).getDay()),
-                    blockId: item.sourceId,
-                  },
-                } as any)}
-              />
-              <PopoverAction
-                label="Make Unavailable"
-                onPress={async () => {
-                  await onMakeUnavailable(item);
-                  onClose();
-                }}
-              />
+              {!!onMakeUnavailable && (
+                <PopoverAction
+                  label="Edit Slot"
+                  primary
+                  icon={<Pencil size={18} color="#F5F8FF" />}
+                  onPress={() => router.push({
+                    pathname: '/(coach)/schedule-settings',
+                    params: {
+                      day: String(new Date(`${item.date}T12:00:00`).getDay()),
+                      blockId: item.sourceId,
+                    },
+                  } as any)}
+                />
+              )}
+              {!!onMakeUnavailable && (
+                <PopoverAction
+                  label="Make Unavailable"
+                  onPress={async () => {
+                    await onMakeUnavailable(item);
+                    onClose();
+                  }}
+                />
+              )}
               <PopoverAction
                 label="View Rule"
                 onPress={() => router.push({

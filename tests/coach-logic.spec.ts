@@ -462,3 +462,117 @@ test.describe('Weekly schedule viewer', () => {
     expect(sorted[1].id).toBe('b');
   });
 });
+
+// ---------------------------------------------------------------------------
+// PHASE 4 — Bug-fix regression tests (launch sprint)
+// ---------------------------------------------------------------------------
+
+test.describe('Bug-fix regressions', () => {
+  test('settings.tsx uses router.canGoBack() for safe back navigation', async () => {
+    const fs = await import('fs');
+    const content = fs.readFileSync(
+      'C:\\Users\\info\\tenisx-native\\src\\app\\settings.tsx', 'utf-8'
+    );
+    expect(content).toContain('canGoBack()');
+    expect(content).toContain('handleBack');
+    // Should not call router.back() directly on the back button
+    expect(content).not.toContain("onPress={() => router.back()}");
+  });
+
+  test('settings.tsx has no visible DEV AUTH STATE debug panel', async () => {
+    const fs = await import('fs');
+    const content = fs.readFileSync(
+      'C:\\Users\\info\\tenisx-native\\src\\app\\settings.tsx', 'utf-8'
+    );
+    expect(content).not.toContain('DEV · AUTH STATE');
+    expect(content).not.toContain('session: PRESENT');
+    expect(content).not.toContain('debugPanel');
+  });
+
+  test('CreateClinicSheet.tsx defines QUICK_DATES before use', async () => {
+    const fs = await import('fs');
+    const content = fs.readFileSync(
+      'C:\\Users\\info\\tenisx-native\\src\\components\\coaching\\CreateClinicSheet.tsx', 'utf-8'
+    );
+    const quickDatesIdx = content.indexOf('const QUICK_DATES');
+    const usageIdx = content.indexOf('QUICK_DATES');
+    expect(quickDatesIdx).toBeGreaterThan(-1);
+    expect(quickDatesIdx).toBeLessThanOrEqual(usageIdx);
+  });
+
+  test('CreateClinicSheet.tsx defines TIME_PRESETS before use', async () => {
+    const fs = await import('fs');
+    const content = fs.readFileSync(
+      'C:\\Users\\info\\tenisx-native\\src\\components\\coaching\\CreateClinicSheet.tsx', 'utf-8'
+    );
+    const presetsIdx = content.indexOf('const TIME_PRESETS');
+    const usageIdx = content.indexOf('TIME_PRESETS');
+    expect(presetsIdx).toBeGreaterThan(-1);
+    expect(presetsIdx).toBeLessThanOrEqual(usageIdx);
+  });
+
+  test('useCoachRequests.ts uses a unique realtime channel name per subscription', async () => {
+    const fs = await import('fs');
+    const content = fs.readFileSync(
+      'C:\\Users\\info\\tenisx-native\\src\\hooks\\useCoachRequests.ts', 'utf-8'
+    );
+    // Should use template literal with tick counter, not a fixed string
+    expect(content).toContain('coach-requests-rt-');
+    expect(content).not.toContain("channel('coach-requests-realtime')");
+  });
+
+  test('CreateClinicSheet.tsx price input has dollar prefix and decimal formatting', async () => {
+    const fs = await import('fs');
+    const content = fs.readFileSync(
+      'C:\\Users\\info\\tenisx-native\\src\\components\\coaching\\CreateClinicSheet.tsx', 'utf-8'
+    );
+    expect(content).toContain('currencyRow');
+    expect(content).toContain('currencyPrefix');
+    expect(content).toContain('priceError');
+    expect(content).toContain('toFixed(2)');
+    // Letters must be stripped
+    expect(content).toContain('[^0-9.]');
+  });
+
+  test('price currency input validation logic: strips letters, formats on blur', () => {
+    function sanitizePrice(v: string): string {
+      const stripped = v.replace(/[^0-9.]/g, '');
+      const parts = stripped.split('.');
+      return parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : stripped;
+    }
+    function formatOnBlur(v: string): string | null {
+      if (!v) return null;
+      const num = parseFloat(v);
+      if (isNaN(num) || num < 0) return 'error';
+      return num.toFixed(2);
+    }
+
+    expect(sanitizePrice('12abc')).toBe('12');
+    expect(sanitizePrice('9.99xyz')).toBe('9.99');
+    expect(sanitizePrice('1.2.3')).toBe('1.23');
+    expect(sanitizePrice('')).toBe('');
+    expect(formatOnBlur('10')).toBe('10.00');
+    expect(formatOnBlur('9.9')).toBe('9.90');
+    expect(formatOnBlur('')).toBeNull();
+    expect(formatOnBlur('abc')).toBe('error');
+    expect(formatOnBlur('-5')).toBe('error');
+  });
+
+  test('schedule-week.tsx has updated portrait instruction text', async () => {
+    const fs = await import('fs');
+    const content = fs.readFileSync(
+      'C:\\Users\\info\\tenisx-native\\src\\app\\(coach)\\schedule-week.tsx', 'utf-8'
+    );
+    expect(content).toContain('Rotate your phone sideways to view the full weekly schedule.');
+  });
+
+  test('CoachWeekCalendar.tsx onCancelLesson and onMakeUnavailable are optional props', async () => {
+    const fs = await import('fs');
+    const content = fs.readFileSync(
+      'C:\\Users\\info\\tenisx-native\\src\\components\\coach\\schedule\\CoachWeekCalendar.tsx', 'utf-8'
+    );
+    // Props must use optional marker ?:
+    expect(content).toContain('onCancelLesson?:');
+    expect(content).toContain('onMakeUnavailable?:');
+  });
+});

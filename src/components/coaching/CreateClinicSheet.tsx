@@ -88,6 +88,7 @@ export function CreateClinicSheet({ visible, initial, onClose, onSaved }: Props)
   const { theme } = useTheme();
   const [form, setForm]         = useState<ClinicFormData>({ ...BLANK, ...initial });
   const [saving, setSaving]     = useState(false);
+  const [priceError, setPriceError] = useState('');
   const nameRef  = useRef<TextInput>(null);
 
   useEffect(() => {
@@ -335,14 +336,37 @@ export function CreateClinicSheet({ visible, initial, onClose, onSaved }: Props)
 
               {/* Price */}
               <Label text="PRICE  (optional)" />
-              <TextInput
-                style={[s.input, { color: theme.textPrimary, borderColor: theme.border, backgroundColor: theme.inputBg }]}
-                value={form.price}
-                onChangeText={v => set('price', v)}
-                placeholder="Leave blank if not yet set"
-                placeholderTextColor={theme.textDisabled}
-                keyboardType="decimal-pad"
-              />
+              <View style={[
+                s.input, s.currencyRow,
+                { paddingHorizontal: 0, borderColor: priceError ? Colors.negative : theme.border, backgroundColor: theme.inputBg },
+              ]}>
+                <Text style={[s.currencyPrefix, { color: form.price ? theme.textPrimary : theme.textDisabled }]}>$</Text>
+                <TextInput
+                  style={[s.currencyInput, { color: theme.textPrimary }]}
+                  value={form.price}
+                  onChangeText={v => {
+                    const stripped = v.replace(/[^0-9.]/g, '');
+                    const parts = stripped.split('.');
+                    const safe = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : stripped;
+                    set('price', safe);
+                    if (priceError) setPriceError('');
+                  }}
+                  onBlur={() => {
+                    if (!form.price) { setPriceError(''); return; }
+                    const num = parseFloat(form.price);
+                    if (isNaN(num) || num < 0) {
+                      setPriceError('Enter a valid price or leave blank');
+                      return;
+                    }
+                    set('price', num.toFixed(2));
+                    setPriceError('');
+                  }}
+                  placeholder="Leave blank if not yet set"
+                  placeholderTextColor={theme.textDisabled}
+                  keyboardType="decimal-pad"
+                />
+              </View>
+              {!!priceError && <Text style={s.fieldError}>{priceError}</Text>}
 
               {/* Status */}
               <Label text="VISIBILITY" />
@@ -419,6 +443,24 @@ const s = StyleSheet.create({
     fontSize: FontSize.body, marginBottom: 4,
   },
   textarea: { minHeight: 100, paddingTop: 12 },
+  currencyRow: { flexDirection: 'row', alignItems: 'center' },
+  currencyPrefix: {
+    paddingLeft: 14, paddingRight: 4,
+    fontFamily: FontFamily.manropeSemiBold,
+    fontSize: FontSize.body,
+  },
+  currencyInput: {
+    flex: 1, paddingLeft: 4, paddingRight: 14,
+    fontFamily: FontFamily.manropeMedium,
+    fontSize: FontSize.body,
+  },
+  fieldError: {
+    fontFamily: FontFamily.manropeMedium,
+    fontSize: 12,
+    color: Colors.negative,
+    marginTop: 2,
+    marginBottom: 4,
+  },
   twoCol: { flexDirection: 'row', gap: 10 },
   halfInput: { flex: 1 },
   hScroll: { marginBottom: 4 },

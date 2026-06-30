@@ -93,6 +93,22 @@ export default function SettingsScreen() {
     ]);
   }
 
+  async function handleBack() {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { router.replace('/(auth)/login' as any); return; }
+    const { data: roles } = await supabase.from('user_roles').select('role').eq('user_id', user.id);
+    const userRoles = (roles ?? []).map((r: any) => r.role as string);
+    const isCM = userRoles.some(r => ['admin', 'condo_manager', 'manager', 'hoa_manager', 'board_admin'].includes(r));
+    const isCoach = userRoles.includes('coach');
+    if (isCM) router.replace('/(cm)' as any);
+    else if (isCoach) router.replace('/(coach)' as any);
+    else router.replace('/(resident)' as any);
+  }
+
   const name = profile.full_name ?? 'User';
   const initials = getInitials(name);
   const activeMemberships = memberships.filter((m) => m.status === 'approved');
@@ -110,7 +126,7 @@ export default function SettingsScreen() {
     <View style={[styles.screen, { backgroundColor: theme.pageBg }]}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 8 }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => { void handleBack(); }} style={styles.backBtn}>
           <ArrowLeft color={Colors.white} size={20} strokeWidth={1.5} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Settings</Text>

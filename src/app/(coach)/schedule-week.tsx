@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { Info, RotateCw, X } from 'lucide-react-native';
 import { CoachWeekCalendar } from '@/components/coach/schedule/CoachWeekCalendar';
-import { useCoachWeekTimeline, startOfWeek, type WeekScheduleItem } from '@/hooks/useCoachWeekTimeline';
+import { useCoachWeekTimeline, startOfWeek } from '@/hooks/useCoachWeekTimeline';
 import { supabase } from '@/lib/supabase';
 import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/design';
 import { useTheme } from '@/context/ThemeContext';
@@ -62,34 +62,6 @@ export default function CoachScheduleWeekScreen() {
     year: 'numeric',
   })}`;
 
-  async function cancelLesson(item: Extract<WeekScheduleItem, { kind: 'lesson' }>) {
-    const error = await week.cancelLesson(item.request.id);
-    if (error) {
-      Alert.alert('Unable to cancel lesson', error);
-      return;
-    }
-    await week.refresh();
-  }
-
-  async function makeUnavailable(item: Extract<WeekScheduleItem, { kind: 'open' }>) {
-    if (!coachId) return;
-    const { error } = await (supabase as any).from('coach_blockouts').insert({
-      coach_id: coachId,
-      type: 'other',
-      title: null,
-      days_of_week: null,
-      specific_date: item.date,
-      start_time: item.start,
-      end_time: item.end,
-      visibility: 'show_as_unavailable',
-    });
-    if (error) {
-      Alert.alert('Unable to make this time unavailable', error.message);
-      return;
-    }
-    await week.refresh();
-  }
-
   if (!isLandscape) {
     return (
       <View style={styles.rotationScreen}>
@@ -101,7 +73,7 @@ export default function CoachScheduleWeekScreen() {
         <RotateCw size={48} color={Colors.cyan} />
         <Text style={styles.rotationTitle}>Week View</Text>
         <Text style={styles.rotationBody}>
-          Rotate your device to view the weekly schedule grid.
+          Rotate your phone sideways to view the full weekly schedule.
         </Text>
       </View>
     );
@@ -163,8 +135,6 @@ export default function CoachScheduleWeekScreen() {
         <CoachWeekCalendar
           days={week.days}
           itemsByDate={week.itemsByDate}
-          onCancelLesson={cancelLesson}
-          onMakeUnavailable={makeUnavailable}
         />
       )}
     </View>
