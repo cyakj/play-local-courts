@@ -405,38 +405,57 @@ test.describe('Start/end validation', () => {
 // ---------------------------------------------------------------------------
 
 test.describe('Weekly schedule viewer', () => {
-  test('CoachWeeklyScheduleModal component file exists', async () => {
-    // Validates the component was created — import would fail otherwise
+  test('System 2 files are fully removed', async () => {
     const fs = await import('fs');
-    const exists = fs.existsSync(
-      'C:\\Users\\info\\tenisx-native\\src\\components\\coach\\CoachWeeklyScheduleModal.tsx'
-    );
-    expect(exists).toBe(true);
+    const deleted = [
+      'src\\app\\(coach)\\schedule-settings.tsx',
+      'src\\app\\(coach)\\schedule-week.tsx',
+      'src\\hooks\\useCoachDailyTimeline.ts',
+      'src\\hooks\\useCoachWeekTimeline.ts',
+      'src\\hooks\\useCoachTeachingBlocks.ts',
+      'src\\hooks\\useCoachGlobalHours.ts',
+      'src\\hooks\\useCoachBlockouts.ts',
+      'src\\components\\coach\\schedule\\CoachDailyTimeline.tsx',
+      'src\\components\\coach\\schedule\\CoachWeekCalendar.tsx',
+    ];
+    for (const rel of deleted) {
+      const abs = `C:\\Users\\info\\tenisx-native\\${rel}`;
+      expect(fs.existsSync(abs), `Should be deleted: ${rel}`).toBe(false);
+    }
   });
 
-  test('schedule.tsx uses CoachDailyTimeline and routes to schedule-week', async () => {
-    // New architecture: daily timeline view + navigation to schedule-week for landscape week view
+  test('schedule.tsx uses CoachAvailabilityEditor as primary schedule UI', async () => {
     const fs = await import('fs');
     const content = fs.readFileSync(
-      'C:\\Users\\info\\tenisx-native\\src\\app\\(coach)\\schedule.tsx',
-      'utf-8'
-    );
-    expect(content).toContain('CoachDailyTimeline');
-    expect(content).toContain('CoachDatePickerSheet');
-    expect(content).toContain('schedule-week');
-  });
-
-  test('schedule-settings.tsx contains CoachAvailabilityEditor with day-pill UX', async () => {
-    // Availability editor moved from schedule.tsx to schedule-settings.tsx (commit regression fix)
-    const fs = await import('fs');
-    const content = fs.readFileSync(
-      'C:\\Users\\info\\tenisx-native\\src\\app\\(coach)\\schedule-settings.tsx',
-      'utf-8'
+      'C:\\Users\\info\\tenisx-native\\src\\app\\(coach)\\schedule.tsx', 'utf-8'
     );
     expect(content).toContain('CoachAvailabilityEditor');
     expect(content).toContain('useCoachAvailability');
     expect(content).toContain('weeklySlots');
-    expect(content).toContain('refreshSlots');
+    // Must NOT contain System 2 references
+    expect(content).not.toContain('CoachDailyTimeline');
+    expect(content).not.toContain('useCoachDailyTimeline');
+    expect(content).not.toContain('schedule-settings');
+    expect(content).not.toContain('schedule-week');
+  });
+
+  test('schedule.tsx shows clinic count metric', async () => {
+    const fs = await import('fs');
+    const content = fs.readFileSync(
+      'C:\\Users\\info\\tenisx-native\\src\\app\\(coach)\\schedule.tsx', 'utf-8'
+    );
+    expect(content).toContain('clinicCount');
+    expect(content).toContain('CLINICS');
+    expect(content).toContain('coach_clinics');
+  });
+
+  test('_layout.tsx no longer declares schedule-settings or schedule-week tabs', async () => {
+    const fs = await import('fs');
+    const content = fs.readFileSync(
+      'C:\\Users\\info\\tenisx-native\\src\\app\\(coach)\\_layout.tsx', 'utf-8'
+    );
+    expect(content).not.toContain('schedule-settings');
+    expect(content).not.toContain('schedule-week');
   });
 
   test('lesson blocks render from sample data (logic test)', () => {
@@ -561,21 +580,26 @@ test.describe('Bug-fix regressions', () => {
     expect(formatOnBlur('-5')).toBe('error');
   });
 
-  test('schedule-week.tsx has updated portrait instruction text', async () => {
+  test('CoachAvailabilityEditor overlap error message matches spec', async () => {
     const fs = await import('fs');
     const content = fs.readFileSync(
-      'C:\\Users\\info\\tenisx-native\\src\\app\\(coach)\\schedule-week.tsx', 'utf-8'
+      'C:\\Users\\info\\tenisx-native\\src\\components\\coach\\CoachAvailabilityEditor.tsx', 'utf-8'
     );
-    expect(content).toContain('Rotate your phone sideways to view the full weekly schedule.');
+    // Exact spec text required
+    expect(content).toContain('This time overlaps an existing availability.');
+    expect(content).toContain('This availability already exists.');
+    // Old verbose message must be gone
+    expect(content).not.toContain('Please adjust the times or remove the conflicting slot first');
   });
 
-  test('CoachWeekCalendar.tsx onCancelLesson and onMakeUnavailable are optional props', async () => {
+  test('CoachAvailabilityEditor has auto-scroll refs for start/end time chips', async () => {
     const fs = await import('fs');
     const content = fs.readFileSync(
-      'C:\\Users\\info\\tenisx-native\\src\\components\\coach\\schedule\\CoachWeekCalendar.tsx', 'utf-8'
+      'C:\\Users\\info\\tenisx-native\\src\\components\\coach\\CoachAvailabilityEditor.tsx', 'utf-8'
     );
-    // Props must use optional marker ?:
-    expect(content).toContain('onCancelLesson?:');
-    expect(content).toContain('onMakeUnavailable?:');
+    expect(content).toContain('startScrollRef');
+    expect(content).toContain('endScrollRef');
+    expect(content).toContain('scrollTo');
+    expect(content).toContain('CHIP_UNIT');
   });
 });

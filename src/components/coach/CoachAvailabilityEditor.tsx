@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -62,6 +62,30 @@ export function CoachAvailabilityEditor({ slots, onRefresh }: Props) {
   const [newEnd, setNewEnd]           = useState('12:00');
   const [newLocation, setNewLocation] = useState<string>('coach_facility');
   const [saving, setSaving]           = useState(false);
+
+  const startScrollRef = useRef<ScrollView>(null);
+  const endScrollRef   = useRef<ScrollView>(null);
+  const newStartRef    = useRef(newStart);
+  const newEndRef      = useRef(newEnd);
+  newStartRef.current  = newStart;
+  newEndRef.current    = newEnd;
+
+  // Auto-scroll time chip lists to the selected value when the modal opens.
+  // Each chip is estimated at ~74px (padding + text + gap) for JetBrains Mono label.
+  const CHIP_UNIT = 74;
+  useEffect(() => {
+    if (!showModal) return;
+    const timer = setTimeout(() => {
+      const vs = TIME_OPTIONS.filter(t => t < newEndRef.current);
+      const ve = TIME_OPTIONS.filter(t => t > newStartRef.current);
+      const si = vs.indexOf(newStartRef.current);
+      if (si > 0) startScrollRef.current?.scrollTo({ x: si * CHIP_UNIT, animated: false });
+      const ei = ve.indexOf(newEndRef.current);
+      if (ei > 0) endScrollRef.current?.scrollTo({ x: ei * CHIP_UNIT, animated: false });
+    }, 150);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showModal]);
 
   const daySlots = useMemo(
     () =>
@@ -166,7 +190,7 @@ export function CoachAvailabilityEditor({ slots, onRefresh }: Props) {
     });
     if (hasOverlap) {
       setSaving(false);
-      Alert.alert('Schedule Conflict', 'This slot overlaps with an existing availability window. Please adjust the times or remove the conflicting slot first.');
+      Alert.alert('Overlap', 'This time overlaps an existing availability.');
       return;
     }
 
@@ -300,7 +324,7 @@ export function CoachAvailabilityEditor({ slots, onRefresh }: Props) {
           </ScrollView>
 
           <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>START TIME</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+          <ScrollView ref={startScrollRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
             {validStart.map(t => (
               <TouchableOpacity
                 key={t}
@@ -315,7 +339,7 @@ export function CoachAvailabilityEditor({ slots, onRefresh }: Props) {
           </ScrollView>
 
           <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>END TIME</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+          <ScrollView ref={endScrollRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
             {validEnd.map(t => (
               <TouchableOpacity
                 key={t}

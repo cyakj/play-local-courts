@@ -93,10 +93,8 @@ export default function CoachLayout() {
           tabBarIcon: ({ color, size }) => <UserCircle color={color} size={size} strokeWidth={1.5} />,
         }}
       />
-      <Tabs.Screen name="reviews"          options={{ href: null }} />
-      <Tabs.Screen name="schedule-settings" options={{ href: null }} />
-      <Tabs.Screen name="schedule-week"     options={{ href: null }} />
-      <Tabs.Screen name="clinics"           options={{ href: null }} />
+      <Tabs.Screen name="reviews"  options={{ href: null }} />
+      <Tabs.Screen name="clinics"  options={{ href: null }} />
     </Tabs>
   );
 }
