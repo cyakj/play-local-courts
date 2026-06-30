@@ -511,14 +511,17 @@ test.describe('Bug-fix regressions', () => {
     expect(presetsIdx).toBeLessThanOrEqual(usageIdx);
   });
 
-  test('useCoachRequests.ts uses a unique realtime channel name per subscription', async () => {
+  test('useCoachRequests.ts uses Date.now() for unique realtime channel names', async () => {
     const fs = await import('fs');
     const content = fs.readFileSync(
       'C:\\Users\\info\\tenisx-native\\src\\hooks\\useCoachRequests.ts', 'utf-8'
     );
-    // Should use template literal with tick counter, not a fixed string
+    // Must use Date.now() — not a fixed string (tick.current resets to 0 on remount)
+    expect(content).toContain('Date.now()');
     expect(content).toContain('coach-requests-rt-');
     expect(content).not.toContain("channel('coach-requests-realtime')");
+    // Channel name must NOT use tick.current — it resets to 0 on each remount causing collisions
+    expect(content).not.toContain('coach-requests-rt-${tick.current}');
   });
 
   test('CreateClinicSheet.tsx price input has dollar prefix and decimal formatting', async () => {

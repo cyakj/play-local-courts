@@ -207,7 +207,7 @@ export function useCoachDashboard() {
     load();
 
     const channel = supabase
-      .channel('coach-dashboard-realtime')
+      .channel(`coach-dashboard-rt-${Date.now()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'lesson_requests' }, () => {
         if (!cancelled) load();
       })

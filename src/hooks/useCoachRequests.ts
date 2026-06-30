@@ -199,7 +199,7 @@ export function useCoachRequests(): UseCoachRequestsResult {
     load();
 
     const channel = supabase
-      .channel(`coach-requests-rt-${tick.current}`)
+      .channel(`coach-requests-rt-${Date.now()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'lesson_requests' }, () => {
         if (!cancelled) load();
       })

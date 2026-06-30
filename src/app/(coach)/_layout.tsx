@@ -27,7 +27,7 @@ function RequestsBadgeIcon({ color, size }: { color: ColorValue; size: number })
     load();
 
     const channel = supabase
-      .channel('coach-pending-count')
+      .channel(`coach-pending-count-${Date.now()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'lesson_requests' }, load)
       .subscribe();
 
