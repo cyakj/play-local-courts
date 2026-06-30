@@ -158,6 +158,15 @@ export function CoachDailyTimeline({
               />
             );
           }
+          if (item.kind === 'clinic') {
+            return (
+              <ClinicCard
+                key={item.id}
+                item={item}
+                onPress={() => router.push('/(coach)/clinics' as any)}
+              />
+            );
+          }
           if (item.kind === 'open') {
             return (
               <OpenSlotCard
@@ -469,6 +478,41 @@ function UnavailableCard({
           )}
         </View>
       </View>
+    </TimelineShell>
+  );
+}
+
+function ClinicCard({
+  item,
+  onPress,
+}: {
+  item: Extract<TimelineItem, { kind: 'clinic' }>;
+  onPress: () => void;
+}) {
+  const { theme } = useTheme();
+  const styles = useStyles(theme);
+  return (
+    <TimelineShell code="C" color={Colors.cyan}>
+      <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.82}>
+        <View style={styles.cardHeading}>
+          <View style={styles.cardHeadingCopy}>
+            <Text style={styles.time}>{timeRange(item.start, item.end)}</Text>
+            <Text style={styles.title}>{item.name}</Text>
+          </View>
+          <Text style={item.status === 'draft' ? styles.privateStatus : styles.publicStatus}>
+            {item.status === 'draft' ? 'DRAFT' : 'LIVE'}
+          </Text>
+        </View>
+        <Text style={styles.meta}>
+          {item.enrolledCount} / {item.maxPlayers} players enrolled
+        </Text>
+        {!!item.location && (
+          <InfoRow icon={<MapPin size={16} color={theme.textMuted} />}>{item.location}</InfoRow>
+        )}
+        <View style={styles.actions}>
+          <Action label="Manage Clinics" icon={<Eye size={16} color={theme.textSecondary} />} onPress={onPress} />
+        </View>
+      </TouchableOpacity>
     </TimelineShell>
   );
 }

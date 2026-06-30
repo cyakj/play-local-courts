@@ -21,11 +21,12 @@ import type { ThemeTokens } from '@/constants/theme-tokens';
 import type { CoachLessonRequest } from '@/hooks/useCoachRequests';
 
 const KEY_ITEMS = [
-  { code: 'L', label: 'Booked Lesson', color: Colors.positive, dark: true },
-  { code: 'F', label: 'Open Facility Slot', color: Colors.blue, dark: false },
-  { code: 'T', label: 'Open Travel Slot', color: Colors.volt, dark: true },
-  { code: 'E', label: 'Open Either Slot', color: '#7A839A', dark: false },
-  { code: 'U', label: 'Unavailable', color: '#333A4D', dark: false },
+  { code: 'L', label: 'Booked Lesson',    color: Colors.positive, dark: true  },
+  { code: 'C', label: 'Clinic',           color: Colors.cyan,     dark: true  },
+  { code: 'F', label: 'Facility Slot',    color: Colors.blue,     dark: false },
+  { code: 'T', label: 'Travel Slot',      color: Colors.volt,     dark: true  },
+  { code: 'E', label: 'Either Slot',      color: '#7A839A',       dark: false },
+  { code: 'U', label: 'Unavailable',      color: '#333A4D',       dark: false },
 ];
 
 function startOfToday(): Date {
@@ -49,16 +50,6 @@ function dateKey(date: Date): string {
   ].join('-');
 }
 
-interface ScheduleClinic {
-  id: string;
-  name: string;
-  startTime: string;
-  durationMinutes: number;
-  location: string;
-  enrolledCount: number;
-  maxPlayers: number;
-}
-
 export default function CoachScheduleScreen() {
   const { theme } = useTheme();
   const styles = useStyles(theme);
@@ -78,51 +69,12 @@ export default function CoachScheduleScreen() {
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [keyOpen, setKeyOpen] = useState(false);
   const [createClinicOpen, setCreateClinicOpen] = useState(false);
-  const [dayClinics, setDayClinics] = useState<ScheduleClinic[]>([]);
-  const [clinicsRefreshTick, setClinicsRefreshTick] = useState(0);
   const { profile: coachProfile } = useCoachProfile();
   const timeline = useCoachDailyTimeline(coachId, selectedDate);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setCoachId(user?.id ?? null));
   }, []);
-
-  useEffect(() => {
-    if (!coachId) return;
-    let cancelled = false;
-    const dayKey = dateKey(selectedDate);
-    async function loadClinics() {
-      const { data: rows } = await (supabase as any)
-        .from('coach_clinics')
-        .select('id, name, start_time, duration_minutes, location, max_players')
-        .eq('coach_id', coachId)
-        .eq('date', dayKey)
-        .neq('status', 'canceled')
-        .order('start_time', { ascending: true });
-
-      if (cancelled || !rows || rows.length === 0) { if (!cancelled) setDayClinics([]); return; }
-      const ids = (rows as any[]).map((r: any) => r.id as string);
-      const { data: counts } = await (supabase as any).rpc('clinic_enrollment_counts', { clinic_ids: ids });
-      const countMap = new Map<string, number>(
-        ((counts ?? []) as any[]).map((r: any) => [r.clinic_id as string, r.enrolled_count as number]),
-      );
-      if (!cancelled) {
-        setDayClinics(
-          (rows as any[]).map((r: any): ScheduleClinic => ({
-            id:              r.id,
-            name:            r.name,
-            startTime:       r.start_time,
-            durationMinutes: r.duration_minutes,
-            location:        r.location,
-            enrolledCount:   countMap.get(r.id) ?? 0,
-            maxPlayers:      r.max_players,
-          })),
-        );
-      }
-    }
-    void loadClinics();
-    return () => { cancelled = true; };
-  }, [coachId, selectedDate, clinicsRefreshTick]);
 
   const today = startOfToday();
   const tomorrow = addDays(today, 1);
@@ -332,35 +284,6 @@ export default function CoachScheduleScreen() {
           />
         )}
 
-        {/* Clinics for this day */}
-        {dayClinics.length > 0 && (
-          <>
-            <Text style={styles.eyebrow}>CLINICS</Text>
-            {dayClinics.map(clinic => {
-              const [h, m] = clinic.startTime.slice(0, 5).split(':').map(Number);
-              const timeLabel = `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
-              return (
-                <TouchableOpacity
-                  key={clinic.id}
-                  style={styles.clinicCard}
-                  onPress={() => router.push('/(coach)/clinics' as any)}
-                  activeOpacity={0.8}>
-                  <View style={styles.clinicTimeCol}>
-                    <Text style={styles.clinicTime}>{timeLabel}</Text>
-                    <Text style={styles.clinicDur}>{clinic.durationMinutes}m</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.clinicName}>{clinic.name}</Text>
-                    <Text style={styles.clinicLocation} numberOfLines={1}>{clinic.location}</Text>
-                    <Text style={styles.clinicCount}>
-                      {clinic.enrolledCount} / {clinic.maxPlayers} players
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </>
-        )}
       </ScrollView>
 
       <CoachDatePickerSheet
@@ -376,7 +299,7 @@ export default function CoachScheduleScreen() {
         onClose={() => setCreateClinicOpen(false)}
         onSaved={() => {
           setCreateClinicOpen(false);
-          setClinicsRefreshTick(t => t + 1);
+          timeline.refreshClinics();
         }}
       />
     </View>
@@ -651,45 +574,6 @@ function useStyles(theme: ThemeTokens) {
       lineHeight: 24,
       textAlign: 'center',
       color: theme.textPrimary,
-    },
-    clinicCard: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: 14,
-      backgroundColor: 'rgba(45,107,255,0.08)',
-      borderWidth: 1,
-      borderColor: 'rgba(45,107,255,0.25)',
-      borderRadius: Radius.card,
-      padding: 14,
-      marginBottom: 10,
-    },
-    clinicTimeCol: { width: 52, gap: 2 },
-    clinicTime: {
-      fontFamily: FontFamily.jetbrainsMonoSemiBold,
-      fontSize: FontSize.label,
-      color: Colors.blue,
-    },
-    clinicDur: {
-      fontFamily: FontFamily.manropeMedium,
-      fontSize: FontSize.metadata,
-      color: theme.textMuted,
-    },
-    clinicName: {
-      fontFamily: FontFamily.manropeSemiBold,
-      fontSize: FontSize.body,
-      color: theme.textPrimary,
-    },
-    clinicLocation: {
-      fontFamily: FontFamily.manropeMedium,
-      fontSize: FontSize.label,
-      color: theme.textSecondary,
-      marginTop: 3,
-    },
-    clinicCount: {
-      fontFamily: FontFamily.manropeSemiBold,
-      fontSize: FontSize.label,
-      color: Colors.blue,
-      marginTop: 4,
     },
   }), [theme]);
 }
