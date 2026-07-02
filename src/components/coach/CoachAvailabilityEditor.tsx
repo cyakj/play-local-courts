@@ -49,6 +49,10 @@ interface Props {
   onRefresh: () => void;
 }
 
+// Estimated chip widths for auto-scroll positioning
+const TIME_CHIP_UNIT = 74;  // time chips: ~74px each
+const DAY_CHIP_UNIT  = 60;  // day chips: ~60px each
+
 export function CoachAvailabilityEditor({ slots, onRefresh }: Props) {
   const { theme } = useTheme();
   const styles = useStyles(theme);
@@ -63,25 +67,33 @@ export function CoachAvailabilityEditor({ slots, onRefresh }: Props) {
   const [newLocation, setNewLocation] = useState<string>('coach_facility');
   const [saving, setSaving]           = useState(false);
 
+  const dayScrollRef   = useRef<ScrollView>(null);
   const startScrollRef = useRef<ScrollView>(null);
   const endScrollRef   = useRef<ScrollView>(null);
-  const newStartRef    = useRef(newStart);
-  const newEndRef      = useRef(newEnd);
-  newStartRef.current  = newStart;
-  newEndRef.current    = newEnd;
 
-  // Auto-scroll time chip lists to the selected value when the modal opens.
-  // Each chip is estimated at ~74px (padding + text + gap) for JetBrains Mono label.
-  const CHIP_UNIT = 74;
+  // Refs that hold latest values so the scroll useEffect isn't stale
+  const newDayRef   = useRef(newDay);
+  const newStartRef = useRef(newStart);
+  const newEndRef   = useRef(newEnd);
+  newDayRef.current   = newDay;
+  newStartRef.current = newStart;
+  newEndRef.current   = newEnd;
+
+  // Auto-scroll all chip lists to the selected value when the modal opens.
   useEffect(() => {
     if (!showModal) return;
     const timer = setTimeout(() => {
+      const day = newDayRef.current;
+      if (day > 0) dayScrollRef.current?.scrollTo({ x: day * DAY_CHIP_UNIT, animated: false });
+
       const vs = TIME_OPTIONS.filter(t => t < newEndRef.current);
       const ve = TIME_OPTIONS.filter(t => t > newStartRef.current);
+
       const si = vs.indexOf(newStartRef.current);
-      if (si > 0) startScrollRef.current?.scrollTo({ x: si * CHIP_UNIT, animated: false });
+      if (si > 0) startScrollRef.current?.scrollTo({ x: si * TIME_CHIP_UNIT, animated: false });
+
       const ei = ve.indexOf(newEndRef.current);
-      if (ei > 0) endScrollRef.current?.scrollTo({ x: ei * CHIP_UNIT, animated: false });
+      if (ei > 0) endScrollRef.current?.scrollTo({ x: ei * TIME_CHIP_UNIT, animated: false });
     }, 150);
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -150,8 +162,14 @@ export function CoachAvailabilityEditor({ slots, onRefresh }: Props) {
               .delete()
               .eq('id', slot.id)
               .select('id');
-            if (error) { Alert.alert('Error', error.message); return; }
-            if (!data || data.length === 0) { Alert.alert('Error', 'Slot not found or could not be removed.'); return; }
+            if (error) {
+              Alert.alert('Error', error.message);
+              return;
+            }
+            if (!data || data.length === 0) {
+              Alert.alert('Error', 'Slot could not be removed. Please try again.');
+              return;
+            }
             onRefresh();
           },
         },
@@ -162,19 +180,19 @@ export function CoachAvailabilityEditor({ slots, onRefresh }: Props) {
   async function handleSave() {
     setSaving(true);
 
-    // Validate start < end (UI chips already enforce this, but double-check)
     if (newStart >= newEnd) {
       setSaving(false);
       Alert.alert('Invalid Times', 'Start time must be before end time.');
       return;
     }
 
-    // Check for exact duplicate among other slots on the same day
-    const otherSlots = slots.filter(s =>
-      s.day_of_week === newDay && (!editingSlot || s.id !== editingSlot.id)
+    // Collect all other slots on the same day (exclude the one being edited)
+    const otherSlots = slots.filter(
+      s => s.day_of_week === newDay && (!editingSlot || s.id !== editingSlot.id),
     );
-    const isExactDuplicate = otherSlots.some(s =>
-      normalizeTime(s.start_time) === newStart && normalizeTime(s.end_time) === newEnd
+
+    const isExactDuplicate = otherSlots.some(
+      s => normalizeTime(s.start_time) === newStart && normalizeTime(s.end_time) === newEnd,
     );
     if (isExactDuplicate) {
       setSaving(false);
@@ -182,7 +200,7 @@ export function CoachAvailabilityEditor({ slots, onRefresh }: Props) {
       return;
     }
 
-    // Check for overlapping slots: new_start < existing_end AND new_end > existing_start
+    // Overlap: newStart < existingEnd AND newEnd > existingStart
     const hasOverlap = otherSlots.some(s => {
       const existStart = normalizeTime(s.start_time);
       const existEnd   = normalizeTime(s.end_time);
@@ -195,28 +213,59 @@ export function CoachAvailabilityEditor({ slots, onRefresh }: Props) {
     }
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setSaving(false); return; }
-
-    if (editingSlot) {
-      const { error: delErr } = await supabase.from('coach_availability').delete().eq('id', editingSlot.id);
-      if (delErr) { setSaving(false); Alert.alert('Error', delErr.message); return; }
+    if (!user) {
+      setSaving(false);
+      Alert.alert('Error', 'You are not signed in.');
+      return;
     }
 
-    const { error } = await supabase
-      .from('coach_availability')
-      .upsert(
-        { coach_id: user.id, day_of_week: newDay, start_time: newStart, end_time: newEnd, location_mode: newLocation },
-        { onConflict: 'coach_id,day_of_week,start_time' },
-      );
+    let saveError: string | null = null;
+
+    if (editingSlot) {
+      // UPDATE the existing row — avoids delete-then-fail data loss risk
+      const { data, error } = await supabase
+        .from('coach_availability')
+        .update({
+          day_of_week:   newDay,
+          start_time:    newStart,
+          end_time:      newEnd,
+          location_mode: newLocation,
+        })
+        .eq('id', editingSlot.id)
+        .select('id');
+
+      if (error) saveError = error.message;
+      else if (!data?.length) saveError = 'Slot could not be updated. Please try again.';
+    } else {
+      // INSERT a new slot
+      const { data, error } = await supabase
+        .from('coach_availability')
+        .insert({
+          coach_id:      user.id,
+          day_of_week:   newDay,
+          start_time:    newStart,
+          end_time:      newEnd,
+          location_mode: newLocation,
+        })
+        .select('id');
+
+      if (error) saveError = error.message;
+      else if (!data?.length) saveError = 'Slot could not be saved. Please try again.';
+    }
 
     setSaving(false);
-    if (error) { Alert.alert('Error', error.message); return; }
+
+    if (saveError) {
+      Alert.alert('Error', saveError);
+      return;
+    }
+
     setShowModal(false);
     onRefresh();
   }
 
   const isEditing = editingSlot != null;
-  const saveLabel  = saving ? 'Saving…' : isEditing ? 'Save Changes' : 'Add Slot';
+  const saveLabel = saving ? 'Saving…' : isEditing ? 'Save Changes' : 'Add Slot';
   const validStart = TIME_OPTIONS.filter(t => t < newEnd);
   const validEnd   = TIME_OPTIONS.filter(t => t > newStart);
 
@@ -228,7 +277,6 @@ export function CoachAvailabilityEditor({ slots, onRefresh }: Props) {
       {/* Day selector pills — Sun through Sat */}
       <View style={styles.dayRow}>
         {DAY_SHORT.map((label, i) => {
-          const hasSlots = slots.some(s => s.day_of_week === i);
           const active = selectedDay === i;
           return (
             <TouchableOpacity
@@ -238,7 +286,6 @@ export function CoachAvailabilityEditor({ slots, onRefresh }: Props) {
               activeOpacity={0.7}
             >
               <Text style={[styles.dayPillText, active && styles.dayPillTextActive]}>{label}</Text>
-              {hasSlots && !active && <View style={styles.dayDot} />}
             </TouchableOpacity>
           );
         })}
@@ -264,7 +311,7 @@ export function CoachAvailabilityEditor({ slots, onRefresh }: Props) {
                     {fmtTime(normalizeTime(slot.start_time))} – {fmtTime(normalizeTime(slot.end_time))}
                   </Text>
                   <Text style={[styles.slotLocation, { color: theme.textMuted }]}>
-                    {LOCATION_MODES.find(m => m.value === slot.location_mode)?.label ?? slot.location_mode ?? '—'}
+                    {LOCATION_MODES.find(m => m.value === slot.location_mode)?.label ?? 'My Facility'}
                   </Text>
                 </View>
                 <View style={styles.slotActions}>
@@ -309,7 +356,7 @@ export function CoachAvailabilityEditor({ slots, onRefresh }: Props) {
           </Text>
 
           <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>DAY OF WEEK</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+          <ScrollView ref={dayScrollRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
             {[0, 1, 2, 3, 4, 5, 6].map(d => (
               <TouchableOpacity
                 key={d}
@@ -402,7 +449,6 @@ function useStyles(theme: ThemeTokens) {
       borderRadius: Radius.chip,
       borderWidth: 1,
       borderColor: theme.border,
-      position: 'relative',
     },
     dayPillActive: {
       borderColor: Colors.blue,
@@ -416,14 +462,6 @@ function useStyles(theme: ThemeTokens) {
     },
     dayPillTextActive: {
       color: Colors.blue,
-    },
-    dayDot: {
-      position: 'absolute',
-      bottom: 5,
-      width: 4,
-      height: 4,
-      borderRadius: 2,
-      backgroundColor: Colors.cyan,
     },
     slotList: { gap: 8 },
     emptyCard: {

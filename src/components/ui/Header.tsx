@@ -116,7 +116,7 @@ export function Header(props: HeaderProps) {
               style={styles.iconBtn}
               onPress={props.onBell ?? (() => router.push('/notifications'))}
               hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
-              <Bell color="#FFFFFF" size={24} strokeWidth={1.5} />
+              <Bell color="#FFFFFF" size={22} strokeWidth={1.5} />
             </TouchableOpacity>
             <TouchableOpacity
               testID="menu-icon"
@@ -127,7 +127,7 @@ export function Header(props: HeaderProps) {
                   : ((props as ResidentHeaderProps).onMenu ?? (() => router.push('/settings')))
               }
               hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
-              <Menu color="#FFFFFF" size={24} strokeWidth={1.5} />
+              <Menu color="#FFFFFF" size={22} strokeWidth={1.5} />
             </TouchableOpacity>
           </View>
         </View>
@@ -217,10 +217,9 @@ const styles = StyleSheet.create({
   },
   residentBase: {
     backgroundColor: '#0A1628',
-    paddingLeft: 0,
-    paddingRight: 14,
-    paddingBottom: 10,
-    minHeight: 80,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    minHeight: 76,
     justifyContent: 'flex-end',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(45,224,255,0.18)',
@@ -236,8 +235,8 @@ const styles = StyleSheet.create({
   },
   residentLogoWrap: {},
   residentLogo: {
-    width: 160,
-    height: 72,
+    width: 148,
+    height: 64,
   },
   logo: {
     fontFamily: FontFamily.spaceGroteskBold,

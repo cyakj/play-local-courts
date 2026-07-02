@@ -51,7 +51,7 @@ export function CardSkeleton() {
 }
 
 const styles = StyleSheet.create({
-  base: { backgroundColor: '#E5E7EB' },
+  base: { backgroundColor: '#1E2330' },  // dark surface shimmer — no light-on-dark contrast bleed
   card: {
     backgroundColor: Colors.cardBg,
     borderRadius: Radius.card,

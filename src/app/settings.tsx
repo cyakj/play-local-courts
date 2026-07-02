@@ -162,28 +162,28 @@ export default function SettingsScreen() {
             <Text style={[styles.cardTitle, { color: theme.textPrimary }]}>My Communities</Text>
             {activeMemberships.map((m, i) => (
               <View key={m.id}>
-                {i > 0 && <View style={styles.divider} />}
+                {i > 0 && <View style={[styles.divider, { backgroundColor: theme.border }]} />}
                 <View style={styles.communityRow}>
                   <View style={{ flex: 1 }}>
                     <View style={styles.communityNameRow}>
-                      <Text style={styles.communityName}>{m.hoa_name}</Text>
+                      <Text style={[styles.communityName, { color: theme.textPrimary }]}>{m.hoa_name}</Text>
                       {i === 0 && (
                         <View style={styles.activePill}>
                           <Text style={styles.activePillText}>Active</Text>
                         </View>
                       )}
                     </View>
-                    <Text style={styles.communityRole}>{m.role}</Text>
+                    <Text style={[styles.communityRole, { color: theme.textMuted }]}>{m.role}</Text>
                   </View>
                 </View>
               </View>
             ))}
             {pendingMemberships.map((m, i) => (
               <View key={m.id}>
-                {(activeMemberships.length > 0 || i > 0) && <View style={styles.divider} />}
+                {(activeMemberships.length > 0 || i > 0) && <View style={[styles.divider, { backgroundColor: theme.border }]} />}
                 <View style={styles.communityRow}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.communityName}>{m.hoa_name}</Text>
+                    <Text style={[styles.communityName, { color: theme.textPrimary }]}>{m.hoa_name}</Text>
                     <View style={styles.pendingPill}>
                       <Text style={styles.pendingPillText}>Pending</Text>
                     </View>
@@ -191,7 +191,7 @@ export default function SettingsScreen() {
                 </View>
               </View>
             ))}
-            <View style={styles.divider} />
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
             <TouchableOpacity
               style={styles.joinBtn}
               onPress={() => router.push('/hoa-application')}
@@ -233,7 +233,7 @@ export default function SettingsScreen() {
           <View style={[styles.card, { backgroundColor: theme.cardBg }]}>
             {settingsLinks.map(({ icon: Icon, label, desc }, i) => (
               <View key={label}>
-                {i > 0 && <View style={styles.divider} />}
+                {i > 0 && <View style={[styles.divider, { backgroundColor: theme.border }]} />}
                 <TouchableOpacity style={styles.linkRow} activeOpacity={0.7}>
                   <View style={styles.linkIconBox}>
                     <Icon color={Colors.textMuted} size={16} strokeWidth={1.5} />
@@ -249,7 +249,10 @@ export default function SettingsScreen() {
           </View>
 
           {/* Sign Out */}
-          <TouchableOpacity style={styles.signOutCard} onPress={signOut} activeOpacity={0.8}>
+          <TouchableOpacity
+            style={[styles.signOutCard, { backgroundColor: 'rgba(255,92,107,0.08)', borderColor: 'rgba(255,92,107,0.22)' }]}
+            onPress={signOut}
+            activeOpacity={0.8}>
             <Text style={styles.signOutText}>Sign Out</Text>
           </TouchableOpacity>
 
@@ -273,17 +276,17 @@ const styles = StyleSheet.create({
   backBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontFamily: FontFamily.manropeExtraBold, fontSize: 18, color: Colors.white },
 
-  content: { padding: Spacing.pagePx, paddingBottom: 60, gap: 16 },
+  content: { padding: Spacing.pagePx, paddingBottom: 60, gap: 20 },
 
   profileCard: {
     backgroundColor: Colors.cardBg, // overridden inline with theme.cardBg
     borderRadius: Radius.card,
     padding: 20,
-    shadowColor: '#0C1A3A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 3,
     borderWidth: 1,
     borderColor: Colors.border,
   },
@@ -300,42 +303,43 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   avatarText: { fontFamily: FontFamily.manropeExtraBold, fontSize: 20, color: Colors.white },
-  profileName: { fontFamily: FontFamily.manropeExtraBold, fontSize: 17, color: Colors.navy },
-  profileHoa: { fontFamily: FontFamily.interSemiBold, fontSize: 12, color: Colors.accentCyan, marginTop: 2 },
-  profileEmail: { fontFamily: FontFamily.interRegular, fontSize: 11, color: Colors.textMuted, marginTop: 2 },
+  profileName: { fontFamily: FontFamily.manropeExtraBold, fontSize: 17, color: Colors.white },
+  profileHoa: { fontFamily: FontFamily.manropeSemiBold, fontSize: 12, color: Colors.accentCyan, marginTop: 2 },
+  profileEmail: { fontFamily: FontFamily.manropeMedium, fontSize: 11, color: Colors.fg3, marginTop: 2 },
   editProfileBtn: {
-    backgroundColor: Colors.accentCyan,
-    borderRadius: 10,
-    paddingVertical: 10,
+    backgroundColor: Colors.blue,
+    borderRadius: Radius.button,
+    paddingVertical: 11,
     alignItems: 'center',
+    marginTop: 4,
   },
-  editProfileLabel: { fontFamily: FontFamily.interSemiBold, fontSize: 13, color: Colors.white },
+  editProfileLabel: { fontFamily: FontFamily.manropeSemiBold, fontSize: 13, color: Colors.white },
 
   card: {
     backgroundColor: Colors.cardBg, // overridden inline with theme.cardBg
     borderRadius: Radius.card,
     overflow: 'hidden',
-    shadowColor: '#0C1A3A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 3,
     borderWidth: 1,
     borderColor: Colors.border,
   },
   cardTitle: {
     fontFamily: FontFamily.manropeExtraBold,
     fontSize: 15,
-    color: Colors.navy,
+    color: Colors.white,
     padding: 16,
-    paddingBottom: 12,
+    paddingBottom: 14,
   },
   divider: { height: 1, backgroundColor: Colors.border, marginHorizontal: 16 },
 
   communityRow: { flexDirection: 'row', alignItems: 'center', padding: 12, paddingHorizontal: 16 },
   communityNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  communityName: { fontFamily: FontFamily.interSemiBold, fontSize: 14, color: Colors.navy },
-  communityRole: { fontFamily: FontFamily.interRegular, fontSize: 12, color: Colors.textMuted, marginTop: 2, textTransform: 'capitalize' },
+  communityName: { fontFamily: FontFamily.manropeSemiBold, fontSize: 14, color: Colors.white },
+  communityRole: { fontFamily: FontFamily.manropeMedium, fontSize: 12, color: Colors.fg3, marginTop: 2, textTransform: 'capitalize' },
   activePill: {
     backgroundColor: Colors.accentCyan + '20',
     borderRadius: 99,
@@ -362,23 +366,23 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: Colors.pageBg,
+    backgroundColor: Colors.surface2,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
   },
-  linkLabel: { fontFamily: FontFamily.interSemiBold, fontSize: 14, color: Colors.textPrimary },
-  linkDesc: { fontFamily: FontFamily.interRegular, fontSize: 12, color: Colors.textMuted, marginTop: 1 },
+  linkLabel: { fontFamily: FontFamily.manropeSemiBold, fontSize: 14, color: Colors.white },
+  linkDesc: { fontFamily: FontFamily.manropeMedium, fontSize: 12, color: Colors.fg3, marginTop: 1 },
 
   signOutCard: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: 'rgba(255,92,107,0.08)', // overridden inline
     borderRadius: Radius.card,
-    padding: 16,
+    paddingVertical: 18,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(239,68,68,0.13)',
+    borderColor: 'rgba(255,92,107,0.22)',
   },
-  signOutText: { fontFamily: FontFamily.manropeExtraBold, fontSize: 15, color: Colors.red },
+  signOutText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 15, color: Colors.negative },
 
   // Appearance segmented control
   appearanceEyebrow: {
