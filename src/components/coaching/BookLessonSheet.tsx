@@ -114,8 +114,12 @@ function isBlockedDate(date: Date, blocks: CoachUnavailabilityBlock[]): boolean 
   return false;
 }
 
-function hasSlotOnDate(date: Date, slots: CoachAvailabilitySlot[]): boolean {
-  return slots.some(s => s.day_of_week === date.getDay());
+function hasSlotOnDate(date: Date, slots: CoachAvailabilitySlot[], durationMin = 30): boolean {
+  const dow = date.getDay();
+  return slots.some(s =>
+    s.day_of_week === dow &&
+    timeToMin(s.end_time) - timeToMin(s.start_time) >= durationMin,
+  );
 }
 
 function generateTimeSlots(
@@ -519,7 +523,7 @@ export function BookLessonSheet({
                         const isPast     = day < today;
                         const isBeyond   = day > cutoff;
                         const blocked    = isBlockedDate(day, unavailabilityBlocks);
-                        const hasSlot    = hasSlotOnDate(day, weeklySlots);
+                        const hasSlot    = hasSlotOnDate(day, weeklySlots, duration ?? 30);
                         const isDisabled = isPast || isBeyond || blocked;
                         const isSelected = selectedDate?.getTime() === day.getTime();
 
@@ -587,8 +591,8 @@ export function BookLessonSheet({
                   <View style={styles.noSlotsBanner}>
                     <Text style={styles.noSlotsTxt}>
                       {isSelectedToday
-                        ? 'No remaining times available today.'
-                        : 'No scheduled slots on this date. You can still send the request — the coach will coordinate a time.'}
+                        ? 'No remaining times available today for a ' + duration + '-min lesson.'
+                        : 'No ' + duration + '-min slots available on this date. You can still send the request — the coach will propose a time.'}
                     </Text>
                   </View>
                 ) : (
