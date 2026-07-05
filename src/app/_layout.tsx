@@ -101,6 +101,7 @@ export default function RootLayout() {
           <Stack.Screen name="report-detail/[id]" />
           <Stack.Screen name="announcements" />
           <Stack.Screen name="survey-results/[id]" />
+          <Stack.Screen name="edit-profile" />
         </Stack>
       </ThemeProvider>
     </NativeAuthProvider>

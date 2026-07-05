@@ -605,11 +605,8 @@ export function MatchDiscovery({ userId }: { userId: string }) {
           </View>
           <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>No Matches Found</Text>
           <Text style={[styles.emptyDescription, { color: theme.textSecondary }]}>
-            There are no matches with your filters. Try adjusting them or create your own match.
+            No open matches match your filters. Adjust filters above or create one with "Create Match".
           </Text>
-          <TouchableOpacity style={[styles.createButton, { backgroundColor: Colors.blue }]} onPress={() => router.push('/match/new' as any)}>
-            <Text style={styles.createButtonText}>Start Match</Text>
-          </TouchableOpacity>
         </View>
       )}
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, View } from 'react-native';
-import { Colors, Radius } from '@/constants/design';
+import { Animated, View } from 'react-native';
+import { Radius } from '@/constants/design';
+import { useTheme } from '@/context/ThemeContext';
 
 interface SkeletonProps {
   width?: number | string;
@@ -15,6 +16,7 @@ export function Skeleton({
   borderRadius = 8,
   style,
 }: SkeletonProps) {
+  const { theme } = useTheme();
   const opacity = useRef(new Animated.Value(0.4)).current;
 
   useEffect(() => {
@@ -31,7 +33,7 @@ export function Skeleton({
   return (
     <Animated.View
       style={[
-        styles.base,
+        { backgroundColor: theme.surface2 },
         { width: width as number, height, borderRadius, opacity },
         style,
       ]}
@@ -40,8 +42,15 @@ export function Skeleton({
 }
 
 export function CardSkeleton() {
+  const { theme } = useTheme();
   return (
-    <View style={styles.card}>
+    <View style={{
+      backgroundColor: theme.cardBg,
+      borderRadius: Radius.card,
+      padding: 20,
+      borderWidth: 1,
+      borderColor: theme.border,
+    }}>
       <Skeleton width="60%" height={16} borderRadius={8} />
       <Skeleton width="100%" height={12} borderRadius={6} style={{ marginTop: 10 }} />
       <Skeleton width="100%" height={12} borderRadius={6} style={{ marginTop: 6 }} />
@@ -49,14 +58,3 @@ export function CardSkeleton() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  base: { backgroundColor: '#1E2330' },  // dark surface shimmer — no light-on-dark contrast bleed
-  card: {
-    backgroundColor: Colors.cardBg,
-    borderRadius: Radius.card,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-});

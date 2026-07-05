@@ -500,12 +500,12 @@ function MatchPageHeader({
   avatarInitials,
   notifCount = 0,
   onBell,
-  onMenu,
+  onMessages,
 }: {
   avatarInitials: string;
   notifCount?: number;
   onBell?: () => void;
-  onMenu?: () => void;
+  onMessages?: () => void;
 }) {
   const insets    = useSafeAreaInsets();
   const { theme } = useTheme();
@@ -526,6 +526,15 @@ function MatchPageHeader({
       />
 
       <View style={hdrS.right}>
+        {/* Messages */}
+        <TouchableOpacity
+          style={hdrS.iconBtn}
+          onPress={onMessages ?? (() => router.push('/messages' as any))}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <MessageCircle size={22} color={Colors.white} strokeWidth={1.5} />
+        </TouchableOpacity>
+
+        {/* Bell */}
         <TouchableOpacity
           style={hdrS.iconBtn}
           onPress={onBell ?? (() => router.push('/notifications'))}
@@ -538,19 +547,13 @@ function MatchPageHeader({
           )}
         </TouchableOpacity>
 
+        {/* Avatar — navigates to Me */}
         <TouchableOpacity
           style={[hdrS.avatar, { backgroundColor: theme.selectedBg }]}
           onPress={() => router.push('/(resident)/me')}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           activeOpacity={0.7}>
           <Text style={hdrS.avatarText}>{avatarInitials}</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={hdrS.iconBtn}
-          onPress={onMenu ?? (() => router.push('/settings'))}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Menu size={22} color={Colors.white} strokeWidth={1.5} />
         </TouchableOpacity>
       </View>
     </View>
@@ -1508,7 +1511,7 @@ export default function MatchScreen() {
       <MatchPageHeader
         avatarInitials={avatarInitials}
         onBell={() => router.push('/notifications')}
-        onMenu={() => router.push('/settings')}
+        onMessages={() => router.push('/messages' as any)}
       />
 
       <ScrollView

@@ -34,7 +34,8 @@ interface InnerScreenHeaderProps {
 interface ResidentHeaderProps {
   variant: 'resident';
   onBell?: () => void;
-  onMenu?: () => void;
+  onMessages?: () => void;
+  onAvatar?: () => void;
 }
 
 interface CoachHeaderProps {
@@ -51,7 +52,7 @@ type HeaderProps =
   | ResidentHeaderProps
   | CoachHeaderProps;
 
-function useCoachInitials(): string {
+function useProfileInitials(): string {
   const [initials, setInitials] = useState('');
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -75,10 +76,17 @@ export function Header(props: HeaderProps) {
   const insets = useSafeAreaInsets();
   const topPad = Math.max(insets.top, 24);
   const { theme } = useTheme();
-  const coachInitials = useCoachInitials();
+  const profileInitials = useProfileInitials();
 
   if (props.variant === 'resident' || props.variant === 'coach') {
     const isCoach = props.variant === 'coach';
+    const avatarDest = isCoach ? '/(coach)/me' : '/(resident)/me';
+    const onMessages = isCoach
+      ? ((props as CoachHeaderProps).onMessages ?? (() => router.push('/messages' as any)))
+      : ((props as ResidentHeaderProps).onMessages ?? (() => router.push('/messages' as any)));
+    const onAvatar = isCoach
+      ? (() => router.push('/(coach)/me' as any))
+      : ((props as ResidentHeaderProps).onAvatar ?? (() => router.push('/(resident)/me' as any)));
     return (
       <View style={[styles.base, styles.residentBase, { paddingTop: topPad + 8, backgroundColor: theme.headerBg, borderBottomColor: theme.headerBorder }]}>
         <View style={[styles.topBar, styles.residentTopBar]}>
@@ -90,27 +98,16 @@ export function Header(props: HeaderProps) {
             />
           </View>
           <View style={styles.topBarRight}>
-            {isCoach && (
-              <>
-                {/* Avatar button — navigates to profile */}
-                <TouchableOpacity
-                  style={styles.iconBtn}
-                  onPress={() => router.push('/(coach)/me' as any)}
-                  hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
-                  <View style={styles.avatarCircle}>
-                    <Text style={styles.avatarCircleText}>{coachInitials || '?'}</Text>
-                  </View>
-                </TouchableOpacity>
+            {/* Messages */}
+            <TouchableOpacity
+              testID="messages-icon"
+              style={styles.iconBtn}
+              onPress={onMessages}
+              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+              <MessageCircle color="#FFFFFF" size={22} strokeWidth={1.5} />
+            </TouchableOpacity>
 
-                {/* Messages button */}
-                <TouchableOpacity
-                  style={styles.iconBtn}
-                  onPress={(props as CoachHeaderProps).onMessages ?? (() => router.push('/messages' as any))}
-                  hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
-                  <MessageCircle color="#FFFFFF" size={22} strokeWidth={1.5} />
-                </TouchableOpacity>
-              </>
-            )}
+            {/* Notifications bell */}
             <TouchableOpacity
               testID="bell-icon"
               style={styles.iconBtn}
@@ -118,16 +115,16 @@ export function Header(props: HeaderProps) {
               hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
               <Bell color="#FFFFFF" size={22} strokeWidth={1.5} />
             </TouchableOpacity>
+
+            {/* Avatar — rightmost, navigates to Me/profile */}
             <TouchableOpacity
-              testID="menu-icon"
+              testID="avatar-icon"
               style={styles.iconBtn}
-              onPress={
-                isCoach
-                  ? ((props as CoachHeaderProps).onSettings ?? (() => router.push('/settings' as any)))
-                  : ((props as ResidentHeaderProps).onMenu ?? (() => router.push('/settings')))
-              }
+              onPress={onAvatar}
               hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
-              <Menu color="#FFFFFF" size={22} strokeWidth={1.5} />
+              <View style={styles.avatarCircle}>
+                <Text style={styles.avatarCircleText}>{profileInitials || '?'}</Text>
+              </View>
             </TouchableOpacity>
           </View>
         </View>
