@@ -129,7 +129,7 @@ export default function MyCoachingScreen() {
 
   return (
     <View style={styles.screen}>
-      <Header variant="inner" title="My Lessons" onBack={() => router.back()} />
+      <Header variant="inner" title="My Lessons" onBack={() => { if (router.canGoBack()) router.back(); else router.replace('/(resident)/me' as any); }} />
 
       {/* Tab bar */}
       <View style={styles.tabBar}>

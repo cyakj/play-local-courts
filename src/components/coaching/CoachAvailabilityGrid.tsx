@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { Colors, FontFamily, FontSize, Radius } from '@/constants/design';
 import { useTheme } from '@/context/ThemeContext';
 import type { ThemeTokens } from '@/constants/theme-tokens';
@@ -15,12 +15,16 @@ const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
 function normTime(t: string): string { return t.slice(0, 5); }
 
+const HOUR_LABEL_W = 48;
+const DAYS_COUNT = 7;
+
 interface Props {
   weeklySlots: CoachAvailabilitySlot[];
   unavailabilityBlocks?: CoachUnavailabilityBlock[];
   selectedHour?: TimeHour | null;
   onSelectHour?: (hour: TimeHour) => void;
   compact?: boolean;
+  fillWidth?: boolean;  // expand cells to fill available screen width (landscape-safe)
   getCellMode?: (dow: number, hour: TimeHour) => CellMode | null;
   onCellPress?: (dow: number, hour: TimeHour) => void;
 }
@@ -31,11 +35,21 @@ export function CoachAvailabilityGrid({
   selectedHour = null,
   onSelectHour,
   compact = false,
+  fillWidth = false,
   getCellMode,
   onCellPress,
 }: Props) {
   const { theme } = useTheme();
-  const styles = useStyles(theme, compact);
+  const { width: winWidth } = useWindowDimensions();
+
+  // In fillWidth mode, divide available space equally across 7 day columns.
+  // Subtract hour-label column (48) and a small gutter (16 for padding).
+  const cellW = fillWidth
+    ? Math.max(36, Math.floor((winWidth - HOUR_LABEL_W - 16) / DAYS_COUNT))
+    : compact ? 32 : 36;
+  const cellH = fillWidth ? Math.max(24, Math.round(cellW * 0.52)) : compact ? 16 : 20;
+
+  const styles = useStyles(theme, compact, cellW, cellH);
   const isCellInteractive = !!onCellPress;
 
   // Map of "dow|HH:00" → location_mode for preview coloring
@@ -63,10 +77,17 @@ export function CoachAvailabilityGrid({
     );
   }
 
+  const GridWrapper = fillWidth
+    ? ({ children }: { children: React.ReactNode }) => <View style={styles.gridInner}>{children}</View>
+    : ({ children }: { children: React.ReactNode }) => (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scroll}>
+          <View>{children}</View>
+        </ScrollView>
+      );
+
   return (
     <View style={styles.root}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scroll}>
-        <View>
+      <GridWrapper>
           <View style={styles.headerRow}>
             <View style={styles.hourLabelCell} />
             {DAYS.map(day => (
@@ -129,8 +150,7 @@ export function CoachAvailabilityGrid({
               </TouchableOpacity>
             );
           })}
-        </View>
-      </ScrollView>
+      </GridWrapper>
 
       {/* Legend — preview mode only */}
       {!isCellInteractive && weeklySlots.length > 0 && (
@@ -169,10 +189,11 @@ function LegendDot({ color, border, label }: { color: string; border: string; la
   );
 }
 
-function useStyles(theme: ThemeTokens, compact: boolean) {
+function useStyles(theme: ThemeTokens, compact: boolean, cellW: number, cellH: number) {
   return useMemo(() => StyleSheet.create({
     root: { gap: 8 },
     scroll: { flexGrow: 0 },
+    gridInner: {},  // fill-width: no scroll, plain View
     emptyContainer: { paddingVertical: 16, alignItems: 'center' },
     emptyText: {
       fontFamily: FontFamily.manropeMedium,
@@ -182,7 +203,7 @@ function useStyles(theme: ThemeTokens, compact: boolean) {
     },
     headerRow: { flexDirection: 'row', marginBottom: 2 },
     hourLabelCell: { width: 48, paddingRight: 4, justifyContent: 'center' },
-    dayHeaderCell: { width: compact ? 32 : 36, alignItems: 'center' },
+    dayHeaderCell: { width: cellW, alignItems: 'center' },
     dayHeaderText: {
       fontFamily: FontFamily.jetbrainsMonoSemiBold,
       fontSize: 9,
@@ -210,8 +231,8 @@ function useStyles(theme: ThemeTokens, compact: boolean) {
     },
     hourLabelSelected: { color: Colors.cyan },
     cell: {
-      width: compact ? 32 : 36,
-      height: compact ? 16 : 20,
+      width: cellW,
+      height: cellH,
       borderRadius: Radius.xs ?? 4,
       backgroundColor: 'rgba(154,163,184,0.06)',
       borderWidth: 1,
@@ -247,5 +268,5 @@ function useStyles(theme: ThemeTokens, compact: boolean) {
       color: theme.textMuted,
       flex: 1,
     },
-  }), [theme, compact]);
+  }), [theme, compact, cellW, cellH]);
 }

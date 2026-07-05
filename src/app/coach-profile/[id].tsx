@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -425,6 +425,7 @@ export default function CoachProfileScreen() {
             <CoachAvailabilityGrid
               weeklySlots={weeklySlots}
               unavailabilityBlocks={unavailabilityBlocks}
+              fillWidth
             />
           </ScrollView>
         </View>
