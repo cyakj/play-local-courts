@@ -38,12 +38,13 @@ export function CoachAvailabilityGrid({
   const styles = useStyles(theme, compact);
   const isCellInteractive = !!onCellPress;
 
-  const availSet = useMemo(() => {
-    const s = new Set<string>();
+  // Map of "dow|HH:00" → location_mode for preview coloring
+  const availMap = useMemo(() => {
+    const m = new Map<string, CellMode | null>();
     for (const slot of weeklySlots) {
-      s.add(`${slot.day_of_week}|${normTime(slot.start_time)}`);
+      m.set(`${slot.day_of_week}|${normTime(slot.start_time)}`, slot.location_mode ?? null);
     }
-    return s;
+    return m;
   }, [weeklySlots]);
 
   const upcomingBlocks = useMemo(() => {
@@ -97,8 +98,20 @@ export function CoachAvailabilityGrid({
                                : mode === 'both'         ? styles.cellBoth
                                : null;
                   } else {
-                    const available = availSet.has(`${dow}|${hour.start}`);
-                    cellStyle = available ? (isSelected ? styles.cellAvailableSelected : styles.cellAvailable) : null;
+                    const mode = availMap.get(`${dow}|${hour.start}`);
+                    if (mode !== undefined) {
+                      if (isSelected) {
+                        cellStyle = styles.cellAvailableSelected;
+                      } else if (mode === 'coach_facility') {
+                        cellStyle = styles.cellFacility;
+                      } else if (mode === 'traveling') {
+                        cellStyle = styles.cellTraveling;
+                      } else if (mode === 'both') {
+                        cellStyle = styles.cellBoth;
+                      } else {
+                        cellStyle = styles.cellAvailable;
+                      }
+                    }
                   }
 
                   if (isCellInteractive) {
@@ -119,6 +132,15 @@ export function CoachAvailabilityGrid({
         </View>
       </ScrollView>
 
+      {/* Legend — preview mode only */}
+      {!isCellInteractive && weeklySlots.length > 0 && (
+        <View style={styles.legendRow}>
+          <LegendDot color="rgba(45,107,255,0.55)" border="rgba(45,107,255,0.75)" label="Facility" />
+          <LegendDot color="rgba(214,255,61,0.45)" border="rgba(214,255,61,0.65)" label="Traveling" />
+          <LegendDot color="rgba(45,224,255,0.45)" border="rgba(45,224,255,0.65)" label="Either" />
+        </View>
+      )}
+
       {upcomingBlocks.length > 0 && (
         <View style={styles.blocksContainer}>
           {upcomingBlocks.map(block => (
@@ -134,6 +156,15 @@ export function CoachAvailabilityGrid({
           ))}
         </View>
       )}
+    </View>
+  );
+}
+
+function LegendDot({ color, border, label }: { color: string; border: string; label: string }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+      <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: color, borderWidth: 1, borderColor: border }} />
+      <Text style={{ fontFamily: FontFamily.manropeMedium, fontSize: 11, color: '#9AA3B8' }}>{label}</Text>
     </View>
   );
 }
@@ -206,6 +237,7 @@ function useStyles(theme: ThemeTokens, compact: boolean) {
       backgroundColor: 'rgba(45,224,255,0.14)',
       borderColor: 'rgba(45,224,255,0.32)',
     },
+    legendRow: { flexDirection: 'row', gap: 14, marginTop: 8, flexWrap: 'wrap' },
     blocksContainer: { marginTop: 4, gap: 4 },
     blockRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     blockDot: { fontFamily: FontFamily.manropeMedium, fontSize: 8, color: Colors.volt },

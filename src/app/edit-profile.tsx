@@ -163,15 +163,6 @@ export default function EditProfileScreen() {
             })}
           </View>
 
-          {/* Save button (bottom) */}
-          <TouchableOpacity
-            style={[styles.primaryBtn, (!dirty || saving) && styles.primaryBtnDisabled]}
-            onPress={handleSave}
-            disabled={!dirty || saving}
-            activeOpacity={0.85}>
-            <Text style={styles.primaryBtnText}>{saving ? 'Saving…' : 'Save Changes'}</Text>
-          </TouchableOpacity>
-
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -265,21 +256,5 @@ function useStyles(theme: ThemeTokens) {
       fontSize: 14,
     },
 
-    primaryBtn: {
-      marginTop: 36,
-      backgroundColor: Colors.blue,
-      borderRadius: Radius.button,
-      minHeight: Spacing.tapTarget + 4,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    primaryBtnDisabled: {
-      backgroundColor: 'rgba(45,107,255,0.35)',
-    },
-    primaryBtnText: {
-      fontFamily: FontFamily.manropeSemiBold,
-      fontSize: FontSize.body,
-      color: Colors.white,
-    },
   }), [theme]);
 }

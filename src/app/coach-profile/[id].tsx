@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -72,6 +73,7 @@ export default function CoachProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [bookSheetVisible, setBookSheetVisible] = useState(false);
+  const [availModalVisible, setAvailModalVisible] = useState(false);
 
   const { weeklySlots, unavailabilityBlocks } = useCoachAvailability(
     coach?.userId ?? null,
@@ -346,26 +348,23 @@ export default function CoachProfileScreen() {
 
         {/* ── Availability ── */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Availability</Text>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Availability</Text>
+            {weeklySlots.length > 0 && (
+              <TouchableOpacity onPress={() => setAvailModalVisible(true)} activeOpacity={0.7}>
+                <Text style={styles.viewAllBtn}>View full schedule</Text>
+              </TouchableOpacity>
+            )}
+          </View>
           <View style={styles.card}>
             <CoachAvailabilityGrid
               weeklySlots={weeklySlots}
               unavailabilityBlocks={unavailabilityBlocks}
             />
-            {/* Legend */}
-            {weeklySlots.length > 0 && (
-              <View style={styles.legendRow}>
-                <View style={styles.legendItem}>
-                  <View style={[styles.legendDot, styles.legendDotAvail]} />
-                  <Text style={styles.legendLabel}>Available</Text>
-                </View>
-                <View style={styles.legendItem}>
-                  <View style={[styles.legendDot, styles.legendDotUnavail]} />
-                  <Text style={styles.legendLabel}>Unavailable</Text>
-                </View>
-              </View>
-            )}
           </View>
+          <Text style={styles.availNote}>
+            Preview only — book via Request Lesson below.
+          </Text>
         </View>
 
         {/* ── Packages ── */}
@@ -403,6 +402,33 @@ export default function CoachProfileScreen() {
           <Text style={styles.footerPrimaryLabel}>Request Lesson</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Full Availability Modal */}
+      <Modal
+        visible={availModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setAvailModalVisible(false)}
+      >
+        <View style={[styles.screen, { backgroundColor: theme.pageBg }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
+            <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Full Schedule</Text>
+            <TouchableOpacity onPress={() => setAvailModalVisible(false)} activeOpacity={0.7}
+              style={{ padding: 8 }}>
+              <Text style={{ fontFamily: FontFamily.manropeSemiBold, fontSize: 14, color: Colors.cyan }}>Done</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={[styles.availNote, { margin: Spacing.pagePx, marginBottom: 8 }]}>
+            Rotate for a wider view. Book via Request Lesson — this is a preview only.
+          </Text>
+          <ScrollView contentContainerStyle={{ padding: Spacing.pagePx, paddingBottom: 60 }}>
+            <CoachAvailabilityGrid
+              weeklySlots={weeklySlots}
+              unavailabilityBlocks={unavailabilityBlocks}
+            />
+          </ScrollView>
+        </View>
+      </Modal>
 
       <BookLessonSheet
         visible={bookSheetVisible}
@@ -626,6 +652,33 @@ function useStyles(theme: ThemeTokens) {
       color: Colors.cyan,
     },
 
+    // Availability section header
+    sectionHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    viewAllBtn: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: FontSize.label,
+      color: Colors.cyan,
+    },
+    availNote: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.label,
+      color: theme.textMuted,
+      marginTop: 8,
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: Spacing.pagePx,
+      paddingTop: 24,
+      paddingBottom: 14,
+      borderBottomWidth: 1,
+    },
+
     // Availability card
     card: {
       backgroundColor: theme.cardBg,
@@ -634,38 +687,6 @@ function useStyles(theme: ThemeTokens) {
       borderColor: theme.border,
       padding: Spacing.cardPadding,
       gap: 12,
-    },
-    legendRow: {
-      flexDirection: 'row',
-      gap: 16,
-      paddingTop: 4,
-      borderTopWidth: 1,
-      borderTopColor: theme.border,
-    },
-    legendItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-    },
-    legendDot: {
-      width: 10,
-      height: 10,
-      borderRadius: 5,
-    },
-    legendDotAvail: {
-      backgroundColor: 'rgba(45,224,255,0.55)',
-      borderWidth: 1,
-      borderColor: 'rgba(45,224,255,0.70)',
-    },
-    legendDotUnavail: {
-      backgroundColor: 'rgba(154,163,184,0.12)',
-      borderWidth: 1,
-      borderColor: 'rgba(154,163,184,0.20)',
-    },
-    legendLabel: {
-      fontFamily: FontFamily.manropeMedium,
-      fontSize: 12,
-      color: theme.textMuted,
     },
 
     // Reviews

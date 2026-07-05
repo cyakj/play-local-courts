@@ -13,6 +13,7 @@ import {
   Building2,
   CalendarDays,
   ChevronRight,
+  HelpCircle,
   LogOut,
   MessageCircle,
   PenLine,
@@ -29,6 +30,13 @@ import { CardSkeleton } from '@/components/ui/Skeleton';
 import { useTheme } from '@/context/ThemeContext';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 
+const LESSON_TYPE_SHORT: Record<string, string> = {
+  private_lesson:      'Private',
+  semi_private_lesson: 'Semi-Private',
+  group_clinic:        'Group Clinic',
+  practice_session:    'Practice',
+};
+
 interface Profile {
   fullName: string;
   ntrpRating: string | null;
@@ -36,11 +44,42 @@ interface Profile {
   communityId: string | null;
 }
 
+interface UpcomingLesson {
+  id: string;
+  date: string;
+  timeStart: string | null;
+  lessonType: string;
+  coachName: string | null;
+}
+
+interface UpcomingReservation {
+  id: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  courtName: string;
+}
+
+function formatDateDisplay(iso: string): string {
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+function formatTime12(t: string): string {
+  const [h, m] = t.split(':').map(Number);
+  const suffix = h < 12 ? 'AM' : 'PM';
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  const mins = m !== 0 ? `:${String(m).padStart(2, '0')}` : '';
+  return `${h12}${mins} ${suffix}`;
+}
+
 export default function MeScreen() {
   const { theme } = useTheme();
   const styles = useStyles(theme);
 
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [nextLesson, setNextLesson] = useState<UpcomingLesson | null | undefined>(undefined);
+  const [nextReservation, setNextReservation] = useState<UpcomingReservation | null | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -49,13 +88,34 @@ export default function MeScreen() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
 
-    const [profileRes, membershipRes] = await Promise.all([
+    const today = new Date().toISOString().split('T')[0];
+
+    const [profileRes, membershipRes, lessonRes, reservationRes] = await Promise.all([
       supabase.from('profiles').select('full_name, ntrp_rating').eq('id', user.id).single(),
-      supabase.from('hoa_memberships').select('hoa_id').eq('user_id', user.id).eq('status', 'approved').limit(1).single(),
+      supabase.from('hoa_memberships').select('hoa_id').eq('user_id', user.id).eq('status', 'approved').limit(1).maybeSingle(),
+      supabase
+        .from('lesson_requests')
+        .select('id, preferred_date, confirmed_date, preferred_time_start, lesson_type, coach_id')
+        .eq('player_id', user.id)
+        .in('status', ['approved', 'confirmed'])
+        .gte('preferred_date', today)
+        .order('preferred_date', { ascending: true })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from('bookings')
+        .select('id, date, start_time, end_time, courts(name)')
+        .eq('user_id', user.id)
+        .neq('status', 'cancelled')
+        .gte('date', today)
+        .order('date', { ascending: true })
+        .order('start_time', { ascending: true })
+        .limit(1)
+        .maybeSingle(),
     ]);
 
     if (profileRes.error && !profileRes.data) {
-      setError('Could not load profile. Pull down to retry.');
+      setError('Could not load profile.');
       setLoading(false);
       return;
     }
@@ -63,11 +123,7 @@ export default function MeScreen() {
     let communityName: string | null = null;
     let communityId: string | null = null;
     if (membershipRes.data?.hoa_id) {
-      const { data: hoa } = await supabase
-        .from('hoas')
-        .select('name')
-        .eq('id', membershipRes.data.hoa_id)
-        .single();
+      const { data: hoa } = await supabase.from('hoas').select('name').eq('id', membershipRes.data.hoa_id).single();
       communityName = hoa?.name ?? null;
       communityId = membershipRes.data.hoa_id;
     }
@@ -78,6 +134,40 @@ export default function MeScreen() {
       communityName,
       communityId,
     });
+
+    // Next lesson
+    if (lessonRes.data) {
+      const lr = lessonRes.data as any;
+      let coachName: string | null = null;
+      if (lr.coach_id) {
+        const { data: cp } = await supabase.from('profiles').select('full_name').eq('id', lr.coach_id).single();
+        coachName = cp?.full_name ?? null;
+      }
+      setNextLesson({
+        id: lr.id,
+        date: lr.confirmed_date ?? lr.preferred_date,
+        timeStart: lr.preferred_time_start ?? null,
+        lessonType: lr.lesson_type ?? 'lesson',
+        coachName,
+      });
+    } else {
+      setNextLesson(null);
+    }
+
+    // Next reservation
+    if (reservationRes.data) {
+      const rv = reservationRes.data as any;
+      setNextReservation({
+        id: rv.id,
+        date: rv.date,
+        startTime: rv.start_time,
+        endTime: rv.end_time,
+        courtName: rv.courts?.name ?? 'Court',
+      });
+    } else {
+      setNextReservation(null);
+    }
+
     setLoading(false);
   }
 
@@ -124,7 +214,7 @@ export default function MeScreen() {
 
           {!loading && !error && profile && (
             <>
-              {/* ── Identity card ────────────────────────────────────────── */}
+              {/* ── Identity card ──────────────────────────────────── */}
               <View style={styles.identityCard}>
                 <View style={styles.avatarCircle}>
                   {profile.fullName ? (
@@ -136,7 +226,10 @@ export default function MeScreen() {
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text style={styles.nameText}>{profile.fullName}</Text>
                   {profile.communityName ? (
-                    <Text style={styles.communityText}>{profile.communityName}</Text>
+                    <View style={styles.communityRow}>
+                      <Building2 size={12} color={theme.textMuted} strokeWidth={1.5} />
+                      <Text style={styles.communityText} numberOfLines={1}>{profile.communityName}</Text>
+                    </View>
                   ) : (
                     <Text style={[styles.communityText, { color: theme.textMuted }]}>No community</Text>
                   )}
@@ -149,7 +242,7 @@ export default function MeScreen() {
                 ) : null}
               </View>
 
-              {/* ── Edit Profile ──────────────────────────────────────────── */}
+              {/* ── Edit Profile ────────────────────────────────────── */}
               <TouchableOpacity
                 style={styles.editProfileBtn}
                 onPress={() => router.push('/edit-profile' as any)}
@@ -158,72 +251,112 @@ export default function MeScreen() {
                 <Text style={styles.editProfileText}>Edit Profile</Text>
               </TouchableOpacity>
 
-              {/* ── ACTIVITY ─────────────────────────────────────────────── */}
-              <Text style={styles.sectionLabel}>ACTIVITY</Text>
+              {/* ── UPCOMING ────────────────────────────────────────── */}
+              <Text style={styles.sectionLabel}>UPCOMING</Text>
 
-              <NavCard
-                icon={<Swords size={20} color={Colors.cyan} strokeWidth={1.5} />}
-                label="My Matches"
-                onPress={() => router.push('/(resident)/match')}
-                styles={styles}
-              />
-              <NavCard
-                icon={<BookOpen size={20} color={Colors.cyan} strokeWidth={1.5} />}
-                label="My Lessons"
-                onPress={() => router.push('/my-coaching' as any)}
-                styles={styles}
-              />
-              <NavCard
-                icon={<CalendarDays size={20} color={Colors.cyan} strokeWidth={1.5} />}
-                label="My Reservations"
-                onPress={() => router.push('/my-reservations')}
-                styles={styles}
-              />
-
-              {/* ── CONNECT ──────────────────────────────────────────────── */}
-              <Text style={[styles.sectionLabel, { marginTop: 24 }]}>CONNECT</Text>
-
-              <NavCard
-                icon={<MessageCircle size={20} color={Colors.blue} strokeWidth={1.5} />}
-                label="Messages"
-                onPress={() => router.push('/messages')}
-                styles={styles}
-              />
-              <NavCard
-                icon={<Bell size={20} color={Colors.blue} strokeWidth={1.5} />}
-                label="Notifications"
-                onPress={() => router.push('/notifications')}
-                styles={styles}
-              />
-
-              {/* ── COMMUNITY ────────────────────────────────────────────── */}
-              <Text style={[styles.sectionLabel, { marginTop: 24 }]}>COMMUNITY</Text>
-
-              {profile.communityName ? (
-                <View style={styles.communityCard}>
-                  <Building2 size={18} color={Colors.cyan} strokeWidth={1.5} />
-                  <Text style={styles.communityCardName} numberOfLines={1}>{profile.communityName}</Text>
-                  <View style={styles.activePill}>
-                    <Text style={styles.activePillText}>ACTIVE</Text>
+              {/* Next lesson preview */}
+              {nextLesson ? (
+                <TouchableOpacity
+                  style={styles.upcomingCard}
+                  onPress={() => router.push('/my-coaching' as any)}
+                  activeOpacity={0.8}>
+                  <View style={[styles.upcomingIcon, { backgroundColor: 'rgba(45,224,255,0.10)' }]}>
+                    <BookOpen size={18} color={Colors.cyan} strokeWidth={1.5} />
                   </View>
-                </View>
-              ) : null}
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.upcomingTitle}>
+                      {LESSON_TYPE_SHORT[nextLesson.lessonType] ?? 'Lesson'}
+                      {nextLesson.coachName ? ` · ${nextLesson.coachName}` : ''}
+                    </Text>
+                    <Text style={styles.upcomingMeta}>
+                      {formatDateDisplay(nextLesson.date)}
+                      {nextLesson.timeStart ? ` · ${formatTime12(nextLesson.timeStart)}` : ''}
+                    </Text>
+                  </View>
+                  <ChevronRight size={14} color={theme.textMuted} strokeWidth={1.5} />
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={styles.upcomingEmpty}
+                  onPress={() => router.push('/(resident)/coaches' as any)}
+                  activeOpacity={0.8}>
+                  <BookOpen size={16} color={theme.textMuted} strokeWidth={1.5} />
+                  <Text style={styles.upcomingEmptyText}>No upcoming lessons — find a coach</Text>
+                  <ChevronRight size={14} color={theme.textMuted} strokeWidth={1.5} />
+                </TouchableOpacity>
+              )}
+
+              {/* Next reservation preview */}
+              {nextReservation ? (
+                <TouchableOpacity
+                  style={styles.upcomingCard}
+                  onPress={() => router.push('/my-reservations')}
+                  activeOpacity={0.8}>
+                  <View style={[styles.upcomingIcon, { backgroundColor: 'rgba(45,107,255,0.10)' }]}>
+                    <CalendarDays size={18} color={Colors.blue} strokeWidth={1.5} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.upcomingTitle}>{nextReservation.courtName}</Text>
+                    <Text style={styles.upcomingMeta}>
+                      {formatDateDisplay(nextReservation.date)} · {formatTime12(nextReservation.startTime)}–{formatTime12(nextReservation.endTime)}
+                    </Text>
+                  </View>
+                  <ChevronRight size={14} color={theme.textMuted} strokeWidth={1.5} />
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={styles.upcomingEmpty}
+                  onPress={() => router.push('/(resident)/courts' as any)}
+                  activeOpacity={0.8}>
+                  <CalendarDays size={16} color={theme.textMuted} strokeWidth={1.5} />
+                  <Text style={styles.upcomingEmptyText}>No court bookings — reserve a court</Text>
+                  <ChevronRight size={14} color={theme.textMuted} strokeWidth={1.5} />
+                </TouchableOpacity>
+              )}
+
               <TouchableOpacity
-                style={styles.joinCommunityBtn}
-                onPress={() => router.push('/hoa-application')}
+                style={styles.viewAllLink}
+                onPress={() => router.push('/(resident)/match')}
                 activeOpacity={0.7}>
-                <Text style={styles.joinCommunityText}>+ Join or apply to a community</Text>
+                <Swords size={14} color={Colors.cyan} strokeWidth={1.5} />
+                <Text style={styles.viewAllText}>View My Matches</Text>
               </TouchableOpacity>
 
-              {/* ── ACCOUNT ──────────────────────────────────────────────── */}
-              <Text style={[styles.sectionLabel, { marginTop: 24 }]}>ACCOUNT</Text>
+              {/* ── CONNECT ─────────────────────────────────────────── */}
+              <Text style={[styles.sectionLabel, { marginTop: 24 }]}>CONNECT</Text>
+              <View style={[styles.navGroup, { borderColor: theme.border }]}>
+                <NavRow
+                  icon={<MessageCircle size={18} color={Colors.blue} strokeWidth={1.5} />}
+                  label="Messages"
+                  onPress={() => router.push('/messages')}
+                  theme={theme}
+                />
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <NavRow
+                  icon={<Bell size={18} color={Colors.blue} strokeWidth={1.5} />}
+                  label="Notifications"
+                  onPress={() => router.push('/notifications')}
+                  theme={theme}
+                />
+              </View>
 
-              <NavCard
-                icon={<Settings size={20} color={theme.textMuted} strokeWidth={1.5} />}
-                label="Settings"
-                onPress={() => router.push('/settings')}
-                styles={styles}
-              />
+              {/* ── ACCOUNT ─────────────────────────────────────────── */}
+              <Text style={[styles.sectionLabel, { marginTop: 24 }]}>ACCOUNT</Text>
+              <View style={[styles.navGroup, { borderColor: theme.border }]}>
+                <NavRow
+                  icon={<Settings size={18} color={theme.textMuted} strokeWidth={1.5} />}
+                  label="Settings"
+                  onPress={() => router.push('/settings')}
+                  theme={theme}
+                />
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <NavRow
+                  icon={<HelpCircle size={18} color={theme.textMuted} strokeWidth={1.5} />}
+                  label="Help & Support"
+                  onPress={() => router.push('/settings')}
+                  theme={theme}
+                />
+              </View>
             </>
           )}
 
@@ -240,22 +373,26 @@ export default function MeScreen() {
   );
 }
 
-function NavCard({
-  icon,
-  label,
-  onPress,
-  styles,
+function NavRow({
+  icon, label, onPress, theme,
 }: {
   icon: React.ReactNode;
   label: string;
   onPress: () => void;
-  styles: ReturnType<typeof useStyles>;
+  theme: ThemeTokens;
 }) {
   return (
-    <TouchableOpacity style={styles.navCard} onPress={onPress} activeOpacity={0.8}>
-      <View style={styles.navIcon}>{icon}</View>
-      <Text style={styles.navLabel}>{label}</Text>
-      <ChevronRight size={16} color={Colors.fg2} strokeWidth={1.5} />
+    <TouchableOpacity
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 14, minHeight: 52 }}
+      onPress={onPress}
+      activeOpacity={0.8}>
+      <View style={{ width: 30, height: 30, borderRadius: 8, backgroundColor: 'rgba(154,163,184,0.08)', alignItems: 'center', justifyContent: 'center' }}>
+        {icon}
+      </View>
+      <Text style={{ flex: 1, fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.body, color: theme.textPrimary }}>
+        {label}
+      </Text>
+      <ChevronRight size={14} color={theme.textMuted} strokeWidth={1.5} />
     </TouchableOpacity>
   );
 }
@@ -297,10 +434,16 @@ function useStyles(theme: ThemeTokens) {
       fontSize: FontSize.cardTitle,
       color: theme.textPrimary,
     },
+    communityRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
     communityText: {
       fontFamily: FontFamily.manropeMedium,
       fontSize: FontSize.label,
       color: theme.textSecondary,
+      flexShrink: 1,
     },
     ntrpBadge: {
       backgroundColor: 'rgba(45,224,255,0.12)',
@@ -346,35 +489,9 @@ function useStyles(theme: ThemeTokens) {
       letterSpacing: 1.8,
       marginBottom: 10,
     },
-    navCard: {
-      backgroundColor: theme.cardBg,
-      borderRadius: Radius.card,
-      borderWidth: 1,
-      borderColor: theme.border,
-      paddingHorizontal: 16,
-      paddingVertical: 14,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 14,
-      marginBottom: 8,
-      minHeight: 52,
-    },
-    navIcon: {
-      width: 32,
-      height: 32,
-      borderRadius: 8,
-      backgroundColor: 'rgba(45,224,255,0.08)',
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    navLabel: {
-      flex: 1,
-      fontFamily: FontFamily.manropeSemiBold,
-      fontSize: FontSize.body,
-      color: theme.textPrimary,
-    },
 
-    communityCard: {
+    // Upcoming previews
+    upcomingCard: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 12,
@@ -382,38 +499,70 @@ function useStyles(theme: ThemeTokens) {
       borderRadius: Radius.card,
       borderWidth: 1,
       borderColor: theme.border,
-      paddingHorizontal: 16,
-      paddingVertical: 14,
+      paddingHorizontal: 14,
+      paddingVertical: 13,
       marginBottom: 8,
     },
-    communityCardName: {
-      flex: 1,
+    upcomingIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+    },
+    upcomingTitle: {
       fontFamily: FontFamily.manropeSemiBold,
       fontSize: FontSize.body,
       color: theme.textPrimary,
     },
-    activePill: {
-      backgroundColor: 'rgba(45,224,255,0.12)',
-      borderRadius: Radius.pill,
-      paddingHorizontal: 10,
-      paddingVertical: 3,
+    upcomingMeta: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.label,
+      color: theme.textMuted,
+      marginTop: 1,
     },
-    activePillText: {
-      fontFamily: FontFamily.jetbrainsMonoSemiBold,
-      fontSize: 9,
-      color: Colors.cyan,
-      letterSpacing: 1.2,
-    },
-    joinCommunityBtn: {
-      paddingVertical: 12,
+    upcomingEmpty: {
+      flexDirection: 'row',
       alignItems: 'center',
+      gap: 10,
+      backgroundColor: theme.cardBg,
+      borderRadius: Radius.card,
+      borderWidth: 1,
+      borderColor: theme.border,
+      paddingHorizontal: 14,
+      paddingVertical: 14,
+      marginBottom: 8,
+    },
+    upcomingEmptyText: {
+      flex: 1,
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.label,
+      color: theme.textMuted,
+    },
+    viewAllLink: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      justifyContent: 'center',
+      paddingVertical: 10,
       marginBottom: 4,
     },
-    joinCommunityText: {
+    viewAllText: {
       fontFamily: FontFamily.manropeSemiBold,
       fontSize: FontSize.label,
       color: Colors.cyan,
     },
+
+    // Grouped nav
+    navGroup: {
+      backgroundColor: theme.cardBg,
+      borderRadius: Radius.card,
+      borderWidth: 1,
+      overflow: 'hidden',
+      marginBottom: 8,
+    },
+    divider: { height: 1, marginHorizontal: 16 },
 
     signOutBtn: {
       marginTop: 32,

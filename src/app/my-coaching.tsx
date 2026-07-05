@@ -129,7 +129,7 @@ export default function MyCoachingScreen() {
 
   return (
     <View style={styles.screen}>
-      <Header variant="inner" title="My Coaching" />
+      <Header variant="inner" title="My Lessons" onBack={() => router.back()} />
 
       {/* Tab bar */}
       <View style={styles.tabBar}>

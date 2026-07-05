@@ -30,17 +30,18 @@ function canCancelBooking(date: string, startTime: string): boolean {
   return hoursUntilStart >= MIN_CANCELLATION_HOURS;
 }
 
-function formatDate(iso: string): string {
-  const d = new Date(iso + 'T00:00:00');
-  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-}
-
 function formatTime(t: string): string {
-  const [h] = t.split(':');
+  const [h, m] = t.split(':');
   const hour = parseInt(h, 10);
   const suffix = hour < 12 ? 'AM' : 'PM';
   const display = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-  return `${display}:00 ${suffix}`;
+  const mins = m && m !== '00' ? `:${m}` : '';
+  return `${display}${mins} ${suffix}`;
+}
+
+function formatMonthYear(iso: string): string {
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 function bookingStatus(status: string): 'optimal' | 'needs-attention' | 'critical' | 'pending' {
@@ -138,7 +139,7 @@ export default function MyReservationsScreen() {
             {b.courtName}
           </Text>
           <Text style={styles.cardTime}>
-            {formatDate(b.date)} · {formatTime(b.start_time)} – {formatTime(b.end_time)}
+            {formatMonthYear(b.date)} · {formatTime(b.start_time)}–{formatTime(b.end_time)}
           </Text>
           <StatusPill status={bookingStatus(b.status)} label={b.status} />
         </View>
