@@ -114,12 +114,43 @@ function isBlockedDate(date: Date, blocks: CoachUnavailabilityBlock[]): boolean 
   return false;
 }
 
+interface MergedSlot {
+  start: number;
+  end: number;
+  locationMode: 'coach_facility' | 'traveling' | 'both' | null;
+}
+
+// Merge adjacent/overlapping slots for a given day so that two back-to-back
+// blocks (e.g. 8–9 and 9–10) count as a single 2-hour window, allowing a
+// 90-min lesson starting at 8:00.
+function mergeSlotsForDay(dow: number, slots: CoachAvailabilitySlot[]): MergedSlot[] {
+  const day = slots
+    .filter(s => s.day_of_week === dow)
+    .map(s => ({
+      start: timeToMin(s.start_time),
+      end:   timeToMin(s.end_time),
+      locationMode: s.location_mode ?? null as 'coach_facility' | 'traveling' | 'both' | null,
+    }))
+    .sort((a, b) => a.start - b.start);
+
+  if (day.length === 0) return [];
+
+  const merged: MergedSlot[] = [{ ...day[0] }];
+  for (let i = 1; i < day.length; i++) {
+    const last = merged[merged.length - 1];
+    const curr = day[i];
+    if (curr.start <= last.end) {
+      last.end = Math.max(last.end, curr.end);
+      if (last.locationMode !== curr.locationMode) last.locationMode = 'both';
+    } else {
+      merged.push({ ...curr });
+    }
+  }
+  return merged;
+}
+
 function hasSlotOnDate(date: Date, slots: CoachAvailabilitySlot[], durationMin = 30): boolean {
-  const dow = date.getDay();
-  return slots.some(s =>
-    s.day_of_week === dow &&
-    timeToMin(s.end_time) - timeToMin(s.start_time) >= durationMin,
-  );
+  return mergeSlotsForDay(date.getDay(), slots).some(s => s.end - s.start >= durationMin);
 }
 
 function generateTimeSlots(
@@ -127,16 +158,12 @@ function generateTimeSlots(
   durationMin: number,
   slots: CoachAvailabilitySlot[],
 ): TimeSlotOption[] {
-  const dow    = date.getDay();
   const result: TimeSlotOption[] = [];
   const seen   = new Set<string>();
 
-  for (const slot of slots) {
-    if (slot.day_of_week !== dow) continue;
-    const slotStart = timeToMin(slot.start_time);
-    const slotEnd   = timeToMin(slot.end_time);
-    let t = slotStart;
-    while (t + durationMin <= slotEnd) {
+  for (const slot of mergeSlotsForDay(date.getDay(), slots)) {
+    let t = slot.start;
+    while (t + durationMin <= slot.end) {
       const start = minToTime(t);
       if (!seen.has(start)) {
         seen.add(start);
@@ -144,7 +171,7 @@ function generateTimeSlots(
           start,
           end:          minToTime(t + durationMin),
           display:      formatTime12h(start),
-          locationMode: slot.location_mode ?? null,
+          locationMode: slot.locationMode,
         });
       }
       t += 30;
