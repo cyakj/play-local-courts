@@ -102,6 +102,10 @@ export default function RootLayout() {
           <Stack.Screen name="announcements" />
           <Stack.Screen name="survey-results/[id]" />
           <Stack.Screen name="edit-profile" />
+          <Stack.Screen name="settings-notifications" />
+          <Stack.Screen name="settings-privacy" />
+          <Stack.Screen name="settings-account" />
+          <Stack.Screen name="settings-help" />
         </Stack>
       </ThemeProvider>
     </NativeAuthProvider>

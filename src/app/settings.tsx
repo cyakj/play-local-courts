@@ -3,7 +3,7 @@ import { Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View }
 import { Redirect, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSession } from '@/context/NativeAuthContext';
-import { ArrowLeft, Bell, LifeBuoy, Lock, Moon, Shield, Sun } from 'lucide-react-native';
+import { ArrowLeft, Bell, ChevronRight, LifeBuoy, Lock, Moon, Shield, Sun } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import { Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing } from '@/constants/design';
@@ -11,10 +11,10 @@ import { useTheme } from '@/context/ThemeContext';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 
 const SETTINGS_LINKS = [
-  { icon: Bell,     label: 'Notifications', desc: 'Manage alert preferences' },
-  { icon: Shield,   label: 'Privacy',       desc: 'Profile visibility settings' },
-  { icon: Lock,     label: 'Account',       desc: 'Email, phone, password' },
-  { icon: LifeBuoy, label: 'Help & Support', desc: 'FAQ, terms, contact' },
+  { icon: Bell,     label: 'Notifications', desc: 'Manage alert preferences',    route: '/settings-notifications' },
+  { icon: Shield,   label: 'Privacy',       desc: 'Profile visibility settings', route: '/settings-privacy'       },
+  { icon: Lock,     label: 'Account',       desc: 'Email, phone, password',      route: '/settings-account'       },
+  { icon: LifeBuoy, label: 'Help & Support', desc: 'FAQ, terms, contact',        route: '/settings-help'          },
 ] as const;
 
 export default function SettingsScreen() {
@@ -95,10 +95,13 @@ export default function SettingsScreen() {
           {/* Settings links */}
           <Text style={[styles.sectionLabel, { color: theme.textMuted, marginTop: 28 }]}>PREFERENCES</Text>
           <View style={[styles.card, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
-            {SETTINGS_LINKS.map(({ icon: Icon, label, desc }, i) => (
+            {SETTINGS_LINKS.map(({ icon: Icon, label, desc, route }, i) => (
               <View key={label}>
                 {i > 0 && <View style={[styles.divider, { backgroundColor: theme.border }]} />}
-                <TouchableOpacity style={styles.linkRow} activeOpacity={0.7}>
+                <TouchableOpacity
+                  style={styles.linkRow}
+                  onPress={() => router.push(route as any)}
+                  activeOpacity={0.7}>
                   <View style={[styles.linkIconBox, { backgroundColor: theme.surface2 }]}>
                     <Icon color={theme.textMuted} size={16} strokeWidth={1.5} />
                   </View>
@@ -106,6 +109,7 @@ export default function SettingsScreen() {
                     <Text style={[styles.linkLabel, { color: theme.textPrimary }]}>{label}</Text>
                     <Text style={[styles.linkDesc, { color: theme.textMuted }]}>{desc}</Text>
                   </View>
+                  <ChevronRight color={theme.textMuted} size={16} strokeWidth={1.5} />
                 </TouchableOpacity>
               </View>
             ))}
