@@ -84,7 +84,7 @@ export default function SettingsPrivacyScreen() {
   return (
     <View style={[styles.screen, { backgroundColor: theme.pageBg }]}>
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 8, backgroundColor: theme.headerBg }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => { if (router.canGoBack()) router.back(); else router.replace('/settings' as any); }}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => { if (router.canGoBack()) router.back(); else router.replace('/settings' as any); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <ArrowLeft color={Colors.white} size={20} strokeWidth={1.5} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Privacy</Text>

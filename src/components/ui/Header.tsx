@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarCircleText: {
-    fontFamily: FontFamily.manropeBold ?? FontFamily.manropeSemiBold,
+    fontFamily: FontFamily.manropeBold,
     fontSize: 10,
     color: Colors.cyan,
   },

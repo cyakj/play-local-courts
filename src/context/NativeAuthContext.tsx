@@ -20,11 +20,11 @@ export function NativeAuthProvider({ children }: { children: React.ReactNode }) 
     // onAuthStateChange fires INITIAL_SESSION reliably even when offline
     // (it reads from AsyncStorage, not the network).
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
-      console.log(`[AUTH] event=${event} session=${s ? 'present' : 'null'}`);
+      if (__DEV__) console.log(`[AUTH] event=${event} session=${s ? 'present' : 'null'}`);
       setSession(s);
       if (event === 'INITIAL_SESSION') {
         setLoading(false);
-        console.log('[AUTH] INITIAL_SESSION → loading=false');
+        if (__DEV__) console.log('[AUTH] INITIAL_SESSION → loading=false');
       }
     });
 

@@ -168,7 +168,7 @@ export function LessonRequestRow({ request, onRefresh, onLeaveReview }: Props) {
           {/* Message */}
           <TouchableOpacity
             style={styles.actionBtn}
-            onPress={() => router.push({ pathname: '/messages', params: { recipientId: request.coachId } } as any)}
+            onPress={() => router.push({ pathname: '/messages', params: { partner: request.coachId } } as any)}
             activeOpacity={0.8}
           >
             <MessageCircle size={14} strokeWidth={2} color={theme.textSecondary} />

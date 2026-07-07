@@ -1,5 +1,6 @@
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { Colors, FontFamily, Radius, Spacing } from '@/constants/design';
+import { useTheme } from '@/context/ThemeContext';
 
 type ButtonVariant = 'primary' | 'accent' | 'ghost' | 'destructive';
 
@@ -12,13 +13,6 @@ interface ButtonProps {
   fullWidth?: boolean;
 }
 
-const variantStyles: Record<ButtonVariant, { bg: string; text: string; borderColor?: string }> = {
-  primary:     { bg: Colors.navy,       text: Colors.white },
-  accent:      { bg: Colors.accentCyan, text: Colors.navy },
-  ghost:       { bg: '#F3F4F6',         text: '#6B7280', borderColor: '#E5E7EB' },
-  destructive: { bg: 'transparent',     text: Colors.red, borderColor: Colors.red },
-};
-
 export function Button({
   variant = 'primary',
   label,
@@ -27,7 +21,18 @@ export function Button({
   disabled = false,
   fullWidth = false,
 }: ButtonProps) {
+  const { theme } = useTheme();
+
+  // Matches DESIGN.md "Buttons" spec exactly — brand colors stay constant
+  // across themes, neutrals (ghost) adapt via theme tokens.
+  const variantStyles: Record<ButtonVariant, { bg: string; text: string; borderColor?: string; borderWidth?: number }> = {
+    primary:     { bg: Colors.blue,       text: Colors.white },
+    accent:      { bg: Colors.volt,       text: '#11140A' },
+    ghost:       { bg: 'transparent',     text: theme.textPrimary, borderColor: theme.borderStrong },
+    destructive: { bg: 'transparent',     text: Colors.negative, borderColor: Colors.negative, borderWidth: 1.5 },
+  };
   const v = variantStyles[variant];
+
   return (
     <TouchableOpacity
       style={[
@@ -35,7 +40,7 @@ export function Button({
         {
           backgroundColor: v.bg,
           borderColor: v.borderColor ?? 'transparent',
-          borderWidth: v.borderColor ? 1 : 0,
+          borderWidth: v.borderColor ? (v.borderWidth ?? 1) : 0,
         },
         fullWidth && styles.fullWidth,
         (disabled || loading) && styles.disabled,
@@ -64,8 +69,7 @@ const styles = StyleSheet.create({
   fullWidth: { width: '100%' },
   disabled: { opacity: 0.5 },
   label: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: 14,
-    fontWeight: '600',
+    fontFamily: FontFamily.manropeSemiBold,
+    fontSize: 16,
   },
 });

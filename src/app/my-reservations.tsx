@@ -97,7 +97,7 @@ export default function MyReservationsScreen() {
         style: 'destructive',
         onPress: async () => {
           setCancelling(booking.id);
-          const { error } = await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', booking.id);
+          const { error } = await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', booking.id).eq('user_id', userId);
           setCancelling(null);
           if (error) {
             Alert.alert('Cancellation failed', 'Could not cancel this booking. Please try again.');

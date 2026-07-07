@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { Colors, FontFamily } from '@/constants/design';
+import { FontFamily } from '@/constants/design';
+import { useTheme } from '@/context/ThemeContext';
 import { Button } from './Button';
 
 interface EmptyStateProps {
@@ -11,11 +12,12 @@ interface EmptyStateProps {
 }
 
 export function EmptyState({ icon, title, subtitle, ctaLabel, onCta }: EmptyStateProps) {
+  const { theme } = useTheme();
   return (
     <View style={styles.container}>
       <View style={styles.iconWrap}>{icon}</View>
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.subtitle}>{subtitle}</Text>
+      <Text style={[styles.title, { color: theme.textPrimary }]}>{title}</Text>
+      <Text style={[styles.subtitle, { color: theme.textMuted }]}>{subtitle}</Text>
       {ctaLabel && onCta && (
         <Button variant="primary" label={ctaLabel} onPress={onCta} />
       )}
@@ -29,13 +31,11 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: FontFamily.manropeBold,
     fontSize: 18,
-    color: Colors.navy,
     textAlign: 'center',
   },
   subtitle: {
-    fontFamily: FontFamily.interRegular,
+    fontFamily: FontFamily.manropeMedium,
     fontSize: 14,
-    color: Colors.textMuted,
     textAlign: 'center',
     paddingHorizontal: 32,
   },

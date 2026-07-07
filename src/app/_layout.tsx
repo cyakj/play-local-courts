@@ -34,9 +34,9 @@ function AuthGuard() {
   useEffect(() => {
     if (loading) return;
     const inAuth = segments[0] === '(auth)';
-    console.log(`[AUTH] Guard — session:${!!session} segment:${segments[0] ?? 'root'} inAuth:${inAuth}`);
+    if (__DEV__) console.log(`[AUTH] Guard — session:${!!session} segment:${segments[0] ?? 'root'} inAuth:${inAuth}`);
     if (!session && !inAuth) {
-      console.log('[AUTH] → router.replace /(auth)/login');
+      if (__DEV__) console.log('[AUTH] → router.replace /(auth)/login');
       router.replace('/(auth)/login');
     }
   }, [session, loading, segments]);

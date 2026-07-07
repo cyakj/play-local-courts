@@ -55,7 +55,7 @@ export default function SettingsScreen() {
     <View style={[styles.screen, { backgroundColor: theme.pageBg }]}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 8, backgroundColor: theme.headerBg }]}>
-        <TouchableOpacity onPress={() => { void handleBack(); }} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => { void handleBack(); }} style={styles.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <ArrowLeft color={Colors.white} size={20} strokeWidth={1.5} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Settings</Text>

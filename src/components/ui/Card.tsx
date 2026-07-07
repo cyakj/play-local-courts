@@ -1,12 +1,13 @@
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
-import { Colors, Radius, Shadow } from '@/constants/design';
+import { Colors, Radius } from '@/constants/design';
+import { useTheme } from '@/context/ThemeContext';
 
 type AccentVariant = 'optimal' | 'attention' | 'critical' | 'none';
 
 const accentColors: Record<AccentVariant, string> = {
-  optimal: Colors.accentCyan,
-  attention: Colors.coral,
-  critical: Colors.red,
+  optimal: Colors.cyan,
+  attention: Colors.negative,
+  critical: Colors.negative,
   none: 'transparent',
 };
 
@@ -18,30 +19,31 @@ interface CardProps {
 }
 
 export function Card({ children, accent = 'none', onPress, style }: CardProps) {
+  const { theme } = useTheme();
   const borderLeftColor = accentColors[accent];
   const accentStyle = accent !== 'none' ? { borderLeftWidth: 2, borderLeftColor } : {};
+  const cardStyle = [
+    styles.card,
+    { backgroundColor: theme.cardBg, borderColor: theme.border, ...theme.shadowCard },
+    accentStyle,
+    style,
+  ];
 
   if (onPress) {
     return (
-      <TouchableOpacity
-        style={[styles.card, accentStyle, style]}
-        onPress={onPress}
-        activeOpacity={0.85}>
+      <TouchableOpacity style={cardStyle} onPress={onPress} activeOpacity={0.85}>
         {children}
       </TouchableOpacity>
     );
   }
 
-  return <View style={[styles.card, accentStyle, style]}>{children}</View>;
+  return <View style={cardStyle}>{children}</View>;
 }
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: Colors.cardBg,
     borderRadius: Radius.card,
     padding: 20,
     borderWidth: 1,
-    borderColor: Colors.border,
-    ...Shadow,
   },
 });

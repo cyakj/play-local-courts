@@ -24,7 +24,7 @@ export function BottomNav(props: BottomTabBarProps) {
         const activeColor = theme.cyanOnLight;
         const icon = options.tabBarIcon({
           focused: isFocused,
-          color: isFocused ? activeColor : Colors.fg3,
+          color: isFocused ? activeColor : theme.textMuted,
           size: 26,
         });
 
@@ -39,7 +39,7 @@ export function BottomNav(props: BottomTabBarProps) {
             activeOpacity={0.7}>
             {icon}
             {label !== 'VS' && (
-              <Text style={[styles.label, { color: isFocused ? activeColor : Colors.fg3 }]}>
+              <Text style={[styles.label, { color: isFocused ? activeColor : theme.textMuted }]}>
                 {label.toUpperCase()}
               </Text>
             )}

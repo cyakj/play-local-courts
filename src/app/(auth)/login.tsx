@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { Eye, EyeOff } from 'lucide-react-native';
+import { Eye, EyeOff, Lock } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import { Colors, FontFamily, FontSize, Radius, Shadow, Spacing } from '@/constants/design';
@@ -105,7 +105,7 @@ export default function LoginScreen() {
       .select('role')
       .eq('user_id', uid);
     const roles = (rolesData ?? []).map((r: { role: string }) => r.role);
-    const isCM    = roles.some((r) => ['admin', 'condo_manager', 'manager'].includes(r));
+    const isCM    = roles.some((r) => ['admin', 'condo_manager', 'manager', 'hoa_manager', 'board_admin'].includes(r));
     const isCoach = roles.includes('coach');
     setLoading(false);
     if (isCM)         router.replace('/(cm)');
@@ -167,7 +167,7 @@ export default function LoginScreen() {
           <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
             <View style={styles.card}>
               <View style={styles.mfaIconWrap}>
-                <Text style={styles.mfaIconText}>🔒</Text>
+                <Lock size={24} color={Colors.cyan} strokeWidth={1.75} />
               </View>
               <Text style={[styles.title, { textAlign: 'center', marginTop: 16 }]}>Two-Factor Auth</Text>
               <Text style={[styles.subtitle, { textAlign: 'center', marginBottom: 0 }]}>
@@ -457,11 +457,6 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.interSemiBold,
     color: Colors.accentCyan,
   },
-  reviewerLink: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: 12,
-    color: Colors.textMuted,
-  },
   mfaIconWrap: {
     width: 52,
     height: 52,
@@ -471,5 +466,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignSelf: 'center',
   },
-  mfaIconText: { fontSize: 24 },
 });

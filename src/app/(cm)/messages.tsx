@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -15,7 +16,7 @@ import { ArrowLeft, Check, CheckCheck, Plus, Search, Send } from 'lucide-react-n
 
 import { supabase } from '@/lib/supabase';
 import {
-  Colors, FontFamily, FontSize, MaxWidth, Radius, Shadow, Spacing,
+  Colors, FontFamily, FontSize, MaxWidth, Shadow, Spacing,
 } from '@/constants/design';
 import { CardSkeleton } from '@/components/ui/Skeleton';
 
@@ -141,14 +142,18 @@ export default function CMMessagesScreen() {
   async function sendMessage() {
     if (!draft.trim() || !activeConvo || !userId) return;
     setSending(true);
-    const { data: newMsg } = await supabase
+    const { data: newMsg, error } = await supabase
       .from('messages')
       .insert({ sender_id: userId, receiver_id: activeConvo.partnerId, content: draft.trim() })
       .select()
       .single();
-    if (newMsg) setThread((prev) => [...prev, newMsg]);
-    setDraft('');
     setSending(false);
+    if (error || !newMsg) {
+      Alert.alert('Message not sent', 'Could not send your message. Please try again.');
+      return;
+    }
+    setThread((prev) => [...prev, newMsg]);
+    setDraft('');
     setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 100);
   }
 
@@ -575,7 +580,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 14,
     paddingHorizontal: Spacing.pagePx, paddingVertical: 14,
     borderBottomWidth: 1, borderBottomColor: 'rgba(15,31,61,0.06)',
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.cardBg,
   },
   convoAvatar: {
     width: 44, height: 44, borderRadius: 22,

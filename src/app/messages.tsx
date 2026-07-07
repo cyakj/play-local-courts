@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Alert,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -150,22 +151,24 @@ export default function MessagesScreen() {
   async function sendMessage() {
     if (!draft.trim() || !activeConvo || !userId) return;
     setSending(true);
-    const { data: newMsg } = await supabase
+    const { data: newMsg, error } = await supabase
       .from('messages')
       .insert({ sender_id: userId, receiver_id: activeConvo.partnerId, content: draft.trim() })
       .select()
       .single();
-    if (newMsg) {
-      setThread((prev) => [...prev, newMsg]);
-      // Notify recipient — throttled to once per 30 min per conversation
-      supabase.functions
-        .invoke('send-message-notification', {
-          body: { senderId: userId, receiverId: activeConvo.partnerId },
-        })
-        .catch(() => {});
-    }
-    setDraft('');
     setSending(false);
+    if (error || !newMsg) {
+      Alert.alert('Message not sent', 'Could not send your message. Please try again.');
+      return;
+    }
+    setThread((prev) => [...prev, newMsg]);
+    // Notify recipient — throttled to once per 30 min per conversation
+    supabase.functions
+      .invoke('send-message-notification', {
+        body: { senderId: userId, receiverId: activeConvo.partnerId },
+      })
+      .catch(() => {});
+    setDraft('');
     setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 100);
   }
 

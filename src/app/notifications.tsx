@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { MessageSquare } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
-import { Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing } from '@/constants/design';
+import { Colors, FontFamily, FontSize, MaxWidth, Spacing } from '@/constants/design';
 import { Header } from '@/components/ui/Header';
 import { CardSkeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -85,7 +85,8 @@ export default function NotificationsScreen() {
               <TouchableOpacity
                 key={item.id}
                 style={[styles.item, !item.read && styles.itemUnread]}
-                activeOpacity={0.75}>
+                activeOpacity={0.75}
+                onPress={() => router.push({ pathname: '/messages', params: { partner: item.senderId } })}>
                 <View style={styles.iconWrap}>
                   <MessageSquare color={Colors.accentCyan} size={20} strokeWidth={1.5} />
                 </View>

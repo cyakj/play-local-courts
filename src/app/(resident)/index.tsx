@@ -134,13 +134,6 @@ async function fetchWeather(lat: number, lon: number): Promise<WeatherData | nul
 
 // ─── Other Helpers ────────────────────────────────────────────────────────────
 
-function greeting(): string {
-  const h = new Date().getHours();
-  if (h < 12) return 'Good morning,';
-  if (h < 18) return 'Good afternoon,';
-  return 'Good evening,';
-}
-
 function formatDate(iso: string): string {
   const d = new Date(iso + 'T00:00:00');
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
@@ -164,7 +157,6 @@ export default function HomeScreen() {
   const { theme } = useTheme();
   const styles = useStyles(theme);
   const [name, setName] = useState('');
-  const [ntrpRating, setNtrpRating] = useState<number | null>(null);
   const [nextBooking, setNextBooking] = useState<NextBooking | null>(null);
   const [pendingChallenge, setPendingChallenge] = useState<PendingChallenge | null>(null);
   const [upcomingMatches, setUpcomingMatches] = useState<UpcomingMatch[]>([]);
@@ -204,12 +196,11 @@ export default function HomeScreen() {
       const today = new Date().toISOString().split('T')[0];
 
       const [profileRes, membershipRes] = await Promise.all([
-        supabase.from('profiles').select('full_name, ntrp_rating').eq('id', userId).single(),
+        supabase.from('profiles').select('full_name').eq('id', userId).single(),
         supabase.from('hoa_memberships').select('hoa_id').eq('user_id', userId).eq('status', 'approved').limit(1).single(),
       ]);
 
       setName(firstName(profileRes.data?.full_name ?? 'there'));
-      setNtrpRating(profileRes.data?.ntrp_rating ?? null);
 
       const hId = membershipRes.data?.hoa_id ?? '';
 
@@ -644,13 +635,6 @@ function useStyles(theme: ThemeTokens) {
       letterSpacing: 2.2,
       marginBottom: 4,
     },
-    greetingText: {
-      fontFamily: FontFamily.spaceGroteskBold,
-      fontSize: FontSize.pageTitle,
-      color: theme.textPrimary,
-      lineHeight: 38,
-      letterSpacing: -0.5,
-    },
     firstName: {
       fontFamily: FontFamily.spaceGroteskBold,
       fontSize: FontSize.pageTitle,
@@ -658,21 +642,6 @@ function useStyles(theme: ThemeTokens) {
       lineHeight: 38,
       letterSpacing: -0.5,
       marginBottom: 0,
-    },
-    ntrpBadge: {
-      alignSelf: 'flex-start',
-      backgroundColor: theme.selectedBg,
-      borderRadius: Radius.chip,
-      borderWidth: 1,
-      borderColor: theme.selectedBorder,
-      paddingHorizontal: 12,
-      paddingVertical: 4,
-    },
-    ntrpText: {
-      fontFamily: FontFamily.jetbrainsMonoSemiBold,
-      fontSize: 12,
-      color: theme.selectedBorder,
-      letterSpacing: 1.2,
     },
 
     cardsContainer: {
