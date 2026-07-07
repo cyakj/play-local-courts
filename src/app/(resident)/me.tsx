@@ -8,14 +8,12 @@ import {
   View,
 } from 'react-native';
 import {
-  Bell,
   BookOpen,
-  Building2,
   CalendarDays,
   ChevronRight,
   HelpCircle,
   LogOut,
-  MessageCircle,
+  MapPin,
   PenLine,
   Settings,
   Swords,
@@ -27,6 +25,7 @@ import { supabase } from '@/lib/supabase';
 import { Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing } from '@/constants/design';
 import { Header } from '@/components/ui/Header';
 import { CardSkeleton } from '@/components/ui/Skeleton';
+import { InfoTooltip } from '@/components/ui/InfoTooltip';
 import { useTheme } from '@/context/ThemeContext';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 
@@ -42,6 +41,7 @@ interface Profile {
   ntrpRating: string | null;
   communityName: string | null;
   communityId: string | null;
+  location: string | null;
 }
 
 interface UpcomingLesson {
@@ -58,6 +58,13 @@ interface UpcomingReservation {
   startTime: string;
   endTime: string;
   courtName: string;
+}
+
+interface UpcomingMatch {
+  id: string;
+  date: string;
+  timeStart: string | null;
+  opponentName: string | null;
 }
 
 function formatDateDisplay(iso: string): string {
@@ -80,6 +87,7 @@ export default function MeScreen() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [nextLesson, setNextLesson] = useState<UpcomingLesson | null | undefined>(undefined);
   const [nextReservation, setNextReservation] = useState<UpcomingReservation | null | undefined>(undefined);
+  const [nextMatch, setNextMatch] = useState<UpcomingMatch | null | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -90,8 +98,8 @@ export default function MeScreen() {
 
     const today = new Date().toISOString().split('T')[0];
 
-    const [profileRes, membershipRes, lessonRes, reservationRes] = await Promise.all([
-      supabase.from('profiles').select('full_name, ntrp_rating').eq('id', user.id).single(),
+    const [profileRes, membershipRes, lessonRes, reservationRes, matchRes] = await Promise.all([
+      supabase.from('profiles').select('full_name, ntrp_rating, location').eq('id', user.id).single(),
       supabase.from('hoa_memberships').select('hoa_id').eq('user_id', user.id).eq('status', 'approved').limit(1).maybeSingle(),
       supabase
         .from('lesson_requests')
@@ -110,6 +118,16 @@ export default function MeScreen() {
         .gte('date', today)
         .order('date', { ascending: true })
         .order('start_time', { ascending: true })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from('match_requests')
+        .select('id, date, time_start, challenger_id, opponent_id')
+        .or(`challenger_id.eq.${user.id},opponent_id.eq.${user.id}`)
+        .eq('status', 'accepted')
+        .gte('date', today)
+        .order('date', { ascending: true })
+        .order('time_start', { ascending: true })
         .limit(1)
         .maybeSingle(),
     ]);
@@ -133,6 +151,7 @@ export default function MeScreen() {
       ntrpRating: profileRes.data?.ntrp_rating != null ? String(profileRes.data.ntrp_rating) : null,
       communityName,
       communityId,
+      location: (profileRes.data as any)?.location ?? null,
     });
 
     // Next lesson
@@ -166,6 +185,25 @@ export default function MeScreen() {
       });
     } else {
       setNextReservation(null);
+    }
+
+    // Next match
+    if (matchRes.data) {
+      const mr = matchRes.data as any;
+      const opponentId = mr.challenger_id === user.id ? mr.opponent_id : mr.challenger_id;
+      let opponentName: string | null = null;
+      if (opponentId) {
+        const { data: op } = await supabase.from('profiles').select('full_name').eq('id', opponentId).single();
+        opponentName = op?.full_name ?? null;
+      }
+      setNextMatch({
+        id: mr.id,
+        date: mr.date,
+        timeStart: mr.time_start ?? null,
+        opponentName,
+      });
+    } else {
+      setNextMatch(null);
     }
 
     setLoading(false);
@@ -223,23 +261,48 @@ export default function MeScreen() {
                     <UserCircle size={36} color={Colors.cyan} strokeWidth={1.5} />
                   )}
                 </View>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={styles.nameText}>{profile.fullName}</Text>
-                  {profile.communityName ? (
-                    <View style={styles.communityRow}>
-                      <Building2 size={12} color={theme.textMuted} strokeWidth={1.5} />
-                      <Text style={styles.communityText} numberOfLines={1}>{profile.communityName}</Text>
-                    </View>
-                  ) : (
-                    <Text style={[styles.communityText, { color: theme.textMuted }]}>No community</Text>
-                  )}
-                </View>
-                {profile.ntrpRating ? (
-                  <View style={styles.ntrpBadge}>
-                    <Text style={styles.ntrpText}>{profile.ntrpRating}</Text>
-                    <Text style={styles.ntrpLabel}>NTRP</Text>
+                <Text style={styles.nameText}>{profile.fullName}</Text>
+              </View>
+
+              {/* ── Stats grid: NTRP · Community · Home ─────────────── */}
+              <View style={styles.statsGrid}>
+                <View style={styles.statCell}>
+                  <View style={styles.statLabelRow}>
+                    <Text style={styles.statLabel}>NTRP</Text>
+                    <InfoTooltip
+                      size={11}
+                      label="NTRP"
+                      text="Your self-assessed USTA skill level, from 1.0 to 7.0. Set it in Edit Profile."
+                    />
                   </View>
-                ) : null}
+                  <Text style={styles.statValue} numberOfLines={1}>
+                    {profile.ntrpRating ?? '—'}
+                  </Text>
+                </View>
+
+                <View style={[styles.statCell, styles.statCellDivider]}>
+                  <View style={styles.statLabelRow}>
+                    <Text style={styles.statLabel}>COMMUNITY</Text>
+                    <InfoTooltip
+                      size={11}
+                      label="Community"
+                      text="The HOA community you belong to. This connects you to local courts, coaches, and neighbors."
+                    />
+                  </View>
+                  <Text style={[styles.statValue, styles.statValueSmall]} numberOfLines={1}>
+                    {profile.communityName ?? 'None'}
+                  </Text>
+                </View>
+
+                <View style={[styles.statCell, styles.statCellDivider]}>
+                  <View style={styles.statLabelRow}>
+                    <MapPin size={11} color={theme.textMuted} strokeWidth={1.75} />
+                    <Text style={styles.statLabel}>HOME</Text>
+                  </View>
+                  <Text style={[styles.statValue, styles.statValueSmall]} numberOfLines={1}>
+                    {profile.location ?? 'Not set'}
+                  </Text>
+                </View>
               </View>
 
               {/* ── Edit Profile ────────────────────────────────────── */}
@@ -314,34 +377,39 @@ export default function MeScreen() {
                 </TouchableOpacity>
               )}
 
-              <TouchableOpacity
-                style={styles.viewAllLink}
-                onPress={() => router.push('/(resident)/match')}
-                activeOpacity={0.7}>
-                <Swords size={14} color={Colors.cyan} strokeWidth={1.5} />
-                <Text style={styles.viewAllText}>View My Matches</Text>
-              </TouchableOpacity>
-
-              {/* ── CONNECT ─────────────────────────────────────────── */}
-              <Text style={[styles.sectionLabel, { marginTop: 24 }]}>CONNECT</Text>
-              <View style={[styles.navGroup, { borderColor: theme.border }]}>
-                <NavRow
-                  icon={<MessageCircle size={18} color={Colors.blue} strokeWidth={1.5} />}
-                  label="Messages"
-                  onPress={() => router.push('/messages')}
-                  theme={theme}
-                />
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <NavRow
-                  icon={<Bell size={18} color={Colors.blue} strokeWidth={1.5} />}
-                  label="Notifications"
-                  onPress={() => router.push('/notifications')}
-                  theme={theme}
-                />
-              </View>
+              {/* Next match preview */}
+              {nextMatch ? (
+                <TouchableOpacity
+                  style={styles.upcomingCard}
+                  onPress={() => router.push('/(resident)/match')}
+                  activeOpacity={0.8}>
+                  <View style={[styles.upcomingIcon, { backgroundColor: 'rgba(214,255,61,0.10)' }]}>
+                    <Swords size={18} color={Colors.volt} strokeWidth={1.5} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.upcomingTitle}>
+                      {nextMatch.opponentName ? `vs ${nextMatch.opponentName}` : 'Match'}
+                    </Text>
+                    <Text style={styles.upcomingMeta}>
+                      {formatDateDisplay(nextMatch.date)}
+                      {nextMatch.timeStart ? ` · ${formatTime12(nextMatch.timeStart)}` : ''}
+                    </Text>
+                  </View>
+                  <ChevronRight size={14} color={theme.textMuted} strokeWidth={1.5} />
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={styles.upcomingEmpty}
+                  onPress={() => router.push('/(resident)/match')}
+                  activeOpacity={0.8}>
+                  <Swords size={16} color={theme.textMuted} strokeWidth={1.5} />
+                  <Text style={styles.upcomingEmptyText}>No upcoming matches — find an opponent</Text>
+                  <ChevronRight size={14} color={theme.textMuted} strokeWidth={1.5} />
+                </TouchableOpacity>
+              )}
 
               {/* ── ACCOUNT ─────────────────────────────────────────── */}
-              <Text style={[styles.sectionLabel, { marginTop: 24 }]}>ACCOUNT</Text>
+              <Text style={[styles.sectionLabel, { marginTop: 20 }]}>ACCOUNT</Text>
               <View style={[styles.navGroup, { borderColor: theme.border }]}>
                 <NavRow
                   icon={<Settings size={18} color={theme.textMuted} strokeWidth={1.5} />}
@@ -353,7 +421,7 @@ export default function MeScreen() {
                 <NavRow
                   icon={<HelpCircle size={18} color={theme.textMuted} strokeWidth={1.5} />}
                   label="Help & Support"
-                  onPress={() => router.push('/settings')}
+                  onPress={() => router.push('/settings-help')}
                   theme={theme}
                 />
               </View>
@@ -400,23 +468,23 @@ function NavRow({
 function useStyles(theme: ThemeTokens) {
   return useMemo(() => StyleSheet.create({
     screen:  { flex: 1, backgroundColor: theme.pageBg },
-    body:    { paddingTop: 20, paddingBottom: 100 },
+    body:    { paddingTop: 16, paddingBottom: 100 },
 
     identityCard: {
       backgroundColor: theme.cardBg,
       borderRadius: Radius.card,
       borderWidth: 1,
       borderColor: theme.border,
-      padding: 20,
+      padding: 18,
       flexDirection: 'row',
       alignItems: 'center',
       gap: 14,
-      marginBottom: 14,
+      marginBottom: 10,
     },
     avatarCircle: {
-      width: 56,
-      height: 56,
-      borderRadius: 28,
+      width: 52,
+      height: 52,
+      borderRadius: 26,
       backgroundColor: 'rgba(45,224,255,0.12)',
       borderWidth: 1.5,
       borderColor: 'rgba(45,224,255,0.3)',
@@ -426,44 +494,56 @@ function useStyles(theme: ThemeTokens) {
     },
     avatarInitials: {
       fontFamily: FontFamily.spaceGroteskBold,
-      fontSize: 20,
+      fontSize: 18,
       color: Colors.cyan,
     },
     nameText: {
+      flex: 1,
       fontFamily: FontFamily.spaceGroteskBold,
       fontSize: FontSize.cardTitle,
       color: theme.textPrimary,
     },
-    communityRow: {
+
+    // Stats grid — 3 column
+    statsGrid: {
+      flexDirection: 'row',
+      backgroundColor: theme.cardBg,
+      borderRadius: Radius.card,
+      borderWidth: 1,
+      borderColor: theme.border,
+      marginBottom: 14,
+      overflow: 'hidden',
+    },
+    statCell: {
+      flex: 1,
+      paddingVertical: 14,
+      paddingHorizontal: 10,
+      alignItems: 'center',
+      gap: 4,
+    },
+    statCellDivider: {
+      borderLeftWidth: 1,
+      borderLeftColor: theme.border,
+    },
+    statLabelRow: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 4,
     },
-    communityText: {
-      fontFamily: FontFamily.manropeMedium,
-      fontSize: FontSize.label,
-      color: theme.textSecondary,
-      flexShrink: 1,
-    },
-    ntrpBadge: {
-      backgroundColor: 'rgba(45,224,255,0.12)',
-      borderRadius: Radius.button,
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      alignItems: 'center',
-      flexShrink: 0,
-    },
-    ntrpText: {
-      fontFamily: FontFamily.spaceGroteskBold,
-      fontSize: 18,
-      color: Colors.cyan,
-      lineHeight: 22,
-    },
-    ntrpLabel: {
+    statLabel: {
       fontFamily: FontFamily.jetbrainsMonoSemiBold,
-      fontSize: 9,
-      color: Colors.fg2,
-      letterSpacing: 1.5,
+      fontSize: 10,
+      color: theme.textMuted,
+      letterSpacing: 1.2,
+    },
+    statValue: {
+      fontFamily: FontFamily.spaceGroteskBold,
+      fontSize: 20,
+      color: theme.textPrimary,
+    },
+    statValueSmall: {
+      fontSize: 14,
+      fontFamily: FontFamily.manropeSemiBold,
     },
 
     editProfileBtn: {
@@ -474,7 +554,7 @@ function useStyles(theme: ThemeTokens) {
       backgroundColor: Colors.blue,
       borderRadius: Radius.button,
       paddingVertical: 12,
-      marginBottom: 28,
+      marginBottom: 22,
     },
     editProfileText: {
       fontFamily: FontFamily.manropeSemiBold,
@@ -540,19 +620,6 @@ function useStyles(theme: ThemeTokens) {
       fontSize: FontSize.label,
       color: theme.textMuted,
     },
-    viewAllLink: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      justifyContent: 'center',
-      paddingVertical: 10,
-      marginBottom: 4,
-    },
-    viewAllText: {
-      fontFamily: FontFamily.manropeSemiBold,
-      fontSize: FontSize.label,
-      color: Colors.cyan,
-    },
 
     // Grouped nav
     navGroup: {
@@ -565,7 +632,7 @@ function useStyles(theme: ThemeTokens) {
     divider: { height: 1, marginHorizontal: 16 },
 
     signOutBtn: {
-      marginTop: 32,
+      marginTop: 28,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',

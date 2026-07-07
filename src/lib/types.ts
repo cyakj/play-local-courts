@@ -360,6 +360,41 @@ export type Database = {
         }
         Relationships: []
       }
+      clinic_enrollments: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          id: string
+          player_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string
+          id?: string
+          player_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          id?: string
+          player_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_enrollments_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "coach_clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clubs: {
         Row: {
           created_at: string | null
@@ -442,6 +477,150 @@ export type Database = {
         }
         Relationships: []
       }
+      coach_blockouts: {
+        Row: {
+          coach_id: string
+          created_at: string | null
+          days_of_week: number[] | null
+          end_time: string | null
+          id: string
+          specific_date: string | null
+          start_time: string | null
+          title: string | null
+          type: string
+          visibility: string
+        }
+        Insert: {
+          coach_id: string
+          created_at?: string | null
+          days_of_week?: number[] | null
+          end_time?: string | null
+          id?: string
+          specific_date?: string | null
+          start_time?: string | null
+          title?: string | null
+          type: string
+          visibility?: string
+        }
+        Update: {
+          coach_id?: string
+          created_at?: string | null
+          days_of_week?: number[] | null
+          end_time?: string | null
+          id?: string
+          specific_date?: string | null
+          start_time?: string | null
+          title?: string | null
+          type?: string
+          visibility?: string
+        }
+        Relationships: []
+      }
+      coach_clinics: {
+        Row: {
+          age_group: string
+          coach_id: string
+          created_at: string
+          date: string
+          description: string | null
+          duration_minutes: number
+          id: string
+          location: string
+          max_players: number
+          name: string
+          price: number | null
+          skill_max: number | null
+          skill_min: number | null
+          start_time: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          age_group?: string
+          coach_id: string
+          created_at?: string
+          date: string
+          description?: string | null
+          duration_minutes: number
+          id?: string
+          location: string
+          max_players: number
+          name: string
+          price?: number | null
+          skill_max?: number | null
+          skill_min?: number | null
+          start_time: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          age_group?: string
+          coach_id?: string
+          created_at?: string
+          date?: string
+          description?: string | null
+          duration_minutes?: number
+          id?: string
+          location?: string
+          max_players?: number
+          name?: string
+          price?: number | null
+          skill_max?: number | null
+          skill_min?: number | null
+          start_time?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      coach_facility_hours: {
+        Row: {
+          coach_id: string
+          court_type: string | null
+          created_at: string | null
+          days_of_week: number[]
+          end_time: string
+          facility_address: string | null
+          facility_name: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          publicly_bookable: boolean
+          start_time: string
+          updated_at: string | null
+        }
+        Insert: {
+          coach_id: string
+          court_type?: string | null
+          created_at?: string | null
+          days_of_week?: number[]
+          end_time: string
+          facility_address?: string | null
+          facility_name: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          publicly_bookable?: boolean
+          start_time: string
+          updated_at?: string | null
+        }
+        Update: {
+          coach_id?: string
+          court_type?: string | null
+          created_at?: string | null
+          days_of_week?: number[]
+          end_time?: string
+          facility_address?: string | null
+          facility_name?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          publicly_bookable?: boolean
+          start_time?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       coach_favorites: {
         Row: {
           coach_id: string
@@ -460,6 +639,39 @@ export type Database = {
           created_at?: string | null
           id?: string
           player_id?: string
+        }
+        Relationships: []
+      }
+      coach_global_hours: {
+        Row: {
+          coach_id: string
+          created_at: string | null
+          day_of_week: number
+          end_time: string
+          id: string
+          is_closed: boolean
+          start_time: string
+          updated_at: string | null
+        }
+        Insert: {
+          coach_id: string
+          created_at?: string | null
+          day_of_week: number
+          end_time?: string
+          id?: string
+          is_closed?: boolean
+          start_time?: string
+          updated_at?: string | null
+        }
+        Update: {
+          coach_id?: string
+          created_at?: string | null
+          day_of_week?: number
+          end_time?: string
+          id?: string
+          is_closed?: boolean
+          start_time?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -507,6 +719,27 @@ export type Database = {
           },
         ]
       }
+      coach_schedule_private_settings: {
+        Row: {
+          coach_id: string
+          created_at: string
+          travel_base_address: string | null
+          updated_at: string
+        }
+        Insert: {
+          coach_id: string
+          created_at?: string
+          travel_base_address?: string | null
+          updated_at?: string
+        }
+        Update: {
+          coach_id?: string
+          created_at?: string
+          travel_base_address?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       coach_student_notes: {
         Row: {
           coach_user_id: string
@@ -527,6 +760,105 @@ export type Database = {
           id?: string
           notes?: string | null
           player_user_id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      coach_teaching_blocks: {
+        Row: {
+          areas_served: string[]
+          coach_id: string
+          court_type: string | null
+          created_at: string
+          day_of_week: number
+          end_time: string
+          facility_name: string | null
+          id: string
+          is_active: boolean
+          location_type: string
+          publicly_bookable: boolean
+          start_time: string
+          travel_notes: string | null
+          travel_radius_miles: number | null
+          updated_at: string
+        }
+        Insert: {
+          areas_served?: string[]
+          coach_id: string
+          court_type?: string | null
+          created_at?: string
+          day_of_week: number
+          end_time: string
+          facility_name?: string | null
+          id?: string
+          is_active?: boolean
+          location_type: string
+          publicly_bookable?: boolean
+          start_time: string
+          travel_notes?: string | null
+          travel_radius_miles?: number | null
+          updated_at?: string
+        }
+        Update: {
+          areas_served?: string[]
+          coach_id?: string
+          court_type?: string | null
+          created_at?: string
+          day_of_week?: number
+          end_time?: string
+          facility_name?: string | null
+          id?: string
+          is_active?: boolean
+          location_type?: string
+          publicly_bookable?: boolean
+          start_time?: string
+          travel_notes?: string | null
+          travel_radius_miles?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      coach_travel_hours: {
+        Row: {
+          areas_served: string[] | null
+          coach_id: string
+          created_at: string | null
+          days_of_week: number[]
+          end_time: string
+          id: string
+          is_active: boolean
+          publicly_bookable: boolean
+          start_time: string
+          travel_notes: string | null
+          travel_radius_miles: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          areas_served?: string[] | null
+          coach_id: string
+          created_at?: string | null
+          days_of_week?: number[]
+          end_time: string
+          id?: string
+          is_active?: boolean
+          publicly_bookable?: boolean
+          start_time: string
+          travel_notes?: string | null
+          travel_radius_miles?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          areas_served?: string[] | null
+          coach_id?: string
+          created_at?: string | null
+          days_of_week?: number[]
+          end_time?: string
+          id?: string
+          is_active?: boolean
+          publicly_bookable?: boolean
+          start_time?: string
+          travel_notes?: string | null
+          travel_radius_miles?: number | null
           updated_at?: string | null
         }
         Relationships: []
@@ -2062,6 +2394,48 @@ export type Database = {
           },
         ]
       }
+      lesson_packages: {
+        Row: {
+          coach_id: string
+          created_at: string
+          description: string | null
+          duration_min: number
+          id: string
+          is_active: boolean
+          lesson_type: string | null
+          num_sessions: number
+          price: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          coach_id: string
+          created_at?: string
+          description?: string | null
+          duration_min: number
+          id?: string
+          is_active?: boolean
+          lesson_type?: string | null
+          num_sessions?: number
+          price: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          coach_id?: string
+          created_at?: string
+          description?: string | null
+          duration_min?: number
+          id?: string
+          is_active?: boolean
+          lesson_type?: string | null
+          num_sessions?: number
+          price?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       lesson_plans: {
         Row: {
           coach_id: string
@@ -2127,11 +2501,12 @@ export type Database = {
           no_show_by: string | null
           notes: string | null
           package_hold_id: string | null
+          package_id: string | null
           player_id: string
           preferred_date: string
           preferred_dates: string[] | null
-          preferred_time_end: string
-          preferred_time_start: string
+          preferred_time_end: string | null
+          preferred_time_start: string | null
           recurring_series_id: string | null
           responded_at: string | null
           review_eligible_at: string | null
@@ -2166,11 +2541,12 @@ export type Database = {
           no_show_by?: string | null
           notes?: string | null
           package_hold_id?: string | null
+          package_id?: string | null
           player_id: string
           preferred_date: string
           preferred_dates?: string[] | null
-          preferred_time_end: string
-          preferred_time_start: string
+          preferred_time_end?: string | null
+          preferred_time_start?: string | null
           recurring_series_id?: string | null
           responded_at?: string | null
           review_eligible_at?: string | null
@@ -2205,11 +2581,12 @@ export type Database = {
           no_show_by?: string | null
           notes?: string | null
           package_hold_id?: string | null
+          package_id?: string | null
           player_id?: string
           preferred_date?: string
           preferred_dates?: string[] | null
-          preferred_time_end?: string
-          preferred_time_start?: string
+          preferred_time_end?: string | null
+          preferred_time_start?: string | null
           recurring_series_id?: string | null
           responded_at?: string | null
           review_eligible_at?: string | null
@@ -2218,7 +2595,15 @@ export type Database = {
           status?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "lesson_requests_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_packages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       likes: {
         Row: {
@@ -2701,6 +3086,24 @@ export type Database = {
           },
         ]
       }
+      message_email_throttle: {
+        Row: {
+          last_sent_at: string
+          user1_id: string
+          user2_id: string
+        }
+        Insert: {
+          last_sent_at?: string
+          user1_id: string
+          user2_id: string
+        }
+        Update: {
+          last_sent_at?: string
+          user1_id?: string
+          user2_id?: string
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           content: string
@@ -2741,6 +3144,116 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      open_match_listing_participants: {
+        Row: {
+          added_by: string | null
+          joined_at: string
+          listing_id: string
+          slot_index: number | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          added_by?: string | null
+          joined_at?: string
+          listing_id: string
+          slot_index?: number | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          added_by?: string | null
+          joined_at?: string
+          listing_id?: string
+          slot_index?: number | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "open_match_listing_participants_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "open_match_listings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      open_match_listings: {
+        Row: {
+          court_reserved: boolean
+          created_at: string
+          creator_id: string
+          distance_miles: number
+          duration_minutes: number
+          end_time: string
+          format: string
+          id: string
+          location: string
+          location_id: string | null
+          location_source: string
+          match_date: string
+          match_type: string
+          note: string | null
+          ntrp_max: number
+          ntrp_min: number
+          play_with: string
+          start_time: string
+          status: string
+          updated_at: string
+          utr_max: number
+          utr_min: number
+        }
+        Insert: {
+          court_reserved?: boolean
+          created_at?: string
+          creator_id: string
+          distance_miles?: number
+          duration_minutes?: number
+          end_time: string
+          format: string
+          id?: string
+          location: string
+          location_id?: string | null
+          location_source?: string
+          match_date: string
+          match_type: string
+          note?: string | null
+          ntrp_max?: number
+          ntrp_min?: number
+          play_with?: string
+          start_time: string
+          status?: string
+          updated_at?: string
+          utr_max?: number
+          utr_min?: number
+        }
+        Update: {
+          court_reserved?: boolean
+          created_at?: string
+          creator_id?: string
+          distance_miles?: number
+          duration_minutes?: number
+          end_time?: string
+          format?: string
+          id?: string
+          location?: string
+          location_id?: string | null
+          location_source?: string
+          match_date?: string
+          match_type?: string
+          note?: string | null
+          ntrp_max?: number
+          ntrp_min?: number
+          play_with?: string
+          start_time?: string
+          status?: string
+          updated_at?: string
+          utr_max?: number
+          utr_min?: number
+        }
+        Relationships: []
       }
       payouts: {
         Row: {
@@ -2841,9 +3354,14 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          backhand: string | null
           bio: string | null
+          city: string | null
+          country: string | null
           created_at: string | null
           date_of_birth: string | null
+          dominant_hand: string | null
+          favorite_surface: string | null
           full_name: string | null
           gender: string | null
           hide_contact_until_confirmed: boolean | null
@@ -2857,14 +3375,21 @@ export type Database = {
           location: string | null
           location_visible: boolean | null
           longitude: number | null
+          mapbox_place_id: string | null
+          match_preference: string | null
           notification_preferences: Json | null
           ntrp_rating: number | null
           phone_number: string | null
+          playing_style: string | null
           preferred_court_locations: string | null
+          preferred_play_times: string[] | null
+          profile_visibility: string
           referred_by: string | null
           role: Database["public"]["Enums"]["user_role"] | null
           show_activity_status: boolean | null
           show_exact_distance: boolean | null
+          state_region: string | null
+          tennis_goals: string[] | null
           unit_number: string | null
           updated_at: string | null
           user_type: string | null
@@ -2872,13 +3397,19 @@ export type Database = {
           usta_ranking: string | null
           utr_rating: number | null
           wtn_rating: number | null
+          years_playing: number | null
           zip_code: string | null
         }
         Insert: {
           avatar_url?: string | null
+          backhand?: string | null
           bio?: string | null
+          city?: string | null
+          country?: string | null
           created_at?: string | null
           date_of_birth?: string | null
+          dominant_hand?: string | null
+          favorite_surface?: string | null
           full_name?: string | null
           gender?: string | null
           hide_contact_until_confirmed?: boolean | null
@@ -2892,14 +3423,21 @@ export type Database = {
           location?: string | null
           location_visible?: boolean | null
           longitude?: number | null
+          mapbox_place_id?: string | null
+          match_preference?: string | null
           notification_preferences?: Json | null
           ntrp_rating?: number | null
           phone_number?: string | null
+          playing_style?: string | null
           preferred_court_locations?: string | null
+          preferred_play_times?: string[] | null
+          profile_visibility?: string
           referred_by?: string | null
           role?: Database["public"]["Enums"]["user_role"] | null
           show_activity_status?: boolean | null
           show_exact_distance?: boolean | null
+          state_region?: string | null
+          tennis_goals?: string[] | null
           unit_number?: string | null
           updated_at?: string | null
           user_type?: string | null
@@ -2907,13 +3445,19 @@ export type Database = {
           usta_ranking?: string | null
           utr_rating?: number | null
           wtn_rating?: number | null
+          years_playing?: number | null
           zip_code?: string | null
         }
         Update: {
           avatar_url?: string | null
+          backhand?: string | null
           bio?: string | null
+          city?: string | null
+          country?: string | null
           created_at?: string | null
           date_of_birth?: string | null
+          dominant_hand?: string | null
+          favorite_surface?: string | null
           full_name?: string | null
           gender?: string | null
           hide_contact_until_confirmed?: boolean | null
@@ -2927,14 +3471,21 @@ export type Database = {
           location?: string | null
           location_visible?: boolean | null
           longitude?: number | null
+          mapbox_place_id?: string | null
+          match_preference?: string | null
           notification_preferences?: Json | null
           ntrp_rating?: number | null
           phone_number?: string | null
+          playing_style?: string | null
           preferred_court_locations?: string | null
+          preferred_play_times?: string[] | null
+          profile_visibility?: string
           referred_by?: string | null
           role?: Database["public"]["Enums"]["user_role"] | null
           show_activity_status?: boolean | null
           show_exact_distance?: boolean | null
+          state_region?: string | null
+          tennis_goals?: string[] | null
           unit_number?: string | null
           updated_at?: string | null
           user_type?: string | null
@@ -2942,6 +3493,7 @@ export type Database = {
           usta_ranking?: string | null
           utr_rating?: number | null
           wtn_rating?: number | null
+          years_playing?: number | null
           zip_code?: string | null
         }
         Relationships: [
@@ -3163,6 +3715,45 @@ export type Database = {
             referencedColumns: ["user_id"]
           },
         ]
+      }
+      tennis_facilities: {
+        Row: {
+          address: string | null
+          city: string
+          created_at: string
+          facility_type: string
+          id: string
+          is_active: boolean
+          latitude: number | null
+          longitude: number | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          city: string
+          created_at?: string
+          facility_type?: string
+          id?: string
+          is_active?: boolean
+          latitude?: number | null
+          longitude?: number | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          city?: string
+          created_at?: string
+          facility_type?: string
+          id?: string
+          is_active?: boolean
+          latitude?: number | null
+          longitude?: number | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       tournament_registrations: {
         Row: {
@@ -3496,6 +4087,13 @@ export type Database = {
         Args: { _hoa_id: string; _user_id: string }
         Returns: boolean
       }
+      clinic_enrollment_counts: {
+        Args: { clinic_ids: string[] }
+        Returns: {
+          clinic_id: string
+          enrolled_count: number
+        }[]
+      }
       create_community: {
         Args: {
           community_address?: string
@@ -3638,11 +4236,46 @@ export type Database = {
         Returns: boolean
       }
       is_ladder_admin: { Args: { _ladder_id: string }; Returns: boolean }
+      match_tenisx_contacts: {
+        Args: { contact_emails?: string[]; contact_phones?: string[] }
+        Returns: {
+          avatar_url: string
+          full_name: string
+          user_id: string
+          utr_rating: number
+        }[]
+      }
       migrate_existing_hoa_memberships: { Args: never; Returns: undefined }
       regenerate_invite_code: { Args: { _hoa_id: string }; Returns: string }
       reject_hoa_membership: {
         Args: { membership_id: string }
         Returns: boolean
+      }
+      replace_own_coach_teaching_blocks: {
+        Args: { blocks: Json }
+        Returns: {
+          areas_served: string[]
+          coach_id: string
+          court_type: string | null
+          created_at: string
+          day_of_week: number
+          end_time: string
+          facility_name: string | null
+          id: string
+          is_active: boolean
+          location_type: string
+          publicly_bookable: boolean
+          start_time: string
+          travel_notes: string | null
+          travel_radius_miles: number | null
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "coach_teaching_blocks"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       request_hoa_membership: {
         Args: { join_message?: string; target_hoa_id: string }
