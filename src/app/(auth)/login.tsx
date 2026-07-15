@@ -121,7 +121,7 @@ export default function LoginScreen() {
     setError('');
     setIsResetting(true);
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: 'tenisxnative://reset-password',
+      redirectTo: Platform.OS === 'web' ? `${window.location.origin}/reset-password` : 'tenisxnative://reset-password',
     });
     setIsResetting(false);
     if (resetError) {

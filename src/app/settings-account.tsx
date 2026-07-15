@@ -36,7 +36,7 @@ export default function SettingsAccountScreen() {
 
   async function sendPasswordReset() {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: 'tenisx://reset-password',
+      redirectTo: Platform.OS === 'web' ? `${window.location.origin}/reset-password` : 'tenisxnative://reset-password',
     });
     if (error) {
       Alert.alert('Error', 'Could not send reset email. Please try again.');
