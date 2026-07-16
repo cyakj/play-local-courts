@@ -56,16 +56,11 @@ content_path = "./supabase/templates/magic_link.html"
 subject = "Confirm Your New Email Address"
 content_path = "./supabase/templates/email_change.html"
 
-[auth.hook.send_email]
-enabled = false
-uri = "http://localhost:54321/functions/v1/send-auth-email"
-secrets = "v1,whsec_bG9jYWxkZXZzZWNyZXRrZXlmb3JjbGF1ZGU="
-
 [functions.send-booking-email]
 verify_jwt = true
 
-[functions.send-auth-email]
-verify_jwt = false
-
 [functions.send-scheduled-reminders]
 verify_jwt = false
+
+[storage.vector]
+enabled = false
