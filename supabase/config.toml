@@ -18,6 +18,14 @@ jwt_secret = "super-secret-jwt-token-with-at-least-32-characters-long"
 [auth.email]
 enable_signup = true
 enable_confirmations = true
+max_frequency = "1m0s"
+
+[auth.mfa]
+max_enrolled_factors = 10
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
 
 [auth.email.smtp]
 enabled = true
