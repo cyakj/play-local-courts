@@ -17,6 +17,7 @@ import { Check, Eye, EyeOff, ShieldCheck } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/context/NativeAuthContext';
+import { useResendCooldown } from '@/hooks/useResendCooldown';
 import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/design';
 
 const REQUIREMENTS: { label: string; test: (v: string) => boolean }[] = [
@@ -50,7 +51,16 @@ export default function ResetPasswordScreen() {
     access_token?: string;
     refresh_token?: string;
   }>();
-  const { markPasswordRecovery } = useSession();
+  const { markPasswordRecovery, clearPasswordRecovery } = useSession();
+
+  function handleBackToLogin() {
+    // Explicit cancel: without this, isPasswordRecovery is still stuck true
+    // from markPasswordRecovery() above, and the root AuthGuard's recovery
+    // override immediately routes straight back here, making this button
+    // appear completely dead.
+    clearPasswordRecovery();
+    router.replace('/(auth)/login');
+  }
 
   const [sessionReady, setSessionReady] = useState(false);
   const [sessionError, setSessionError] = useState('');
@@ -65,6 +75,8 @@ export default function ResetPasswordScreen() {
   const [retryEmail, setRetryEmail] = useState('');
   const [retrySending, setRetrySending] = useState(false);
   const [retrySent, setRetrySent] = useState(false);
+  const [retryError, setRetryError] = useState('');
+  const retryCooldown = useResendCooldown();
 
   const successScale = useRef(new Animated.Value(0.6)).current;
   const successOpacity = useRef(new Animated.Value(0)).current;
@@ -175,13 +187,27 @@ export default function ResetPasswordScreen() {
   }
 
   async function handleRequestNewLink() {
-    if (retrySending || !retryEmail.trim()) return;
+    if (retrySending || retryCooldown.active || !retryEmail.trim()) return;
     setRetrySending(true);
+    setRetryError('');
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(retryEmail.trim(), {
       redirectTo: Platform.OS === 'web' ? `${window.location.origin}/reset-password` : 'tenisxnative://reset-password',
     });
     setRetrySending(false);
-    if (!resetError) setRetrySent(true);
+    if (resetError) {
+      // Never reveal whether the email exists — resetPasswordForEmail already
+      // doesn't error for unknown addresses, so any error here is a real
+      // infra/rate-limit issue and safe to describe.
+      if (resetError.status === 429) {
+        setRetryError('Too many requests. Please wait a moment and try again.');
+        retryCooldown.start();
+      } else {
+        setRetryError(resetError.message);
+      }
+      return;
+    }
+    setRetrySent(true);
+    retryCooldown.start();
   }
 
   return (
@@ -216,13 +242,21 @@ export default function ResetPasswordScreen() {
                 <Text style={styles.title}>Link no longer valid</Text>
                 <Text style={styles.subtitle}>{sessionError}</Text>
 
-                {retrySent ? (
+                {!!retryError && (
+                  <View style={[styles.banner, styles.errorBanner]}>
+                    <Text style={styles.errorText}>{retryError}</Text>
+                  </View>
+                )}
+
+                {retrySent && (
                   <View style={[styles.banner, styles.successBanner]}>
                     <Text style={styles.successText}>
                       If an account exists for {retryEmail.trim()}, a new reset link is on its way.
                     </Text>
                   </View>
-                ) : (
+                )}
+
+                {(!retrySent || !retryCooldown.active) && (
                   <>
                     <View style={[styles.fieldGroup, { marginTop: 8 }]}>
                       <Text style={styles.fieldLabel}>Email</Text>
@@ -238,18 +272,22 @@ export default function ResetPasswordScreen() {
                       />
                     </View>
                     <TouchableOpacity
-                      style={[styles.button, (!retryEmail.trim() || retrySending) && styles.buttonDisabled]}
+                      style={[styles.button, (!retryEmail.trim() || retrySending || retryCooldown.active) && styles.buttonDisabled]}
                       onPress={handleRequestNewLink}
-                      disabled={!retryEmail.trim() || retrySending}
+                      disabled={!retryEmail.trim() || retrySending || retryCooldown.active}
                       activeOpacity={0.85}>
                       <Text style={styles.buttonText}>
-                        {retrySending ? 'Sending…' : 'Request another reset email'}
+                        {retrySending
+                          ? 'Sending…'
+                          : retryCooldown.active
+                            ? `Resend available in ${retryCooldown.secondsLeft}s`
+                            : 'Request another reset email'}
                       </Text>
                     </TouchableOpacity>
                   </>
                 )}
 
-                <TouchableOpacity style={styles.backLink} onPress={() => router.replace('/(auth)/login')}>
+                <TouchableOpacity style={styles.backLink} onPress={handleBackToLogin} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 16, right: 16 }}>
                   <Text style={styles.cyanLink}>Back to login</Text>
                 </TouchableOpacity>
               </>
@@ -373,7 +411,7 @@ export default function ResetPasswordScreen() {
                   </>
                 )}
 
-                <TouchableOpacity style={styles.backLink} onPress={() => router.replace('/(auth)/login')}>
+                <TouchableOpacity style={styles.backLink} onPress={handleBackToLogin} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 16, right: 16 }}>
                   <Text style={styles.cyanLink}>Back to login</Text>
                 </TouchableOpacity>
               </>

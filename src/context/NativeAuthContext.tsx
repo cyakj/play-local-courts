@@ -18,6 +18,14 @@ interface AuthState {
   // read as a normal login and bounce the user to Home before they can set a
   // new password.
   markPasswordRecovery: () => void;
+  // Called when the user explicitly cancels out of recovery (e.g. "Back to
+  // login" on an invalid/expired link) or the exchange itself fails. Without
+  // this, isPasswordRecovery stays stuck true — since it's normally only
+  // cleared by a SIGNED_OUT event, which never fires for a link whose
+  // exchange failed (no session was ever created to sign out of) — and the
+  // root AuthGuard's recovery-override redirect fights every navigation
+  // attempt away from /reset-password, including "Back to login" itself.
+  clearPasswordRecovery: () => void;
 }
 
 const noop = () => {};
@@ -27,6 +35,7 @@ const NativeAuthContext = createContext<AuthState>({
   loading: true,
   isPasswordRecovery: false,
   markPasswordRecovery: noop,
+  clearPasswordRecovery: noop,
 });
 
 export function NativeAuthProvider({ children }: { children: React.ReactNode }) {
@@ -58,9 +67,10 @@ export function NativeAuthProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const markPasswordRecovery = () => setIsPasswordRecovery(true);
+  const clearPasswordRecovery = () => setIsPasswordRecovery(false);
 
   return (
-    <NativeAuthContext.Provider value={{ session, loading, isPasswordRecovery, markPasswordRecovery }}>
+    <NativeAuthContext.Provider value={{ session, loading, isPasswordRecovery, markPasswordRecovery, clearPasswordRecovery }}>
       {children}
     </NativeAuthContext.Provider>
   );

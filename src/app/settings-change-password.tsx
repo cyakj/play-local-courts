@@ -6,6 +6,7 @@ import { ArrowLeft, Check, Eye, EyeOff, KeyRound } from 'lucide-react-native';
 
 import { useSession } from '@/context/NativeAuthContext';
 import { supabase } from '@/lib/supabase';
+import { useResendCooldown } from '@/hooks/useResendCooldown';
 import { Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing } from '@/constants/design';
 import { useTheme } from '@/context/ThemeContext';
 import type { ThemeTokens } from '@/constants/theme-tokens';
@@ -79,6 +80,8 @@ export default function SettingsChangePasswordScreen() {
 
   const [forgotSending, setForgotSending] = useState(false);
   const [forgotSent, setForgotSent] = useState(false);
+  const [forgotError, setForgotError] = useState('');
+  const resendCooldown = useResendCooldown();
 
   const unmetRequirements = useMemo(
     () => REQUIREMENTS.filter((r) => !r.test(newPassword)),
@@ -138,13 +141,24 @@ export default function SettingsChangePasswordScreen() {
   }
 
   async function handleForgotCurrentPassword() {
-    if (forgotSending || !session?.user.email) return;
+    if (forgotSending || resendCooldown.active || !session?.user.email) return;
     setForgotSending(true);
+    setForgotError('');
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(session.user.email, {
       redirectTo: Platform.OS === 'web' ? `${window.location.origin}/reset-password` : 'tenisxnative://reset-password',
     });
     setForgotSending(false);
-    if (!resetError) setForgotSent(true);
+    if (resetError) {
+      if (resetError.status === 429) {
+        setForgotError('Too many requests. Please wait a moment and try again.');
+        resendCooldown.start();
+      } else {
+        setForgotError(resetError.message);
+      }
+    } else {
+      setForgotSent(true);
+      resendCooldown.start();
+    }
   }
 
   return (
@@ -201,17 +215,27 @@ export default function SettingsChangePasswordScreen() {
                   placeholder="Enter current password"
                 />
 
-                {forgotSent ? (
+                {!!forgotError && (
+                  <Text style={[styles.forgotSentText, { color: Colors.negative }]}>{forgotError}</Text>
+                )}
+                {forgotSent && (
                   <Text style={[styles.forgotSentText]}>
                     Password reset link sent to {session.user.email}.
                   </Text>
-                ) : (
+                )}
+                {(!forgotSent || !resendCooldown.active) && (
                   <TouchableOpacity
                     onPress={handleForgotCurrentPassword}
-                    disabled={forgotSending}
+                    disabled={forgotSending || resendCooldown.active}
                     style={styles.forgotLinkWrap}>
-                    <Text style={[styles.forgotLink, forgotSending && { opacity: 0.6 }]}>
-                      {forgotSending ? 'Sending…' : 'Forgot your current password? Send password reset email'}
+                    <Text style={[styles.forgotLink, (forgotSending || resendCooldown.active) && { opacity: 0.6 }]}>
+                      {forgotSending
+                        ? 'Sending…'
+                        : resendCooldown.active
+                          ? `Resend available in ${resendCooldown.secondsLeft}s`
+                          : forgotSent
+                            ? 'Resend password reset email'
+                            : 'Forgot your current password? Send password reset email'}
                     </Text>
                   </TouchableOpacity>
                 )}

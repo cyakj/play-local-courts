@@ -14,6 +14,7 @@ import { router } from 'expo-router';
 import { Eye, EyeOff, Lock } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
+import { useResendCooldown } from '@/hooks/useResendCooldown';
 import { Colors, FontFamily, FontSize, Radius, Shadow, Spacing } from '@/constants/design';
 
 function OTPInput({
@@ -68,6 +69,7 @@ export default function LoginScreen() {
   const [successMsg, setSuccessMsg] = useState('');
   const [focused, setFocused] = useState<string | null>(null);
   const [isResetting, setIsResetting] = useState(false);
+  const resendCooldown = useResendCooldown();
   const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
   const [mfaCode, setMfaCode] = useState('');
   const [mfaVerifying, setMfaVerifying] = useState(false);
@@ -114,7 +116,7 @@ export default function LoginScreen() {
   }
 
   async function handleForgotPassword() {
-    if (isResetting) return; // guards against double-tap submitting twice
+    if (isResetting || resendCooldown.active) return; // guards against double-tap and spamming the rate limit
     if (!email.trim()) {
       setError('Please enter your email address to reset your password');
       return;
@@ -126,9 +128,18 @@ export default function LoginScreen() {
     });
     setIsResetting(false);
     if (resetError) {
-      setError(resetError.message);
+      // Never reveal whether the email exists — resetPasswordForEmail already
+      // doesn't error for unknown addresses, so any error here is a real
+      // infra/rate-limit issue and safe to describe.
+      if (resetError.status === 429) {
+        setError('Too many requests. Please wait a moment and try again.');
+        resendCooldown.start();
+      } else {
+        setError(resetError.message);
+      }
     } else {
       setSuccessMsg('Password reset email sent. Check your inbox.');
+      resendCooldown.start();
     }
   }
 
@@ -280,9 +291,13 @@ export default function LoginScreen() {
             <TouchableOpacity
               style={styles.centeredLink}
               onPress={handleForgotPassword}
-              disabled={isResetting}>
-              <Text style={[styles.cyanLink, isResetting && { opacity: 0.6 }]}>
-                {isResetting ? 'Sending reset email…' : 'Forgot Password?'}
+              disabled={isResetting || resendCooldown.active}>
+              <Text style={[styles.cyanLink, (isResetting || resendCooldown.active) && { opacity: 0.6 }]}>
+                {isResetting
+                  ? 'Sending reset email…'
+                  : resendCooldown.active
+                    ? `Resend available in ${resendCooldown.secondsLeft}s`
+                    : 'Forgot Password?'}
               </Text>
             </TouchableOpacity>
 

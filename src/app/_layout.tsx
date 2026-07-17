@@ -34,19 +34,28 @@ function AuthGuard() {
   useEffect(() => {
     if (loading) return;
     const inAuth = segments[0] === '(auth)';
-    const onResetPassword = inAuth && segments[1] === 'reset-password';
+    // reset-password is a top-level route (src/app/reset-password.tsx), not
+    // nested under (auth) — see that group's _layout.tsx for why.
+    const onResetPassword = segments[0] === 'reset-password';
     if (__DEV__) console.log(`[AUTH] Guard — session:${!!session} recovery:${isPasswordRecovery} segment:${segments[0] ?? 'root'} inAuth:${inAuth}`);
 
     // PASSWORD_RECOVERY always overrides normal navigation — a recovery
     // session must never be treated as "signed in", no matter where the
     // deep link lands the user (cold start, or already inside the app).
     if (isPasswordRecovery && !onResetPassword) {
-      if (__DEV__) console.log('[AUTH] recovery session → router.replace /(auth)/reset-password');
-      router.replace('/(auth)/reset-password');
+      if (__DEV__) console.log('[AUTH] recovery session → router.replace /reset-password');
+      router.replace('/reset-password');
       return;
     }
 
-    if (!session && !inAuth) {
+    // reset-password must be reachable with no session at all — that's the
+    // normal state for an anonymous recovery link, including one whose
+    // exchange just failed (invalid/expired code). Without this exemption,
+    // an anonymous user here gets bounced to /login, which then immediately
+    // bounces back here because isPasswordRecovery is still true from
+    // markPasswordRecovery() — an infinite redirect loop between the two
+    // routes (React's "Maximum update depth exceeded").
+    if (!session && !inAuth && !onResetPassword) {
       if (__DEV__) console.log('[AUTH] → router.replace /(auth)/login');
       router.replace('/(auth)/login');
     }
@@ -95,6 +104,7 @@ export default function RootLayout() {
       <ThemeProvider initialMode={initialTheme}>
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }}>
           <Stack.Screen name="(auth)" />
+          <Stack.Screen name="reset-password" />
           <Stack.Screen name="(cm)" />
           <Stack.Screen name="(admin)" />
           <Stack.Screen name="(resident)" />
