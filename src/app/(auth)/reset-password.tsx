@@ -124,6 +124,7 @@ export default function ResetPasswordScreen() {
   const canSave = unmetRequirements.length === 0 && passwordsMatch && !saving;
 
   async function handleSave() {
+    if (saving) return; // guards against double-tap submitting twice
     if (unmetRequirements.length > 0) {
       setError('Please meet all password requirements.');
       return;
@@ -151,7 +152,7 @@ export default function ResetPasswordScreen() {
   }
 
   async function handleRequestNewLink() {
-    if (!retryEmail.trim()) return;
+    if (retrySending || !retryEmail.trim()) return;
     setRetrySending(true);
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(retryEmail.trim(), {
       redirectTo: Platform.OS === 'web' ? `${window.location.origin}/reset-password` : 'tenisxnative://reset-password',
@@ -219,7 +220,7 @@ export default function ResetPasswordScreen() {
                       disabled={!retryEmail.trim() || retrySending}
                       activeOpacity={0.85}>
                       <Text style={styles.buttonText}>
-                        {retrySending ? 'Sending…' : 'Request another password reset'}
+                        {retrySending ? 'Sending…' : 'Request another reset email'}
                       </Text>
                     </TouchableOpacity>
                   </>
@@ -231,7 +232,7 @@ export default function ResetPasswordScreen() {
               </>
             ) : (
               <>
-                <Text style={styles.title}>Forgot Password?</Text>
+                <Text style={styles.title}>Create New Password</Text>
                 <Text style={styles.subtitle}>
                   {sessionReady
                     ? 'Choose a new password for your TenisX account.'
@@ -344,7 +345,7 @@ export default function ResetPasswordScreen() {
                       onPress={handleSave}
                       disabled={!canSave}
                       activeOpacity={0.85}>
-                      <Text style={styles.buttonText}>{saving ? 'Saving…' : 'Save New Password'}</Text>
+                      <Text style={styles.buttonText}>{saving ? 'Saving…' : 'Create New Password'}</Text>
                     </TouchableOpacity>
                   </>
                 )}

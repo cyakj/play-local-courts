@@ -3,7 +3,13 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Forgot Your Password?</title>
+    <title>Forgot your password?</title>
+    <style>
+      @media only screen and (max-width: 480px) {
+        .tx-card { padding: 28px 20px !important; }
+        .tx-cta { padding: 15px 28px !important; font-size: 15px !important; }
+      }
+    </style>
   </head>
   <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.6;background:#0C0F18;margin:0;padding:32px 16px;">
     <div style="max-width:480px;margin:0 auto;">
@@ -11,48 +17,43 @@
       <!-- Logo -->
       <div style="text-align:center;padding-bottom:28px;">
         <img
-          src="https://tenisx.ai/images/TenisX_logo-removebg-preview.png"
+          src="https://hqqlrliakttqsbalvuyz.supabase.co/storage/v1/object/public/branding/tenisx-logo.png"
           alt="TenisX"
           width="140"
-          style="display:inline-block;width:140px;max-width:60%;height:auto;"
+          height="56"
+          style="display:inline-block;width:140px;height:56px;max-width:60%;"
         />
       </div>
 
       <!-- Card -->
-      <div style="background:#161A26;border:1px solid #232838;border-radius:16px;padding:40px 32px;">
-        <p style="color:#9AA3B8;margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:0.18em;text-transform:uppercase;text-align:center;">
-          Account Security
-        </p>
-        <h1 style="color:#F5F8FF;margin:0 0 20px;font-size:26px;font-weight:700;letter-spacing:-0.02em;text-align:center;">
-          Forgot Your Password?
+      <div class="tx-card" style="background:#161A26;border:1px solid #232838;border-radius:16px;padding:40px 32px;">
+        <h1 style="color:#F5F8FF;margin:0 0 16px;font-size:26px;font-weight:700;letter-spacing:-0.02em;text-align:center;">
+          Forgot your password?
         </h1>
 
-        <p style="color:#9AA3B8;font-size:16px;margin:0 0 16px;text-align:center;">
+        <p style="color:#9AA3B8;font-size:16px;margin:0 0 8px;text-align:center;">
           We received a request to reset your TenisX password.
         </p>
-        <p style="color:#9AA3B8;font-size:16px;margin:0 0 8px;text-align:center;">
-          Click the button below to create a new password.
+        <p style="color:#9AA3B8;font-size:16px;margin:0;text-align:center;">
+          Click below to create a new one.
         </p>
 
-        <div style="text-align:center;margin:32px 0 28px;">
-          <a href="{{ .ConfirmationURL }}"
+        <div style="text-align:center;margin:32px 0 24px;">
+          <a href="{{ .ConfirmationURL }}" class="tx-cta"
              style="background:#2D6BFF;color:#F5F8FF;padding:16px 40px;text-decoration:none;border-radius:10px;font-weight:700;display:inline-block;font-size:16px;">
             Create New Password
           </a>
         </div>
 
         <p style="color:#7A839A;font-size:13px;margin:0;text-align:center;">
-          If you didn't request this, you can safely ignore this email — your account is safe.
+          Didn't request this? You can safely ignore this email.
         </p>
 
-        <hr style="border:none;border-top:1px solid #232838;margin:32px 0 20px;" />
+        <hr style="border:none;border-top:1px solid #232838;margin:28px 0 16px;" />
 
-        <!-- De-emphasized fallback link -->
-        <p style="color:#7A839A;font-size:12px;margin:0 0 4px;text-align:center;">
-          Button not working?<br/>Copy this link instead.
-        </p>
-        <p style="font-size:11px;color:#5A6379;word-break:break-all;text-align:center;margin:8px 0 0;">
-          {{ .ConfirmationURL }}
+        <!-- Compact fallback link -->
+        <p style="color:#5A6379;font-size:11px;margin:0;text-align:center;">
+          Button not working? <a href="{{ .ConfirmationURL }}" style="color:#7A839A;">Copy this link</a> instead.
         </p>
       </div>
 

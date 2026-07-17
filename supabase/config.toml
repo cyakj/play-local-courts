@@ -37,7 +37,7 @@ admin_email = "noreply@tenisx.ai"
 sender_name = "TenisX"
 
 [auth.email.template.recovery]
-subject = "Forgot Your Password?"
+subject = "Create a new TenisX password"
 content_path = "./supabase/templates/recovery.html"
 
 [auth.email.template.confirmation]

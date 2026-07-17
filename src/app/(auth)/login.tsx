@@ -114,6 +114,7 @@ export default function LoginScreen() {
   }
 
   async function handleForgotPassword() {
+    if (isResetting) return; // guards against double-tap submitting twice
     if (!email.trim()) {
       setError('Please enter your email address to reset your password');
       return;
@@ -281,7 +282,7 @@ export default function LoginScreen() {
               onPress={handleForgotPassword}
               disabled={isResetting}>
               <Text style={[styles.cyanLink, isResetting && { opacity: 0.6 }]}>
-                {isResetting ? 'Sending reset email…' : 'Forgot password?'}
+                {isResetting ? 'Sending reset email…' : 'Forgot Password?'}
               </Text>
             </TouchableOpacity>
 

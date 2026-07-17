@@ -77,6 +77,9 @@ export default function SettingsChangePasswordScreen() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
+  const [forgotSending, setForgotSending] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
+
   const unmetRequirements = useMemo(
     () => REQUIREMENTS.filter((r) => !r.test(newPassword)),
     [newPassword],
@@ -88,6 +91,7 @@ export default function SettingsChangePasswordScreen() {
   if (!session) return <Redirect href="/(auth)/login" />;
 
   async function handleSave() {
+    if (saving) return; // guards against double-tap submitting twice
     if (!session?.user.email) return;
     setError('');
 
@@ -102,8 +106,14 @@ export default function SettingsChangePasswordScreen() {
 
     setSaving(true);
 
-    // Supabase has no "verify current password" API — sign in with it to confirm
-    // the caller actually knows the existing password before rotating it.
+    // The installed @supabase/supabase-js client (2.106.1) accepts a
+    // current_password field on updateUser(), but the server only verifies it
+    // when the project's "Secure password change" GoTrue setting is enabled —
+    // a Dashboard-only toggle, not something exposed in config.toml. Rather
+    // than flip that project-wide security policy blind, we independently
+    // guarantee "wrong current password fails clearly" by re-authenticating
+    // with it first. current_password is still passed through below so this
+    // becomes fully server-verified for free if that setting is ever enabled.
     const { error: verifyError } = await supabase.auth.signInWithPassword({
       email: session.user.email,
       password: currentPassword,
@@ -114,7 +124,10 @@ export default function SettingsChangePasswordScreen() {
       return;
     }
 
-    const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: newPassword,
+      current_password: currentPassword,
+    });
     setSaving(false);
 
     if (updateError) {
@@ -122,6 +135,16 @@ export default function SettingsChangePasswordScreen() {
       return;
     }
     setSuccess(true);
+  }
+
+  async function handleForgotCurrentPassword() {
+    if (forgotSending || !session?.user.email) return;
+    setForgotSending(true);
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(session.user.email, {
+      redirectTo: Platform.OS === 'web' ? `${window.location.origin}/reset-password` : 'tenisxnative://reset-password',
+    });
+    setForgotSending(false);
+    if (!resetError) setForgotSent(true);
   }
 
   return (
@@ -177,6 +200,21 @@ export default function SettingsChangePasswordScreen() {
                   styles={styles}
                   placeholder="Enter current password"
                 />
+
+                {forgotSent ? (
+                  <Text style={[styles.forgotSentText]}>
+                    Password reset link sent to {session.user.email}.
+                  </Text>
+                ) : (
+                  <TouchableOpacity
+                    onPress={handleForgotCurrentPassword}
+                    disabled={forgotSending}
+                    style={styles.forgotLinkWrap}>
+                    <Text style={[styles.forgotLink, forgotSending && { opacity: 0.6 }]}>
+                      {forgotSending ? 'Sending…' : 'Forgot your current password? Send password reset email'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
 
                 <PasswordField
                   label="NEW PASSWORD"
@@ -287,6 +325,13 @@ function useStyles(theme: ThemeTokens) {
     },
     input: {
       flex: 1, fontFamily: FontFamily.manropeMedium, fontSize: FontSize.body, height: '100%',
+    },
+
+    forgotLinkWrap: { marginBottom: 16, marginTop: -8 },
+    forgotLink: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label, color: Colors.cyan },
+    forgotSentText: {
+      fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label, color: Colors.positive,
+      marginBottom: 16, marginTop: -8,
     },
 
     requirements: { gap: 8, marginBottom: 20, marginTop: 4 },
