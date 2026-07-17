@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Redirect, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, LogOut, Mail, Phone } from 'lucide-react-native';
+import { ArrowLeft, ChevronRight, LogOut, Mail, Phone } from 'lucide-react-native';
 
 import { useSession } from '@/context/NativeAuthContext';
 import { supabase } from '@/lib/supabase';
@@ -17,7 +17,6 @@ export default function SettingsAccountScreen() {
   const styles = useStyles(theme);
 
   const [phone, setPhone] = useState<string | null>(null);
-  const [resetSent, setResetSent] = useState(false);
 
   useEffect(() => {
     if (!session) return;
@@ -33,18 +32,6 @@ export default function SettingsAccountScreen() {
   if (!session) return <Redirect href="/(auth)/login" />;
 
   const email = session.user.email ?? '—';
-
-  async function sendPasswordReset() {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: Platform.OS === 'web' ? `${window.location.origin}/reset-password` : 'tenisxnative://reset-password',
-    });
-    if (error) {
-      Alert.alert('Error', 'Could not send reset email. Please try again.');
-    } else {
-      setResetSent(true);
-      Alert.alert('Email sent', `A password reset link has been sent to ${email}.`);
-    }
-  }
 
   function confirmSignOut() {
     if (Platform.OS === 'web') { void doSignOut(); return; }
@@ -101,18 +88,16 @@ export default function SettingsAccountScreen() {
           <Text style={[styles.sectionLabel, { color: theme.textMuted, marginTop: 28 }]}>SECURITY</Text>
           <View style={[styles.card, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
             <TouchableOpacity
-              style={styles.actionRow}
-              onPress={sendPasswordReset}
-              disabled={resetSent}
+              style={[styles.actionRow, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
+              onPress={() => router.push('/settings-change-password' as any)}
               activeOpacity={0.7}>
-              <Text style={[styles.actionLabel, { color: resetSent ? theme.textMuted : Colors.blue }]}>
-                {resetSent ? 'Reset email sent' : 'Change Password'}
-              </Text>
-              {!resetSent && (
+              <View>
+                <Text style={[styles.actionLabel, { color: Colors.blue }]}>Change Password</Text>
                 <Text style={[styles.actionDesc, { color: theme.textMuted }]}>
-                  A reset link will be sent to your email
+                  Update your password from within the app
                 </Text>
-              )}
+              </View>
+              <ChevronRight color={theme.textMuted} size={16} strokeWidth={1.5} />
             </TouchableOpacity>
           </View>
 

@@ -27,19 +27,30 @@ import type { ThemeMode } from '@/constants/theme-tokens';
 // preventing the race condition that occurs when multiple layout <Redirect>
 // components call router.replace() simultaneously.
 function AuthGuard() {
-  const { session, loading } = useSession();
+  const { session, loading, isPasswordRecovery } = useSession();
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
     if (loading) return;
     const inAuth = segments[0] === '(auth)';
-    if (__DEV__) console.log(`[AUTH] Guard — session:${!!session} segment:${segments[0] ?? 'root'} inAuth:${inAuth}`);
+    const onResetPassword = inAuth && segments[1] === 'reset-password';
+    if (__DEV__) console.log(`[AUTH] Guard — session:${!!session} recovery:${isPasswordRecovery} segment:${segments[0] ?? 'root'} inAuth:${inAuth}`);
+
+    // PASSWORD_RECOVERY always overrides normal navigation — a recovery
+    // session must never be treated as "signed in", no matter where the
+    // deep link lands the user (cold start, or already inside the app).
+    if (isPasswordRecovery && !onResetPassword) {
+      if (__DEV__) console.log('[AUTH] recovery session → router.replace /(auth)/reset-password');
+      router.replace('/(auth)/reset-password');
+      return;
+    }
+
     if (!session && !inAuth) {
       if (__DEV__) console.log('[AUTH] → router.replace /(auth)/login');
       router.replace('/(auth)/login');
     }
-  }, [session, loading, segments]);
+  }, [session, loading, isPasswordRecovery, segments]);
 
   return null;
 }
@@ -105,6 +116,7 @@ export default function RootLayout() {
           <Stack.Screen name="settings-notifications" />
           <Stack.Screen name="settings-privacy" />
           <Stack.Screen name="settings-account" />
+          <Stack.Screen name="settings-change-password" />
           <Stack.Screen name="settings-help" />
         </Stack>
       </ThemeProvider>

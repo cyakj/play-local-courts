@@ -5,13 +5,34 @@ import { supabase } from '@/lib/supabase';
 interface AuthState {
   session: Session | null;
   loading: boolean;
+  // True from the moment a recovery deep link is being exchanged for a session
+  // until the user signs out. Navigation guards must treat this as an override
+  // of normal "session exists -> go to authenticated area" routing, or the
+  // recovery session silently drops the user onto Home instead of reset-password.
+  isPasswordRecovery: boolean;
+  // Called by reset-password.tsx the instant it recognizes recovery-shaped
+  // link params, BEFORE it awaits the session exchange. We can't rely solely
+  // on the SDK's PASSWORD_RECOVERY event: exchangeCodeForSession only emits it
+  // for the PKCE flow — the implicit-flow fallback (setSession with
+  // access_token/refresh_token) emits plain SIGNED_IN, which would otherwise
+  // read as a normal login and bounce the user to Home before they can set a
+  // new password.
+  markPasswordRecovery: () => void;
 }
 
-const NativeAuthContext = createContext<AuthState>({ session: null, loading: true });
+const noop = () => {};
+
+const NativeAuthContext = createContext<AuthState>({
+  session: null,
+  loading: true,
+  isPasswordRecovery: false,
+  markPasswordRecovery: noop,
+});
 
 export function NativeAuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
 
   useEffect(() => {
     // Use INITIAL_SESSION event (Supabase v2 recommended pattern).
@@ -22,6 +43,11 @@ export function NativeAuthProvider({ children }: { children: React.ReactNode }) 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
       if (__DEV__) console.log(`[AUTH] event=${event} session=${s ? 'present' : 'null'}`);
       setSession(s);
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsPasswordRecovery(true);
+      } else if (event === 'SIGNED_OUT') {
+        setIsPasswordRecovery(false);
+      }
       if (event === 'INITIAL_SESSION') {
         setLoading(false);
         if (__DEV__) console.log('[AUTH] INITIAL_SESSION → loading=false');
@@ -31,8 +57,10 @@ export function NativeAuthProvider({ children }: { children: React.ReactNode }) 
     return () => subscription.unsubscribe();
   }, []);
 
+  const markPasswordRecovery = () => setIsPasswordRecovery(true);
+
   return (
-    <NativeAuthContext.Provider value={{ session, loading }}>
+    <NativeAuthContext.Provider value={{ session, loading, isPasswordRecovery, markPasswordRecovery }}>
       {children}
     </NativeAuthContext.Provider>
   );

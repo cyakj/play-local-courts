@@ -3,25 +3,65 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Forgot Your Password?</title>
   </head>
-  <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.6;background:#0C0F18;margin:0;padding:20px;">
-    <div style="max-width:600px;margin:0 auto;">
-      <div style="background:#0F2A57;padding:32px;border-radius:12px 12px 0 0;text-align:center;">
-        <h1 style="color:#2DE0FF;margin:0;font-size:28px;font-weight:700;letter-spacing:-0.02em;">TenisX</h1>
-        <p style="color:#9AA3B8;margin:8px 0 0;font-size:13px;text-transform:uppercase;letter-spacing:0.18em;">Password Reset</p>
+  <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.6;background:#0C0F18;margin:0;padding:32px 16px;">
+    <div style="max-width:480px;margin:0 auto;">
+
+      <!-- Logo -->
+      <div style="text-align:center;padding-bottom:28px;">
+        <img
+          src="https://tenisx.ai/images/TenisX_logo-removebg-preview.png"
+          alt="TenisX"
+          width="140"
+          style="display:inline-block;width:140px;max-width:60%;height:auto;"
+        />
       </div>
-      <div style="background:#161A26;padding:32px;border-radius:0 0 12px 12px;border:1px solid #232838;">
-        <p style="color:#F5F8FF;font-size:16px;margin-bottom:16px;">Hi there,</p>
-        <p style="color:#9AA3B8;font-size:16px;margin-bottom:24px;">We received a request to reset the password for your TenisX account ({{ .Email }}). Click the button below to choose a new one.</p>
-        <div style="text-align:center;margin:32px 0;">
-          <a href="{{ .ConfirmationURL }}" style="background:#2D6BFF;color:#F5F8FF;padding:14px 32px;text-decoration:none;border-radius:8px;font-weight:600;display:inline-block;font-size:16px;">Reset Password</a>
+
+      <!-- Card -->
+      <div style="background:#161A26;border:1px solid #232838;border-radius:16px;padding:40px 32px;">
+        <p style="color:#9AA3B8;margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:0.18em;text-transform:uppercase;text-align:center;">
+          Account Security
+        </p>
+        <h1 style="color:#F5F8FF;margin:0 0 20px;font-size:26px;font-weight:700;letter-spacing:-0.02em;text-align:center;">
+          Forgot Your Password?
+        </h1>
+
+        <p style="color:#9AA3B8;font-size:16px;margin:0 0 16px;text-align:center;">
+          We received a request to reset your TenisX password.
+        </p>
+        <p style="color:#9AA3B8;font-size:16px;margin:0 0 8px;text-align:center;">
+          Click the button below to create a new password.
+        </p>
+
+        <div style="text-align:center;margin:32px 0 28px;">
+          <a href="{{ .ConfirmationURL }}"
+             style="background:#2D6BFF;color:#F5F8FF;padding:16px 40px;text-decoration:none;border-radius:10px;font-weight:700;display:inline-block;font-size:16px;">
+            Create New Password
+          </a>
         </div>
-        <p style="font-size:13px;color:#7A839A;margin-top:24px;">If the button doesn't work, copy and paste this link:</p>
-        <p style="font-size:12px;color:#5A6379;word-break:break-all;">{{ .ConfirmationURL }}</p>
-        <hr style="border:none;border-top:1px solid #232838;margin:28px 0;" />
-        <p style="font-size:12px;color:#5A6379;">Didn't request a password reset? You can safely ignore this email — your account is safe.</p>
-        <p style="font-size:12px;color:#5A6379;margin-top:16px;">TenisX &middot; noreply@tenisx.ai</p>
+
+        <p style="color:#7A839A;font-size:13px;margin:0;text-align:center;">
+          If you didn't request this, you can safely ignore this email — your account is safe.
+        </p>
+
+        <hr style="border:none;border-top:1px solid #232838;margin:32px 0 20px;" />
+
+        <!-- De-emphasized fallback link -->
+        <p style="color:#7A839A;font-size:12px;margin:0 0 4px;text-align:center;">
+          Button not working?<br/>Copy this link instead.
+        </p>
+        <p style="font-size:11px;color:#5A6379;word-break:break-all;text-align:center;margin:8px 0 0;">
+          {{ .ConfirmationURL }}
+        </p>
       </div>
+
+      <!-- Footer -->
+      <div style="text-align:center;padding:24px 0 0;">
+        <p style="font-size:12px;color:#5A6379;margin:0;font-weight:600;">TenisX</p>
+        <p style="font-size:12px;color:#5A6379;margin:4px 0 0;">noreply@tenisx.ai</p>
+      </div>
+
     </div>
   </body>
 </html>
