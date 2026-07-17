@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -22,6 +21,7 @@ import {
 import { router, useFocusEffect } from 'expo-router';
 
 import { supabase } from '@/lib/supabase';
+import { confirmAndSignOut } from '@/lib/authActions';
 import { Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing } from '@/constants/design';
 import { Header } from '@/components/ui/Header';
 import { CardSkeleton } from '@/components/ui/Skeleton';
@@ -90,6 +90,7 @@ export default function MeScreen() {
   const [nextMatch, setNextMatch] = useState<UpcomingMatch | null | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [signOutError, setSignOutError] = useState('');
 
   async function load() {
     setError('');
@@ -213,14 +214,8 @@ export default function MeScreen() {
   useFocusEffect(useCallback(() => { load(); }, []));
 
   function handleSignOut() {
-    Alert.alert('Sign out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign out',
-        style: 'destructive',
-        onPress: async () => { await supabase.auth.signOut({ scope: 'local' }); },
-      },
-    ]);
+    setSignOutError('');
+    confirmAndSignOut(setSignOutError);
   }
 
   function getInitials(name: string): string {
@@ -430,10 +425,17 @@ export default function MeScreen() {
 
           {/* Sign out — always visible once loaded */}
           {!loading && (
-            <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.8}>
-              <LogOut size={18} color={Colors.negative} strokeWidth={1.5} />
-              <Text style={styles.signOutText}>Sign Out</Text>
-            </TouchableOpacity>
+            <>
+              {!!signOutError && (
+                <View style={styles.signOutErrorBanner}>
+                  <Text style={styles.signOutErrorText}>Sign out failed: {signOutError}</Text>
+                </View>
+              )}
+              <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.8}>
+                <LogOut size={18} color={Colors.negative} strokeWidth={1.5} />
+                <Text style={styles.signOutText}>Sign Out</Text>
+              </TouchableOpacity>
+            </>
           )}
         </View>
       </ScrollView>
@@ -647,6 +649,14 @@ function useStyles(theme: ThemeTokens) {
       fontFamily: FontFamily.manropeSemiBold,
       fontSize: FontSize.body,
       color: Colors.negative,
+    },
+    signOutErrorBanner: {
+      marginTop: 28, borderRadius: Radius.card, padding: 12,
+      backgroundColor: 'rgba(255,92,107,0.12)',
+    },
+    signOutErrorText: {
+      fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label,
+      color: Colors.negative, textAlign: 'center',
     },
     errorCard: {
       backgroundColor: 'rgba(255,92,107,0.08)',

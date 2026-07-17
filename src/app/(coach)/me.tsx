@@ -8,10 +8,12 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { LogOut } from 'lucide-react-native';
 import { Header } from '@/components/ui/Header';
 import { useTheme } from '@/context/ThemeContext';
 import { useCoachProfile } from '@/hooks/useCoachProfile';
 import { LessonPackagesManager } from '@/components/coach/LessonPackagesManager';
+import { confirmAndSignOut } from '@/lib/authActions';
 import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/design';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 
@@ -82,6 +84,13 @@ export default function CoachMeScreen() {
   const [lessonTypesOffered, setLessonTypesOffered] = useState<string[]>([]);
   const [minimumNoticeHours,     setMinimumNoticeHours]     = useState<number | null>(null);
   const [maxAdvanceBookingDays,  setMaxAdvanceBookingDays]  = useState<number | null>(null);
+
+  const [signOutError, setSignOutError] = useState('');
+
+  function handleSignOut() {
+    setSignOutError('');
+    confirmAndSignOut(setSignOutError);
+  }
 
   const [initialized, setInitialized] = useState(false);
 
@@ -476,6 +485,17 @@ export default function CoachMeScreen() {
         {/* Lesson Packages */}
         <LessonPackagesManager />
 
+        {/* Sign Out */}
+        {!!signOutError && (
+          <View style={styles.signOutErrorBanner}>
+            <Text style={styles.signOutErrorText}>Sign out failed: {signOutError}</Text>
+          </View>
+        )}
+        <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.8}>
+          <LogOut size={18} color={Colors.negative} strokeWidth={1.5} />
+          <Text style={styles.signOutText}>Sign Out</Text>
+        </TouchableOpacity>
+
       </ScrollView>
 
       {/* Payment Settings — not yet available */}
@@ -492,6 +512,31 @@ export default function CoachMeScreen() {
 function useStyles(theme: ThemeTokens) {
   return useMemo(() => StyleSheet.create({
     screen: { flex: 1 },
+    signOutBtn: {
+      marginTop: 28,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      paddingVertical: 14,
+      borderRadius: Radius.card,
+      borderWidth: 1,
+      borderColor: 'rgba(255,92,107,0.25)',
+      backgroundColor: 'rgba(255,92,107,0.08)',
+    },
+    signOutText: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: FontSize.body,
+      color: Colors.negative,
+    },
+    signOutErrorBanner: {
+      marginTop: 28, borderRadius: Radius.card, padding: 12,
+      backgroundColor: 'rgba(255,92,107,0.12)',
+    },
+    signOutErrorText: {
+      fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label,
+      color: Colors.negative, textAlign: 'center',
+    },
     loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     loadingText: {
       fontFamily: FontFamily.manropeMedium,

@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Redirect, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, ChevronRight, LogOut, Mail, Phone } from 'lucide-react-native';
 
 import { useSession } from '@/context/NativeAuthContext';
 import { supabase } from '@/lib/supabase';
+import { confirmAndSignOut } from '@/lib/authActions';
 import { Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing } from '@/constants/design';
 import { useTheme } from '@/context/ThemeContext';
 import type { ThemeTokens } from '@/constants/theme-tokens';
@@ -17,6 +18,7 @@ export default function SettingsAccountScreen() {
   const styles = useStyles(theme);
 
   const [phone, setPhone] = useState<string | null>(null);
+  const [signOutError, setSignOutError] = useState('');
 
   useEffect(() => {
     if (!session) return;
@@ -34,15 +36,8 @@ export default function SettingsAccountScreen() {
   const email = session.user.email ?? '—';
 
   function confirmSignOut() {
-    if (Platform.OS === 'web') { void doSignOut(); return; }
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign Out', style: 'destructive', onPress: doSignOut },
-    ]);
-  }
-
-  async function doSignOut() {
-    await supabase.auth.signOut({ scope: 'local' });
+    setSignOutError('');
+    confirmAndSignOut(setSignOutError);
   }
 
   return (
@@ -102,6 +97,11 @@ export default function SettingsAccountScreen() {
           </View>
 
           {/* Sign Out */}
+          {!!signOutError && (
+            <View style={styles.signOutErrorBanner}>
+              <Text style={styles.signOutErrorText}>Sign out failed: {signOutError}</Text>
+            </View>
+          )}
           <TouchableOpacity style={styles.signOutCard} onPress={confirmSignOut} activeOpacity={0.8}>
             <LogOut color={Colors.negative} size={18} strokeWidth={1.5} />
             <Text style={styles.signOutText}>Sign Out</Text>
@@ -159,5 +159,13 @@ function useStyles(theme: ThemeTokens) {
       backgroundColor: 'rgba(255,92,107,0.08)',
     },
     signOutText: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.body, color: Colors.negative },
+    signOutErrorBanner: {
+      marginTop: 28, borderRadius: Radius.card, padding: 12,
+      backgroundColor: 'rgba(255,92,107,0.12)',
+    },
+    signOutErrorText: {
+      fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label,
+      color: Colors.negative, textAlign: 'center',
+    },
   }), [theme]);
 }

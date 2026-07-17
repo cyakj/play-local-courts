@@ -72,8 +72,29 @@ export default function ResetPasswordScreen() {
   useEffect(() => {
     async function setup() {
       try {
+        // Recovery links sent before flowType was pinned to 'pkce' (or any
+        // client still defaulting to implicit) put tokens in a URL hash
+        // fragment (#access_token=...), not the query string — expo-router's
+        // useLocalSearchParams() never sees those. Parse the hash ourselves
+        // as a fallback so links already in flight still work.
+        let hashAccessToken: string | undefined;
+        let hashRefreshToken: string | undefined;
+        let hashError: string | undefined;
+        if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location.hash) {
+          const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+          hashAccessToken = hashParams.get('access_token') ?? undefined;
+          hashRefreshToken = hashParams.get('refresh_token') ?? undefined;
+          hashError = hashParams.get('error_description') ?? hashParams.get('error') ?? undefined;
+        }
+
+        const effectiveAccessToken = access_token ?? hashAccessToken;
+        const effectiveRefreshToken = refresh_token ?? hashRefreshToken;
+
         if (code) {
-          // PKCE flow — Supabase SDK v2 default. Mark recovery mode before the
+          // PKCE flow — explicitly configured via flowType: 'pkce' in
+          // src/lib/supabase.ts (the SDK's actual default is 'implicit',
+          // which would put these tokens in a URL hash we can't read here).
+          // Mark recovery mode before the
           // exchange resolves so the app-wide guard never treats the moment
           // the session becomes available as a normal sign-in.
           markPasswordRecovery();
@@ -82,19 +103,21 @@ export default function ResetPasswordScreen() {
             setSessionError('This reset link is invalid or has expired.');
             return;
           }
-        } else if (access_token && refresh_token) {
+        } else if (effectiveAccessToken && effectiveRefreshToken) {
           // Implicit flow fallback. setSession() emits SIGNED_IN rather than
           // PASSWORD_RECOVERY, so the explicit mark below is what keeps this
           // path from being redirected to Home like a normal login.
           markPasswordRecovery();
           const { error: sessError } = await supabase.auth.setSession({
-            access_token: String(access_token),
-            refresh_token: String(refresh_token),
+            access_token: String(effectiveAccessToken),
+            refresh_token: String(effectiveRefreshToken),
           });
           if (sessError) {
             setSessionError('This reset link is invalid or has expired.');
             return;
           }
+        } else if (hashError) {
+          setSessionError('This reset link is invalid or has expired.');
         } else {
           setSessionError('This reset link is invalid or has expired.');
           return;
