@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import { Check, Eye, EyeOff, ShieldCheck } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
@@ -46,24 +46,25 @@ const STRENGTH_META = [
 ];
 
 export default function ResetPasswordScreen() {
-  const { code, access_token, refresh_token } = useLocalSearchParams<{
-    code?: string;
-    access_token?: string;
-    refresh_token?: string;
-  }>();
-  const { markPasswordRecovery, clearPasswordRecovery } = useSession();
+  // Token redemption happens exclusively on /reset-password/confirm, behind an
+  // explicit user tap (see confirm.tsx) — that's what keeps email security
+  // scanners that pre-fetch links from silently burning the single-use
+  // recovery token before the real user clicks. By the time this screen is
+  // reached, either verifyOtp() already succeeded (isPasswordRecovery+session
+  // are set) or the user landed here directly with nothing to show but the
+  // same "invalid or expired" fallback.
+  const { session, loading, isPasswordRecovery, clearPasswordRecovery } = useSession();
 
   function handleBackToLogin() {
     // Explicit cancel: without this, isPasswordRecovery is still stuck true
-    // from markPasswordRecovery() above, and the root AuthGuard's recovery
-    // override immediately routes straight back here, making this button
-    // appear completely dead.
+    // and the root AuthGuard's recovery override immediately routes straight
+    // back here, making this button appear completely dead.
     clearPasswordRecovery();
     router.replace('/(auth)/login');
   }
 
-  const [sessionReady, setSessionReady] = useState(false);
-  const [sessionError, setSessionError] = useState('');
+  const sessionReady = !loading && isPasswordRecovery && !!session;
+  const sessionError = !loading && !sessionReady ? 'This reset link is invalid or has expired.' : '';
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -80,67 +81,6 @@ export default function ResetPasswordScreen() {
 
   const successScale = useRef(new Animated.Value(0.6)).current;
   const successOpacity = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    async function setup() {
-      try {
-        // Recovery links sent before flowType was pinned to 'pkce' (or any
-        // client still defaulting to implicit) put tokens in a URL hash
-        // fragment (#access_token=...), not the query string — expo-router's
-        // useLocalSearchParams() never sees those. Parse the hash ourselves
-        // as a fallback so links already in flight still work.
-        let hashAccessToken: string | undefined;
-        let hashRefreshToken: string | undefined;
-        let hashError: string | undefined;
-        if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location.hash) {
-          const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-          hashAccessToken = hashParams.get('access_token') ?? undefined;
-          hashRefreshToken = hashParams.get('refresh_token') ?? undefined;
-          hashError = hashParams.get('error_description') ?? hashParams.get('error') ?? undefined;
-        }
-
-        const effectiveAccessToken = access_token ?? hashAccessToken;
-        const effectiveRefreshToken = refresh_token ?? hashRefreshToken;
-
-        if (code) {
-          // PKCE flow — explicitly configured via flowType: 'pkce' in
-          // src/lib/supabase.ts (the SDK's actual default is 'implicit',
-          // which would put these tokens in a URL hash we can't read here).
-          // Mark recovery mode before the
-          // exchange resolves so the app-wide guard never treats the moment
-          // the session becomes available as a normal sign-in.
-          markPasswordRecovery();
-          const { error: codeError } = await supabase.auth.exchangeCodeForSession(String(code));
-          if (codeError) {
-            setSessionError('This reset link is invalid or has expired.');
-            return;
-          }
-        } else if (effectiveAccessToken && effectiveRefreshToken) {
-          // Implicit flow fallback. setSession() emits SIGNED_IN rather than
-          // PASSWORD_RECOVERY, so the explicit mark below is what keeps this
-          // path from being redirected to Home like a normal login.
-          markPasswordRecovery();
-          const { error: sessError } = await supabase.auth.setSession({
-            access_token: String(effectiveAccessToken),
-            refresh_token: String(effectiveRefreshToken),
-          });
-          if (sessError) {
-            setSessionError('This reset link is invalid or has expired.');
-            return;
-          }
-        } else if (hashError) {
-          setSessionError('This reset link is invalid or has expired.');
-        } else {
-          setSessionError('This reset link is invalid or has expired.');
-          return;
-        }
-        setSessionReady(true);
-      } catch {
-        setSessionError('This reset link is invalid or has expired.');
-      }
-    }
-    setup();
-  }, [code, access_token, refresh_token]);
 
   useEffect(() => {
     if (!success) return;
@@ -191,7 +131,7 @@ export default function ResetPasswordScreen() {
     setRetrySending(true);
     setRetryError('');
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(retryEmail.trim(), {
-      redirectTo: Platform.OS === 'web' ? `${window.location.origin}/reset-password` : 'tenisxnative://reset-password',
+      redirectTo: Platform.OS === 'web' ? `${window.location.origin}/reset-password/confirm` : 'tenisxnative://reset-password/confirm',
     });
     setRetrySending(false);
     if (resetError) {

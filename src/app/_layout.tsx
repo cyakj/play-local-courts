@@ -34,8 +34,10 @@ function AuthGuard() {
   useEffect(() => {
     if (loading) return;
     const inAuth = segments[0] === '(auth)';
-    // reset-password is a top-level route (src/app/reset-password.tsx), not
-    // nested under (auth) — see that group's _layout.tsx for why.
+    // reset-password is a top-level route directory (src/app/reset-password/),
+    // not nested under (auth) — see that group's _layout.tsx for why. This
+    // covers both /reset-password (index) and /reset-password/confirm since
+    // it only checks the first segment.
     const onResetPassword = segments[0] === 'reset-password';
     if (__DEV__) console.log(`[AUTH] Guard — session:${!!session} recovery:${isPasswordRecovery} segment:${segments[0] ?? 'root'} inAuth:${inAuth}`);
 
@@ -104,7 +106,8 @@ export default function RootLayout() {
       <ThemeProvider initialMode={initialTheme}>
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }}>
           <Stack.Screen name="(auth)" />
-          <Stack.Screen name="reset-password" />
+          <Stack.Screen name="reset-password/index" />
+          <Stack.Screen name="reset-password/confirm" />
           <Stack.Screen name="(cm)" />
           <Stack.Screen name="(admin)" />
           <Stack.Screen name="(resident)" />

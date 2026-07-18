@@ -145,7 +145,7 @@ export default function SettingsChangePasswordScreen() {
     setForgotSending(true);
     setForgotError('');
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(session.user.email, {
-      redirectTo: Platform.OS === 'web' ? `${window.location.origin}/reset-password` : 'tenisxnative://reset-password',
+      redirectTo: Platform.OS === 'web' ? `${window.location.origin}/reset-password/confirm` : 'tenisxnative://reset-password/confirm',
     });
     setForgotSending(false);
     if (resetError) {

@@ -11,7 +11,7 @@ max_rows = 1000
 [auth]
 enabled = true
 site_url = "http://localhost:8081"
-additional_redirect_urls = ["http://localhost:8081/reset-password", "tenisxnative://reset-password"]
+additional_redirect_urls = ["http://localhost:8081/reset-password/confirm", "tenisxnative://reset-password/confirm"]
 jwt_expiry = 3600
 jwt_secret = "super-secret-jwt-token-with-at-least-32-characters-long"
 

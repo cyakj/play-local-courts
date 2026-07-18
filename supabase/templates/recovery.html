@@ -39,7 +39,7 @@
         </p>
 
         <div style="text-align:center;margin:32px 0 24px;">
-          <a href="{{ .ConfirmationURL }}" class="tx-cta"
+          <a href="{{ .SiteURL }}/reset-password/confirm?token_hash={{ .TokenHash }}&type=recovery&redirect_to={{ .RedirectTo }}" class="tx-cta"
              style="background:#2D6BFF;color:#F5F8FF;padding:16px 40px;text-decoration:none;border-radius:10px;font-weight:700;display:inline-block;font-size:16px;">
             Create New Password
           </a>
@@ -53,7 +53,7 @@
 
         <!-- Compact fallback link -->
         <p style="color:#5A6379;font-size:11px;margin:0;text-align:center;">
-          Button not working? <a href="{{ .ConfirmationURL }}" style="color:#7A839A;">Copy this link</a> instead.
+          Button not working? <a href="{{ .SiteURL }}/reset-password/confirm?token_hash={{ .TokenHash }}&type=recovery&redirect_to={{ .RedirectTo }}" style="color:#7A839A;">Copy this link</a> instead.
         </p>
       </div>
 
