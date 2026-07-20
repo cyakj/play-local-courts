@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, Check, CheckCheck, Search, Send } from 'lucide-react-native';
+import { ArrowLeft, Calendar, Check, CheckCheck, MapPin, Search, Send } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import { Colors, FontFamily, FontSize, MaxWidth, Spacing } from '@/constants/design';
@@ -41,6 +41,18 @@ interface Conversation {
   unread: number;
 }
 
+type InviteStatus = 'invited' | 'accepted' | 'declined' | 'joined';
+
+interface MatchInviteMeta {
+  listing_id: string;
+  match_date: string;
+  start_time: string;
+  end_time: string;
+  location: string;
+  format: string;
+  organizer_name: string;
+}
+
 interface Message {
   id: string;
   sender_id: string;
@@ -48,6 +60,77 @@ interface Message {
   content: string;
   created_at: string;
   read_at: string | null;
+  message_type?: 'text' | 'match_invite';
+  related_listing_id?: string | null;
+  metadata?: MatchInviteMeta | null;
+}
+
+function formatInviteTime(value: string) {
+  const [hour, minute] = value.slice(0, 5).split(':').map(Number);
+  return `${hour % 12 || 12}:${String(minute).padStart(2, '0')} ${hour >= 12 ? 'PM' : 'AM'}`;
+}
+
+function MatchInviteCard({
+  message,
+  status,
+  isMe,
+  busy,
+  onAccept,
+  onDecline,
+  theme,
+}: {
+  message: Message;
+  status: InviteStatus | null;
+  isMe: boolean;
+  busy: boolean;
+  onAccept: () => void;
+  onDecline: () => void;
+  theme: ThemeTokens;
+}) {
+  const meta = message.metadata;
+  return (
+    <View style={[inviteStyles.card, { backgroundColor: theme.cardBg, borderColor: Colors.blue }]}>
+      <Text style={[inviteStyles.title, { color: theme.textPrimary }]}>
+        {isMe ? 'Match invite sent' : 'Match invite'}
+      </Text>
+      {!!meta && (
+        <>
+          <View style={inviteStyles.row}>
+            <Calendar size={14} color={Colors.blue} />
+            <Text style={[inviteStyles.rowText, { color: theme.textSecondary }]}>
+              {new Date(`${meta.match_date}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · {formatInviteTime(meta.start_time)}–{formatInviteTime(meta.end_time)}
+            </Text>
+          </View>
+          <View style={inviteStyles.row}>
+            <MapPin size={14} color={Colors.blue} />
+            <Text style={[inviteStyles.rowText, { color: theme.textSecondary }]} numberOfLines={1}>{meta.location}</Text>
+          </View>
+        </>
+      )}
+      <View style={inviteStyles.actions}>
+        <TouchableOpacity
+          style={[inviteStyles.actionBtn, inviteStyles.viewBtn, { borderColor: theme.border }]}
+          onPress={() => message.related_listing_id && router.push(`/match/${message.related_listing_id}` as any)}>
+          <Text style={[inviteStyles.viewBtnText, { color: theme.textPrimary }]}>View Match</Text>
+        </TouchableOpacity>
+        {!isMe && status === 'invited' && (
+          <>
+            <TouchableOpacity style={[inviteStyles.actionBtn, inviteStyles.declineBtn]} disabled={busy} onPress={onDecline}>
+              <Text style={inviteStyles.declineBtnText}>Decline</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[inviteStyles.actionBtn, inviteStyles.acceptBtn]} disabled={busy} onPress={onAccept}>
+              <Text style={inviteStyles.acceptBtnText}>Accept</Text>
+            </TouchableOpacity>
+          </>
+        )}
+        {!isMe && status && status !== 'invited' && (
+          <Text style={[inviteStyles.statusText, { color: status === 'accepted' ? Colors.positive : Colors.negative }]}>
+            {status === 'accepted' ? 'Accepted' : 'Declined'}
+          </Text>
+        )}
+      </View>
+    </View>
+  );
 }
 
 function getInitials(name: string): string {
@@ -83,6 +166,8 @@ export default function MessagesScreen() {
   const { partner: partnerParam, lessonRequestId: lessonRequestIdParam } = useLocalSearchParams<{ partner?: string; lessonRequestId?: string }>();
   const [lessonRequestContext, setLessonRequestContext] = useState<{ type: string; date: string } | null>(null);
   const didDeepLink = useRef(false);
+  const [inviteStatuses, setInviteStatuses] = useState<Record<string, InviteStatus>>({});
+  const [inviteBusyId, setInviteBusyId] = useState<string | null>(null);
 
   async function load(uid: string) {
     const { data: msgs } = await supabase
@@ -128,6 +213,35 @@ export default function MessagesScreen() {
     setLoading(false);
   }
 
+  async function loadInviteStatuses(msgs: Message[]) {
+    const listingIds = [...new Set(msgs.filter(m => m.message_type === 'match_invite' && m.related_listing_id).map(m => m.related_listing_id as string))];
+    if (!listingIds.length) return;
+    const { data } = await (supabase as any)
+      .from('open_match_listing_participants')
+      .select('listing_id, status')
+      .in('listing_id', listingIds)
+      .eq('user_id', userId);
+    const next: Record<string, InviteStatus> = {};
+    (data ?? []).forEach((row: any) => { next[row.listing_id] = row.status; });
+    setInviteStatuses(prev => ({ ...prev, ...next }));
+  }
+
+  async function respondToInvite(message: Message, status: 'accepted' | 'declined') {
+    if (!message.related_listing_id) return;
+    setInviteBusyId(message.id);
+    const { error } = await (supabase as any)
+      .from('open_match_listing_participants')
+      .update({ status })
+      .eq('listing_id', message.related_listing_id)
+      .eq('user_id', userId);
+    setInviteBusyId(null);
+    if (error) {
+      Alert.alert('Unable to respond', error.message);
+      return;
+    }
+    setInviteStatuses(prev => ({ ...prev, [message.related_listing_id as string]: status }));
+  }
+
   async function openConvo(convo: Conversation) {
     setActiveConvo(convo);
     setThreadLoading(true);
@@ -137,6 +251,7 @@ export default function MessagesScreen() {
       .or(`and(sender_id.eq.${userId},receiver_id.eq.${convo.partnerId}),and(sender_id.eq.${convo.partnerId},receiver_id.eq.${userId})`)
       .order('created_at', { ascending: true });
     setThread(data ?? []);
+    void loadInviteStatuses((data ?? []) as Message[]);
     setThreadLoading(false);
     await supabase
       .from('messages')
@@ -209,6 +324,18 @@ export default function MessagesScreen() {
     })();
   }, [userId, partnerParam, lessonRequestIdParam]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (!userId) return;
+    const channel = supabase
+      .channel(`messages-invites-${userId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'open_match_listing_participants', filter: `user_id=eq.${userId}` }, (payload) => {
+        const row = (payload.new ?? payload.old) as { listing_id: string; status: InviteStatus } | undefined;
+        if (row?.listing_id) setInviteStatuses(prev => ({ ...prev, [row.listing_id]: row.status }));
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [userId]);
+
   const totalUnread = conversations.reduce((sum, c) => sum + c.unread, 0);
   const filtered = conversations.filter((c) =>
     c.partnerName.toLowerCase().includes(searchQuery.toLowerCase())
@@ -259,6 +386,28 @@ export default function MessagesScreen() {
               renderItem={({ item, index }) => {
                 const isMe = item.sender_id === userId;
                 const showNewDivider = index === firstUnreadIdx && firstUnreadIdx > 0;
+                if (item.message_type === 'match_invite') {
+                  return (
+                    <>
+                      {showNewDivider && (
+                        <View style={styles.newDivider}>
+                          <View style={styles.newDividerLine} />
+                          <Text style={styles.newDividerLabel}>NEW</Text>
+                          <View style={styles.newDividerLine} />
+                        </View>
+                      )}
+                      <MatchInviteCard
+                        message={item}
+                        status={item.related_listing_id ? inviteStatuses[item.related_listing_id] ?? null : null}
+                        isMe={isMe}
+                        busy={inviteBusyId === item.id}
+                        onAccept={() => respondToInvite(item, 'accepted')}
+                        onDecline={() => respondToInvite(item, 'declined')}
+                        theme={theme}
+                      />
+                    </>
+                  );
+                }
                 return (
                   <>
                     {showNewDivider && (
@@ -385,6 +534,22 @@ export default function MessagesScreen() {
     </View>
   );
 }
+
+const inviteStyles = StyleSheet.create({
+  card: { alignSelf: 'stretch', maxWidth: '85%', borderWidth: 1.5, borderRadius: 14, padding: 14, gap: 8, marginVertical: 2 },
+  title: { fontFamily: FontFamily.manropeBold, fontSize: FontSize.body },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  rowText: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label, flexShrink: 1 },
+  actions: { flexDirection: 'row', gap: 8, marginTop: 4, alignItems: 'center' },
+  actionBtn: { minHeight: 38, paddingHorizontal: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  viewBtn: { borderWidth: 1, flex: 1 },
+  viewBtnText: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label },
+  acceptBtn: { backgroundColor: Colors.positive },
+  acceptBtnText: { color: Colors.white, fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label },
+  declineBtn: { borderWidth: 1, borderColor: Colors.negative },
+  declineBtnText: { color: Colors.negative, fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label },
+  statusText: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label },
+});
 
 function useStyles(theme: ThemeTokens) {
   return useMemo(() => StyleSheet.create({

@@ -21,6 +21,7 @@ interface EmailRequest {
     | 'lesson_expired' | 'lesson_expired_coach'
     | 'match_confirmation'   | 'match_reminder'
     | 'match_request_received' | 'match_declined'
+    | 'match_invite'
     | 'hoa_approved'         | 'hoa_rejected';
   bookingId?: string;
   lessonId?: string;
@@ -385,6 +386,29 @@ const handler = async (req: Request): Promise<Response> => {
             <p style="color:#F5F8FF;">${emailData.opponentName ?? 'Your opponent'} was unable to accept your match request${emailData.date ? ` for ${formattedDate}` : ''}.</p>
             ${emailData.cancellationReason ? `<p style="color:#9AA3B8;margin-top:8px;"><strong>Message:</strong> ${emailData.cancellationReason}</p>` : ''}
             <p style="color:#9AA3B8;font-size:13px;margin-top:16px;">You can challenge other players in the TenisX app.</p>
+            <p style="color:#5A6379;font-size:12px;margin-top:32px;">TenisX · noreply@tenisx.ai</p>
+          </div>
+        `;
+        break;
+
+      case 'match_invite':
+        if (preferences && !preferences.match_confirmations) {
+          return new Response(JSON.stringify({ success: true, skipped: true }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+        subject = `${emailData.opponentName ?? 'A player'} invited you to a match`;
+        htmlContent = `
+          <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0C0F18;color:#F5F8FF;padding:32px;border-radius:12px;">
+            <h1 style="color:#2D6BFF;font-size:22px;margin-bottom:8px;">New Match Invite</h1>
+            <p style="color:#9AA3B8;margin-bottom:24px;">Hi ${userName}, ${emailData.opponentName ?? 'another player'} invited you to a match.</p>
+            <div style="background:#161A26;border:1px solid #2D6BFF44;border-radius:10px;padding:20px;margin-bottom:20px;border-left:4px solid #2D6BFF;">
+              ${emailData.matchType ? `<p style="margin:6px 0;"><strong>Format:</strong> ${emailData.matchType}</p>` : ''}
+              ${emailData.date ? `<p style="margin:6px 0;"><strong>Date:</strong> ${formattedDate}</p>` : ''}
+              ${emailData.startTime ? `<p style="margin:6px 0;"><strong>Time:</strong> ${emailData.startTime}${emailData.endTime ? ` – ${emailData.endTime}` : ''}</p>` : ''}
+              ${emailData.location ? `<p style="margin:6px 0;"><strong>Location:</strong> ${emailData.location}</p>` : ''}
+            </div>
+            <p style="color:#9AA3B8;font-size:13px;">Open TenisX to accept or decline the invite.</p>
             <p style="color:#5A6379;font-size:12px;margin-top:32px;">TenisX · noreply@tenisx.ai</p>
           </div>
         `;

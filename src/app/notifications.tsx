@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { router } from 'expo-router';
-import { MessageSquare } from 'lucide-react-native';
+import { CalendarClock, MessageSquare } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import { Colors, FontFamily, FontSize, MaxWidth, Spacing } from '@/constants/design';
@@ -13,12 +13,13 @@ import type { ThemeTokens } from '@/constants/theme-tokens';
 
 interface NotificationItem {
   id: string;
-  type: 'message';
+  type: 'message' | 'match_invite';
   title: string;
   body: string;
   createdAt: string;
   read: boolean;
   senderId: string;
+  listingId: string | null;
 }
 
 function timeAgo(iso: string): string {
@@ -43,19 +44,22 @@ export default function NotificationsScreen() {
 
       const { data: msgs } = await supabase
         .from('messages')
-        .select('id, sender_id, content, created_at, read_at, profiles!sender_id(full_name)')
+        .select('id, sender_id, content, created_at, read_at, message_type, related_listing_id, profiles!sender_id(full_name)')
         .eq('receiver_id', user.id)
         .order('created_at', { ascending: false })
         .limit(50);
 
       const notifications: NotificationItem[] = (msgs ?? []).map((m: any) => ({
         id: m.id,
-        type: 'message',
-        title: `Message from ${m.profiles?.full_name ?? 'Someone'}`,
+        type: m.message_type === 'match_invite' ? 'match_invite' : 'message',
+        title: m.message_type === 'match_invite'
+          ? `Match invite from ${m.profiles?.full_name ?? 'a player'}`
+          : `Message from ${m.profiles?.full_name ?? 'Someone'}`,
         body: m.content,
         createdAt: m.created_at,
         read: !!m.read_at,
         senderId: m.sender_id,
+        listingId: m.related_listing_id ?? null,
       }));
 
       setItems(notifications);
@@ -86,9 +90,13 @@ export default function NotificationsScreen() {
                 key={item.id}
                 style={[styles.item, !item.read && styles.itemUnread]}
                 activeOpacity={0.75}
-                onPress={() => router.push({ pathname: '/messages', params: { partner: item.senderId } })}>
+                onPress={() => item.type === 'match_invite' && item.listingId
+                  ? router.push(`/match/${item.listingId}` as any)
+                  : router.push({ pathname: '/messages', params: { partner: item.senderId } })}>
                 <View style={styles.iconWrap}>
-                  <MessageSquare color={Colors.accentCyan} size={20} strokeWidth={1.5} />
+                  {item.type === 'match_invite'
+                    ? <CalendarClock color={Colors.accentCyan} size={20} strokeWidth={1.5} />
+                    : <MessageSquare color={Colors.accentCyan} size={20} strokeWidth={1.5} />}
                 </View>
                 <View style={{ flex: 1 }}>
                   <View style={styles.itemTop}>
