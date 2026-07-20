@@ -17,7 +17,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { setBackgroundColorAsync } from 'expo-system-ui';
 import { useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 
 import { ThemeProvider, STORAGE_KEY } from '@/context/ThemeContext';
 import { NativeAuthProvider, useSession } from '@/context/NativeAuthContext';
@@ -68,6 +68,33 @@ function AuthGuard() {
 
 SplashScreen.preventAutoHideAsync();
 setBackgroundColorAsync('#0C0F18');
+
+// Global web-only focus style: browsers default text inputs to an orange/
+// yellow outline (and Chrome autofill paints a yellow background) — neither
+// matches the app's dark UI. Replace with a neutral resting border (each
+// screen already sets its own via theme.border) and a TenisX-blue ring on
+// keyboard focus, applied once for every <input>/<textarea> app-wide since
+// there's no single shared Input component to patch instead.
+if (Platform.OS === 'web' && typeof document !== 'undefined' && !document.getElementById('tenisx-global-focus-style')) {
+  const style = document.createElement('style');
+  style.id = 'tenisx-global-focus-style';
+  style.textContent = `
+    input, textarea, select { outline: none; }
+    input:focus, textarea:focus, select:focus { outline: none; }
+    input:focus-visible, textarea:focus-visible, select:focus-visible {
+      outline: 2px solid #2D6BFF;
+      outline-offset: 1px;
+    }
+    input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus,
+    textarea:-webkit-autofill, textarea:-webkit-autofill:hover, textarea:-webkit-autofill:focus {
+      -webkit-text-fill-color: #F5F8FF;
+      -webkit-box-shadow: 0 0 0px 1000px #161A26 inset;
+      box-shadow: 0 0 0px 1000px #161A26 inset;
+      transition: background-color 9999s ease-in-out 0s;
+    }
+  `;
+  document.head.appendChild(style);
+}
 
 export default function RootLayout() {
   const [initialTheme, setInitialTheme] = useState<ThemeMode>('light');

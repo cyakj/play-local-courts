@@ -7,8 +7,8 @@ import {
   View,
 } from 'react-native';
 import {
+  ChevronRight,
   CloudLightning,
-  CloudOff,
   CloudRain,
   CloudSun,
   Droplets,
@@ -150,7 +150,6 @@ const DayColumn = memo(function DayColumn({
 }: DayColumnProps) {
   const colW = mode === 'outdoor' ? DAY_COL_W_OUTDOOR : DAY_COL_W_INDOOR;
   const colH = mode === 'outdoor' ? DAY_COL_H_OUTDOOR : DAY_COL_H_INDOOR;
-  const showNoForecast = mode === 'outdoor' && !hasWeather;
 
   return (
     <TouchableOpacity
@@ -175,20 +174,16 @@ const DayColumn = memo(function DayColumn({
         {formatDateShort(date)}
       </Text>
 
-      {mode === 'outdoor' && (
-        hasWeather && rainPct !== null && tempF !== null ? (
-          <>
-            <WxIcon rainPct={rainPct} size={18} />
-            <Text style={[styles.dayTemp, { color: isSelected ? '#FFFFFF' : theme.textSecondary }]}>
-              {tempF}°F
-            </Text>
-            {score !== null && (
-              <View style={[styles.scoreDot, { backgroundColor: WEATHER_SCORE_COLORS[score] }]} />
-            )}
-          </>
-        ) : showNoForecast ? (
-          <CloudOff size={14} color={theme.textDisabled} strokeWidth={1.5} />
-        ) : null
+      {mode === 'outdoor' && hasWeather && rainPct !== null && tempF !== null && (
+        <>
+          <WxIcon rainPct={rainPct} size={18} />
+          <Text style={[styles.dayTemp, { color: isSelected ? '#FFFFFF' : theme.textSecondary }]}>
+            {tempF}°F
+          </Text>
+          {score !== null && (
+            <View style={[styles.scoreDot, { backgroundColor: WEATHER_SCORE_COLORS[score] }]} />
+          )}
+        </>
       )}
     </TouchableOpacity>
   );
@@ -339,6 +334,10 @@ export const WeatherTimeWheel = memo(function WeatherTimeWheel({
   onDateChange,
 }: WeatherTimeWheelProps) {
   const slotListRef = useRef<FlatList<string>>(null);
+  const [dayStripScrolled, setDayStripScrolled] = useState(false);
+  const handleDayStripScroll = useCallback((e: { nativeEvent: { contentOffset: { x: number } } }) => {
+    if (!dayStripScrolled && e.nativeEvent.contentOffset.x > 8) setDayStripScrolled(true);
+  }, [dayStripScrolled]);
 
   const [internalDate, setInternalDate] = useState<Date>(availableDates[0] ?? new Date());
   const [internalTime, setInternalTime] = useState<string | null>(null);
@@ -451,37 +450,51 @@ export const WeatherTimeWheel = memo(function WeatherTimeWheel({
     mode, showWeatherForActiveDay, handleSlotPress, activeDuration, theme,
   ]);
 
+  const dayColH = mode === 'outdoor' ? DAY_COL_H_OUTDOOR : DAY_COL_H_INDOOR;
+  const showDayStripHint = !dayStripScrolled && availableDates.length > 4;
+
   return (
     <View style={styles.root}>
       {/* Day strip */}
-      <FlatList
-        horizontal
-        data={availableDates}
-        keyExtractor={(d) => formatDateKey(d)}
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.dayStrip}
-        style={styles.dayStripList}
-        renderItem={({ item: date }) => {
-          const wx = getDayWeather(date);
-          const hasWx = wx !== null;
-          const score = hasWx ? computeWeatherScore(wx.precipitationProbability, wx.windSpeed ?? 0) : null;
-          return (
-            <DayColumn
-              date={date}
-              isSelected={isSameDay(date, activeDate)}
-              isUnavailable={unavailSet.has(formatDateKey(date))}
-              mode={mode}
-              rainPct={wx?.precipitationProbability ?? null}
-              tempF={wx?.temperature ?? null}
-              windMph={wx?.windSpeed ?? null}
-              score={score}
-              hasWeather={hasWx}
-              onPress={() => handleDayPress(date)}
-              theme={theme}
-            />
-          );
-        }}
-      />
+      <View style={styles.dayStripWrap}>
+        <FlatList
+          horizontal
+          data={availableDates}
+          keyExtractor={(d) => formatDateKey(d)}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.dayStrip}
+          style={styles.dayStripList}
+          onScroll={handleDayStripScroll}
+          scrollEventThrottle={32}
+          renderItem={({ item: date }) => {
+            const wx = getDayWeather(date);
+            const hasWx = wx !== null;
+            const score = hasWx ? computeWeatherScore(wx.precipitationProbability, wx.windSpeed ?? 0) : null;
+            return (
+              <DayColumn
+                date={date}
+                isSelected={isSameDay(date, activeDate)}
+                isUnavailable={unavailSet.has(formatDateKey(date))}
+                mode={mode}
+                rainPct={wx?.precipitationProbability ?? null}
+                tempF={wx?.temperature ?? null}
+                windMph={wx?.windSpeed ?? null}
+                score={score}
+                hasWeather={hasWx}
+                onPress={() => handleDayPress(date)}
+                theme={theme}
+              />
+            );
+          }}
+        />
+        {showDayStripHint && (
+          <View pointerEvents="none" style={[styles.dayStripHint, { top: Spacing.s3, height: dayColH }]}>
+            <View style={[styles.dayStripHintBadge, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
+              <ChevronRight size={16} color={Colors.blue} strokeWidth={2} />
+            </View>
+          </View>
+        )}
+      </View>
 
       <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
@@ -526,6 +539,9 @@ const styles = StyleSheet.create({
   },
 
   // Day strip
+  dayStripWrap: {
+    position: 'relative',
+  },
   dayStripList: {
     flexGrow: 0,
   },
@@ -533,6 +549,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.pagePx,
     paddingVertical: Spacing.s3,
     gap: Spacing.s2,
+  },
+  dayStripHint: {
+    position: 'absolute',
+    right: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dayStripHintBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingLeft: 1,
   },
   dayCol: {
     alignItems: 'center',

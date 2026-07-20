@@ -15,6 +15,7 @@ import { router } from 'expo-router';
 import {
   Check,
   ChevronDown,
+  ChevronRight,
   Search,
   SlidersHorizontal,
   Users,
@@ -170,9 +171,11 @@ function DateTimeSheet({
 }) {
   const { theme } = useTheme();
   const [draft, setDraft] = useState(filters);
+  const [dateScrolled, setDateScrolled] = useState(false);
 
   useEffect(() => {
     if (visible) setDraft(filters);
+    setDateScrolled(false);
   }, [visible, filters]);
 
   function toggleDate(key: string) {
@@ -216,20 +219,34 @@ function DateTimeSheet({
           <ScrollView showsVerticalScrollIndicator={false}>
             <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Choose your days (max. 7)</Text>
             <Text style={[styles.sectionHelp, { color: theme.textSecondary }]}>You can select up to 7 days</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dateRow}>
-              {DATE_OPTIONS.map(option => {
-                const active = draft.dates.includes(option.key);
-                return (
-                  <TouchableOpacity key={option.key} style={styles.dateOption} onPress={() => toggleDate(option.key)}>
-                    <Text style={[styles.dateDay, { color: active ? Colors.cyan : theme.textMuted }]}>{option.day}</Text>
-                    <View style={[styles.dateNumber, active && { backgroundColor: Colors.courtBlue, borderColor: Colors.cyan }]}>
-                      <Text style={[styles.dateNumberText, { color: active ? Colors.white : theme.textPrimary }]}>{option.number}</Text>
-                    </View>
-                    <Text style={[styles.dateMonth, { color: theme.textSecondary }]}>{option.month}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
+            <View style={{ position: 'relative' }}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.dateRow}
+                onScroll={(e) => { if (!dateScrolled && e.nativeEvent.contentOffset.x > 8) setDateScrolled(true); }}
+                scrollEventThrottle={32}>
+                {DATE_OPTIONS.map(option => {
+                  const active = draft.dates.includes(option.key);
+                  return (
+                    <TouchableOpacity key={option.key} style={styles.dateOption} onPress={() => toggleDate(option.key)}>
+                      <Text style={[styles.dateDay, { color: active ? Colors.cyan : theme.textMuted }]}>{option.day}</Text>
+                      <View style={[styles.dateNumber, active && { backgroundColor: Colors.courtBlue, borderColor: Colors.cyan }]}>
+                        <Text style={[styles.dateNumberText, { color: active ? Colors.white : theme.textPrimary }]}>{option.number}</Text>
+                      </View>
+                      <Text style={[styles.dateMonth, { color: theme.textSecondary }]}>{option.month}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+              {!dateScrolled && (
+                <View pointerEvents="none" style={styles.dateScrollHint}>
+                  <View style={[styles.dateScrollHintBadge, { backgroundColor: theme.sheetBg, borderColor: theme.border }]}>
+                    <ChevronRight size={14} color={Colors.blue} strokeWidth={2} />
+                  </View>
+                </View>
+              )}
+            </View>
 
             <Text style={[styles.sectionTitle, styles.timeHeading, { color: theme.textPrimary }]}>Choose your time</Text>
             {TIME_OPTIONS.map(option => {
@@ -650,6 +667,8 @@ const styles = StyleSheet.create({
   sectionTitle: { fontFamily: FontFamily.spaceGroteskBold, fontSize: FontSize.cardTitle, marginTop: 18 },
   sectionHelp: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.body, marginTop: 4 },
   dateRow: { paddingVertical: 24, gap: 8 },
+  dateScrollHint: { position: 'absolute', right: 0, top: 24, bottom: 0, justifyContent: 'center' },
+  dateScrollHintBadge: { width: 26, height: 26, borderRadius: 13, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingLeft: 1 },
   dateOption: { width: 66, alignItems: 'center', gap: 7 },
   dateDay: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: FontSize.label },
   dateNumber: { width: 50, height: 50, borderRadius: 25, borderWidth: 1, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },

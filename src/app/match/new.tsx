@@ -29,6 +29,8 @@ import { Header } from '@/components/ui/Header';
 import { WeatherTimeWheel } from '@/components/ui/WeatherTimeWheel';
 import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/design';
 import { useTheme } from '@/context/ThemeContext';
+import { useHourlyWeather } from '@/hooks/useHourlyWeather';
+import { sendMatchInviteNotifications } from '@/lib/matchInvites';
 import { supabase } from '@/lib/supabase';
 
 type MatchFormat = 'singles' | 'doubles';
@@ -45,7 +47,9 @@ interface MatchLocation {
 const today = new Date();
 today.setHours(0, 0, 0, 0);
 
-const DATES = Array.from({ length: 15 }, (_, index) => {
+const MAX_DAYS_AHEAD = 14;
+
+const DATES = Array.from({ length: MAX_DAYS_AHEAD + 1 }, (_, index) => {
   const date = new Date(today);
   date.setDate(date.getDate() + index);
   return date;
@@ -53,6 +57,14 @@ const DATES = Array.from({ length: 15 }, (_, index) => {
 
 function dateKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+// Defense in depth: DATES already bounds the UI to today..+14, but validate
+// again at submit time in case a stale/controlled value ever slips through.
+function isWithinCreateWindow(date: Date) {
+  const start = new Date(today);
+  const daysAhead = Math.round((new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime() - start.getTime()) / 86_400_000);
+  return daysAhead >= 0 && daysAhead <= MAX_DAYS_AHEAD;
 }
 
 function formatTime(value: string) {
@@ -101,6 +113,7 @@ export default function NewMatchScreen() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const [userId, setUserId] = useState('');
+  const [userName, setUserName] = useState('A player');
   const [format, setFormat] = useState<MatchFormat | null>(null);
   const [players, setPlayers] = useState<MatchInvitee[]>([]);
   const [selectedDate, setSelectedDate] = useState(DATES[0]);
@@ -120,7 +133,14 @@ export default function NewMatchScreen() {
   const locationCity = location?.city || location?.name;
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => setUserId(user?.id ?? ''));
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUserId(user?.id ?? '');
+      if (user?.id) {
+        supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle().then(({ data }) => {
+          if (data?.full_name) setUserName(data.full_name);
+        });
+      }
+    });
   }, []);
 
   useEffect(() => {
@@ -129,6 +149,10 @@ export default function NewMatchScreen() {
 
   async function createMatch() {
     if (!canCreate || !format || !selectedTime || !location) return;
+    if (!isWithinCreateWindow(selectedDate)) {
+      Alert.alert('Invalid date', `Matches can only be scheduled from today through ${MAX_DAYS_AHEAD} days ahead.`);
+      return;
+    }
     const currentUserId = userId || (await supabase.auth.getUser()).data.user?.id;
     if (!currentUserId) {
       Alert.alert('Sign-in required', 'You must be signed in to create a match.');
@@ -170,6 +194,13 @@ export default function NewMatchScreen() {
       if (inviteError) {
         console.error('Invite error:', inviteError);
         Alert.alert('Match created', 'The match was created, but one or more invitations could not be added.');
+      } else {
+        await sendMatchInviteNotifications(
+          { id: data.id, format, match_date: dateKey(selectedDate), start_time: selectedTime, end_time: endTime(selectedTime, duration), location: location.name },
+          players.map(player => player.id),
+          currentUserId,
+          userName,
+        );
       }
     }
 
@@ -287,6 +318,8 @@ export default function NewMatchScreen() {
         date={selectedDate}
         time={selectedTime}
         duration={duration}
+        format={format}
+        locationName={location?.name}
         locationCity={locationCity}
         onSave={(date, time, nextDuration) => {
           setSelectedDate(date);
@@ -340,6 +373,8 @@ function DateTimeSheet({
   date,
   time,
   duration,
+  format,
+  locationName,
   locationCity,
   onSave,
   onDismiss,
@@ -348,6 +383,8 @@ function DateTimeSheet({
   date: Date;
   time: string | null;
   duration: number;
+  format: MatchFormat | null;
+  locationName?: string;
   locationCity?: string;
   onSave: (date: Date, time: string, duration: number) => void;
   onDismiss: () => void;
@@ -356,6 +393,7 @@ function DateTimeSheet({
   const [draftDate, setDraftDate] = useState(date);
   const [draftTime, setDraftTime] = useState<string | null>(time);
   const [draftDuration, setDraftDuration] = useState(duration);
+  const { getWeather } = useHourlyWeather(locationCity ?? null);
 
   useEffect(() => {
     if (!visible) return;
@@ -363,6 +401,8 @@ function DateTimeSheet({
     setDraftTime(time);
     setDraftDuration(duration);
   }, [visible, date, time, duration]);
+
+  const draftWeather = draftTime ? getWeather(draftDate, draftTime) : null;
 
   return (
     <SheetFrame visible={visible} title="Date & Time" onDismiss={onDismiss}>
@@ -380,6 +420,17 @@ function DateTimeSheet({
           theme={theme}
         />
       </View>
+      {draftTime && (
+        <View style={[styles.summaryCard, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
+          <Text style={[styles.summaryLine, { color: theme.textPrimary }]} numberOfLines={1}>
+            {(locationName ?? 'Facility TBD')} · {format === 'doubles' ? 'Doubles' : format === 'singles' ? 'Singles' : 'Format TBD'} · {draftDuration} min
+          </Text>
+          <Text style={[styles.summaryLine, { color: theme.textSecondary }]} numberOfLines={1}>
+            {draftDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} · {formatTime(draftTime)}–{formatTime(endTime(draftTime, draftDuration))}
+            {draftWeather ? ` · ${draftWeather.temperature}°F, ${draftWeather.description}` : ''}
+          </Text>
+        </View>
+      )}
       <TouchableOpacity
         style={[styles.sheetSave, !draftTime && styles.disabledButton]}
         disabled={!draftTime}
@@ -548,6 +599,8 @@ const styles = StyleSheet.create({
   segment: { flex: 1, minHeight: 46, borderWidth: 1, borderRadius: Radius.chip, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
   segmentText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 13, textAlign: 'center' },
   sheetSave: { minHeight: 52, backgroundColor: Colors.blue, borderRadius: Radius.button, alignItems: 'center', justifyContent: 'center', marginTop: 10 },
+  summaryCard: { borderWidth: 1, borderRadius: Radius.card, padding: 14, marginTop: 12, gap: 4 },
+  summaryLine: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label },
   locationSearch: { minHeight: 52, borderWidth: 1, borderRadius: Radius.input, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, marginBottom: 8 },
   locationSearchInput: { flex: 1, fontFamily: FontFamily.manropeMedium, fontSize: FontSize.body },
   locationOption: { minHeight: 76, borderBottomWidth: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
