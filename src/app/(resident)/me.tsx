@@ -27,6 +27,7 @@ import { Header } from '@/components/ui/Header';
 import { CardSkeleton } from '@/components/ui/Skeleton';
 import { InfoTooltip } from '@/components/ui/InfoTooltip';
 import { useTheme } from '@/context/ThemeContext';
+import { useUpcomingMatches } from '@/hooks/useUpcomingMatches';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 
 const LESSON_TYPE_SHORT: Record<string, string> = {
@@ -91,11 +92,15 @@ export default function MeScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [signOutError, setSignOutError] = useState('');
+  const [userId, setUserId] = useState('');
+  const { upcoming: openMatches, invitations: matchInvites } = useUpcomingMatches(userId);
+  const nextOpenMatch = openMatches[0] ?? null;
 
   async function load() {
     setError('');
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
+    setUserId(user.id);
 
     const today = new Date().toISOString().split('T')[0];
 
@@ -372,7 +377,7 @@ export default function MeScreen() {
                 </TouchableOpacity>
               )}
 
-              {/* Next match preview */}
+              {/* Next match preview — legacy challenge match, else newest open match listing */}
               {nextMatch ? (
                 <TouchableOpacity
                   style={styles.upcomingCard}
@@ -392,13 +397,35 @@ export default function MeScreen() {
                   </View>
                   <ChevronRight size={14} color={theme.textMuted} strokeWidth={1.5} />
                 </TouchableOpacity>
+              ) : nextOpenMatch ? (
+                <TouchableOpacity
+                  style={styles.upcomingCard}
+                  onPress={() => router.push(`/match/${nextOpenMatch.listingId}` as any)}
+                  activeOpacity={0.8}>
+                  <View style={[styles.upcomingIcon, { backgroundColor: 'rgba(214,255,61,0.10)' }]}>
+                    <Swords size={18} color={Colors.volt} strokeWidth={1.5} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.upcomingTitle}>
+                      {nextOpenMatch.format === 'doubles' ? 'Doubles' : 'Singles'} · {nextOpenMatch.location}
+                    </Text>
+                    <Text style={styles.upcomingMeta}>
+                      {formatDateDisplay(nextOpenMatch.matchDate)} · {formatTime12(nextOpenMatch.startTime)}
+                    </Text>
+                  </View>
+                  <ChevronRight size={14} color={theme.textMuted} strokeWidth={1.5} />
+                </TouchableOpacity>
               ) : (
                 <TouchableOpacity
                   style={styles.upcomingEmpty}
                   onPress={() => router.push('/(resident)/match')}
                   activeOpacity={0.8}>
                   <Swords size={16} color={theme.textMuted} strokeWidth={1.5} />
-                  <Text style={styles.upcomingEmptyText}>No upcoming matches — find an opponent</Text>
+                  <Text style={styles.upcomingEmptyText}>
+                    {matchInvites.length > 0
+                      ? `${matchInvites.length} match invitation${matchInvites.length > 1 ? 's' : ''} waiting`
+                      : 'No upcoming matches — find an opponent'}
+                  </Text>
                   <ChevronRight size={14} color={theme.textMuted} strokeWidth={1.5} />
                 </TouchableOpacity>
               )}

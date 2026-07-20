@@ -20,6 +20,7 @@ import {
 } from '@/constants/design';
 import { Header } from '@/components/ui/Header';
 import { useTheme } from '@/context/ThemeContext';
+import { useUpcomingMatches } from '@/hooks/useUpcomingMatches';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -168,6 +169,8 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(true);
+  const [userId, setUserId] = useState('');
+  const { upcoming: openMatches, invitations: matchInvites } = useUpcomingMatches(userId);
 
   useEffect(() => {
     async function loadWeather() {
@@ -193,6 +196,7 @@ export default function HomeScreen() {
       if (!user) { setLoading(false); return; }
 
       const userId = user.id;
+      setUserId(userId);
       const today = new Date().toISOString().split('T')[0];
 
       const [profileRes, membershipRes] = await Promise.all([
@@ -522,8 +526,23 @@ export default function HomeScreen() {
             )}
           </View>
 
+          {/* ── Match Invitations teaser (hidden if none) ───────────────── */}
+          {!loading && matchInvites.length > 0 && (
+            <TouchableOpacity
+              testID="match-invites-banner"
+              style={styles.inviteBanner}
+              onPress={() => router.push('/(resident)/match')}
+              activeOpacity={0.8}>
+              <Swords color={Colors.blue} size={18} strokeWidth={1.5} />
+              <Text style={styles.inviteBannerText}>
+                {matchInvites.length} match invitation{matchInvites.length > 1 ? 's' : ''} waiting
+              </Text>
+              <ChevronRight color={Colors.blue} size={16} strokeWidth={1.5} />
+            </TouchableOpacity>
+          )}
+
           {/* ── Upcoming Matches (hidden if empty) ─────────────────────── */}
-          {!loading && upcomingMatches.length > 0 && (
+          {!loading && (upcomingMatches.length > 0 || openMatches.length > 0) && (
             <View testID="upcoming-matches-card" style={styles.card}>
               <View style={styles.cardHeader}>
                 <Text style={styles.metadataLabel}>UPCOMING MATCHES</Text>
@@ -535,7 +554,7 @@ export default function HomeScreen() {
                 <TouchableOpacity
                   key={m.id}
                   testID="upcoming-match-row"
-                  style={[styles.listRow, i < upcomingMatches.length - 1 && styles.listRowBorder]}
+                  style={[styles.listRow, (i < upcomingMatches.length - 1 || openMatches.length > 0) && styles.listRowBorder]}
                   onPress={() => router.push('/(resident)/match')}
                   activeOpacity={0.7}>
                   <View style={styles.cyanDot} />
@@ -545,6 +564,24 @@ export default function HomeScreen() {
                       {m.matchType === 'doubles' ? 'Doubles' : 'Singles'}
                       {m.date ? ` · ${formatDate(m.date)}` : ''}
                       {m.timeStart ? ` · ${formatTime(m.timeStart)}` : ''}
+                    </Text>
+                  </View>
+                  <ChevronRight color={Colors.fg3} size={18} strokeWidth={1.5} />
+                </TouchableOpacity>
+              ))}
+              {openMatches.map((m, i) => (
+                <TouchableOpacity
+                  key={m.listingId}
+                  testID="upcoming-open-match-row"
+                  style={[styles.listRow, i < openMatches.length - 1 && styles.listRowBorder]}
+                  onPress={() => router.push(`/match/${m.listingId}` as any)}
+                  activeOpacity={0.7}>
+                  <View style={styles.cyanDot} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.rowTitle}>{m.format === 'doubles' ? 'Doubles' : 'Singles'} · {m.location}</Text>
+                    <Text style={styles.rowSub}>
+                      {formatDate(m.matchDate)} · {formatTime(m.startTime)}
+                      {m.role === 'organizer' && m.openSlots > 0 ? ` · ${m.openSlots} open` : ''}
                     </Text>
                   </View>
                   <ChevronRight color={Colors.fg3} size={18} strokeWidth={1.5} />
@@ -914,6 +951,23 @@ function useStyles(theme: ThemeTokens) {
       fontSize: FontSize.label,
       color: Colors.blue,
       marginTop: 6,
+    },
+
+    inviteBanner: {
+      backgroundColor: 'rgba(45,107,255,0.10)',
+      borderRadius: Radius.card,
+      borderWidth: 1,
+      borderColor: Colors.blue,
+      padding: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    inviteBannerText: {
+      flex: 1,
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: FontSize.label,
+      color: Colors.blue,
     },
 
     skeletonLine: {

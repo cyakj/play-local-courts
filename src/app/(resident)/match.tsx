@@ -46,6 +46,7 @@ import { supabase } from '@/lib/supabase';
 import { sendNotificationEmail } from '@/lib/emailNotifications';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { MatchDiscovery } from '@/components/match/MatchDiscovery';
+import { MyMatchesPanel } from '@/components/match/MyMatchesPanel';
 import { useTheme } from '@/context/ThemeContext';
 import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/design';
 import { useWeather, getWeatherForDate } from '@/hooks/useWeather';
@@ -1492,6 +1493,11 @@ export default function MatchScreen() {
   const [avatarInitials, setAvatarInitials]   = useState('ME');
   const [showLookup, setShowLookup]           = useState(false);
   const [requestTarget, setRequestTarget] = useState<RecommendedPlayer | MatchPlayer | null>(null);
+  const [focusKey, setFocusKey] = useState(0);
+
+  useFocusEffect(useCallback(() => {
+    setFocusKey(k => k + 1);
+  }, []));
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
@@ -1546,6 +1552,7 @@ export default function MatchScreen() {
           </View>
         </View>
 
+        <MyMatchesPanel key={focusKey} userId={userId} />
         <MatchDiscovery userId={userId} />
       </ScrollView>
 

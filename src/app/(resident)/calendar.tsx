@@ -15,6 +15,7 @@ import { supabase } from '@/lib/supabase';
 import {
   Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing,
 } from '@/constants/design';
+import { useUpcomingMatches } from '@/hooks/useUpcomingMatches';
 
 // ─── Event type config — tennis-first ─────────────────────────────────────────
 
@@ -104,6 +105,9 @@ export default function ResidentCalendarScreen() {
   const [loading, setLoading]                 = useState(true);
   const [detailEvent, setDetailEvent]         = useState<ScheduleEvent | null>(null);
   const [userId, setUserId]                   = useState('');
+  // Match-creation (open_match_listings) matches — separate from the legacy
+  // `matches` table already queried in fetchAll below; merged in filteredEvents.
+  const { upcoming: openMatches } = useUpcomingMatches(userId);
 
   const monthGrid    = useMemo(() => buildMonthGrid(currentMonth.getFullYear(), currentMonth.getMonth()), [currentMonth]);
   const weekDates    = useMemo(() => getWeekDates(weekBase), [weekBase]);
@@ -275,12 +279,23 @@ export default function ResidentCalendarScreen() {
     return () => { supabase.removeChannel(channel); };
   }, [userId, communities]);
 
-  const filteredEvents = useMemo(() => events.filter((e) => {
+  const openMatchEvents = useMemo<ScheduleEvent[]>(() => openMatches.map((m) => ({
+    id: `open-match-${m.listingId}`,
+    title: `${m.format === 'doubles' ? 'Doubles Match' : 'Singles Match'} · ${fmtTime(m.startTime.slice(0, 5))}`,
+    event_type: 'match_event',
+    location: m.location || null,
+    starts_at: `${m.matchDate}T${m.startTime}`,
+    hoa_id: '',
+    community_name: '',
+    description: m.role === 'organizer' && m.openSlots > 0 ? `${m.openSlots} open slot${m.openSlots > 1 ? 's' : ''}` : null,
+  })), [openMatches]);
+
+  const filteredEvents = useMemo(() => [...events, ...openMatchEvents].filter((e) => {
     if (activeCommunity !== 'all' && e.hoa_id !== activeCommunity) return false;
     const typeKey = EVENT_TYPE_FILTER_MAP[activeEventType];
     if (activeEventType !== 'All' && e.event_type !== typeKey) return false;
     return true;
-  }), [events, activeCommunity, activeEventType]);
+  }), [events, openMatchEvents, activeCommunity, activeEventType]);
 
   function getDotsForDay(year: number, month: number, day: number) {
     const evts = filteredEvents.filter((e) => {
