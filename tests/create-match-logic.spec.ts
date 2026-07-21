@@ -305,3 +305,76 @@ test.describe('validation', () => {
     expect(wouldDropInvitees(three, 'doubles', false)).toBe(false); // capacity 4
   });
 });
+
+// Mirrors src/hooks/createMatchDraft/payload.ts
+function dateKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+function endTimeMirror(start: string, durationMinutes: number): string {
+  const [hour, minute] = start.split(':').map(Number);
+  const total = hour * 60 + minute + durationMinutes;
+  return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+}
+function buildListingPayload(draft: CreateMatchDraft) {
+  if (!draft.activityType || !draft.playFormat || !draft.location || !draft.time) throw new Error('incomplete draft');
+  const { ratingSystem, minimum, maximum, enforcement } = draft.skillPreference;
+  return {
+    activity_type: draft.activityType, format: draft.playFormat, visibility: draft.visibility,
+    match_date: dateKey(draft.date), start_time: draft.time, end_time: endTimeMirror(draft.time, draft.durationMinutes),
+    duration_minutes: draft.durationMinutes, location: draft.location.name, location_id: draft.location.id,
+    location_source: draft.location.source, play_with: draft.genderPreference, rating_system: ratingSystem,
+    rating_enforcement: enforcement,
+    ntrp_min: ratingSystem === 'ntrp' && minimum !== null ? minimum : 1.0,
+    ntrp_max: ratingSystem === 'ntrp' && maximum !== null ? maximum : 7.0,
+    utr_min: ratingSystem === 'utr' && minimum !== null ? minimum : 0,
+    utr_max: ratingSystem === 'utr' && maximum !== null ? maximum : 16.5,
+    note: draft.note.trim() || null, court_reserved: draft.courtReserved, linked_reservation_id: draft.linkedReservationId,
+  };
+}
+function buildInviteeIds(draft: CreateMatchDraft): string[] { return draft.players.map(p => p.id); }
+
+test.describe('payload mapping', () => {
+  function readyDraft(): CreateMatchDraft {
+    return {
+      ...initialDraft(),
+      activityType: 'match', playFormat: 'doubles',
+      location: { id: 'loc-1', name: 'The Greens Court', city: 'Dorado', distance: '2mi', source: 'hoa' },
+      time: '14:30', durationMinutes: 90,
+    };
+  }
+
+  test('buildListingPayload throws on an incomplete draft', () => {
+    expect(() => buildListingPayload(initialDraft())).toThrow();
+  });
+
+  test('buildListingPayload computes end_time and match_date correctly', () => {
+    const payload = buildListingPayload(readyDraft());
+    expect(payload.end_time).toBe('16:00');
+    expect(payload.match_date).toBe(dateKey(readyDraft().date));
+  });
+
+  test('buildListingPayload leaves both rating pairs at their full-range default when ratingSystem is none', () => {
+    const payload = buildListingPayload(readyDraft());
+    expect(payload.rating_system).toBe('none');
+    expect(payload.ntrp_min).toBe(1.0); expect(payload.ntrp_max).toBe(7.0);
+    expect(payload.utr_min).toBe(0); expect(payload.utr_max).toBe(16.5);
+  });
+
+  test('buildListingPayload writes only the selected rating pair, leaves the other at default', () => {
+    const draft = { ...readyDraft(), skillPreference: { ratingSystem: 'utr' as const, minimum: 8, maximum: 12, enforcement: 'strict' as const } };
+    const payload = buildListingPayload(draft);
+    expect(payload.utr_min).toBe(8); expect(payload.utr_max).toBe(12);
+    expect(payload.ntrp_min).toBe(1.0); expect(payload.ntrp_max).toBe(7.0); // untouched default
+    expect(payload.rating_enforcement).toBe('strict');
+  });
+
+  test('buildListingPayload trims note to null when blank', () => {
+    expect(buildListingPayload({ ...readyDraft(), note: '   ' }).note).toBeNull();
+    expect(buildListingPayload({ ...readyDraft(), note: '  hi  ' }).note).toBe('hi');
+  });
+
+  test('buildInviteeIds maps players to their ids in order', () => {
+    const draft = { ...readyDraft(), players: [{ id: 'p1', name: 'A', avatarUrl: null, utrRating: null }, { id: 'p2', name: 'B', avatarUrl: null, utrRating: null }] };
+    expect(buildInviteeIds(draft)).toEqual(['p1', 'p2']);
+  });
+});
