@@ -58,7 +58,7 @@ const COURT_TYPE_OPTIONS = ['hard', 'clay', 'grass', 'indoor', 'outdoor'];
 export default function CoachMeScreen() {
   const { theme } = useTheme();
   const styles = useStyles(theme);
-  const { profile, loading, saving, save } = useCoachProfile();
+  const { profile, loading, saving, error: profileError, refresh, save } = useCoachProfile();
 
   // Existing fields
   const [businessName,     setBusinessName]     = useState('');
@@ -197,6 +197,17 @@ export default function CoachMeScreen() {
         <View style={styles.loading}>
           <Text style={styles.loadingText}>Loading…</Text>
         </View>
+        <View style={styles.footer}>
+          {!!signOutError && (
+            <View style={styles.signOutErrorBanner}>
+              <Text style={styles.signOutErrorText}>Sign out failed: {signOutError}</Text>
+            </View>
+          )}
+          <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.8}>
+            <LogOut size={18} color={Colors.negative} strokeWidth={1.5} />
+            <Text style={styles.signOutText}>Sign Out</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -206,7 +217,25 @@ export default function CoachMeScreen() {
       <View style={[styles.screen, { backgroundColor: theme.pageBg }]}>
         <Header variant="coach" />
         <View style={styles.loading}>
-          <Text style={styles.loadingText}>Coach profile not found.</Text>
+          <Text style={styles.loadingText}>
+            {profileError ? `Couldn't load your profile: ${profileError}` : 'Coach profile not found.'}
+          </Text>
+          {!!profileError && (
+            <TouchableOpacity style={styles.retryBtn} onPress={refresh} activeOpacity={0.8}>
+              <Text style={styles.retryBtnText}>Retry</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        <View style={styles.footer}>
+          {!!signOutError && (
+            <View style={styles.signOutErrorBanner}>
+              <Text style={styles.signOutErrorText}>Sign out failed: {signOutError}</Text>
+            </View>
+          )}
+          <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.8}>
+            <LogOut size={18} color={Colors.negative} strokeWidth={1.5} />
+            <Text style={styles.signOutText}>Sign Out</Text>
+          </TouchableOpacity>
         </View>
       </View>
     );
@@ -537,11 +566,24 @@ function useStyles(theme: ThemeTokens) {
       fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label,
       color: Colors.negative, textAlign: 'center',
     },
-    loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    loading: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.pagePx, gap: 16 },
     loadingText: {
       fontFamily: FontFamily.manropeMedium,
       fontSize: FontSize.label,
       color: theme.textMuted,
+      textAlign: 'center',
+    },
+    retryBtn: {
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      borderRadius: Radius.button,
+      borderWidth: 1,
+      borderColor: Colors.blue,
+    },
+    retryBtnText: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: FontSize.label,
+      color: Colors.blue,
     },
     content: {
       padding: Spacing.pagePx,

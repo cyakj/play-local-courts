@@ -219,6 +219,14 @@ export default function MatchDetailsScreen() {
     router.push({ pathname: '/messages', params: { partner: participantId } } as any);
   }
 
+  // See match/new.tsx handleBack — reached directly (deep link, or after
+  // match/new.tsx's router.replace(`/match/${id}`) on creation) can leave no
+  // history to pop, so router.back() silently no-ops instead of navigating.
+  function handleBack() {
+    if (router.canGoBack()) router.back();
+    else router.replace('/(resident)/match');
+  }
+
   if (loading) {
     return (
       <View style={[styles.root, styles.center, { backgroundColor: theme.pageBg }]}>
@@ -230,7 +238,7 @@ export default function MatchDetailsScreen() {
   if (!listing) {
     return (
       <View style={[styles.root, { backgroundColor: theme.pageBg }]}>
-        <Header variant="inner" title="Match Details" onBack={() => router.back()} />
+        <Header variant="inner" title="Match Details" onBack={handleBack} />
         <View style={styles.center}><Text style={{ color: theme.textSecondary }}>Match unavailable.</Text></View>
       </View>
     );

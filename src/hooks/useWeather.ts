@@ -31,7 +31,7 @@ export interface WeatherForecast {
 
 // Map WMO weather codes to our simplified conditions
 // https://open-meteo.com/en/docs#weathervariables
-function mapWeatherCode(code: number): { condition: WeatherData['condition']; description: string } {
+export function mapWeatherCode(code: number): { condition: WeatherData['condition']; description: string } {
   if (code === 0) return { condition: 'sunny', description: 'Clear sky' };
   if (code === 1) return { condition: 'sunny', description: 'Mainly clear' };
   if (code === 2) return { condition: 'partly_cloudy', description: 'Partly cloudy' };

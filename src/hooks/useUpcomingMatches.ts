@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useId, useState } from 'react';
 
 import { supabase } from '@/lib/supabase';
 
@@ -35,6 +35,14 @@ function todayKey() {
  * fetch/aggregation logic per screen.
  */
 export function useUpcomingMatches(userId: string) {
+  // supabase.channel(topic) reuses an existing channel with the same topic
+  // instead of creating a new one — and this hook is mounted concurrently by
+  // Home, Me, Schedule, and the Match tab, all with the same userId. Without
+  // a per-instance suffix, whichever screen mounts second calls .on() on a
+  // channel the first screen already subscribe()'d, which throws "cannot add
+  // postgres_changes callbacks ... after subscribe()". useId() keeps the
+  // topic unique per mounted instance while still filtering by userId.
+  const instanceId = useId();
   const [invitations, setInvitations] = useState<UpcomingMatchInvite[]>([]);
   const [upcoming, setUpcoming] = useState<UpcomingMatchItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -137,7 +145,7 @@ export function useUpcomingMatches(userId: string) {
   useEffect(() => {
     if (!userId) return;
     const channel = supabase
-      .channel(`upcoming-matches-${userId}`)
+      .channel(`upcoming-matches-${userId}-${instanceId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'open_match_listing_participants', filter: `user_id=eq.${userId}` }, () => { void load(); })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'open_match_listings', filter: `creator_id=eq.${userId}` }, () => { void load(); })
       // Also catch other players responding on matches I organize (no reliable
@@ -145,7 +153,7 @@ export function useUpcomingMatches(userId: string) {
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'open_match_listing_participants' }, () => { void load(); })
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
-  }, [userId, load]);
+  }, [userId, load, instanceId]);
 
   return { invitations, upcoming, loading, refresh: load };
 }

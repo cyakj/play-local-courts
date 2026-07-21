@@ -25,8 +25,9 @@ import {
 } from 'lucide-react-native';
 
 import { AddPlayersSheet, type MatchInvitee } from '@/components/match/AddPlayersSheet';
+import { CalendarPicker, formatDateLabel } from '@/components/ui/CalendarPicker';
 import { Header } from '@/components/ui/Header';
-import { WeatherTimeWheel } from '@/components/ui/WeatherTimeWheel';
+import { TimeSlotWheel } from '@/components/ui/TimeSlotWheel';
 import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/design';
 import { useTheme } from '@/context/ThemeContext';
 import { useHourlyWeather } from '@/hooks/useHourlyWeather';
@@ -49,18 +50,12 @@ today.setHours(0, 0, 0, 0);
 
 const MAX_DAYS_AHEAD = 14;
 
-const DATES = Array.from({ length: MAX_DAYS_AHEAD + 1 }, (_, index) => {
-  const date = new Date(today);
-  date.setDate(date.getDate() + index);
-  return date;
-});
-
 function dateKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-// Defense in depth: DATES already bounds the UI to today..+14, but validate
-// again at submit time in case a stale/controlled value ever slips through.
+// Defense in depth: the date-picker already bounds the UI to today..+14, but
+// validate again at submit time in case a stale/controlled value slips through.
 function isWithinCreateWindow(date: Date) {
   const start = new Date(today);
   const daysAhead = Math.round((new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime() - start.getTime()) / 86_400_000);
@@ -116,7 +111,7 @@ export default function NewMatchScreen() {
   const [userName, setUserName] = useState('A player');
   const [format, setFormat] = useState<MatchFormat | null>(null);
   const [players, setPlayers] = useState<MatchInvitee[]>([]);
-  const [selectedDate, setSelectedDate] = useState(DATES[0]);
+  const [selectedDate, setSelectedDate] = useState(today);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [duration, setDuration] = useState(90);
   const [location, setLocation] = useState<MatchLocation | null>(null);
@@ -213,9 +208,17 @@ export default function NewMatchScreen() {
     router.replace(`/match/${data.id}` as any);
   }
 
+  // Reached directly (deep link, browser refresh) or after a dev Fast Refresh
+  // resets navigation history, router.back() has nothing to pop and silently
+  // no-ops with a "GO_BACK not handled" warning — fall back to the match list.
+  function handleBack() {
+    if (router.canGoBack()) router.back();
+    else router.replace('/(resident)/match');
+  }
+
   return (
     <View style={[styles.root, { backgroundColor: theme.pageBg }]}>
-      <Header variant="inner" title="New Match" onBack={() => router.back()} />
+      <Header variant="inner" title="New Match" onBack={handleBack} />
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: Spacing.pagePx, paddingBottom: 130 }}
@@ -393,34 +396,120 @@ function DateTimeSheet({
   const [draftDate, setDraftDate] = useState(date);
   const [draftTime, setDraftTime] = useState<string | null>(time);
   const [draftDuration, setDraftDuration] = useState(duration);
-  const { getWeather } = useHourlyWeather(locationCity ?? null);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const { wheelWeather, getWeather } = useHourlyWeather(locationCity ?? null);
 
   useEffect(() => {
     if (!visible) return;
     setDraftDate(date);
     setDraftTime(time);
     setDraftDuration(duration);
+    setShowCalendar(false);
   }, [visible, date, time, duration]);
 
   const draftWeather = draftTime ? getWeather(draftDate, draftTime) : null;
 
+  // Today + Tomorrow chips, same as the court-booking sheet — "Dates" opens
+  // the calendar for anything further out, capped to the creation window.
+  const primaryDates = useMemo(() => {
+    const t = new Date(today);
+    const tom = new Date(t); tom.setDate(t.getDate() + 1);
+    return [t, tom];
+  }, []);
+  const calMaxDate = useMemo(() => {
+    const d = new Date(today); d.setDate(d.getDate() + MAX_DAYS_AHEAD); return d;
+  }, []);
+  const isMoreDate = primaryDates.every(d => d.toDateString() !== draftDate.toDateString());
+
+  const timeSlots = useMemo(() => {
+    const list: string[] = [];
+    for (let h = 6; h < 22; h++) {
+      for (let m = 0; m < 60; m += 30) {
+        list.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+      }
+    }
+    return list;
+  }, []);
+
+  function selectDate(d: Date) {
+    setDraftDate(d);
+    setDraftTime(null);
+    setShowCalendar(false);
+  }
+
   return (
     <SheetFrame visible={visible} title="Date & Time" onDismiss={onDismiss}>
-      <View style={{ flex: 1, marginHorizontal: -Spacing.pagePx }}>
-        <WeatherTimeWheel
-          availableDates={DATES}
-          allowedDurations={[60, 90, 120]}
-          mode="outdoor"
-          locationCity={locationCity}
-          selectedDate={draftDate}
-          selectedTime={draftTime}
-          selectedDuration={draftDuration}
-          onDateChange={(d) => { setDraftDate(d); setDraftTime(null); }}
-          onSelectSlot={(d, t, dur) => { setDraftDate(d); setDraftTime(t); setDraftDuration(dur); }}
-          theme={theme}
-        />
-      </View>
-      {draftTime && (
+      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        {/* Date row: Today · Tomorrow · Dates (opens calendar) */}
+        <View style={styles.segmentRow}>
+          {primaryDates.map((d, i) => {
+            const isSelected = d.toDateString() === draftDate.toDateString();
+            return (
+              <TouchableOpacity
+                key={i}
+                style={[styles.segment, { borderColor: isSelected ? Colors.blue : theme.border, backgroundColor: isSelected ? theme.selectedBg : theme.cardBg }]}
+                onPress={() => selectDate(d)}
+                activeOpacity={0.7}>
+                <Text style={[styles.segmentText, { color: isSelected ? Colors.blue : theme.textSecondary }]}>
+                  {formatDateLabel(d, today)}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+          <TouchableOpacity
+            style={[styles.segment, { borderColor: (showCalendar || isMoreDate) ? Colors.blue : theme.border, backgroundColor: (showCalendar || isMoreDate) ? theme.selectedBg : theme.cardBg }]}
+            onPress={() => setShowCalendar(v => !v)}
+            activeOpacity={0.7}>
+            <Text style={[styles.segmentText, { color: (showCalendar || isMoreDate) ? Colors.blue : theme.textSecondary }]}>
+              {isMoreDate ? formatDateLabel(draftDate, today) : 'Dates'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {showCalendar && (
+          <CalendarPicker
+            selectedDate={draftDate}
+            onSelect={selectDate}
+            minDate={today}
+            maxDate={calMaxDate}
+            theme={theme}
+          />
+        )}
+
+        {!showCalendar && (
+          <View style={styles.segmentRow}>
+            {[60, 90, 120].map(d => {
+              const isSelected = d === draftDuration;
+              return (
+                <TouchableOpacity
+                  key={d}
+                  style={[styles.segment, { borderColor: isSelected ? Colors.blue : theme.border, backgroundColor: isSelected ? theme.selectedBg : theme.cardBg }]}
+                  onPress={() => setDraftDuration(d)}
+                  activeOpacity={0.7}>
+                  <Text style={[styles.segmentText, { color: isSelected ? Colors.blue : theme.textSecondary }]}>
+                    {d / 60} hr
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
+        {!showCalendar && (
+          <TimeSlotWheel
+            slots={timeSlots}
+            selectedSlot={draftTime}
+            onSelectSlot={(t) => { if (t) { setDraftTime(t); } else { setDraftTime(null); } }}
+            weather={wheelWeather}
+            outdoor
+            sheetDate={draftDate}
+            now={today}
+            theme={theme}
+          />
+        )}
+      </ScrollView>
+
+      {draftTime && !showCalendar && (
         <View style={[styles.summaryCard, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
           <Text style={[styles.summaryLine, { color: theme.textPrimary }]} numberOfLines={1}>
             {(locationName ?? 'Facility TBD')} · {format === 'doubles' ? 'Doubles' : format === 'singles' ? 'Singles' : 'Format TBD'} · {draftDuration} min

@@ -40,6 +40,10 @@ interface UseCoachProfileResult {
   profile: CoachProfileData | null;
   loading: boolean;
   saving: boolean;
+  // Set only when the load itself failed (auth/network/query error) — distinct
+  // from a legitimately missing coach row, so the UI can offer retry instead
+  // of a dead-end "not found" state for what's really a transient failure.
+  error: string | null;
   refresh: () => void;
   save: (updates: Partial<CoachProfileData>) => Promise<string | null>;
 }
@@ -48,6 +52,7 @@ export function useCoachProfile(): UseCoachProfileResult {
   const [profile, setProfile]   = useState<CoachProfileData | null>(null);
   const [loading, setLoading]   = useState(true);
   const [saving, setSaving]     = useState(false);
+  const [error, setError]       = useState<string | null>(null);
   const [tickState, setTickState] = useState(0);
 
   const refresh = useCallback(() => setTickState(t => t + 1), []);
@@ -57,9 +62,15 @@ export function useCoachProfile(): UseCoachProfileResult {
 
     async function load() {
       setLoading(true);
+      setError(null);
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setLoading(false); return; }
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (cancelled) return;
+      if (!user) {
+        setError(userError?.message ?? 'Not signed in');
+        setLoading(false);
+        return;
+      }
 
       const [coachRes, profileRes] = await Promise.all([
         supabase.from('coaches').select('*').eq('user_id', user.id).single(),
@@ -68,7 +79,16 @@ export function useCoachProfile(): UseCoachProfileResult {
 
       if (cancelled) return;
       const data = coachRes.data;
-      if (!data) { setLoading(false); return; }
+      if (!data) {
+        // PGRST116 = no row found ("not found" is the true state); anything
+        // else is a real fetch failure (network/RLS/etc) — surface it instead
+        // of silently rendering the same generic "not found" screen.
+        if (coachRes.error && coachRes.error.code !== 'PGRST116') {
+          setError(coachRes.error.message);
+        }
+        setLoading(false);
+        return;
+      }
 
       setProfile({
         id:                     data.id as string,
@@ -158,5 +178,5 @@ export function useCoachProfile(): UseCoachProfileResult {
     return null;
   }
 
-  return { profile, loading, saving, refresh, save };
+  return { profile, loading, saving, error, refresh, save };
 }
