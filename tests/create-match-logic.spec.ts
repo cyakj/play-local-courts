@@ -234,3 +234,74 @@ test.describe('createMatchReducer', () => {
     expect(succeeded.submitError).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Mirrors src/hooks/createMatchDraft/validation.ts — add below the reducer mirror in the same file
+// ---------------------------------------------------------------------------
+const MAX_DAYS_AHEAD = 14;
+function isWithinCreateWindow(date: Date): boolean {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const daysAhead = Math.round((target.getTime() - today.getTime()) / 86_400_000);
+  return daysAhead >= 0 && daysAhead <= MAX_DAYS_AHEAD;
+}
+function isStepValid(step: CreateMatchStep, draft: CreateMatchDraft): boolean {
+  switch (step) {
+    case 'activity': return draft.activityType !== null && draft.playFormat !== null;
+    case 'location': return draft.location !== null;
+    case 'datetime': return draft.time !== null && isWithinCreateWindow(draft.date);
+    case 'players': return true;
+    case 'preferences': return draft.skillPreference.enforcement !== 'strict' || draft.skillPreference.ratingSystem !== 'none';
+    case 'details': return true;
+    case 'review': return isDraftValid(draft);
+    default: return false;
+  }
+}
+function isDraftValid(draft: CreateMatchDraft): boolean {
+  return isStepValid('activity', draft) && isStepValid('location', draft) && isStepValid('datetime', draft) && isStepValid('preferences', draft);
+}
+function wouldDropInvitees(currentPlayers: { id: string }[], nextFormat: PlayFormat, nextOrganizerPlaying: boolean): boolean {
+  return currentPlayers.length > maxInvitees(nextFormat, nextOrganizerPlaying);
+}
+
+test.describe('validation', () => {
+  const sampleLocation: MatchLocation = { id: '1', name: 'Court A', city: 'Dorado', distance: '1mi', source: 'hoa' };
+
+  test('isStepValid activity requires both activityType and playFormat', () => {
+    const draft = initialDraft();
+    expect(isStepValid('activity', draft)).toBe(false);
+    expect(isStepValid('activity', { ...draft, activityType: 'match' })).toBe(false);
+    expect(isStepValid('activity', { ...draft, activityType: 'match', playFormat: 'singles' })).toBe(true);
+  });
+
+  test('isStepValid datetime requires a time and a date within 14 days', () => {
+    const draft = initialDraft();
+    expect(isStepValid('datetime', draft)).toBe(false);
+    const withTime = { ...draft, time: '09:00' };
+    expect(isStepValid('datetime', withTime)).toBe(true);
+    const tooFar = new Date(); tooFar.setDate(tooFar.getDate() + 20);
+    expect(isStepValid('datetime', { ...withTime, date: tooFar })).toBe(false);
+  });
+
+  test('isStepValid preferences rejects strict enforcement with no rating system', () => {
+    const draft = initialDraft();
+    expect(isStepValid('preferences', draft)).toBe(true); // default preference/none
+    const strictNoSystem = { ...draft, skillPreference: { ratingSystem: 'none' as const, minimum: null, maximum: null, enforcement: 'strict' as const } };
+    expect(isStepValid('preferences', strictNoSystem)).toBe(false);
+    const strictWithSystem = { ...draft, skillPreference: { ratingSystem: 'utr' as const, minimum: 5, maximum: 10, enforcement: 'strict' as const } };
+    expect(isStepValid('preferences', strictWithSystem)).toBe(true);
+  });
+
+  test('isDraftValid true only once activity, location, datetime, and preferences all pass', () => {
+    const draft = { ...initialDraft(), activityType: 'match' as const, playFormat: 'singles' as const, location: sampleLocation, time: '09:00' };
+    expect(isDraftValid(draft)).toBe(true);
+    expect(isDraftValid({ ...draft, location: null })).toBe(false);
+  });
+
+  test('wouldDropInvitees predicts truncation without mutating anything', () => {
+    const three = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+    expect(wouldDropInvitees(three, 'doubles', true)).toBe(false); // capacity 3
+    expect(wouldDropInvitees(three, 'singles', true)).toBe(true);  // capacity 1
+    expect(wouldDropInvitees(three, 'doubles', false)).toBe(false); // capacity 4
+  });
+});
