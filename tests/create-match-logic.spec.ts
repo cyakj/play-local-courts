@@ -1,0 +1,236 @@
+/**
+ * Pure logic tests for the Create Match draft reducer, validation, and
+ * payload mapping. Mirrors the production functions in
+ * src/hooks/createMatchDraft/{reducer,validation,payload}.ts. Runs entirely
+ * in Node (no browser, no Supabase) via the @playwright/test runner —
+ * see tests/coach-logic.spec.ts for the established pattern.
+ *
+ * Run: npx playwright test tests/create-match-logic.spec.ts --reporter=list
+ */
+import { test, expect } from '@playwright/test';
+
+// ---------------------------------------------------------------------------
+// Mirrors src/hooks/createMatchDraft/types.ts
+// ---------------------------------------------------------------------------
+type CreateMatchStep = 'activity' | 'location' | 'datetime' | 'players' | 'preferences' | 'details' | 'review';
+const STEP_ORDER: CreateMatchStep[] = ['activity', 'location', 'datetime', 'players', 'preferences', 'details', 'review'];
+type PlayFormat = 'singles' | 'doubles';
+type RatingSystem = 'utr' | 'ntrp' | 'none';
+type RatingEnforcement = 'preference' | 'strict';
+
+interface SkillPreference { ratingSystem: RatingSystem; minimum: number | null; maximum: number | null; enforcement: RatingEnforcement; }
+interface MatchInvitee { id: string; name: string; avatarUrl: string | null; utrRating: number | null; }
+interface MatchLocation { id: string | null; name: string; city: string; distance: string; source: 'hoa' | 'club' | 'directory'; }
+
+interface CreateMatchDraft {
+  activityType: 'match' | 'practice_hit' | null;
+  playFormat: PlayFormat | null;
+  visibility: 'public' | 'invite_only';
+  location: MatchLocation | null;
+  date: Date;
+  time: string | null;
+  durationMinutes: number;
+  organizerIsPlaying: boolean;
+  players: MatchInvitee[];
+  genderPreference: 'all' | 'men' | 'women' | 'mixed';
+  skillPreference: SkillPreference;
+  note: string;
+  courtReserved: boolean;
+  linkedReservationId: string | null;
+}
+
+interface DraftState { step: CreateMatchStep; furthestStep: CreateMatchStep; draft: CreateMatchDraft; submitting: boolean; submitError: string | null; }
+
+type Action =
+  | { type: 'SET_ACTIVITY_TYPE'; value: 'match' | 'practice_hit' }
+  | { type: 'SET_PLAY_FORMAT'; value: PlayFormat }
+  | { type: 'SET_ORGANIZER_PLAYING'; value: boolean }
+  | { type: 'SET_LOCATION'; value: MatchLocation }
+  | { type: 'SET_DATE_TIME'; date: Date; time: string; durationMinutes: number }
+  | { type: 'SET_PLAYERS'; value: MatchInvitee[] }
+  | { type: 'SET_VISIBILITY'; value: 'public' | 'invite_only' }
+  | { type: 'SET_GENDER_PREFERENCE'; value: 'all' | 'men' | 'women' | 'mixed' }
+  | { type: 'SET_SKILL_PREFERENCE'; value: Partial<SkillPreference> }
+  | { type: 'SET_NOTE'; value: string }
+  | { type: 'SET_COURT_RESERVED'; value: boolean }
+  | { type: 'NEXT' } | { type: 'BACK' } | { type: 'GO_TO_STEP'; step: CreateMatchStep }
+  | { type: 'SUBMIT_START' } | { type: 'SUBMIT_SUCCESS'; listingId: string } | { type: 'SUBMIT_ERROR'; message: string }
+  | { type: 'RESET' };
+
+function initialDraft(): CreateMatchDraft {
+  const d = new Date(); d.setHours(0, 0, 0, 0);
+  return {
+    activityType: null, playFormat: null, visibility: 'public', location: null, date: d, time: null,
+    durationMinutes: 90, organizerIsPlaying: true, players: [], genderPreference: 'all',
+    skillPreference: { ratingSystem: 'none', minimum: null, maximum: null, enforcement: 'preference' },
+    note: '', courtReserved: false, linkedReservationId: null,
+  };
+}
+function initialDraftState(): DraftState {
+  return { step: 'activity', furthestStep: 'activity', draft: initialDraft(), submitting: false, submitError: null };
+}
+
+// Mirrors src/hooks/createMatchDraft/reducer.ts
+function formatCapacity(playFormat: PlayFormat): number { return playFormat === 'doubles' ? 4 : 2; }
+function maxInvitees(playFormat: PlayFormat, organizerIsPlaying: boolean): number {
+  return formatCapacity(playFormat) - (organizerIsPlaying ? 1 : 0);
+}
+function clampPlayers<T>(players: T[], max: number): T[] { return players.length > max ? players.slice(0, max) : players; }
+
+function createMatchReducer(state: DraftState, action: Action): DraftState {
+  switch (action.type) {
+    case 'SET_ACTIVITY_TYPE': return { ...state, draft: { ...state.draft, activityType: action.value } };
+    case 'SET_PLAY_FORMAT': {
+      const max = maxInvitees(action.value, state.draft.organizerIsPlaying);
+      const nextGender = action.value === 'singles' && state.draft.genderPreference === 'mixed' ? 'all' : state.draft.genderPreference;
+      return { ...state, draft: { ...state.draft, playFormat: action.value, players: clampPlayers(state.draft.players, max), genderPreference: nextGender } };
+    }
+    case 'SET_ORGANIZER_PLAYING': {
+      if (!state.draft.playFormat) return { ...state, draft: { ...state.draft, organizerIsPlaying: action.value } };
+      const max = maxInvitees(state.draft.playFormat, action.value);
+      return { ...state, draft: { ...state.draft, organizerIsPlaying: action.value, players: clampPlayers(state.draft.players, max) } };
+    }
+    case 'SET_LOCATION': return { ...state, draft: { ...state.draft, location: action.value } };
+    case 'SET_DATE_TIME': return { ...state, draft: { ...state.draft, date: action.date, time: action.time, durationMinutes: action.durationMinutes } };
+    case 'SET_PLAYERS': return { ...state, draft: { ...state.draft, players: action.value } };
+    case 'SET_VISIBILITY': return { ...state, draft: { ...state.draft, visibility: action.value } };
+    case 'SET_GENDER_PREFERENCE': return { ...state, draft: { ...state.draft, genderPreference: action.value } };
+    case 'SET_SKILL_PREFERENCE': {
+      const merged = { ...state.draft.skillPreference, ...action.value };
+      if (merged.ratingSystem === 'none') { merged.minimum = null; merged.maximum = null; merged.enforcement = 'preference'; }
+      if (merged.enforcement === 'strict' && merged.ratingSystem === 'none') merged.enforcement = 'preference';
+      if (merged.minimum !== null && merged.maximum !== null && merged.minimum > merged.maximum) return state;
+      return { ...state, draft: { ...state.draft, skillPreference: merged } };
+    }
+    case 'SET_NOTE': return { ...state, draft: { ...state.draft, note: action.value } };
+    case 'SET_COURT_RESERVED': return { ...state, draft: { ...state.draft, courtReserved: action.value } };
+    case 'NEXT': {
+      const idx = STEP_ORDER.indexOf(state.step);
+      if (idx >= STEP_ORDER.length - 1) return state;
+      const furthestIdx = STEP_ORDER.indexOf(state.furthestStep);
+      return { ...state, step: STEP_ORDER[idx + 1], furthestStep: STEP_ORDER[Math.max(idx + 1, furthestIdx)] };
+    }
+    case 'BACK': {
+      const idx = STEP_ORDER.indexOf(state.step);
+      if (idx <= 0) return state;
+      return { ...state, step: STEP_ORDER[idx - 1] };
+    }
+    case 'GO_TO_STEP': {
+      const targetIdx = STEP_ORDER.indexOf(action.step);
+      const furthestIdx = STEP_ORDER.indexOf(state.furthestStep);
+      if (targetIdx > furthestIdx) return state;
+      return { ...state, step: action.step };
+    }
+    case 'SUBMIT_START': return { ...state, submitting: true, submitError: null };
+    case 'SUBMIT_SUCCESS': return { ...state, submitting: false, submitError: null };
+    case 'SUBMIT_ERROR': return { ...state, submitting: false, submitError: action.message };
+    case 'RESET': return initialDraftState();
+    default: return state;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+test.describe('createMatchReducer', () => {
+  test('SET_PLAY_FORMAT to doubles allows up to 3 invitees when organizer plays', () => {
+    expect(maxInvitees('doubles', true)).toBe(3);
+    expect(maxInvitees('doubles', false)).toBe(4);
+    expect(maxInvitees('singles', true)).toBe(1);
+    expect(maxInvitees('singles', false)).toBe(2);
+  });
+
+  test('SET_PLAY_FORMAT to singles truncates players beyond new capacity', () => {
+    let state = initialDraftState();
+    state = createMatchReducer(state, { type: 'SET_PLAY_FORMAT', value: 'doubles' });
+    const three: MatchInvitee[] = [
+      { id: 'a', name: 'A', avatarUrl: null, utrRating: null },
+      { id: 'b', name: 'B', avatarUrl: null, utrRating: null },
+      { id: 'c', name: 'C', avatarUrl: null, utrRating: null },
+    ];
+    state = createMatchReducer(state, { type: 'SET_PLAYERS', value: three });
+    state = createMatchReducer(state, { type: 'SET_PLAY_FORMAT', value: 'singles' });
+    expect(state.draft.players).toEqual([three[0]]);
+  });
+
+  test('SET_PLAY_FORMAT to singles resets mixed gender preference to all', () => {
+    let state = initialDraftState();
+    state = createMatchReducer(state, { type: 'SET_PLAY_FORMAT', value: 'doubles' });
+    state = createMatchReducer(state, { type: 'SET_GENDER_PREFERENCE', value: 'mixed' });
+    state = createMatchReducer(state, { type: 'SET_PLAY_FORMAT', value: 'singles' });
+    expect(state.draft.genderPreference).toBe('all');
+  });
+
+  test('SET_ORGANIZER_PLAYING false frees up a capacity slot and does not truncate', () => {
+    let state = initialDraftState();
+    state = createMatchReducer(state, { type: 'SET_PLAY_FORMAT', value: 'singles' });
+    state = createMatchReducer(state, { type: 'SET_PLAYERS', value: [{ id: 'a', name: 'A', avatarUrl: null, utrRating: null }] });
+    state = createMatchReducer(state, { type: 'SET_ORGANIZER_PLAYING', value: false });
+    expect(state.draft.players.length).toBe(1);
+    expect(state.draft.organizerIsPlaying).toBe(false);
+  });
+
+  test('SET_SKILL_PREFERENCE ratingSystem none clears range and forces preference enforcement', () => {
+    let state = initialDraftState();
+    state = createMatchReducer(state, { type: 'SET_SKILL_PREFERENCE', value: { ratingSystem: 'utr', minimum: 8, maximum: 12, enforcement: 'strict' } });
+    state = createMatchReducer(state, { type: 'SET_SKILL_PREFERENCE', value: { ratingSystem: 'none' } });
+    expect(state.draft.skillPreference).toEqual({ ratingSystem: 'none', minimum: null, maximum: null, enforcement: 'preference' });
+  });
+
+  test('SET_SKILL_PREFERENCE rejects strict enforcement when ratingSystem is none', () => {
+    let state = initialDraftState();
+    state = createMatchReducer(state, { type: 'SET_SKILL_PREFERENCE', value: { enforcement: 'strict' } });
+    expect(state.draft.skillPreference.enforcement).toBe('preference');
+  });
+
+  test('SET_SKILL_PREFERENCE rejects minimum greater than maximum, keeps prior values', () => {
+    let state = initialDraftState();
+    state = createMatchReducer(state, { type: 'SET_SKILL_PREFERENCE', value: { ratingSystem: 'ntrp', minimum: 3, maximum: 5 } });
+    const before = state.draft.skillPreference;
+    state = createMatchReducer(state, { type: 'SET_SKILL_PREFERENCE', value: { minimum: 6 } });
+    expect(state.draft.skillPreference).toEqual(before);
+  });
+
+  test('NEXT advances furthestStep, BACK does not regress it, GO_TO_STEP cannot jump past furthestStep', () => {
+    let state = initialDraftState();
+    state = createMatchReducer(state, { type: 'NEXT' }); // activity -> location
+    state = createMatchReducer(state, { type: 'NEXT' }); // location -> datetime
+    expect(state.step).toBe('datetime');
+    expect(state.furthestStep).toBe('datetime');
+    state = createMatchReducer(state, { type: 'BACK' }); // datetime -> location
+    expect(state.step).toBe('location');
+    expect(state.furthestStep).toBe('datetime');
+    const blocked = createMatchReducer(state, { type: 'GO_TO_STEP', step: 'review' });
+    expect(blocked.step).toBe('location'); // review is past furthestStep, rejected
+    const allowed = createMatchReducer(state, { type: 'GO_TO_STEP', step: 'datetime' });
+    expect(allowed.step).toBe('datetime'); // within furthestStep, allowed
+  });
+
+  test('NEXT is a no-op on the last step, BACK is a no-op on the first step', () => {
+    let state = initialDraftState();
+    const back = createMatchReducer(state, { type: 'BACK' });
+    expect(back.step).toBe('activity');
+    for (let i = 0; i < STEP_ORDER.length + 2; i++) state = createMatchReducer(state, { type: 'NEXT' });
+    expect(state.step).toBe('review');
+  });
+
+  test('RESET returns a fresh initial state', () => {
+    let state = initialDraftState();
+    state = createMatchReducer(state, { type: 'SET_NOTE', value: 'hello' });
+    state = createMatchReducer(state, { type: 'RESET' });
+    expect(state.draft.note).toBe('');
+    expect(state.step).toBe('activity');
+  });
+
+  test('SUBMIT_START/SUCCESS/ERROR manage submitting and submitError', () => {
+    let state = initialDraftState();
+    state = createMatchReducer(state, { type: 'SUBMIT_START' });
+    expect(state.submitting).toBe(true);
+    const errored = createMatchReducer(state, { type: 'SUBMIT_ERROR', message: 'boom' });
+    expect(errored.submitting).toBe(false);
+    expect(errored.submitError).toBe('boom');
+    const succeeded = createMatchReducer(state, { type: 'SUBMIT_SUCCESS', listingId: 'abc' });
+    expect(succeeded.submitting).toBe(false);
+    expect(succeeded.submitError).toBeNull();
+  });
+});
