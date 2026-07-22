@@ -31,12 +31,13 @@ begin
     note, court_reserved, linked_reservation_id, match_type
   ) values (
     actor,
-    listing->>'activity_type', listing->>'format', listing->>'visibility',
+    coalesce(listing->>'activity_type', 'match'), listing->>'format', coalesce(listing->>'visibility', 'public'),
     (listing->>'match_date')::date, (listing->>'start_time')::time, (listing->>'end_time')::time,
-    (listing->>'duration_minutes')::int, listing->>'location', nullif(listing->>'location_id','')::uuid,
-    listing->>'location_source', listing->>'play_with', listing->>'rating_system', listing->>'rating_enforcement',
-    (listing->>'ntrp_min')::numeric, (listing->>'ntrp_max')::numeric,
-    (listing->>'utr_min')::numeric, (listing->>'utr_max')::numeric,
+    coalesce((listing->>'duration_minutes')::int, 90), listing->>'location', nullif(listing->>'location_id','')::uuid,
+    coalesce(listing->>'location_source', 'directory'), coalesce(listing->>'play_with', 'all'),
+    coalesce(listing->>'rating_system', 'none'), coalesce(listing->>'rating_enforcement', 'preference'),
+    coalesce((listing->>'ntrp_min')::numeric, 1.0), coalesce((listing->>'ntrp_max')::numeric, 7.0),
+    coalesce((listing->>'utr_min')::numeric, 0), coalesce((listing->>'utr_max')::numeric, 16.5),
     listing->>'note', coalesce((listing->>'court_reserved')::boolean, false),
     nullif(listing->>'linked_reservation_id','')::uuid,
     'casual'
@@ -62,4 +63,5 @@ begin
 end;
 $$;
 
+revoke all on function public.create_match_listing(jsonb, uuid[], boolean) from public;
 grant execute on function public.create_match_listing(jsonb, uuid[], boolean) to authenticated;
