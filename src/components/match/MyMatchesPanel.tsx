@@ -82,7 +82,9 @@ export function MyMatchesPanel({ userId }: { userId: string }) {
 
           {!!upcoming.length && (
             <>
-              <Text style={[styles.sectionTitle, { color: theme.textPrimary, marginTop: invitations.length ? 20 : 0 }]}>My Upcoming Matches</Text>
+              <TouchableOpacity onPress={() => router.push('/my-matches')} activeOpacity={0.7}>
+                <Text style={[styles.sectionTitle, { color: theme.textPrimary, marginTop: invitations.length ? 20 : 0 }]}>My Upcoming Matches →</Text>
+              </TouchableOpacity>
               {upcoming.map(item => (
                 <TouchableOpacity
                   key={item.listingId}
