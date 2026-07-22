@@ -27,6 +27,7 @@ import { MatchCard } from '@/components/match/MatchCard';
 import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/design';
 import { useTheme } from '@/context/ThemeContext';
 import { supabase } from '@/lib/supabase';
+import { sendMatchJoinRequestNotification } from '@/lib/matchRequests';
 
 type MatchFormat = 'singles' | 'doubles' | 'casual_hit';
 type MatchKind = 'all' | 'casual' | 'competitive';
@@ -504,6 +505,7 @@ export function MatchDiscovery({ userId }: { userId: string }) {
       .from('open_match_listings')
       .select('*')
       .eq('status', 'open')
+      .eq('visibility', 'public')
       .gte('match_date', DATE_OPTIONS[0].key)
       .lte('match_date', DATE_OPTIONS[14].key)
       .order('match_date')
@@ -561,9 +563,20 @@ export function MatchDiscovery({ userId }: { userId: string }) {
     const { error } = await (supabase as any).from('open_match_listing_participants').insert({
       listing_id: listing.id,
       user_id: userId,
+      status: 'requested',
     });
     setJoiningId(null);
-    Alert.alert(error ? 'Unable to join' : 'Request sent', error?.message ?? 'The match creator can now confirm the details with you.');
+    if (!error) {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: profile } = user ? await supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle() : { data: null };
+      void sendMatchJoinRequestNotification(
+        { id: listing.id, format: listing.format, match_date: listing.match_date, start_time: listing.start_time, location: listing.location },
+        userId,
+        profile?.full_name || 'A player',
+        listing.creator_id,
+      );
+    }
+    Alert.alert(error ? 'Unable to join' : 'Request sent', error?.message ?? 'The match creator will review your request.');
   }
 
   return (
