@@ -1,11 +1,13 @@
 import { useCallback, useMemo, useReducer } from 'react';
 import { supabase } from '@/lib/supabase';
+import { createMatchReducer, maxInvitees } from './reducer';
+import { isStepValid, isDraftValid, wouldDropInvitees } from './validation';
+import { buildListingPayload, buildInviteeIds } from './payload';
 import {
-  createMatchReducer, initialDraftState, isStepValid, isDraftValid, wouldDropInvitees,
-  buildListingPayload, buildInviteeIds, maxInvitees,
+  initialDraftState,
   type CreateMatchStep, type ActivityType, type PlayFormat, type MatchLocation, type MatchInvitee,
   type MatchVisibility, type GenderPreference, type SkillPreference,
-} from './index';
+} from './types';
 
 export interface UseCreateMatchDraftResult {
   step: CreateMatchStep;
