@@ -66,7 +66,9 @@ begin
   from generate_series(1, capacity) s
   where s not in (
     select slot_index from public.open_match_listing_participants
-    where listing_id = p_listing_id and slot_index is not null
+    where listing_id = p_listing_id
+      and status in ('joined','accepted','invited')
+      and slot_index is not null
   );
 
   update public.open_match_listing_participants
@@ -89,3 +91,14 @@ grant execute on function public.approve_match_participant(uuid, uuid) to authen
 alter table public.messages drop constraint messages_message_type_check;
 alter table public.messages add constraint messages_message_type_check
   check (message_type in ('text', 'match_invite', 'match_join_request', 'match_request_decision'));
+
+-- One-off backfill: this exact row was corrupted by the pre-fix version of
+-- approve_match_participant during this plan's own Task 31 regression-pass QA
+-- (listing already status='full', so the RPC's own guards will never revisit
+-- it -- this UPDATE is the only way to correct it). Narrowly scoped to this
+-- one listing_id/user_id pair; not a general migration pattern.
+update public.open_match_listing_participants
+set slot_index = 2
+where listing_id = 'cb508db3-a8c3-4a4b-9ec8-280e69d23dcd'
+  and status = 'joined'
+  and slot_index is null;
