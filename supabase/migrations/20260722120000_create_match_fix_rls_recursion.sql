@@ -11,7 +11,7 @@
 -- it directly (EXECUTE must be granted to authenticated for policies to use it)
 -- can't be used to read data the caller's own RLS wouldn't otherwise allow.
 
-create or replace function public._is_listing_participant(_listing_id uuid, _user_id uuid)
+create or replace function public._is_listing_participant(_listing_id uuid)
 returns boolean
 language sql
 security definer
@@ -20,11 +20,11 @@ stable
 as $$
   select exists (
     select 1 from public.open_match_listing_participants
-    where listing_id = _listing_id and user_id = _user_id
+    where listing_id = _listing_id and user_id = auth.uid()
   );
 $$;
 
-create or replace function public._listing_readable(_listing_id uuid, _actor uuid)
+create or replace function public._listing_readable(_listing_id uuid)
 returns boolean
 language sql
 security definer
@@ -33,11 +33,11 @@ stable
 as $$
   select exists (
     select 1 from public.open_match_listings
-    where id = _listing_id and (visibility = 'public' or creator_id = _actor)
+    where id = _listing_id and (visibility = 'public' or creator_id = auth.uid())
   );
 $$;
 
-create or replace function public._listing_open_for_join(_listing_id uuid, _actor uuid)
+create or replace function public._listing_open_for_join(_listing_id uuid)
 returns boolean
 language sql
 security definer
@@ -49,20 +49,20 @@ as $$
     where listing.id = _listing_id
       and listing.status = 'open'
       and listing.visibility = 'public'
-      and listing.creator_id <> _actor
+      and listing.creator_id <> auth.uid()
       and (
         listing.rating_enforcement = 'preference'
         or listing.rating_system = 'none'
         or (
           listing.rating_system = 'utr' and exists (
-            select 1 from public.profiles p where p.id = _actor
+            select 1 from public.profiles p where p.id = auth.uid()
               and p.utr_rating is not null
               and p.utr_rating between listing.utr_min and listing.utr_max
           )
         )
         or (
           listing.rating_system = 'ntrp' and exists (
-            select 1 from public.profiles p where p.id = _actor
+            select 1 from public.profiles p where p.id = auth.uid()
               and p.ntrp_rating is not null
               and p.ntrp_rating between listing.ntrp_min and listing.ntrp_max
           )
@@ -71,7 +71,7 @@ as $$
   );
 $$;
 
-create or replace function public._is_listing_creator(_listing_id uuid, _actor uuid)
+create or replace function public._is_listing_creator(_listing_id uuid)
 returns boolean
 language sql
 security definer
@@ -80,18 +80,18 @@ stable
 as $$
   select exists (
     select 1 from public.open_match_listings
-    where id = _listing_id and creator_id = _actor
+    where id = _listing_id and creator_id = auth.uid()
   );
 $$;
 
-revoke all on function public._is_listing_participant(uuid, uuid) from public;
-revoke all on function public._listing_readable(uuid, uuid) from public;
-revoke all on function public._listing_open_for_join(uuid, uuid) from public;
-revoke all on function public._is_listing_creator(uuid, uuid) from public;
-grant execute on function public._is_listing_participant(uuid, uuid) to authenticated;
-grant execute on function public._listing_readable(uuid, uuid) to authenticated;
-grant execute on function public._listing_open_for_join(uuid, uuid) to authenticated;
-grant execute on function public._is_listing_creator(uuid, uuid) to authenticated;
+revoke all on function public._is_listing_participant(uuid) from public;
+revoke all on function public._listing_readable(uuid) from public;
+revoke all on function public._listing_open_for_join(uuid) from public;
+revoke all on function public._is_listing_creator(uuid) from public;
+grant execute on function public._is_listing_participant(uuid) to authenticated;
+grant execute on function public._listing_readable(uuid) to authenticated;
+grant execute on function public._listing_open_for_join(uuid) to authenticated;
+grant execute on function public._is_listing_creator(uuid) to authenticated;
 
 -- Rewrite open_match_listings SELECT: same logic, participant check now via function.
 drop policy if exists "Users can view public listings, their own, or ones they are on" on public.open_match_listings;
@@ -102,7 +102,7 @@ to authenticated
 using (
   (status = 'open' and visibility = 'public')
   or creator_id = auth.uid()
-  or public._is_listing_participant(id, auth.uid())
+  or public._is_listing_participant(id)
 );
 
 -- Rewrite open_match_listing_participants SELECT: same logic, listing check via function.
@@ -112,7 +112,7 @@ on public.open_match_listing_participants
 for select
 to authenticated
 using (
-  public._listing_readable(listing_id, auth.uid())
+  public._listing_readable(listing_id)
   or user_id = auth.uid()
 );
 
@@ -124,8 +124,8 @@ on public.open_match_listing_participants
 for insert
 to authenticated
 with check (
-  (user_id = auth.uid() and status = 'requested' and public._listing_open_for_join(listing_id, auth.uid()))
-  or (status = 'invited' and added_by = auth.uid() and public._is_listing_creator(listing_id, auth.uid()))
+  (user_id = auth.uid() and status = 'requested' and public._listing_open_for_join(listing_id))
+  or (status = 'invited' and added_by = auth.uid() and public._is_listing_creator(listing_id))
 );
 
 -- Rewrite open_match_listing_participants UPDATE (approve): same logic, creator
@@ -137,6 +137,6 @@ for update
 to authenticated
 using (
   status = 'requested'
-  and public._is_listing_creator(listing_id, auth.uid())
+  and public._is_listing_creator(listing_id)
 )
 with check (status = 'joined');
