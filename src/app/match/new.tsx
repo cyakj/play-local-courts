@@ -7,7 +7,7 @@ import { ChevronLeft, X } from 'lucide-react-native';
 import { Header } from '@/components/ui/Header';
 import { useTheme } from '@/context/ThemeContext';
 import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/design';
-import { useCreateMatchDraft } from '@/hooks/createMatchDraft';
+import { dateKey, endTime, useCreateMatchDraft } from '@/hooks/createMatchDraft';
 import { sendMatchInviteNotifications } from '@/lib/matchInvites';
 import { supabase } from '@/lib/supabase';
 import { StepProgress } from '@/components/match/steps/StepProgress';
@@ -86,9 +86,9 @@ export default function NewMatchScreen() {
         {
           id: listingId,
           format: draft.activity.playFormat ?? 'singles',
-          match_date: draft.dateTime.date.toISOString().slice(0, 10),
+          match_date: dateKey(draft.dateTime.date),
           start_time: draft.dateTime.time ?? '',
-          end_time: draft.dateTime.time ?? '',
+          end_time: draft.dateTime.time ? endTime(draft.dateTime.time, draft.dateTime.durationMinutes) : '',
           location: draft.location?.name ?? '',
         },
         draft.players.map(p => p.id),
