@@ -1,7 +1,7 @@
 // src/components/match/steps/StepPreferences.tsx
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { ChevronDown, ChevronUp } from 'lucide-react-native';
+import { ChevronDown } from 'lucide-react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/design';
 import type { GenderPreference, MatchVisibility, PlayFormat, SkillPreference } from '@/hooks/createMatchDraft';
@@ -57,9 +57,15 @@ export function StepPreferences({ playFormat, visibility, onVisibility, genderPr
 
   function toggleAdvanced() {
     const next = !advancedOpen;
-    setAdvancedOpen(next);
     Animated.timing(chevronRotation, { toValue: next ? 1 : 0, duration: 140, easing: EASE_SNAP, useNativeDriver: true }).start();
-    Animated.timing(panelEntrance, { toValue: next ? 1 : 0, duration: 220, easing: EASE_SIGNAL, useNativeDriver: true }).start();
+    if (next) {
+      setAdvancedOpen(true);
+      Animated.timing(panelEntrance, { toValue: 1, duration: 220, easing: EASE_SIGNAL, useNativeDriver: true }).start();
+    } else {
+      Animated.timing(panelEntrance, { toValue: 0, duration: 220, easing: EASE_SIGNAL, useNativeDriver: true }).start(() => {
+        setAdvancedOpen(false);
+      });
+    }
   }
 
   // Rating-range fields (min/max/enforcement) surface conditionally within the
