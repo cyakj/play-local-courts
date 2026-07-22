@@ -27,6 +27,10 @@ begin
     raise exception 'unauthorized' using errcode = '28000';
   end if;
 
+  if listing_row.status <> 'open' then
+    raise exception 'listing_not_open' using errcode = 'P0001';
+  end if;
+
   select status into participant_status
   from public.open_match_listing_participants
   where listing_id = p_listing_id and user_id = p_participant_user_id;
@@ -46,7 +50,11 @@ begin
 
   update public.open_match_listing_participants
   set status = 'joined'
-  where listing_id = p_listing_id and user_id = p_participant_user_id;
+  where listing_id = p_listing_id and user_id = p_participant_user_id and status = 'requested';
+
+  if not found then
+    raise exception 'request_no_longer_pending' using errcode = 'P0001';
+  end if;
 
   if reserved_count + 1 >= capacity then
     update public.open_match_listings set status = 'full' where id = p_listing_id;
@@ -54,4 +62,5 @@ begin
 end;
 $$;
 
+revoke all on function public.approve_match_participant(uuid, uuid) from public;
 grant execute on function public.approve_match_participant(uuid, uuid) to authenticated;
