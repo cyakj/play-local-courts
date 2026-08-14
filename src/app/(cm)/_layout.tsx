@@ -35,14 +35,14 @@ export default function CMLayout() {
       />
       <Tabs.Screen
         name="alerts"
-        options={{ href: null }}
-      />
-      <Tabs.Screen
-        name="messages"
         options={{
           title: 'Alerts',
           tabBarIcon: ({ color, size }) => <Bell color={color} size={size} strokeWidth={1.5} />,
         }}
+      />
+      <Tabs.Screen
+        name="messages"
+        options={{ href: null }}
       />
     </Tabs>
   );

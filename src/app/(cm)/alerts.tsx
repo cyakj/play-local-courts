@@ -8,8 +8,9 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import {
-  Bell, CalendarDays, TrendingUp, UserCheck, Wrench,
+  Bell, CalendarDays, MessageCircle, TrendingUp, UserCheck, Wrench,
 } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
@@ -71,7 +72,7 @@ export default function CMAlertsScreen() {
         .order('created_at', { ascending: false }),
       supabase
         .from('maintenance_reports')
-        .select('id, hoa_id, title, status, created_at')
+        .select('id, hoa_id, description, category, status, is_urgent, created_at')
         .in('hoa_id', hoaIds)
         .in('status', ['open', 'in_progress'])
         .order('created_at', { ascending: false })
@@ -94,14 +95,15 @@ export default function CMAlertsScreen() {
     }
 
     for (const report of issuesRes.data ?? []) {
+      const summary = (report.description ?? '').trim();
       allAlerts.push({
         id: `issue-${report.id}`,
         type: 'issue',
         community: hoaMap.get(report.hoa_id) ?? '',
         communityId: report.hoa_id,
-        text: report.title ?? 'Maintenance issue reported',
+        text: summary ? (summary.length > 80 ? `${summary.slice(0, 80)}…` : summary) : 'Maintenance issue reported',
         time: timeAgo(report.created_at),
-        urgent: report.status === 'open',
+        urgent: report.is_urgent || report.status === 'open',
         reportId: report.id,
       });
     }
@@ -117,6 +119,14 @@ export default function CMAlertsScreen() {
     setRefreshing(true);
     await load();
     setRefreshing(false);
+  }
+
+  function takeAction(a: Alert) {
+    if (a.type === 'approval') {
+      router.push('/pending-requests' as any);
+    } else if (a.type === 'issue') {
+      router.push({ pathname: '/(cm)/maintenance', params: { reportId: a.reportId ?? '' } } as any);
+    }
   }
 
   const visible = alerts.filter((a) => !dismissed.has(a.id));
@@ -140,8 +150,17 @@ export default function CMAlertsScreen() {
             <Text style={styles.headerTitle}>Alerts</Text>
             <Text style={styles.headerSub}>Pending actions</Text>
           </View>
-          <View style={[styles.urgentBadge, urgentCount > 0 && styles.urgentBadgeActive]}>
-            <Text style={styles.urgentBadgeText}>{urgentCount} Urgent</Text>
+          <View style={styles.headerActions}>
+            <View style={[styles.urgentBadge, urgentCount > 0 && styles.urgentBadgeActive]}>
+              <Text style={styles.urgentBadgeText}>{urgentCount} Urgent</Text>
+            </View>
+            <TouchableOpacity
+              testID="messages-icon"
+              style={styles.messagesBtn}
+              onPress={() => router.push('/(cm)/messages' as any)}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+              <MessageCircle color={Colors.white} size={20} strokeWidth={1.5} />
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -201,7 +220,10 @@ export default function CMAlertsScreen() {
                       <Text style={styles.alertText}>{a.text}</Text>
                       {(a.urgent || a.type === 'issue') && (
                         <View style={styles.alertActions}>
-                          <TouchableOpacity style={styles.actionBtnPrimary} activeOpacity={0.8}>
+                          <TouchableOpacity
+                            style={styles.actionBtnPrimary}
+                            onPress={() => takeAction(a)}
+                            activeOpacity={0.8}>
                             <Text style={styles.actionBtnPrimaryLabel}>Take Action</Text>
                           </TouchableOpacity>
                           <TouchableOpacity
@@ -248,6 +270,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.65)',
     marginTop: 2,
   },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   urgentBadge: {
     borderRadius: 99,
     paddingHorizontal: 14,
@@ -255,6 +278,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.12)',
   },
   urgentBadgeActive: { backgroundColor: 'rgba(239,68,68,0.25)' },
+  messagesBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   urgentBadgeText: {
     fontFamily: FontFamily.manropeExtraBold,
     fontSize: 13,

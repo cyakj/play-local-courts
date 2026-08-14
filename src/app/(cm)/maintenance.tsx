@@ -3,6 +3,7 @@ import {
   Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useLocalSearchParams } from 'expo-router';
 import { CheckCircle, ChevronDown, X } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
@@ -122,6 +123,7 @@ function FilterPicker({
 
 export default function MaintenanceReportsScreen() {
   const insets = useSafeAreaInsets();
+  const { reportId } = useLocalSearchParams<{ reportId?: string }>();
   const [reports, setReports] = useState<Report[]>([]);
   const [communities, setCommunities] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -145,7 +147,7 @@ export default function MaintenanceReportsScreen() {
 
     let query = supabase
       .from('maintenance_reports')
-      .select('id, hoa_id, amenity_id, status, priority, category, description, reporter_id, created_at, report_type, location_text, is_urgent, title, admin_notes')
+      .select('id, hoa_id, amenity_id, status, priority, category, description, reporter_id, created_at, report_type, location_text, is_urgent, admin_notes')
       .in('hoa_id', hoaIds)
       .order('created_at', { ascending: false });
 
@@ -179,7 +181,7 @@ export default function MaintenanceReportsScreen() {
       const locationText = r.location_text as string | undefined;
       const displayTitle = r.report_type === 'location'
         ? `${(locationText ?? 'Unknown location').slice(0, 30)}${(locationText ?? '').length > 30 ? '…' : ''}`
-        : (r.title ?? amenityName ?? getCategoryLabel(r.category));
+        : (amenityName ?? getCategoryLabel(r.category));
       return {
         id: r.id,
         community: hoaMap.get(r.hoa_id) ?? '',
@@ -207,6 +209,16 @@ export default function MaintenanceReportsScreen() {
   }
 
   useEffect(() => { load(); }, [statusFilter, categoryFilter]);
+
+  useEffect(() => {
+    if (!reportId || selected) return;
+    const match = reports.find((r) => r.id === reportId);
+    if (match) {
+      setSelected(match);
+      setDetailStatus(match.status);
+      setAdminNote(match.admin_notes ?? '');
+    }
+  }, [reportId, reports]);
 
   useEffect(() => {
     const sub = supabase
