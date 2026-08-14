@@ -1158,6 +1158,7 @@ export type Database = {
           created_at: string | null
           date: string
           description: string | null
+          end_date: string | null
           end_time: string
           id: string
           start_time: string
@@ -1168,6 +1169,7 @@ export type Database = {
           created_at?: string | null
           date: string
           description?: string | null
+          end_date?: string | null
           end_time: string
           id?: string
           start_time: string
@@ -1178,6 +1180,7 @@ export type Database = {
           created_at?: string | null
           date?: string
           description?: string | null
+          end_date?: string | null
           end_time?: string
           id?: string
           start_time?: string
@@ -1195,26 +1198,35 @@ export type Database = {
       }
       courts: {
         Row: {
+          capacity: number | null
           court_type: string
           created_at: string | null
+          description: string | null
           hoa_id: string
           id: string
+          is_active: boolean
           name: string
           updated_at: string | null
         }
         Insert: {
+          capacity?: number | null
           court_type: string
           created_at?: string | null
+          description?: string | null
           hoa_id: string
           id?: string
+          is_active?: boolean
           name: string
           updated_at?: string | null
         }
         Update: {
+          capacity?: number | null
           court_type?: string
           created_at?: string | null
+          description?: string | null
           hoa_id?: string
           id?: string
+          is_active?: boolean
           name?: string
           updated_at?: string | null
         }
