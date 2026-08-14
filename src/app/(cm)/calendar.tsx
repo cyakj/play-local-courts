@@ -20,13 +20,17 @@ const EVENT_TYPE_CONFIG: Record<string, { color: string; label: string }> = {
   community_event: { color: Colors.accentCyan, label: 'Community Event' },
   board_meeting: { color: Colors.navy, label: 'Board Meeting' },
   maintenance_scheduled: { color: Colors.coral, label: 'Maintenance' },
+  reservation: { color: Colors.blue, label: 'Reservation' },
+  blockout: { color: Colors.volt, label: 'Blockout' },
 };
 
-const TYPE_LABELS = ['All', 'Community Events', 'Board Meetings', 'Maintenance'];
+const TYPE_LABELS = ['All', 'Community Events', 'Board Meetings', 'Maintenance', 'Reservations', 'Blockouts'];
 const TYPE_MAP: Record<string, string> = {
   'Community Events': 'community_event',
   'Board Meetings': 'board_meeting',
   Maintenance: 'maintenance_scheduled',
+  Reservations: 'reservation',
+  Blockouts: 'blockout',
 };
 const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -118,13 +122,22 @@ export default function CMCalendarScreen() {
     const hoaIds = hoaList.map((h) => h.id);
     const hoaMap = new Map(hoaList.map((h) => [h.id, h.name]));
 
-    const { data: hoaEvents } = await supabase
-      .from('hoa_events')
-      .select('id, hoa_id, title, event_type, location, starts_at, rsvp_enabled')
-      .in('hoa_id', hoaIds)
-      .eq('status', 'active');
+    const windowStart = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const windowEnd = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-    const eventIds = (hoaEvents || []).map((e) => e.id);
+    const [hoaEventsRes, courtsRes] = await Promise.all([
+      supabase
+        .from('hoa_events')
+        .select('id, hoa_id, title, event_type, location, starts_at, rsvp_enabled')
+        .in('hoa_id', hoaIds)
+        .eq('status', 'active'),
+      supabase.from('courts').select('id, name, hoa_id').in('hoa_id', hoaIds),
+    ]);
+
+    const hoaEvents = hoaEventsRes.data ?? [];
+    const courtIds = (courtsRes.data ?? []).map((c) => c.id);
+
+    const eventIds = hoaEvents.map((e) => e.id);
     const rsvpCounts = new Map<string, number>();
     if (eventIds.length > 0) {
       const { data: rsvps } = await supabase
@@ -137,7 +150,7 @@ export default function CMCalendarScreen() {
       }
     }
 
-    const calEvents: CalEvent[] = (hoaEvents || []).map((e) => {
+    const calEvents: CalEvent[] = hoaEvents.map((e) => {
       const dt = new Date(e.starts_at);
       return {
         id: e.id,
@@ -153,6 +166,62 @@ export default function CMCalendarScreen() {
         rsvp: e.rsvp_enabled ? (rsvpCounts.get(e.id) || 0) : null,
       };
     });
+
+    if (courtIds.length > 0) {
+      const [bookingsRes, maintenanceRes] = await Promise.all([
+        supabase
+          .from('bookings')
+          .select('id, date, start_time, court_id, courts(name, hoa_id)')
+          .in('court_id', courtIds)
+          .gte('date', windowStart)
+          .lte('date', windowEnd)
+          .neq('status', 'cancelled'),
+        supabase
+          .from('court_maintenance')
+          .select('id, date, start_time, court_id, description, courts(name, hoa_id)')
+          .in('court_id', courtIds)
+          .gte('date', windowStart)
+          .lte('date', windowEnd),
+      ]);
+
+      for (const b of bookingsRes.data ?? []) {
+        const court = (b as any).courts;
+        if (!court) continue;
+        const dt = new Date(`${b.date}T${b.start_time}`);
+        calEvents.push({
+          id: `reservation-${b.id}`,
+          hoa_id: court.hoa_id,
+          community: hoaMap.get(court.hoa_id) || '',
+          title: `${court.name} Reservation`,
+          type: 'reservation',
+          day: dt.getDate(),
+          month: dt.getMonth(),
+          year: dt.getFullYear(),
+          time: dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
+          location: court.name,
+          rsvp: null,
+        });
+      }
+
+      for (const m of maintenanceRes.data ?? []) {
+        const court = (m as any).courts;
+        if (!court) continue;
+        const dt = new Date(`${m.date}T${m.start_time}`);
+        calEvents.push({
+          id: `blockout-${m.id}`,
+          hoa_id: court.hoa_id,
+          community: hoaMap.get(court.hoa_id) || '',
+          title: m.description ? `${court.name} Blockout: ${m.description}` : `${court.name} Blockout`,
+          type: 'blockout',
+          day: dt.getDate(),
+          month: dt.getMonth(),
+          year: dt.getFullYear(),
+          time: dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
+          location: court.name,
+          rsvp: null,
+        });
+      }
+    }
 
     setEvents(calEvents);
     setLoading(false);
