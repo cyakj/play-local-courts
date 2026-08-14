@@ -7,6 +7,7 @@ import { Bell, ArrowLeft, Menu, MessageCircle } from 'lucide-react-native';
 import { Colors, FontFamily, FontSize } from '@/constants/design';
 import { useTheme } from '@/context/ThemeContext';
 import { supabase } from '@/lib/supabase';
+import { isCommunityMode } from '@/config/productMode';
 
 interface CMPortfolioHeaderProps {
   variant: 'cm-portfolio';
@@ -36,6 +37,7 @@ interface ResidentHeaderProps {
   onBell?: () => void;
   onMessages?: () => void;
   onAvatar?: () => void;
+  communityName?: string;
 }
 
 interface CoachHeaderProps {
@@ -43,6 +45,7 @@ interface CoachHeaderProps {
   onBell?: () => void;
   onMessages?: () => void;
   onSettings?: () => void;
+  communityName?: string;
 }
 
 type HeaderProps =
@@ -90,13 +93,21 @@ export function Header(props: HeaderProps) {
     return (
       <View style={[styles.base, styles.residentBase, { paddingTop: topPad + 8, backgroundColor: theme.headerBg, borderBottomColor: theme.headerBorder }]}>
         <View style={[styles.topBar, styles.residentTopBar]}>
-          <View testID="tenisx-logo" style={styles.residentLogoWrap}>
-            <Image
-              source={require('@/assets/images/TenisX_logo-removebg-preview.png')}
-              style={styles.residentLogo}
-              resizeMode="contain"
-            />
-          </View>
+          {isCommunityMode ? (
+            <View testID="community-wordmark" style={styles.residentLogoWrap}>
+              <Text style={styles.communityWordmark} numberOfLines={1}>
+                {(props as ResidentHeaderProps | CoachHeaderProps).communityName ?? 'Community'}
+              </Text>
+            </View>
+          ) : (
+            <View testID="tenisx-logo" style={styles.residentLogoWrap}>
+              <Image
+                source={require('@/assets/images/TenisX_logo-removebg-preview.png')}
+                style={styles.residentLogo}
+                resizeMode="contain"
+              />
+            </View>
+          )}
           <View style={styles.topBarRight}>
             {/* Messages */}
             <TouchableOpacity
@@ -234,6 +245,13 @@ const styles = StyleSheet.create({
   residentLogo: {
     width: 148,
     height: 64,
+  },
+  communityWordmark: {
+    fontFamily: FontFamily.spaceGroteskBold,
+    fontSize: 20,
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+    maxWidth: 220,
   },
   logo: {
     fontFamily: FontFamily.spaceGroteskBold,

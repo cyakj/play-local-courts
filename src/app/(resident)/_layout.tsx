@@ -1,8 +1,9 @@
 import { Tabs, Redirect } from 'expo-router';
 import { Text } from 'react-native';
-import { Home, MapPin, GraduationCap, UserCircle } from 'lucide-react-native';
+import { Home, MapPin, GraduationCap, UserCircle, Building2 } from 'lucide-react-native';
 import { BottomNav } from '@/components/ui/BottomNav';
 import { useSession } from '@/context/NativeAuthContext';
+import { isCommunityMode } from '@/config/productMode';
 
 export default function ResidentLayout() {
   const { session, loading } = useSession();
@@ -32,6 +33,7 @@ export default function ResidentLayout() {
         options={{
           title: 'Match',
           tabBarLabel: 'VS',
+          href: isCommunityMode ? null : undefined,
           tabBarIcon: ({ color }) => (
             <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 17, color, letterSpacing: -0.5, lineHeight: 22 }}>
               VS
@@ -43,7 +45,16 @@ export default function ResidentLayout() {
         name="coaches"
         options={{
           title: 'Coaches',
+          href: isCommunityMode ? null : undefined,
           tabBarIcon: ({ color, size }) => <GraduationCap color={color} size={size} strokeWidth={1.5} />,
+        }}
+      />
+      <Tabs.Screen
+        name="community"
+        options={{
+          title: 'Community',
+          href: isCommunityMode ? undefined : null,
+          tabBarIcon: ({ color, size }) => <Building2 color={color} size={size} strokeWidth={1.5} />,
         }}
       />
       <Tabs.Screen
