@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import {
-  RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View,
+  Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import {
-  AlertTriangle, Building2, Calendar, Clock, Plus, TrendingUp,
+  AlertTriangle, Building2, Calendar, Clock, Plus, TrendingUp, X,
 } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
@@ -34,6 +35,10 @@ export default function AdminHubScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [userName, setUserName] = useState('');
+  const [addVisible, setAddVisible] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newAddress, setNewAddress] = useState('');
+  const [addSaving, setAddSaving] = useState(false);
 
   const todayIso = new Date().toISOString().split('T')[0];
 
@@ -88,6 +93,35 @@ export default function AdminHubScreen() {
     setRefreshing(true);
     await load();
     setRefreshing(false);
+  }
+
+  async function addCommunity() {
+    if (!newName.trim()) return;
+    setAddSaving(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setAddSaving(false); return; }
+
+    const { data: hoa, error } = await supabase
+      .from('hoas')
+      .insert({ name: newName.trim(), address: newAddress.trim() || null, admin_id: user.id })
+      .select('id')
+      .single();
+
+    if (!error && hoa) {
+      await supabase.from('hoa_memberships').insert({
+        user_id: user.id,
+        hoa_id: hoa.id,
+        role: 'admin',
+        status: 'approved',
+        is_primary: false,
+      });
+    }
+
+    setAddSaving(false);
+    setAddVisible(false);
+    setNewName('');
+    setNewAddress('');
+    load();
   }
 
   const totalOpenIssues = communities.reduce((s, c) => s + c.openIssues, 0);
@@ -188,7 +222,7 @@ export default function AdminHubScreen() {
               <TouchableOpacity
                 key={c.id}
                 style={styles.communityCard}
-                onPress={() => router.push({ pathname: '/(admin)/manage-amenities', params: { hoaId: c.id } })}
+                onPress={() => router.push({ pathname: '/(cm)/community/[hoaId]', params: { hoaId: c.id } } as any)}
                 activeOpacity={0.85}>
 
                 {/* Name + Status pill */}
@@ -233,15 +267,58 @@ export default function AdminHubScreen() {
 
           {/* Add Community dashed card */}
           {!loading && (
-            <View style={styles.addCommunityCard}>
+            <TouchableOpacity
+              style={styles.addCommunityCard}
+              onPress={() => setAddVisible(true)}
+              activeOpacity={0.8}>
               <View style={styles.addCommunityInner}>
                 <Plus color={Colors.textMuted} size={20} strokeWidth={1.5} />
               </View>
               <Text style={styles.addCommunityLabel}>ADD COMMUNITY</Text>
-            </View>
+            </TouchableOpacity>
           )}
         </View>
       </ScrollView>
+
+      <Modal
+        visible={addVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setAddVisible(false)}>
+        <SafeAreaView style={styles.addModal}>
+          <View style={styles.addModalHeader}>
+            <Text style={styles.addModalTitle}>Add Community</Text>
+            <TouchableOpacity onPress={() => setAddVisible(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <X color={Colors.textMuted} size={22} strokeWidth={1.5} />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.addModalContent}>
+            <Text style={styles.addFieldLabel}>NAME</Text>
+            <TextInput
+              style={styles.addTextInput}
+              value={newName}
+              onChangeText={setNewName}
+              placeholder="e.g. The Greens at Riverside"
+              placeholderTextColor={Colors.textMuted}
+              autoFocus
+            />
+            <Text style={[styles.addFieldLabel, { marginTop: 16 }]}>ADDRESS (OPTIONAL)</Text>
+            <TextInput
+              style={styles.addTextInput}
+              value={newAddress}
+              onChangeText={setNewAddress}
+              placeholder="123 Main St"
+              placeholderTextColor={Colors.textMuted}
+            />
+            <TouchableOpacity
+              style={[styles.addSubmitBtn, (!newName.trim() || addSaving) && { opacity: 0.5 }]}
+              onPress={addCommunity}
+              disabled={!newName.trim() || addSaving}>
+              <Text style={styles.addSubmitLabel}>{addSaving ? 'Creating…' : 'Create Community'}</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </Modal>
     </View>
   );
 }
@@ -418,5 +495,49 @@ const styles = StyleSheet.create({
     fontSize: FontSize.metadata,
     color: Colors.textSubtle,
     letterSpacing: 1.2,
+  },
+
+  addModal: { flex: 1, backgroundColor: Colors.white },
+  addModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: Spacing.pagePx,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  addModalTitle: {
+    fontFamily: FontFamily.manropeBold,
+    fontSize: FontSize.sectionTitle,
+    color: Colors.navy,
+  },
+  addModalContent: { padding: Spacing.pagePx },
+  addFieldLabel: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: FontSize.metadata,
+    color: Colors.textMuted,
+    letterSpacing: 1.2,
+    marginBottom: 8,
+  },
+  addTextInput: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    padding: 14,
+    fontFamily: FontFamily.interRegular,
+    fontSize: FontSize.body,
+    color: Colors.navy,
+  },
+  addSubmitBtn: {
+    marginTop: 28,
+    backgroundColor: Colors.navy,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  addSubmitLabel: {
+    fontFamily: FontFamily.manropeExtraBold,
+    fontSize: FontSize.body,
+    color: Colors.white,
   },
 });
