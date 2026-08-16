@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
+  Alert, Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
@@ -236,11 +236,15 @@ export default function MaintenanceReportsScreen() {
   async function saveDetail() {
     if (!selected) return;
     setSaving(true);
-    await supabase
+    const { error } = await supabase
       .from('maintenance_reports')
       .update({ status: detailStatus, admin_notes: adminNote || undefined })
       .eq('id', selected.id);
     setSaving(false);
+    if (error) {
+      Alert.alert('Save Failed', error.message);
+      return;
+    }
     setSelected(null);
     load();
   }
