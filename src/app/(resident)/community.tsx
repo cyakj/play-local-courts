@@ -90,7 +90,7 @@ export default function CommunityScreen() {
 
   return (
     <View style={styles.screen}>
-      <Header variant="resident" />
+      <Header variant="resident" communityName={hoa?.name} />
 
       <View style={styles.hero}>
         <Text style={styles.heroLabel}>COMMUNITY</Text>

@@ -18,6 +18,7 @@ import {
   Colors, FontFamily, FontSize, MaxWidth, Radius, Shadow, Spacing,
 } from '@/constants/design';
 import { Header } from '@/components/ui/Header';
+import { useCommunityName } from '@/hooks/useCommunityName';
 
 interface HoaDocument {
   id: string;
@@ -62,6 +63,7 @@ function isNew(createdAt: string): boolean {
 }
 
 export default function DocsScreen() {
+  const communityName = useCommunityName();
   const [docs, setDocs] = useState<HoaDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -132,7 +134,7 @@ export default function DocsScreen() {
   return (
     <View style={styles.screen}>
 
-      <Header variant="resident" />
+      <Header variant="resident" communityName={communityName} />
 
       {/* ── Hero title ──────────────────────────────────────────────────── */}
       <View style={styles.hero}>

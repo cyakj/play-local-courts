@@ -24,6 +24,7 @@ import {
 } from '@/constants/design';
 import { Header } from '@/components/ui/Header';
 import { useTheme } from '@/context/ThemeContext';
+import { useCommunityName } from '@/hooks/useCommunityName';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 
 // ─── Category config ──────────────────────────────────────────────────────────
@@ -130,6 +131,7 @@ interface Report {
 export default function ReportScreen() {
   const { theme } = useTheme();
   const styles = useStyles(theme);
+  const communityName = useCommunityName();
   // Facility pre-fill params (when navigated from court/amenity card)
   const params = useLocalSearchParams<{ courtId?: string; courtName?: string; facilityType?: string; returnTo?: string }>();
   const returnTo = params.returnTo ?? null;
@@ -568,7 +570,7 @@ export default function ReportScreen() {
 
   return (
     <View style={styles.screen}>
-      <Header variant="resident" />
+      <Header variant="resident" communityName={communityName} />
 
       {/* ── Hero ── */}
       <View style={styles.hero}>

@@ -25,6 +25,7 @@ import { Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing } from '@/const
 import { useTheme } from '@/context/ThemeContext';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 import { useCoachData, type CoachFilters } from '@/hooks/useCoachData';
+import { useCommunityName } from '@/hooks/useCommunityName';
 
 const PRICE_LABELS: Record<string, string> = {
   under75:  '<$75',
@@ -62,6 +63,7 @@ function buildFilterSummary(f: CoachFiltersState): string {
 export default function CoachesScreen() {
   const { theme } = useTheme();
   const styles = useStyles(theme);
+  const communityName = useCommunityName();
 
   const [searchText,      setSearchText]      = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -208,7 +210,7 @@ export default function CoachesScreen() {
   if (loading) {
     return (
       <View style={styles.screen}>
-        <Header variant="resident" />
+        <Header variant="resident" communityName={communityName} />
         <View style={styles.hero}>
           <Text style={styles.heroLabel}>COACHES</Text>
           <Text style={styles.heroTitle}>Find a Coach</Text>
@@ -228,7 +230,7 @@ export default function CoachesScreen() {
 
   return (
     <View style={styles.screen}>
-      <Header variant="resident" />
+      <Header variant="resident" communityName={communityName} />
       <FlatList
         data={coaches}
         keyExtractor={item => item.id}

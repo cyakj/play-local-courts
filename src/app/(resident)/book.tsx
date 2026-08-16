@@ -20,6 +20,7 @@ import {
   Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing,
 } from '@/constants/design';
 import { Header } from '@/components/ui/Header';
+import { useCommunityName } from '@/hooks/useCommunityName';
 import type { Database } from '@/lib/types';
 
 function LoadingCard() {
@@ -104,6 +105,7 @@ function fmtDuration(mins: number | null): string {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function BookScreen() {
+  const communityName = useCommunityName();
   const [courts, setCourts] = useState<Court[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
@@ -166,7 +168,7 @@ export default function BookScreen() {
 
   return (
     <View style={styles.screen}>
-      <Header variant="resident" />
+      <Header variant="resident" communityName={communityName} />
 
       {/* ── Hero title ──────────────────────────────────────────────────── */}
       <View style={styles.hero}>

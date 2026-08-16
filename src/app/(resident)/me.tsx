@@ -231,7 +231,7 @@ export default function MeScreen() {
 
   return (
     <View style={styles.screen}>
-      <Header variant="resident" />
+      <Header variant="resident" communityName={profile?.communityName ?? undefined} />
 
       <ScrollView
         contentContainerStyle={styles.body}

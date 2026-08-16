@@ -21,6 +21,7 @@ import {
 import { Header } from '@/components/ui/Header';
 import { useTheme } from '@/context/ThemeContext';
 import { useUpcomingMatches } from '@/hooks/useUpcomingMatches';
+import { useCommunityName } from '@/hooks/useCommunityName';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -157,6 +158,7 @@ function firstName(fullName: string): string {
 export default function HomeScreen() {
   const { theme } = useTheme();
   const styles = useStyles(theme);
+  const communityName = useCommunityName();
   const [name, setName] = useState('');
   const [nextBooking, setNextBooking] = useState<NextBooking | null>(null);
   const [pendingChallenge, setPendingChallenge] = useState<PendingChallenge | null>(null);
@@ -365,7 +367,7 @@ export default function HomeScreen() {
 
   return (
     <View testID="home-screen" style={styles.screen}>
-      <Header variant="resident" />
+      <Header variant="resident" communityName={communityName} />
 
       <ScrollView
         style={{ flex: 1 }}

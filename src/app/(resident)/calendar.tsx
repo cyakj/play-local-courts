@@ -16,6 +16,7 @@ import {
   Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing,
 } from '@/constants/design';
 import { useUpcomingMatches } from '@/hooks/useUpcomingMatches';
+import { useCommunityName } from '@/hooks/useCommunityName';
 
 // ─── Event type config — tennis-first ─────────────────────────────────────────
 
@@ -90,6 +91,7 @@ function fmtTime(t: string): string {
 export default function ResidentCalendarScreen() {
   const now = new Date();
   const { theme } = useTheme();
+  const communityName = useCommunityName();
 
   const [viewMode, setViewMode]           = useState<'month' | 'week'>('month');
   const [currentMonth, setCurrentMonth]   = useState(new Date(now.getFullYear(), now.getMonth(), 1));
@@ -335,7 +337,7 @@ export default function ResidentCalendarScreen() {
 
   return (
     <View style={styles.screen}>
-      <Header variant="resident" />
+      <Header variant="resident" communityName={communityName} />
 
       {/* ── Hero ──────────────────────────────────────────────────────────── */}
       <View style={styles.hero}>

@@ -27,6 +27,7 @@ import { Header } from '@/components/ui/Header';
 import { TimeSlotWheel } from '@/components/ui/TimeSlotWheel';
 import { CalendarPicker, formatDateLabel } from '@/components/ui/CalendarPicker';
 import { useTheme } from '@/context/ThemeContext';
+import { useCommunityName } from '@/hooks/useCommunityName';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -244,6 +245,7 @@ export default function CourtsScreen() {
   const { theme } = useTheme();
   const styles = useStyles(theme);
   const insets = useSafeAreaInsets();
+  const communityName = useCommunityName();
   const now = useMemo(() => new Date(), []);
 
   // ── Core state ──────────────────────────────────────────────────────────────
@@ -551,7 +553,7 @@ export default function CourtsScreen() {
 
   return (
     <View testID="courts-screen" style={styles.screen}>
-      <Header variant="resident" />
+      <Header variant="resident" communityName={communityName} />
 
       <ScrollView
         style={{ flex: 1 }}
