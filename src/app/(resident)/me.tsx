@@ -28,6 +28,7 @@ import { CardSkeleton } from '@/components/ui/Skeleton';
 import { InfoTooltip } from '@/components/ui/InfoTooltip';
 import { useTheme } from '@/context/ThemeContext';
 import { useUpcomingMatches } from '@/hooks/useUpcomingMatches';
+import { isCommunityMode } from '@/config/productMode';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 
 const LESSON_TYPE_SHORT: Record<string, string> = {
@@ -266,21 +267,23 @@ export default function MeScreen() {
 
               {/* ── Stats grid: NTRP · Community · Home ─────────────── */}
               <View style={styles.statsGrid}>
-                <View style={styles.statCell}>
-                  <View style={styles.statLabelRow}>
-                    <Text style={styles.statLabel}>NTRP</Text>
-                    <InfoTooltip
-                      size={11}
-                      label="NTRP"
-                      text="Your self-assessed USTA skill level, from 1.0 to 7.0. Set it in Edit Profile."
-                    />
+                {!isCommunityMode && (
+                  <View style={styles.statCell}>
+                    <View style={styles.statLabelRow}>
+                      <Text style={styles.statLabel}>NTRP</Text>
+                      <InfoTooltip
+                        size={11}
+                        label="NTRP"
+                        text="Your self-assessed USTA skill level, from 1.0 to 7.0. Set it in Edit Profile."
+                      />
+                    </View>
+                    <Text style={styles.statValue} numberOfLines={1}>
+                      {profile.ntrpRating ?? '—'}
+                    </Text>
                   </View>
-                  <Text style={styles.statValue} numberOfLines={1}>
-                    {profile.ntrpRating ?? '—'}
-                  </Text>
-                </View>
+                )}
 
-                <View style={[styles.statCell, styles.statCellDivider]}>
+                <View style={isCommunityMode ? styles.statCell : [styles.statCell, styles.statCellDivider]}>
                   <View style={styles.statLabelRow}>
                     <Text style={styles.statLabel}>COMMUNITY</Text>
                     <InfoTooltip
@@ -318,7 +321,7 @@ export default function MeScreen() {
               <Text style={styles.sectionLabel}>UPCOMING</Text>
 
               {/* Next lesson preview */}
-              {nextLesson ? (
+              {isCommunityMode ? null : nextLesson ? (
                 <TouchableOpacity
                   style={styles.upcomingCard}
                   onPress={() => router.push('/my-coaching' as any)}
@@ -378,7 +381,7 @@ export default function MeScreen() {
               )}
 
               {/* Next match preview — legacy challenge match, else newest open match listing */}
-              {nextMatch ? (
+              {isCommunityMode ? null : nextMatch ? (
                 <TouchableOpacity
                   style={styles.upcomingCard}
                   onPress={() => router.push('/(resident)/match')}
