@@ -225,11 +225,15 @@ export default function CommunityDetailScreen() {
   async function saveReport() {
     if (!selectedReport) return;
     setReportSaving(true);
-    await supabase
+    const { error } = await supabase
       .from('maintenance_reports')
       .update({ status: reportDetailStatus, admin_notes: reportAdminNote || undefined })
       .eq('id', selectedReport.id);
     setReportSaving(false);
+    if (error) {
+      Alert.alert('Save Failed', error.message);
+      return;
+    }
     setSelectedReport(null);
     load();
   }
@@ -259,7 +263,11 @@ export default function CommunityDetailScreen() {
           text: 'Deactivate',
           style: 'destructive',
           onPress: async () => {
-            await supabase.from('hoa_memberships').update({ status: 'removed' }).eq('id', m.membershipId);
+            const { error } = await supabase.from('hoa_memberships').update({ status: 'removed' }).eq('id', m.membershipId);
+            if (error) {
+              Alert.alert('Could Not Deactivate Member', error.message);
+              return;
+            }
             load();
           },
         },
@@ -268,7 +276,7 @@ export default function CommunityDetailScreen() {
   }
 
   async function resendInvite(m: MemberRow) {
-    await supabase.from('hoa_notifications').insert({
+    const { error } = await supabase.from('hoa_notifications').insert({
       user_id: m.userId,
       hoa_id: hoaId ?? '',
       title: 'Community Invite Reminder',
@@ -276,6 +284,10 @@ export default function CommunityDetailScreen() {
       type: 'invite_reminder',
       read: false,
     });
+    if (error) {
+      Alert.alert('Could Not Send Reminder', error.message);
+      return;
+    }
     Alert.alert('Reminder Sent', `${m.fullName} will see a reminder notification in their app.`);
   }
 

@@ -169,25 +169,37 @@ export default function ManageAmenitiesScreen() {
   }
 
   async function deleteCourt(id: string) {
-    await supabase.from('courts').delete().eq('id', id);
+    const { error } = await supabase.from('courts').delete().eq('id', id);
+    if (error) {
+      Alert.alert('Delete Failed', error.message);
+      return;
+    }
     loadCourts();
   }
 
   async function toggleActive(court: Court) {
     setCourts((prev) => prev.map((c) => (c.id === court.id ? { ...c, is_active: !c.is_active } : c)));
-    await supabase.from('courts').update({ is_active: !court.is_active }).eq('id', court.id);
+    const { error } = await supabase.from('courts').update({ is_active: !court.is_active }).eq('id', court.id);
+    if (error) {
+      setCourts((prev) => prev.map((c) => (c.id === court.id ? { ...c, is_active: court.is_active } : c)));
+      Alert.alert('Update Failed', error.message);
+    }
   }
 
   async function addCourt() {
     if (!newName.trim()) return;
     setSaving(true);
-    await supabase.from('courts').insert({
+    const { error } = await supabase.from('courts').insert({
       name: newName.trim(),
       court_type: newType,
       hoa_id: hoaId ?? '',
       is_active: true,
     });
     setSaving(false);
+    if (error) {
+      Alert.alert('Could Not Add Amenity', error.message);
+      return;
+    }
     setAddVisible(false);
     setNewName('');
     setNewType('tennis');
@@ -262,7 +274,7 @@ export default function ManageAmenitiesScreen() {
     if (!detailCourt) return;
     setDetailSaving(true);
 
-    await supabase
+    const { error: courtError } = await supabase
       .from('courts')
       .update({
         name: editName.trim() || detailCourt.name,
@@ -272,6 +284,12 @@ export default function ManageAmenitiesScreen() {
         is_active: editActive,
       })
       .eq('id', detailCourt.id);
+
+    if (courtError) {
+      setDetailSaving(false);
+      Alert.alert('Save Failed', courtError.message);
+      return;
+    }
 
     const rulesPayload = {
       hoa_id: detailCourt.hoa_id,
@@ -285,20 +303,24 @@ export default function ManageAmenitiesScreen() {
       requires_admin_approval: rules.requires_admin_approval ?? false,
     };
 
-    if (rules.id) {
-      await supabase.from('amenity_rules').update(rulesPayload).eq('id', rules.id);
-    } else {
-      await supabase.from('amenity_rules').insert(rulesPayload);
-    }
+    const rulesRes = rules.id
+      ? await supabase.from('amenity_rules').update(rulesPayload).eq('id', rules.id)
+      : await supabase.from('amenity_rules').insert(rulesPayload);
 
     setDetailSaving(false);
+
+    if (rulesRes.error) {
+      Alert.alert('Booking Rules Not Saved', `${rulesRes.error.message} (amenity details were saved)`);
+      return;
+    }
+
     setDetailCourt(null);
     loadCourts();
   }
 
   async function addBlockout() {
     if (!detailCourt || !blockoutDate.trim() || !blockoutStart.trim() || !blockoutEnd.trim()) return;
-    await supabase.from('court_maintenance').insert({
+    const { error } = await supabase.from('court_maintenance').insert({
       court_id: detailCourt.id,
       date: blockoutDate.trim(),
       end_date: blockoutEndDate.trim() || null,
@@ -306,6 +328,10 @@ export default function ManageAmenitiesScreen() {
       end_time: blockoutEnd.trim(),
       description: blockoutReason.trim() || null,
     });
+    if (error) {
+      Alert.alert('Could Not Add Blockout', error.message);
+      return;
+    }
     setBlockoutDate('');
     setBlockoutEndDate('');
     setBlockoutStart('');
@@ -321,7 +347,11 @@ export default function ManageAmenitiesScreen() {
   }
 
   async function deleteBlockout(id: string) {
-    await supabase.from('court_maintenance').delete().eq('id', id);
+    const { error } = await supabase.from('court_maintenance').delete().eq('id', id);
+    if (error) {
+      Alert.alert('Delete Failed', error.message);
+      return;
+    }
     setMaintenance((prev) => prev.filter((m) => m.id !== id));
   }
 

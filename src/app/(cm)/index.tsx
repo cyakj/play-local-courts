@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
+  Alert, Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -107,17 +107,30 @@ export default function AdminHubScreen() {
       .select('id')
       .single();
 
-    if (!error && hoa) {
-      await supabase.from('hoa_memberships').insert({
-        user_id: user.id,
-        hoa_id: hoa.id,
-        role: 'admin',
-        status: 'approved',
-        is_primary: false,
-      });
+    if (error || !hoa) {
+      setAddSaving(false);
+      Alert.alert('Could Not Create Community', error?.message ?? 'Please try again.');
+      return;
     }
 
+    const { error: membershipError } = await supabase.from('hoa_memberships').insert({
+      user_id: user.id,
+      hoa_id: hoa.id,
+      role: 'admin',
+      status: 'approved',
+      is_primary: false,
+    });
+
     setAddSaving(false);
+
+    if (membershipError) {
+      Alert.alert(
+        'Community Created, But Membership Failed',
+        `${hoa ? 'The community was created' : 'Something went wrong'}, but you weren't added as its admin: ${membershipError.message}`,
+      );
+      return;
+    }
+
     setAddVisible(false);
     setNewName('');
     setNewAddress('');
