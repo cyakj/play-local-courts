@@ -10,7 +10,7 @@ import {
 import { router, useFocusEffect } from 'expo-router';
 import {
   AlertTriangle, X, MapPin, Swords, GraduationCap, Calendar,
-  ChevronRight, Sun, Cloud, CloudRain, CloudSnow, Zap,
+  ChevronRight, Sun, Cloud, CloudRain, CloudSnow, Zap, Wrench,
 } from 'lucide-react-native';
 import * as Location from 'expo-location';
 
@@ -22,6 +22,7 @@ import { Header } from '@/components/ui/Header';
 import { useTheme } from '@/context/ThemeContext';
 import { useUpcomingMatches } from '@/hooks/useUpcomingMatches';
 import { useCommunityName } from '@/hooks/useCommunityName';
+import { isCommunityMode } from '@/config/productMode';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -434,22 +435,35 @@ export default function HomeScreen() {
               <MapPin color={theme.cyanOnLight} size={26} strokeWidth={1.5} />
               <Text style={styles.quickActionLabel}>Book Court</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              testID="quick-find-match"
-              style={styles.quickAction}
-              onPress={() => router.push('/(resident)/match')}
-              activeOpacity={0.75}>
-              <Swords color={theme.cyanOnLight} size={26} strokeWidth={1.5} />
-              <Text style={styles.quickActionLabel}>Find Match</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              testID="quick-find-coach"
-              style={styles.quickAction}
-              onPress={() => router.push('/(resident)/coaches')}
-              activeOpacity={0.75}>
-              <GraduationCap color={theme.cyanOnLight} size={26} strokeWidth={1.5} />
-              <Text style={styles.quickActionLabel}>Find Coach</Text>
-            </TouchableOpacity>
+            {isCommunityMode ? (
+              <TouchableOpacity
+                testID="quick-report-issue"
+                style={styles.quickAction}
+                onPress={() => router.push('/(resident)/report')}
+                activeOpacity={0.75}>
+                <Wrench color={theme.cyanOnLight} size={26} strokeWidth={1.5} />
+                <Text style={styles.quickActionLabel}>Report Issue</Text>
+              </TouchableOpacity>
+            ) : (
+              <>
+                <TouchableOpacity
+                  testID="quick-find-match"
+                  style={styles.quickAction}
+                  onPress={() => router.push('/(resident)/match')}
+                  activeOpacity={0.75}>
+                  <Swords color={theme.cyanOnLight} size={26} strokeWidth={1.5} />
+                  <Text style={styles.quickActionLabel}>Find Match</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  testID="quick-find-coach"
+                  style={styles.quickAction}
+                  onPress={() => router.push('/(resident)/coaches')}
+                  activeOpacity={0.75}>
+                  <GraduationCap color={theme.cyanOnLight} size={26} strokeWidth={1.5} />
+                  <Text style={styles.quickActionLabel}>Find Coach</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
 
           {/* ── Pending Challenge (hidden if none) ─────────────────────── */}
