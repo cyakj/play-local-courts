@@ -346,6 +346,17 @@ export default function ManageAmenitiesScreen() {
     setMaintenance(data ?? []);
   }
 
+  function confirmDeleteBlockout(id: string) {
+    Alert.alert(
+      'Remove Blockout',
+      'Residents will be able to book this amenity during this window again. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Remove', style: 'destructive', onPress: () => deleteBlockout(id) },
+      ],
+    );
+  }
+
   async function deleteBlockout(id: string) {
     const { error } = await supabase.from('court_maintenance').delete().eq('id', id);
     if (error) {
@@ -685,7 +696,7 @@ export default function ManageAmenitiesScreen() {
                     {m.description ? <Text style={styles.blockoutDesc}>{m.description}</Text> : null}
                   </View>
                   <TouchableOpacity
-                    onPress={() => deleteBlockout(m.id)}
+                    onPress={() => confirmDeleteBlockout(m.id)}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                     <Trash2 color={Colors.negative} size={16} strokeWidth={1.5} />
                   </TouchableOpacity>
