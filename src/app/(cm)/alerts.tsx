@@ -54,7 +54,6 @@ export default function CMAlertsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<FilterOption>('All');
-  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
   async function load() {
     const { data: hoas } = await supabase.from('hoas').select('id, name');
@@ -129,10 +128,9 @@ export default function CMAlertsScreen() {
     }
   }
 
-  const visible = alerts.filter((a) => !dismissed.has(a.id));
-  const urgentCount = visible.filter((a) => a.urgent).length;
+  const urgentCount = alerts.filter((a) => a.urgent).length;
 
-  const filtered = visible.filter((a) => {
+  const filtered = alerts.filter((a) => {
     if (filter === 'All') return true;
     if (filter === 'Urgent') return a.urgent;
     if (filter === 'Approvals') return a.type === 'approval';
@@ -221,16 +219,10 @@ export default function CMAlertsScreen() {
                       {(a.urgent || a.type === 'issue') && (
                         <View style={styles.alertActions}>
                           <TouchableOpacity
-                            style={styles.actionBtnPrimary}
+                            style={styles.actionBtnPrimaryFull}
                             onPress={() => takeAction(a)}
                             activeOpacity={0.8}>
                             <Text style={styles.actionBtnPrimaryLabel}>Take Action</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={styles.actionBtnSecondary}
-                            onPress={() => setDismissed((prev) => new Set(prev).add(a.id))}
-                            activeOpacity={0.7}>
-                            <Text style={styles.actionBtnSecondaryLabel}>Dismiss</Text>
                           </TouchableOpacity>
                         </View>
                       )}
@@ -371,7 +363,7 @@ const styles = StyleSheet.create({
     color: Colors.navy,
   },
   alertActions: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  actionBtnPrimary: {
+  actionBtnPrimaryFull: {
     flex: 1,
     backgroundColor: Colors.navy,
     borderRadius: 12,
@@ -384,21 +376,5 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.interSemiBold,
     fontSize: 12,
     color: Colors.white,
-  },
-  actionBtnSecondary: {
-    flex: 1,
-    backgroundColor: Colors.pageBg,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingVertical: 10,
-    alignItems: 'center',
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  actionBtnSecondaryLabel: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: 12,
-    color: Colors.textMuted,
   },
 });
