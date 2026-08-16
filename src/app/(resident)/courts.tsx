@@ -928,8 +928,9 @@ const BookingSheet = memo(function BookingSheet({
             />
           )}
 
-          {/* Play type (hidden when calendar open) */}
-          {!showCalendar && (
+          {/* Play type — tennis only; duration for every other amenity ignores
+              this value entirely, so showing it there was a dead control */}
+          {!showCalendar && isTennis && (
             <View style={styles.playTypeRow}>
               {(['singles', 'doubles'] as const).map(type => (
                 <TouchableOpacity key={type} testID={`play-type-${type}`}
@@ -1000,7 +1001,7 @@ const BookingSheet = memo(function BookingSheet({
             {selectedSlot && !showCalendar && (
               <View testID="selected-time-summary" style={styles.slotSummary}>
                 <Text style={styles.slotSummaryLine1} numberOfLines={1}>
-                  {courtName} · {playType === 'singles' ? 'Singles' : 'Doubles'} · {duration} min
+                  {courtName}{isTennis ? ` · ${playType === 'singles' ? 'Singles' : 'Doubles'}` : ''} · {duration} min
                 </Text>
                 <View style={styles.slotSummaryRow2}>
                   <Text style={styles.slotSummaryLine2} numberOfLines={1}>
