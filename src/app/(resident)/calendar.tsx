@@ -18,29 +18,37 @@ import {
 import { useUpcomingMatches } from '@/hooks/useUpcomingMatches';
 import { useCommunityName } from '@/hooks/useCommunityName';
 
-// ─── Event type config — tennis-first ─────────────────────────────────────────
+// ─── Event type config ─────────────────────────────────────────────────────────
 
 const EVENT_TYPE_CONFIG: Record<string, { color: string; label: string }> = {
-  court_reservation: { color: Colors.cyan,     label: 'Court Reservation' },
-  match_event:       { color: Colors.blue,     label: 'Match' },
-  lesson:            { color: Colors.positive, label: 'Lesson' },
-  club_event:        { color: Colors.volt,     label: 'Club Event' },
+  court_reservation:     { color: Colors.cyan,     label: 'Court Reservation' },
+  match_event:           { color: Colors.blue,     label: 'Match' },
+  lesson:                { color: Colors.positive, label: 'Lesson' },
+  club_event:            { color: Colors.volt,     label: 'Club Event' },
+  board_meeting:         { color: Colors.navy,     label: 'Board Meeting' },
+  maintenance_scheduled: { color: Colors.coral,    label: 'Maintenance' },
 };
 
-const EVENT_TYPE_FILTERS = ['All', 'Court Reservations', 'Matches', 'Lessons', 'Club Events'];
+const EVENT_TYPE_FILTERS = ['All', 'Court Reservations', 'Matches', 'Lessons', 'Club Events', 'Board Meetings', 'Maintenance'];
 const EVENT_TYPE_FILTER_MAP: Record<string, string> = {
   'Court Reservations': 'court_reservation',
   Matches:              'match_event',
   Lessons:              'lesson',
   'Club Events':        'club_event',
+  'Board Meetings':     'board_meeting',
+  Maintenance:          'maintenance_scheduled',
 };
 
-// HOA event types that map to tennis categories (rest are hidden)
+// HOA event types shown on the resident schedule — mapped 1:1 except
+// amenity_booking/coaching, which fold into the tennis-era category names
+// still used for court/lesson bookings.
 const HOA_TYPE_MAP: Record<string, string> = {
-  amenity_booking:  'court_reservation',
-  community_event:  'club_event',
-  coaching:         'lesson',
-  club_event:       'club_event',
+  amenity_booking:       'court_reservation',
+  community_event:       'club_event',
+  coaching:               'lesson',
+  club_event:             'club_event',
+  board_meeting:          'board_meeting',
+  maintenance_scheduled:  'maintenance_scheduled',
 };
 
 const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -205,7 +213,7 @@ export default function ResidentCalendarScreen() {
       }
     }
 
-    // HOA events — only tennis-relevant types
+    // HOA events
     const { data: hoaEvents } = await supabase
       .from('hoa_events')
       .select('id, title, event_type, location, starts_at, hoa_id, description')
@@ -216,7 +224,7 @@ export default function ResidentCalendarScreen() {
     if (hoaEvents) {
       for (const e of hoaEvents) {
         const mappedType = HOA_TYPE_MAP[e.event_type];
-        if (!mappedType) continue; // skip board_meeting, maintenance, etc.
+        if (!mappedType) continue; // unrecognized HOA event type
         mapped.push({
           id: e.id,
           title: e.title,
