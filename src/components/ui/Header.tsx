@@ -98,6 +98,9 @@ export function Header(props: HeaderProps) {
               <Text style={styles.communityWordmark} numberOfLines={1}>
                 {(props as ResidentHeaderProps | CoachHeaderProps).communityName ?? 'Community'}
               </Text>
+              <Text style={styles.poweredBy} numberOfLines={1}>
+                Powered by TenisX
+              </Text>
             </View>
           ) : (
             <View testID="tenisx-logo" style={styles.residentLogoWrap}>
@@ -252,6 +255,12 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     letterSpacing: -0.3,
     maxWidth: 220,
+  },
+  poweredBy: {
+    fontFamily: FontFamily.manropeMedium,
+    fontSize: FontSize.metadata,
+    color: Colors.textMuted,
+    marginTop: 2,
   },
   logo: {
     fontFamily: FontFamily.spaceGroteskBold,
