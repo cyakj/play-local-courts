@@ -2,9 +2,9 @@ import { useEffect } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 
-import { isCommunityMode } from '@/config/productMode';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/context/NativeAuthContext';
+import { isCMRoutable, isCoachRoutable } from '@/lib/roleRouting';
 
 export default function RootIndex() {
   const { session, loading } = useSession();
@@ -24,10 +24,8 @@ export default function RootIndex() {
         .eq('user_id', session!.user.id);
 
       const roles = (rolesData ?? []).map((r: { role: string }) => r.role);
-      const isCM    = roles.some((r) =>
-        ['admin', 'condo_manager', 'manager', 'hoa_manager', 'board_admin'].includes(r),
-      );
-      const isCoach = roles.includes('coach') && !isCommunityMode;
+      const isCM    = isCMRoutable(roles);
+      const isCoach = isCoachRoutable(roles);
 
       if (isCM)         router.replace('/(cm)');
       else if (isCoach) router.replace('/(coach)');

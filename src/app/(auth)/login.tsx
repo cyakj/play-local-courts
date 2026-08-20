@@ -16,6 +16,7 @@ import { Eye, EyeOff, Lock } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useResendCooldown } from '@/hooks/useResendCooldown';
 import { Colors, FontFamily, FontSize, Radius, Shadow, Spacing } from '@/constants/design';
+import { isCMRoutable, isCoachRoutable } from '@/lib/roleRouting';
 
 function OTPInput({
   value,
@@ -107,8 +108,8 @@ export default function LoginScreen() {
       .select('role')
       .eq('user_id', uid);
     const roles = (rolesData ?? []).map((r: { role: string }) => r.role);
-    const isCM    = roles.some((r) => ['admin', 'condo_manager', 'manager', 'hoa_manager', 'board_admin'].includes(r));
-    const isCoach = roles.includes('coach');
+    const isCM    = isCMRoutable(roles);
+    const isCoach = isCoachRoutable(roles);
     setLoading(false);
     if (isCM)         router.replace('/(cm)');
     else if (isCoach) router.replace('/(coach)');

@@ -10,6 +10,7 @@ import { confirmAndSignOut } from '@/lib/authActions';
 import { Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing } from '@/constants/design';
 import { useTheme } from '@/context/ThemeContext';
 import type { ThemeTokens } from '@/constants/theme-tokens';
+import { isCMRoutable, isCoachRoutable } from '@/lib/roleRouting';
 
 const SETTINGS_LINKS = [
   { icon: Bell,     label: 'Notifications', desc: 'Manage alert preferences',    route: '/settings-notifications' },
@@ -38,8 +39,8 @@ export default function SettingsScreen() {
     if (!user) { router.replace('/(auth)/login' as any); return; }
     const { data: roles } = await supabase.from('user_roles').select('role').eq('user_id', user.id);
     const userRoles = (roles ?? []).map((r: any) => r.role as string);
-    const isCM = userRoles.some(r => ['admin', 'condo_manager', 'manager', 'hoa_manager', 'board_admin'].includes(r));
-    const isCoach = userRoles.includes('coach');
+    const isCM = isCMRoutable(userRoles);
+    const isCoach = isCoachRoutable(userRoles);
     if (isCM) router.replace('/(cm)' as any);
     else if (isCoach) router.replace('/(coach)' as any);
     else router.replace('/(resident)' as any);
