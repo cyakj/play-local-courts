@@ -539,7 +539,7 @@ export default function CourtsScreen() {
 
   const intelligenceLine = useMemo(() => {
     if (courtsLoading || visibleCourts.length === 0) return null;
-    if (openCount > 0) return `${openCount} ${isTennisMode ? 'court' : 'facilit'}${openCount > 1 ? (isTennisMode ? 's' : 'ies') : (isTennisMode ? '' : 'y')} open right now`;
+    if (openCount > 0) return `${openCount} ${isTennisMode && activeTab === 'tennis' ? 'court' : 'facilit'}${openCount > 1 ? (isTennisMode && activeTab === 'tennis' ? 's' : 'ies') : (isTennisMode && activeTab === 'tennis' ? '' : 'y')} open right now`;
     const first = sortedCourts[0];
     if (first && courtStatuses[first.id]) return `Next available: ${first.name} · ${courtStatuses[first.id].detailText}`;
     return null;
