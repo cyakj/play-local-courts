@@ -1,6 +1,6 @@
 import { Tabs, Redirect } from 'expo-router';
 import { Text } from 'react-native';
-import { Home, MapPin, GraduationCap, UserCircle, Building2 } from 'lucide-react-native';
+import { Home, MapPin, GraduationCap, UserCircle, Building2, CalendarDays } from 'lucide-react-native';
 import { BottomNav } from '@/components/ui/BottomNav';
 import { useSession } from '@/context/NativeAuthContext';
 import { isCommunityMode } from '@/config/productMode';
@@ -58,6 +58,14 @@ export default function ResidentLayout() {
         }}
       />
       <Tabs.Screen
+        name="calendar"
+        options={{
+          title: 'Schedule',
+          href: isCommunityMode ? undefined : null,
+          tabBarIcon: ({ color, size }) => <CalendarDays color={color} size={size} strokeWidth={1.5} />,
+        }}
+      />
+      <Tabs.Screen
         name="me"
         options={{
           title: 'Me',
@@ -67,7 +75,6 @@ export default function ResidentLayout() {
       {/* Legacy routes — routable but not tab items */}
       <Tabs.Screen name="book"     options={{ href: null }} />
       <Tabs.Screen name="report"   options={{ href: null }} />
-      <Tabs.Screen name="calendar" options={{ href: null }} />
       <Tabs.Screen name="docs"     options={{ href: null }} />
     </Tabs>
   );
