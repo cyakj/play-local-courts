@@ -152,7 +152,7 @@ export default function CommunityScreen() {
 
               <TouchableOpacity
                 style={[styles.contactRow, { marginTop: contactRows.length > 0 ? 16 : 24 }]}
-                onPress={() => router.push('/(resident)/report' as any)}
+                onPress={() => router.push('/(resident)/report')}
                 activeOpacity={0.7}>
                 <AlertTriangle color={theme.textMuted} size={16} strokeWidth={1.5} />
                 <Text style={styles.contactLabel}>Report an Issue</Text>
