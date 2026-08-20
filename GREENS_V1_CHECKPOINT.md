@@ -45,3 +45,64 @@ Not attempted — lowest priority in the original plan, broad/subjective (hierar
 ## Exact recommended next step
 
 Run the app with a real HOA admin account against production data, open Manage Amenities → Community Detail → Reports, and confirm reports actually load for that admin (this is the one open question that could be a real blocker — everything else in this checkpoint is either verified or explicitly deferred by choice).
+
+---
+
+## 2026-08-20 — Community-mode Resident IA Correction (complete, pending manual QA)
+
+Plan: `.superpowers/sdd/2026-08-19-community-mode-ia/` — 12 tasks (11 implementation + this final verification pass), all executed via SDD subagent-driven development on `greens-v1` directly. Full history, every ruling, and every review verdict: `.superpowers/sdd/2026-08-19-community-mode-ia/progress.md`. Commits `1281921..9acd35f`.
+
+Problem this plan fixed: the resident shell's Community mode (`EXPO_PUBLIC_PRODUCT_MODE=community`) was leaking Tennis-mode IA — wrong bottom-nav tabs, deep links reachable into tennis-only screens, a coach-role account landing in `/(coach)`, Reserve still showing Tennis/Amenities and My HOA/Other toggles, Home/Schedule/Me still showing match/coach/NTRP content. Target: a clean 5-tab Community IA (Home, Reserve, Community, Schedule, Me) with zero tennis-only surface reachable by any path, while Tennis mode stays byte-for-byte behaviorally unchanged (every change gated on the existing `isCommunityMode`/`isTennisMode` consts from `src/config/productMode.ts`, which is `false` in every Tennis build).
+
+### What was completed (11 tasks)
+
+1. **Central route guard** (`src/app/_layout.tsx`) — deep links into tennis-only routes (`/match/*`, `/(coach)/*`, `/coach-profile/*`, `/my-coaching`, `/my-matches`, `/clinic/*`) redirect to `/(resident)` in Community mode. Expanded mid-task to add `/my-matches` and `/clinic/[id]`, which the plan's own route audit had missed.
+2. **Coach role routing** — a `coach`-role account signs into the resident shell (not `/(coach)`) in Community mode.
+3. **Schedule tab wiring** (`(resident)/_layout.tsx`) — added the Community-mode Schedule tab so nav order is Home, Reserve, Community, Schedule, Me.
+4. **Removed the My HOA/Club vs Other toggle** in Community mode (`courts.tsx`).
+5. **Removed the Tennis/Amenities toggle and "Play Now" copy** in Community mode; Reserve is amenity-first, single unified list (`courts.tsx`). One plan bug caught and fixed in-flight: a bare `activeTab === 'tennis'` → `isTennisMode` swap would have broken the Tennis-mode sub-tab wording; corrected to `isTennisMode && activeTab === 'tennis'`.
+6. **Gated tennis-only Home sections** (playability, pending challenge, on-the-court, invitations, upcoming matches, recent result) — both render and underlying fetch, in Community mode (`index.tsx`).
+7. **Added Community-native Home sections** — upcoming reservation, announcements, upcoming events, maintenance notices, Reserve/Report Issue quick actions (`index.tsx`). Implementer caught and correctly fixed two wrong field names in the plan's own brief (`hoa_events` really uses `starts_at`/`ends_at`, not `date`/`start_time`; `court_maintenance` has no direct `hoa_id`, only `court_id`) — verified against `src/lib/types.ts`.
+8. **Gated tennis match/lesson content out of Schedule** (`calendar.tsx`), including legend and realtime subscriptions (judgment call beyond the literal brief, consistent with intent).
+9. **Removed the coach mention from the Me screen tooltip** in Community mode (`me.tsx`).
+10. **Added Report Issue access from the Community screen** (`community.tsx`) — was missing entirely, not just mis-scoped.
+11. **Added the subtle "Powered by TenisX" mark** under the real HOA name in the header (`Header.tsx`), Community mode only; Tennis mode keeps the logo image, no wordmark, no "Powered by" line.
+
+### Deferred minor findings (real, non-blocking, intentionally not fixed)
+
+- `courts.tsx:542` — `intelligenceLine` ternary repeats `isTennisMode && activeTab === 'tennis'` three times inline; pre-existing duplication pattern, cosmetic only.
+- `index.tsx` — the Wrench icon is reused for both "Report Issue" and "Maintenance Notice" on the same screen; different meanings, could read as confusing, cosmetic only.
+- `index.tsx` — the Quick Actions tile that satisfies the Reserve requirement is labeled "Book Court", not "Reserve"; functionally correct, cosmetic wording only.
+- `me.tsx:292` — a long single-line ternary; stylistic only, matches existing file convention.
+- `community.tsx` — the new Report Issue `router.push` uses an `as any` type assertion instead of the object-pathname format other screens use (`courts.tsx`); compiles fine, benign.
+- `Header.tsx` — the new brand-line text uses the `FontSize.metadata` token, which `design.ts` documents as "non-readable decorative only"; the size itself is the numerically correct choice, this is a semantic-doc mismatch only.
+
+### Task 12 verification results (this session)
+
+**TypeScript (`npx tsc --noEmit`):** 2910 lines of output — matches the in-session baseline established and confirmed by Task 8 (which diffed a stash of its own change and found the output byte-identical). Zero errors in any resident-IA file touched by this plan (`(resident)/index.tsx`, `courts.tsx`, `calendar.tsx`, `me.tsx`, `community.tsx`, `_layout.tsx`, `Header.tsx`). The only `(resident)`-path hits in the full output are the pre-existing `match.tsx`/`me.tsx` → `Skeleton.tsx` vs `skeleton.tsx` Windows case-sensitivity error, already catalogued in `GREENS_V1_REPORT.md`'s original baseline as harmless case-sensitivity noise — not introduced by this plan. All ~1679 `error TS*` lines are in legacy Vite/CRA pages (`src/pages/*`), legacy components, Deno edge functions, `vite.config.ts`, `tests/profile-settings.spec.ts`, and `skills/` example files — none touched by this plan.
+
+**Branch hygiene:** All commits for this plan live on `greens-v1`. `main` is at `c05b941`, which equals `git merge-base main greens-v1` — i.e. `main` has not moved and has zero divergent history from `greens-v1`'s base. `git diff main...greens-v1 --stat -- 'src/app/match/**' 'src/app/(coach)/**' 'src/app/coach-profile/**' 'src/app/my-coaching.tsx' 'src/app/my-matches.tsx' 'src/app/clinic/**'` returns empty — no file under any Match v2 / tennis-only path was edited by this plan. Task 1's route guard only *references* these paths as string route segments inside `src/app/_layout.tsx`, which is a legitimate, expected, and reviewed edit.
+
+**Manual device/simulator QA:** NOT performed — no simulator, device, or running app available in this environment. Do not treat anything below as verified; both checklists are transcribed verbatim from the plan brief for a human to run tomorrow.
+
+### PENDING — Manual QA checklist: Community mode (human verification required)
+
+- [ ] Bottom nav is exactly Home, Reserve, Community, Schedule, Me, in that order.
+- [ ] No VS/Match, Coaches, Find Match, Find Coach, NTRP, or tennis-social content anywhere in the resident shell — checked by browsing every tab, not just the ones directly edited.
+- [ ] Reserve shows a single unified, real amenity list for the signed-in resident's HOA (confirmed against `courts` rows in Supabase), no Tennis/Amenities or HOA/Other toggles, no "Play Now" copy.
+- [ ] Header shows the real HOA name prominently with a subtle "Powered by TenisX" mark.
+- [ ] Home shows upcoming reservation, announcements, upcoming events, maintenance notices (when present), Reserve and Report Issue quick actions — nothing tennis.
+- [ ] Community shows announcements/events/info/Report Issue, nothing invented.
+- [ ] Schedule aggregates reservations + community events + board meetings + maintenance, no match/lesson content.
+- [ ] Me shows identity/membership/reservations/settings/help, no NTRP/match/coach concepts.
+- [ ] Attempting every deep link from Task 1 redirects to `/(resident)`.
+- [ ] A `coach`-role test account signs into the resident shell, not `/(coach)`.
+
+### PENDING — Manual QA checklist: Tennis mode regression check (human verification required)
+
+- [ ] Bottom nav is exactly Home, Reserve, Match/VS, Coaches, Me — unchanged, no Schedule tab, no Community tab.
+- [ ] Home shows every tennis card (playability, pending challenge, on the court, invitations, upcoming matches, recent result) exactly as before.
+- [ ] Reserve shows both toggles (My HOA/Club·Other and Tennis/Amenities) and "Play Now" copy exactly as before.
+- [ ] Header shows the TenisX logo image, no wordmark, no "Powered by" line.
+- [ ] A `coach`-role account still lands in `/(coach)` on login.
+- [ ] Every previously-working deep link (`/match/new`, `/(resident)/coaches`, etc.) still renders normally — the Task 1 guard never fires in Tennis mode.
