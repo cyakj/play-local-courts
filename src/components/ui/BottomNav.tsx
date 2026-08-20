@@ -14,6 +14,8 @@ export function BottomNav(props: BottomTabBarProps) {
       {state.routes.map((route, index) => {
         const { options } = descriptors[route.key];
 
+        const itemStyle = StyleSheet.flatten(options.tabBarItemStyle);
+        if (itemStyle?.display === 'none') return null;
         if (!options.tabBarIcon) return null;
 
         const label =
