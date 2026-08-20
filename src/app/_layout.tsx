@@ -22,6 +22,7 @@ import { Platform, View } from 'react-native';
 import { ThemeProvider, STORAGE_KEY } from '@/context/ThemeContext';
 import { NativeAuthProvider, useSession } from '@/context/NativeAuthContext';
 import type { ThemeMode } from '@/constants/theme-tokens';
+import { isCommunityMode } from '@/config/productMode';
 
 // Single authoritative auth guard — fires exactly once per session change,
 // preventing the race condition that occurs when multiple layout <Redirect>
@@ -60,6 +61,27 @@ function AuthGuard() {
     if (!session && !inAuth && !onResetPassword) {
       if (__DEV__) console.log('[AUTH] → router.replace /(auth)/login');
       router.replace('/(auth)/login');
+    }
+
+    // Community-mode deployments must never expose tennis-only screens, even
+    // via direct deep link — tab-hiding in (resident)/_layout.tsx is cosmetic
+    // only and does not stop router.push()/a deep link from reaching these
+    // routes directly. This mirrors the guard above rather than adding a
+    // second competing <Redirect> elsewhere.
+    if (isCommunityMode && session && !isPasswordRecovery) {
+      const top = segments[0];
+      const second = segments[1];
+      const isTennisOnlyRoute =
+        top === '(coach)' ||
+        top === 'match' ||
+        top === 'coach-profile' ||
+        top === 'my-coaching' ||
+        top === 'coach-favorites' ||
+        (top === '(resident)' && (second === 'match' || second === 'coaches'));
+      if (isTennisOnlyRoute) {
+        if (__DEV__) console.log(`[AUTH] Community mode blocked tennis-only route: ${segments.join('/')}`);
+        router.replace('/(resident)');
+      }
     }
   }, [session, loading, isPasswordRecovery, segments]);
 
