@@ -7,7 +7,7 @@ import { Bell, ArrowLeft, Menu, MessageCircle } from 'lucide-react-native';
 import { Colors, FontFamily, FontSize } from '@/constants/design';
 import { useTheme } from '@/context/ThemeContext';
 import { supabase } from '@/lib/supabase';
-import { isCommunityMode } from '@/config/productMode';
+import { isCommunityMode, isTennisMode } from '@/config/productMode';
 
 interface CMPortfolioHeaderProps {
   variant: 'cm-portfolio';
@@ -112,14 +112,17 @@ export function Header(props: HeaderProps) {
             </View>
           )}
           <View style={styles.topBarRight}>
-            {/* Messages */}
-            <TouchableOpacity
-              testID="messages-icon"
-              style={styles.iconBtn}
-              onPress={onMessages}
-              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
-              <MessageCircle color="#FFFFFF" size={22} strokeWidth={1.5} />
-            </TouchableOpacity>
+            {/* Messages — tennis-only: /messages is match-invite content with no
+                Community-mode equivalent (see Header.tsx Finding 4, community-mode-ia fix wave). */}
+            {isTennisMode && (
+              <TouchableOpacity
+                testID="messages-icon"
+                style={styles.iconBtn}
+                onPress={onMessages}
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+                <MessageCircle color="#FFFFFF" size={22} strokeWidth={1.5} />
+              </TouchableOpacity>
+            )}
 
             {/* Notifications bell */}
             <TouchableOpacity
