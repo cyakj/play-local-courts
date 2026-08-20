@@ -652,14 +652,14 @@ export default function CourtsScreen() {
               ) : sortedCourts.length === 0 ? (
                 <View testID="empty-no-courts" style={styles.emptyState}>
                   <MapPin color={Colors.fg3} size={52} strokeWidth={1.5} />
-                  <Text style={styles.emptyTitle}>{activeTab === 'tennis' ? 'No courts available' : 'No amenities available'}</Text>
-                  <Text style={styles.emptySubtitle}>Check back after your community adds {activeTab === 'tennis' ? 'courts' : 'amenities'}.</Text>
+                  <Text style={styles.emptyTitle}>{isTennisMode && activeTab === 'tennis' ? 'No courts available' : 'No amenities available'}</Text>
+                  <Text style={styles.emptySubtitle}>Check back after your community adds {isTennisMode && activeTab === 'tennis' ? 'courts' : 'amenities'}.</Text>
                 </View>
               ) : openCount === 0 && !courtsLoading && sortedCourts.length > 0 ? (
                 <>
                   <View testID="empty-all-booked" style={styles.emptyState}>
                     <Clock color={Colors.fg3} size={52} strokeWidth={1.5} />
-                    <Text style={styles.emptyTitle}>All {activeTab === 'tennis' ? 'courts' : 'facilities'} busy right now</Text>
+                    <Text style={styles.emptyTitle}>All {isTennisMode && activeTab === 'tennis' ? 'courts' : 'facilities'} busy right now</Text>
                     {sortedCourts[0] && courtStatuses[sortedCourts[0].id] && (
                       <Text style={styles.emptySubtitle}>{sortedCourts[0].name} · {courtStatuses[sortedCourts[0].id].detailText}</Text>
                     )}
