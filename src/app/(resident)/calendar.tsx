@@ -17,6 +17,7 @@ import {
 } from '@/constants/design';
 import { useUpcomingMatches } from '@/hooks/useUpcomingMatches';
 import { useCommunityName } from '@/hooks/useCommunityName';
+import { isCommunityMode, isTennisMode } from '@/config/productMode';
 
 // ─── Event type config ─────────────────────────────────────────────────────────
 
@@ -117,7 +118,7 @@ export default function ResidentCalendarScreen() {
   const [userId, setUserId]                   = useState('');
   // Match-creation (open_match_listings) matches — separate from the legacy
   // `matches` table already queried in fetchAll below; merged in filteredEvents.
-  const { upcoming: openMatches } = useUpcomingMatches(userId);
+  const { upcoming: openMatches } = useUpcomingMatches(isTennisMode ? userId : '');
 
   const monthGrid    = useMemo(() => buildMonthGrid(currentMonth.getFullYear(), currentMonth.getMonth()), [currentMonth]);
   const weekDates    = useMemo(() => getWeekDates(weekBase), [weekBase]);
@@ -158,58 +159,60 @@ export default function ResidentCalendarScreen() {
       }
     }
 
-    // User's matches
-    const { data: userMatches } = await supabase
-      .from('matches')
-      .select('id, date, time_start, time_end, location, match_type, status')
-      .or(`player1_id.eq.${uid},player2_id.eq.${uid}`)
-      .in('status', ['scheduled', 'reschedule_requested'])
-      .order('date');
+    if (isTennisMode) {
+      // User's matches
+      const { data: userMatches } = await supabase
+        .from('matches')
+        .select('id, date, time_start, time_end, location, match_type, status')
+        .or(`player1_id.eq.${uid},player2_id.eq.${uid}`)
+        .in('status', ['scheduled', 'reschedule_requested'])
+        .order('date');
 
-    if (userMatches) {
-      for (const m of userMatches) {
-        const startStr = m.time_start?.slice(0, 5) || '';
-        const endStr   = m.time_end?.slice(0, 5)   || '';
-        const typeLabel = m.match_type === 'doubles' ? 'Doubles Match' :
-                          m.match_type === 'mixed_doubles' ? 'Mixed Doubles Match' :
-                          m.match_type === 'hitting_session' ? 'Hitting Session' : 'Singles Match';
-        mapped.push({
-          id: `match-${m.id}`,
-          title: typeLabel + (startStr ? ` · ${fmtTime(startStr)}` + (endStr ? ` – ${fmtTime(endStr)}` : '') : ''),
-          event_type: 'match_event',
-          location: m.location || null,
-          starts_at: `${m.date}T${m.time_start || '00:00:00'}`,
-          hoa_id: '',
-          community_name: '',
-          description: null,
-        });
+      if (userMatches) {
+        for (const m of userMatches) {
+          const startStr = m.time_start?.slice(0, 5) || '';
+          const endStr   = m.time_end?.slice(0, 5)   || '';
+          const typeLabel = m.match_type === 'doubles' ? 'Doubles Match' :
+                            m.match_type === 'mixed_doubles' ? 'Mixed Doubles Match' :
+                            m.match_type === 'hitting_session' ? 'Hitting Session' : 'Singles Match';
+          mapped.push({
+            id: `match-${m.id}`,
+            title: typeLabel + (startStr ? ` · ${fmtTime(startStr)}` + (endStr ? ` – ${fmtTime(endStr)}` : '') : ''),
+            event_type: 'match_event',
+            location: m.location || null,
+            starts_at: `${m.date}T${m.time_start || '00:00:00'}`,
+            hoa_id: '',
+            community_name: '',
+            description: null,
+          });
+        }
       }
-    }
 
-    // Confirmed lessons from lesson_requests
-    const { data: lessons } = await supabase
-      .from('lesson_requests')
-      .select('id, preferred_date, preferred_time_start, preferred_time_end, location, lesson_type, coach_id')
-      .eq('player_id', uid)
-      .eq('status', 'confirmed');
+      // Confirmed lessons from lesson_requests
+      const { data: lessons } = await supabase
+        .from('lesson_requests')
+        .select('id, preferred_date, preferred_time_start, preferred_time_end, location, lesson_type, coach_id')
+        .eq('player_id', uid)
+        .eq('status', 'confirmed');
 
-    if (lessons) {
-      for (const l of lessons) {
-        const startStr = l.preferred_time_start?.slice(0, 5) || '';
-        const endStr   = l.preferred_time_end?.slice(0, 5)   || '';
-        const typeLabel = l.lesson_type
-          ? l.lesson_type.charAt(0).toUpperCase() + l.lesson_type.slice(1) + ' Lesson'
-          : 'Lesson';
-        mapped.push({
-          id: `lesson-${l.id}`,
-          title: typeLabel + (startStr ? ` · ${fmtTime(startStr)}` + (endStr ? ` – ${fmtTime(endStr)}` : '') : ''),
-          event_type: 'lesson',
-          location: l.location || null,
-          starts_at: `${l.preferred_date}T${l.preferred_time_start || '00:00:00'}`,
-          hoa_id: '',
-          community_name: '',
-          description: null,
-        });
+      if (lessons) {
+        for (const l of lessons) {
+          const startStr = l.preferred_time_start?.slice(0, 5) || '';
+          const endStr   = l.preferred_time_end?.slice(0, 5)   || '';
+          const typeLabel = l.lesson_type
+            ? l.lesson_type.charAt(0).toUpperCase() + l.lesson_type.slice(1) + ' Lesson'
+            : 'Lesson';
+          mapped.push({
+            id: `lesson-${l.id}`,
+            title: typeLabel + (startStr ? ` · ${fmtTime(startStr)}` + (endStr ? ` – ${fmtTime(endStr)}` : '') : ''),
+            event_type: 'lesson',
+            location: l.location || null,
+            starts_at: `${l.preferred_date}T${l.preferred_time_start || '00:00:00'}`,
+            hoa_id: '',
+            community_name: '',
+            description: null,
+          });
+        }
       }
     }
 
@@ -277,15 +280,18 @@ export default function ResidentCalendarScreen() {
       .on('postgres_changes', {
         event: '*', schema: 'public', table: 'bookings',
         filter: `user_id=eq.${userId}`,
-      }, () => { fetchAll(userId, communities); })
-      .on('postgres_changes', {
-        event: '*', schema: 'public', table: 'matches',
-      }, () => { fetchAll(userId, communities); })
-      .on('postgres_changes', {
-        event: '*', schema: 'public', table: 'lesson_requests',
-        filter: `player_id=eq.${userId}`,
-      }, () => { fetchAll(userId, communities); })
-      .subscribe();
+      }, () => { fetchAll(userId, communities); });
+    if (isTennisMode) {
+      channel
+        .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'matches',
+        }, () => { fetchAll(userId, communities); })
+        .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'lesson_requests',
+          filter: `player_id=eq.${userId}`,
+        }, () => { fetchAll(userId, communities); });
+    }
+    channel.subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [userId, communities]);
 
@@ -340,6 +346,16 @@ export default function ResidentCalendarScreen() {
 
   const selectedDateLabel = new Date(selectedYear, selectedMonth, selectedDay)
     .toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+
+  // Filter out tennis-only entries for Community mode at the render site —
+  // EVENT_TYPE_FILTERS/EVENT_TYPE_CONFIG stay untouched so Tennis mode's
+  // chip list and legend are provably unchanged.
+  const visibleEventTypeFilters = isCommunityMode
+    ? EVENT_TYPE_FILTERS.filter((opt) => opt !== 'Matches' && opt !== 'Lessons')
+    : EVENT_TYPE_FILTERS;
+  const visibleLegendEntries = isCommunityMode
+    ? Object.entries(EVENT_TYPE_CONFIG).filter(([k]) => k !== 'match_event' && k !== 'lesson')
+    : Object.entries(EVENT_TYPE_CONFIG);
 
   const styles = useStyles(theme);
 
@@ -513,7 +529,7 @@ export default function ResidentCalendarScreen() {
 
           {/* Event type filter chips — tennis-first */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.typeChips}>
-            {EVENT_TYPE_FILTERS.map((opt) => {
+            {visibleEventTypeFilters.map((opt) => {
               const active = activeEventType === opt;
               return (
                 <TouchableOpacity
@@ -530,7 +546,7 @@ export default function ResidentCalendarScreen() {
 
           {/* Legend */}
           <View style={styles.legend}>
-            {Object.entries(EVENT_TYPE_CONFIG).map(([k, v]) => (
+            {visibleLegendEntries.map(([k, v]) => (
               <View key={k} testID="legend-item" style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: v.color }]} />
                 <Text style={styles.legendLabel}>{v.label}</Text>
@@ -548,7 +564,7 @@ export default function ResidentCalendarScreen() {
               </View>
             ) : dayEvents.length === 0 ? (
               <Text testID="no-events-msg" style={styles.noEvents}>
-                No tennis activity scheduled for this day.
+                {isCommunityMode ? 'Nothing scheduled for this day.' : 'No tennis activity scheduled for this day.'}
               </Text>
             ) : (
               dayEvents.map((e) => {
