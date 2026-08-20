@@ -66,6 +66,21 @@ interface Announcement {
   created_at: string;
 }
 
+interface UpcomingEvent {
+  id: string;
+  title: string;
+  eventType: string;
+  startsAt: string;
+  location: string | null;
+}
+
+interface MaintenanceNotice {
+  id: string;
+  amenityName: string;
+  date: string;
+  description: string | null;
+}
+
 interface CancelledBooking {
   id: string;
   amenityName: string;
@@ -154,6 +169,13 @@ function firstName(fullName: string): string {
   return fullName.trim().split(' ')[0] ?? 'there';
 }
 
+function formatEventDateTime(startsAt: string): string {
+  const d = new Date(startsAt);
+  const datePart = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const timePart = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return `${datePart} · ${timePart}`;
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
@@ -166,6 +188,8 @@ export default function HomeScreen() {
   const [upcomingMatches, setUpcomingMatches] = useState<UpcomingMatch[]>([]);
   const [recentResult, setRecentResult] = useState<RecentResult | null>(null);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
+  const [upcomingMaintenance, setUpcomingMaintenance] = useState<MaintenanceNotice[]>([]);
   const [cancelledBookings, setCancelledBookings] = useState<CancelledBooking[]>([]);
   const [dismissedCancellations, setDismissedCancellations] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -212,7 +236,7 @@ export default function HomeScreen() {
 
       const hId = membershipRes.data?.hoa_id ?? '';
 
-      const [bookingsRes, announcementsRes, cancelledRes, challengeRes, upcomingRes, resultRes] = await Promise.all([
+      const [bookingsRes, announcementsRes, cancelledRes, challengeRes, upcomingRes, resultRes, eventsRes, courtsRes] = await Promise.all([
         supabase
           .from('bookings')
           .select('id, date, start_time, end_time, courts(name)')
@@ -262,6 +286,20 @@ export default function HomeScreen() {
           .not('winner_id', 'is', null)
           .order('date', { ascending: false })
           .limit(1) : Promise.resolve({ data: [] }),
+
+        isCommunityMode && hId ? supabase
+          .from('hoa_events')
+          .select('id, title, event_type, starts_at, location')
+          .eq('hoa_id', hId)
+          .eq('status', 'approved')
+          .gte('starts_at', new Date().toISOString())
+          .order('starts_at', { ascending: true })
+          .limit(3) : Promise.resolve({ data: [] }),
+
+        isCommunityMode && hId ? supabase
+          .from('courts')
+          .select('id')
+          .eq('hoa_id', hId) : Promise.resolve({ data: [] }),
       ]);
 
       const firstBooking = (bookingsRes.data ?? [])[0];
@@ -274,6 +312,37 @@ export default function HomeScreen() {
       } : null);
 
       setAnnouncements((announcementsRes.data ?? []) as Announcement[]);
+
+      setUpcomingEvents(
+        (eventsRes.data ?? []).map((e: any) => ({
+          id: e.id,
+          title: e.title,
+          eventType: e.event_type,
+          startsAt: e.starts_at,
+          location: e.location ?? null,
+        }))
+      );
+
+      const hoaCourtIds = (courtsRes.data ?? []).map((c: any) => c.id);
+      if (isCommunityMode && hoaCourtIds.length > 0) {
+        const { data: maintenanceData } = await supabase
+          .from('court_maintenance')
+          .select('id, date, description, courts(name)')
+          .in('court_id', hoaCourtIds)
+          .gte('date', today)
+          .order('date', { ascending: true })
+          .limit(3);
+        setUpcomingMaintenance(
+          (maintenanceData ?? []).map((m: any) => ({
+            id: m.id,
+            amenityName: m.courts?.name ?? 'Amenity',
+            date: m.date,
+            description: m.description ?? null,
+          }))
+        );
+      } else {
+        setUpcomingMaintenance([]);
+      }
 
       setCancelledBookings(
         (cancelledRes.data ?? []).map((b: any) => ({
@@ -547,6 +616,51 @@ export default function HomeScreen() {
             </View>
           )}
 
+          {/* ── Upcoming Reservation (Community mode) ───────────────────── */}
+          {isCommunityMode && (
+            <View testID="upcoming-reservation-card" style={styles.card}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.metadataLabel}>UPCOMING RESERVATION</Text>
+                {nextBooking && (
+                  <TouchableOpacity onPress={() => router.push('/my-reservations')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Text style={styles.viewAllLink}>View All →</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              {loading ? (
+                <View style={styles.skeletonLine} />
+              ) : nextBooking ? (
+                <TouchableOpacity
+                  style={styles.nextCourtRow}
+                  testID="upcoming-reservation-row"
+                  onPress={() => router.push('/my-reservations')}
+                  activeOpacity={0.7}>
+                  <View style={styles.cyanDot} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.nextCourtName}>{nextBooking.courtName}</Text>
+                    <Text style={styles.nextCourtTime}>
+                      {formatDate(nextBooking.date)} · {formatTime(nextBooking.start_time)} – {formatTime(nextBooking.end_time)}
+                    </Text>
+                  </View>
+                  <ChevronRight color={Colors.fg3} size={18} strokeWidth={1.5} />
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.emptyState}>
+                  <Calendar color={Colors.fg3} size={52} strokeWidth={1.5} />
+                  <Text style={styles.emptyTitle}>No upcoming reservations</Text>
+                  <Text style={styles.emptySubtitle}>Reserve an amenity to see it here.</Text>
+                  <TouchableOpacity
+                    testID="reserve-cta"
+                    style={styles.primaryCta}
+                    onPress={() => router.push('/(resident)/courts')}
+                    activeOpacity={0.8}>
+                    <Text style={styles.primaryCtaText}>Reserve Now</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          )}
+
           {/* ── Match Invitations teaser (hidden if none) ───────────────── */}
           {isTennisMode && !loading && matchInvites.length > 0 && (
             <TouchableOpacity
@@ -652,6 +766,46 @@ export default function HomeScreen() {
                   </View>
                   <ChevronRight color={Colors.fg3} size={16} strokeWidth={1.5} />
                 </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {/* ── Upcoming Community Events (Community mode, hidden if empty) ── */}
+          {isCommunityMode && !loading && upcomingEvents.length > 0 && (
+            <View testID="upcoming-events-card" style={styles.pulseCard}>
+              <Text testID="upcoming-events-label" style={styles.pulseLabel}>UPCOMING EVENTS</Text>
+              {upcomingEvents.map((e, i) => (
+                <TouchableOpacity
+                  key={e.id}
+                  testID="upcoming-event-row"
+                  style={[styles.listRow, i < upcomingEvents.length - 1 && styles.listRowBorder]}
+                  onPress={() => router.push('/(resident)/calendar')}
+                  activeOpacity={0.7}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.pulseTitle} numberOfLines={1}>{e.title}</Text>
+                    <Text style={styles.rowSub}>
+                      {formatEventDateTime(e.startsAt)}{e.location ? ` · ${e.location}` : ''}
+                    </Text>
+                  </View>
+                  <View style={styles.eventTypeBadge}>
+                    <Text style={styles.eventTypeBadgeText}>{e.eventType.replace(/_/g, ' ')}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {/* ── Maintenance Notice (Community mode, hidden if empty) ───── */}
+          {isCommunityMode && !loading && upcomingMaintenance.length > 0 && (
+            <View testID="maintenance-notice-banner" style={styles.maintenanceBanner}>
+              <View style={styles.maintenanceBannerHeader}>
+                <Wrench color={Colors.volt} size={16} strokeWidth={1.5} />
+                <Text style={styles.maintenanceBannerLabel}>MAINTENANCE NOTICE</Text>
+              </View>
+              {upcomingMaintenance.map((m) => (
+                <Text key={m.id} testID="maintenance-notice-row" style={styles.maintenanceBannerText}>
+                  {m.amenityName} closed {formatDate(m.date)}{m.description ? `: ${m.description}` : ''}
+                </Text>
               ))}
             </View>
           )}
@@ -904,6 +1058,21 @@ function useStyles(theme: ThemeTokens) {
       lineHeight: 22,
     },
 
+    eventTypeBadge: {
+      backgroundColor: theme.surface2,
+      borderRadius: Radius.pill,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      flexShrink: 0,
+    },
+    eventTypeBadgeText: {
+      fontFamily: FontFamily.jetbrainsMonoSemiBold,
+      fontSize: 11,
+      letterSpacing: 0.8,
+      color: theme.textMuted,
+      textTransform: 'uppercase',
+    },
+
     calendarLink: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -989,6 +1158,33 @@ function useStyles(theme: ThemeTokens) {
       fontFamily: FontFamily.manropeSemiBold,
       fontSize: FontSize.label,
       color: Colors.blue,
+    },
+
+    maintenanceBanner: {
+      backgroundColor: 'rgba(214,255,61,0.08)',
+      borderRadius: Radius.card,
+      borderWidth: 1,
+      borderColor: Colors.volt,
+      padding: 14,
+    },
+    maintenanceBannerHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 8,
+    },
+    maintenanceBannerLabel: {
+      fontFamily: FontFamily.jetbrainsMonoSemiBold,
+      fontSize: FontSize.eyebrow,
+      color: Colors.volt,
+      letterSpacing: 1.8,
+    },
+    maintenanceBannerText: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.label,
+      color: theme.textSecondary,
+      lineHeight: 20,
+      marginTop: 4,
     },
 
     skeletonLine: {
