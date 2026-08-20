@@ -522,7 +522,7 @@ export default function CourtsScreen() {
   // ── Filtered courts by active tab ───────────────────────────────────────────
   const tennisCourts = useMemo(() => courts.filter(c => TENNIS_TYPES.has(c.court_type)), [courts]);
   const amenityCourts = useMemo(() => courts.filter(c => !TENNIS_TYPES.has(c.court_type)), [courts]);
-  const visibleCourts = activeTab === 'tennis' ? tennisCourts : amenityCourts;
+  const visibleCourts = isCommunityMode ? courts : (activeTab === 'tennis' ? tennisCourts : amenityCourts);
 
   const courtStatuses = useMemo(() => {
     const map: Record<string, CourtStatus> = {};
@@ -539,7 +539,7 @@ export default function CourtsScreen() {
 
   const intelligenceLine = useMemo(() => {
     if (courtsLoading || visibleCourts.length === 0) return null;
-    if (openCount > 0) return `${openCount} ${activeTab === 'tennis' ? 'court' : 'facilit'}${openCount > 1 ? (activeTab === 'tennis' ? 's' : 'ies') : (activeTab === 'tennis' ? '' : 'y')} open right now`;
+    if (openCount > 0) return `${openCount} ${isTennisMode ? 'court' : 'facilit'}${openCount > 1 ? (isTennisMode ? 's' : 'ies') : (isTennisMode ? '' : 'y')} open right now`;
     const first = sortedCourts[0];
     if (first && courtStatuses[first.id]) return `Next available: ${first.name} · ${courtStatuses[first.id].detailText}`;
     return null;
@@ -548,7 +548,7 @@ export default function CourtsScreen() {
   const todayUserBooking = useMemo(() => userBookings.find(b => b.date === now.toISOString().split('T')[0]) ?? null, [userBookings, now]);
   const upcomingCount = useMemo(() => userBookings.filter(b => b.date >= now.toISOString().split('T')[0]).length, [userBookings, now]);
   const playability = useMemo(() => weather ? getPlayability(weather) : null, [weather]);
-  const showWeatherOnMain = topLevelTab === 'hoa' && activeTab === 'tennis';
+  const showWeatherOnMain = isTennisMode && topLevelTab === 'hoa' && activeTab === 'tennis';
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
@@ -566,6 +566,9 @@ export default function CourtsScreen() {
         <View testID="courts-hero" style={styles.hero}>
           <Text style={styles.heroLabel}>RESERVE</Text>
           <Text style={styles.heroTitle}>Reserve</Text>
+          {isCommunityMode && communityName && (
+            <Text style={styles.heroSubtitle}>Book an amenity at {communityName}</Text>
+          )}
           {showWeatherOnMain && (
             <>
               <View style={styles.heroConditionsDivider} />
@@ -619,20 +622,22 @@ export default function CourtsScreen() {
         ) : (
           <>
             {/* ── Tennis / Amenities Tab ────────────────────────────────── */}
-            <View testID="tab-control" style={styles.tabControl}>
-              <TouchableOpacity
-                testID="tab-tennis"
-                style={[styles.tabBtn, activeTab === 'tennis' && styles.tabBtnActive]}
-                onPress={() => setActiveTab('tennis')} activeOpacity={0.7}>
-                <Text style={[styles.tabBtnText, activeTab === 'tennis' && styles.tabBtnTextActive]}>Tennis</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                testID="tab-amenities"
-                style={[styles.tabBtn, activeTab === 'amenities' && styles.tabBtnActive]}
-                onPress={() => setActiveTab('amenities')} activeOpacity={0.7}>
-                <Text style={[styles.tabBtnText, activeTab === 'amenities' && styles.tabBtnTextActive]}>Amenities</Text>
-              </TouchableOpacity>
-            </View>
+            {isTennisMode && (
+              <View testID="tab-control" style={styles.tabControl}>
+                <TouchableOpacity
+                  testID="tab-tennis"
+                  style={[styles.tabBtn, activeTab === 'tennis' && styles.tabBtnActive]}
+                  onPress={() => setActiveTab('tennis')} activeOpacity={0.7}>
+                  <Text style={[styles.tabBtnText, activeTab === 'tennis' && styles.tabBtnTextActive]}>Tennis</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  testID="tab-amenities"
+                  style={[styles.tabBtn, activeTab === 'amenities' && styles.tabBtnActive]}
+                  onPress={() => setActiveTab('amenities')} activeOpacity={0.7}>
+                  <Text style={[styles.tabBtnText, activeTab === 'amenities' && styles.tabBtnTextActive]}>Amenities</Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
             {/* ── Content ──────────────────────────────────────────────── */}
             <View style={styles.contentWrap}>
@@ -771,7 +776,7 @@ function CourtCard({ court, status, isMyBooking, onBook, onSchedule, onReport }:
         </View>
         <TouchableOpacity testID={`court-cta-${court.id}`} onPress={onBook} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} activeOpacity={0.7}>
           <Text style={[styles.courtCta, { color: isOpen ? Colors.cyan : Colors.fg3 }]}>
-            {isOpen ? 'Play Now →' : (s.detailText ? `${s.detailText} →` : 'Reserve →')}
+            {isOpen ? (isCommunityMode ? 'Reserve →' : 'Play Now →') : (s.detailText ? `${s.detailText} →` : 'Reserve →')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -1210,6 +1215,7 @@ function useStyles(theme: ThemeTokens) {
   hero: { backgroundColor: theme.heroBg, paddingHorizontal: Spacing.pagePx, paddingTop: 8, paddingBottom: 20 },
   heroLabel: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: FontSize.eyebrow, color: Colors.cyan, letterSpacing: 2.2, marginBottom: 4 },
   heroTitle: { fontFamily: FontFamily.spaceGroteskBold, fontSize: 28, color: theme.textPrimary, lineHeight: 32, letterSpacing: -0.4 },
+  heroSubtitle: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label, color: theme.textSecondary, marginTop: 4 },
   heroConditionsDivider: { height: 1, backgroundColor: 'rgba(45,224,255,0.15)', marginVertical: 12 },
   conditionsSkeleton: { height: 14, width: 200, backgroundColor: theme.surface2, borderRadius: 7 },
   conditionsRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
