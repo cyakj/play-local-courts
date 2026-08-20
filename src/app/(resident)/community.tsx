@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import {
-  FileText, Mail, MapPin, Megaphone, Phone,
+  AlertTriangle, FileText, Mail, MapPin, Megaphone, Phone,
 } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
@@ -149,6 +149,14 @@ export default function CommunityScreen() {
                   ))}
                 </>
               )}
+
+              <TouchableOpacity
+                style={[styles.contactRow, { marginTop: contactRows.length > 0 ? 16 : 24 }]}
+                onPress={() => router.push('/(resident)/report' as any)}
+                activeOpacity={0.7}>
+                <AlertTriangle color={theme.textMuted} size={16} strokeWidth={1.5} />
+                <Text style={styles.contactLabel}>Report an Issue</Text>
+              </TouchableOpacity>
             </>
           )}
         </View>
