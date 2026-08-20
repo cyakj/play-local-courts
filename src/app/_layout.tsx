@@ -77,6 +77,8 @@ function AuthGuard() {
         top === 'coach-profile' ||
         top === 'my-coaching' ||
         top === 'coach-favorites' ||
+        top === 'my-matches' ||
+        top === 'clinic' ||
         (top === '(resident)' && (second === 'match' || second === 'coaches'));
       if (isTennisOnlyRoute) {
         if (__DEV__) console.log(`[AUTH] Community mode blocked tennis-only route: ${segments.join('/')}`);
