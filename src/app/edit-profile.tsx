@@ -21,6 +21,7 @@ import type { ThemeTokens } from '@/constants/theme-tokens';
 import { InfoTooltip } from '@/components/ui/InfoTooltip';
 import { LocationAutocomplete } from '@/components/ui/LocationAutocomplete';
 import type { LocationValue } from '@/lib/mapboxSearch';
+import { isTennisMode } from '@/config/productMode';
 
 const NTRP_OPTIONS = [1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0];
 const HAND_OPTIONS = ['Right', 'Left', 'Two-handed'] as const;
@@ -257,6 +258,11 @@ export default function EditProfileScreen() {
             />
           </View>
 
+          {/* Tennis-only fields — NTRP, hand, style, surface, goals, years playing.
+              Hidden in Community mode: an HOA resident profile has no tennis-player
+              concepts (see edit-profile.tsx Finding 3, community-mode-ia fix wave). */}
+          {isTennisMode && (
+          <>
           {/* NTRP Rating */}
           <View style={[styles.labelRow, styles.topGap]}>
             <Text style={styles.label}>NTRP RATING</Text>
@@ -396,6 +402,8 @@ export default function EditProfileScreen() {
               onBlur={() => setFocusedField(null)}
             />
           </View>
+          </>
+          )}
 
           {/* Bio */}
           <Text style={[styles.label, styles.topGap]}>BIO</Text>
