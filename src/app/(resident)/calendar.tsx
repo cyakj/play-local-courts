@@ -97,6 +97,14 @@ function fmtTime(t: string): string {
   return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`;
 }
 
+// Mode-aware label for the booking/reservation event type, applied at each
+// render site rather than mutating EVENT_TYPE_CONFIG itself — mirrors how
+// Task 8 filtered the chip/legend lists at the render site, not the config.
+function eventTypeLabel(type: string): string {
+  if (isCommunityMode && type === 'court_reservation') return 'Amenity Reservation';
+  return EVENT_TYPE_CONFIG[type]?.label ?? type;
+}
+
 export default function ResidentCalendarScreen() {
   const now = new Date();
   const { theme } = useTheme();
@@ -307,6 +315,10 @@ export default function ResidentCalendarScreen() {
   })), [openMatches]);
 
   const filteredEvents = useMemo(() => [...events, ...openMatchEvents].filter((e) => {
+    // Match/lesson types are not relevant in Community mode regardless of
+    // source (matches/lesson_requests tables, or a `coaching`-type hoa_events
+    // row mapped to 'lesson') — mirrors the chip/legend exclusion below.
+    if (isCommunityMode && (e.event_type === 'match_event' || e.event_type === 'lesson')) return false;
     if (activeCommunity !== 'all' && e.hoa_id !== activeCommunity) return false;
     const typeKey = EVENT_TYPE_FILTER_MAP[activeEventType];
     if (activeEventType !== 'All' && e.event_type !== typeKey) return false;
@@ -527,7 +539,9 @@ export default function ResidentCalendarScreen() {
             )}
           </View>
 
-          {/* Event type filter chips — tennis-first */}
+          {/* Event type filter chips — mode-aware; visibleEventTypeFilters above
+              excludes Matches/Lessons in Community mode without mutating
+              EVENT_TYPE_FILTERS itself */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.typeChips}>
             {visibleEventTypeFilters.map((opt) => {
               const active = activeEventType === opt;
@@ -580,7 +594,7 @@ export default function ResidentCalendarScreen() {
                     <View style={[styles.eventBar, { backgroundColor: cfg.color }]} />
                     <View style={{ flex: 1, gap: 3 }}>
                       <View style={styles.eventTypePill}>
-                        <Text style={[styles.eventTypeLabel, { color: cfg.color }]}>{cfg.label.toUpperCase()}</Text>
+                        <Text style={[styles.eventTypeLabel, { color: cfg.color }]}>{eventTypeLabel(e.event_type).toUpperCase()}</Text>
                       </View>
                       <Text style={styles.eventTitle}>{e.title}</Text>
                       <Text style={styles.eventMeta}>
@@ -620,7 +634,7 @@ export default function ResidentCalendarScreen() {
                   const cfg = EVENT_TYPE_CONFIG[detailEvent.event_type] ?? { color: theme.textMuted, label: detailEvent.event_type };
                   return (
                     <View style={[styles.typePill, { backgroundColor: cfg.color + '20' }]}>
-                      <Text style={[styles.typePillLabel, { color: cfg.color }]}>{cfg.label}</Text>
+                      <Text style={[styles.typePillLabel, { color: cfg.color }]}>{eventTypeLabel(detailEvent.event_type)}</Text>
                     </View>
                   );
                 })()}
