@@ -22,7 +22,7 @@ import { Header } from '@/components/ui/Header';
 import { useTheme } from '@/context/ThemeContext';
 import { useUpcomingMatches } from '@/hooks/useUpcomingMatches';
 import { useCommunityName } from '@/hooks/useCommunityName';
-import { isCommunityMode } from '@/config/productMode';
+import { isCommunityMode, isTennisMode } from '@/config/productMode';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -173,9 +173,10 @@ export default function HomeScreen() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(true);
   const [userId, setUserId] = useState('');
-  const { upcoming: openMatches, invitations: matchInvites } = useUpcomingMatches(userId);
+  const { upcoming: openMatches, invitations: matchInvites } = useUpcomingMatches(isTennisMode ? userId : '');
 
   useEffect(() => {
+    if (!isTennisMode) { setWeatherLoading(false); return; }
     async function loadWeather() {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
@@ -237,30 +238,30 @@ export default function HomeScreen() {
           .eq('cancelled_by', 'admin')
           .gte('updated_at', new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()),
 
-        supabase
+        isTennisMode ? supabase
           .from('match_requests')
           .select('id, match_type, date, time_start, challenger_id')
           .eq('opponent_id', userId)
           .eq('status', 'pending')
           .order('created_at', { ascending: false })
-          .limit(1),
+          .limit(1) : Promise.resolve({ data: [] }),
 
-        supabase
+        isTennisMode ? supabase
           .from('match_requests')
           .select('id, match_type, date, time_start, challenger_id, opponent_id')
           .or(`challenger_id.eq.${userId},opponent_id.eq.${userId}`)
           .eq('status', 'accepted')
           .gte('date', today)
           .order('date', { ascending: true })
-          .limit(3),
+          .limit(3) : Promise.resolve({ data: [] }),
 
-        supabase
+        isTennisMode ? supabase
           .from('matches')
           .select('id, date, score, winner_id, match_type, player1_id, player2_id')
           .or(`player1_id.eq.${userId},player2_id.eq.${userId}`)
           .not('winner_id', 'is', null)
           .order('date', { ascending: false })
-          .limit(1),
+          .limit(1) : Promise.resolve({ data: [] }),
       ]);
 
       const firstBooking = (bookingsRes.data ?? [])[0];
@@ -387,21 +388,23 @@ export default function HomeScreen() {
         <View style={styles.cardsContainer}>
 
           {/* ── Weather Intelligence ────────────────────────────────────── */}
-          {weatherLoading ? (
-            <View testID="weather-skeleton" style={styles.weatherSkeleton} />
-          ) : playability ? (
-            <View
-              testID="weather-module"
-              style={[styles.weatherModule, { borderLeftColor: playability.accentColor }]}>
-              <WeatherIcon type={playability.icon} color={playability.accentColor} size={28} />
-              <View style={styles.weatherText}>
-                <Text style={styles.weatherEyebrow}>CONDITIONS NOW</Text>
-                <Text style={[styles.weatherDataLine, { color: playability.accentColor }]}>
-                  {playability.conditions}
-                </Text>
+          {isTennisMode && (
+            weatherLoading ? (
+              <View testID="weather-skeleton" style={styles.weatherSkeleton} />
+            ) : playability ? (
+              <View
+                testID="weather-module"
+                style={[styles.weatherModule, { borderLeftColor: playability.accentColor }]}>
+                <WeatherIcon type={playability.icon} color={playability.accentColor} size={28} />
+                <View style={styles.weatherText}>
+                  <Text style={styles.weatherEyebrow}>CONDITIONS NOW</Text>
+                  <Text style={[styles.weatherDataLine, { color: playability.accentColor }]}>
+                    {playability.conditions}
+                  </Text>
+                </View>
               </View>
-            </View>
-          ) : null}
+            ) : null
+          )}
 
           {/* ── Admin cancellation banners ──────────────────────────────── */}
           {cancelledBookings
@@ -467,7 +470,7 @@ export default function HomeScreen() {
           </View>
 
           {/* ── Pending Challenge (hidden if none) ─────────────────────── */}
-          {pendingChallenge && (
+          {isTennisMode && pendingChallenge && (
             <View testID="pending-challenge-card" style={[styles.card, styles.challengeCard]}>
               <View style={styles.cardHeader}>
                 <Swords color={Colors.negative} size={20} strokeWidth={1.5} />
@@ -500,50 +503,52 @@ export default function HomeScreen() {
           )}
 
           {/* ── My Next Court ───────────────────────────────────────────── */}
-          <View testID="next-court-card" style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.metadataLabel}>ON THE COURT</Text>
-              {nextBooking && (
-                <TouchableOpacity onPress={() => router.push('/my-reservations')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  <Text style={styles.viewAllLink}>View All →</Text>
+          {isTennisMode && (
+            <View testID="next-court-card" style={styles.card}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.metadataLabel}>ON THE COURT</Text>
+                {nextBooking && (
+                  <TouchableOpacity onPress={() => router.push('/my-reservations')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Text style={styles.viewAllLink}>View All →</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              {loading ? (
+                <View style={styles.skeletonLine} />
+              ) : nextBooking ? (
+                <TouchableOpacity
+                  style={styles.nextCourtRow}
+                  testID="next-court-row"
+                  onPress={() => router.push('/my-reservations')}
+                  activeOpacity={0.7}>
+                  <View style={styles.cyanDot} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.nextCourtName}>{nextBooking.courtName}</Text>
+                    <Text style={styles.nextCourtTime}>
+                      {formatDate(nextBooking.date)} · {formatTime(nextBooking.start_time)} – {formatTime(nextBooking.end_time)}
+                    </Text>
+                  </View>
+                  <ChevronRight color={Colors.fg3} size={18} strokeWidth={1.5} />
                 </TouchableOpacity>
+              ) : (
+                <View style={styles.emptyState}>
+                  <Calendar color={Colors.fg3} size={52} strokeWidth={1.5} />
+                  <Text style={styles.emptyTitle}>No upcoming reservations</Text>
+                  <Text style={styles.emptySubtitle}>Reserve a court to get on the court today.</Text>
+                  <TouchableOpacity
+                    testID="book-court-cta"
+                    style={styles.primaryCta}
+                    onPress={() => router.push('/(resident)/courts')}
+                    activeOpacity={0.8}>
+                    <Text style={styles.primaryCtaText}>Book a Court</Text>
+                  </TouchableOpacity>
+                </View>
               )}
             </View>
-            {loading ? (
-              <View style={styles.skeletonLine} />
-            ) : nextBooking ? (
-              <TouchableOpacity
-                style={styles.nextCourtRow}
-                testID="next-court-row"
-                onPress={() => router.push('/my-reservations')}
-                activeOpacity={0.7}>
-                <View style={styles.cyanDot} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.nextCourtName}>{nextBooking.courtName}</Text>
-                  <Text style={styles.nextCourtTime}>
-                    {formatDate(nextBooking.date)} · {formatTime(nextBooking.start_time)} – {formatTime(nextBooking.end_time)}
-                  </Text>
-                </View>
-                <ChevronRight color={Colors.fg3} size={18} strokeWidth={1.5} />
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.emptyState}>
-                <Calendar color={Colors.fg3} size={52} strokeWidth={1.5} />
-                <Text style={styles.emptyTitle}>No upcoming reservations</Text>
-                <Text style={styles.emptySubtitle}>Reserve a court to get on the court today.</Text>
-                <TouchableOpacity
-                  testID="book-court-cta"
-                  style={styles.primaryCta}
-                  onPress={() => router.push('/(resident)/courts')}
-                  activeOpacity={0.8}>
-                  <Text style={styles.primaryCtaText}>Book a Court</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
+          )}
 
           {/* ── Match Invitations teaser (hidden if none) ───────────────── */}
-          {!loading && matchInvites.length > 0 && (
+          {isTennisMode && !loading && matchInvites.length > 0 && (
             <TouchableOpacity
               testID="match-invites-banner"
               style={styles.inviteBanner}
@@ -558,7 +563,7 @@ export default function HomeScreen() {
           )}
 
           {/* ── Upcoming Matches (hidden if empty) ─────────────────────── */}
-          {!loading && (upcomingMatches.length > 0 || openMatches.length > 0) && (
+          {isTennisMode && !loading && (upcomingMatches.length > 0 || openMatches.length > 0) && (
             <View testID="upcoming-matches-card" style={styles.card}>
               <View style={styles.cardHeader}>
                 <Text style={styles.metadataLabel}>UPCOMING MATCHES</Text>
@@ -607,7 +612,7 @@ export default function HomeScreen() {
           )}
 
           {/* ── Recent Result (hidden if none) ─────────────────────────── */}
-          {!loading && recentResult && (
+          {isTennisMode && !loading && recentResult && (
             <View testID="recent-result-card" style={styles.card}>
               <Text style={styles.metadataLabel}>LAST RESULT</Text>
               <View style={[styles.listRow, { paddingTop: 10 }]}>
