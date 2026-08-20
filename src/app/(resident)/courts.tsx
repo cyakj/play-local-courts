@@ -29,6 +29,7 @@ import { CalendarPicker, formatDateLabel } from '@/components/ui/CalendarPicker'
 import { useTheme } from '@/context/ThemeContext';
 import { useCommunityName } from '@/hooks/useCommunityName';
 import type { ThemeTokens } from '@/constants/theme-tokens';
+import { isCommunityMode, isTennisMode } from '@/config/productMode';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -583,26 +584,28 @@ export default function CourtsScreen() {
         </View>
 
         {/* ── Top-level: My HOA / Club · Other ─────────────────────────── */}
-        <View testID="top-tab-control" style={styles.topTabControl}>
-          <TouchableOpacity
-            testID="top-tab-hoa"
-            style={[styles.topTabBtn, topLevelTab === 'hoa' && styles.topTabBtnActive]}
-            onPress={() => setTopLevelTab('hoa')}
-            activeOpacity={0.7}>
-            <Text style={[styles.topTabText, topLevelTab === 'hoa' && styles.topTabTextActive]}>
-              My HOA / Club
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            testID="top-tab-other"
-            style={[styles.topTabBtn, topLevelTab === 'other' && styles.topTabBtnActive]}
-            onPress={() => setTopLevelTab('other')}
-            activeOpacity={0.7}>
-            <Text style={[styles.topTabText, topLevelTab === 'other' && styles.topTabTextActive]}>
-              Other
-            </Text>
-          </TouchableOpacity>
-        </View>
+        {isTennisMode && (
+          <View testID="top-tab-control" style={styles.topTabControl}>
+            <TouchableOpacity
+              testID="top-tab-hoa"
+              style={[styles.topTabBtn, topLevelTab === 'hoa' && styles.topTabBtnActive]}
+              onPress={() => setTopLevelTab('hoa')}
+              activeOpacity={0.7}>
+              <Text style={[styles.topTabText, topLevelTab === 'hoa' && styles.topTabTextActive]}>
+                My HOA / Club
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              testID="top-tab-other"
+              style={[styles.topTabBtn, topLevelTab === 'other' && styles.topTabBtnActive]}
+              onPress={() => setTopLevelTab('other')}
+              activeOpacity={0.7}>
+              <Text style={[styles.topTabText, topLevelTab === 'other' && styles.topTabTextActive]}>
+                Other
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {topLevelTab === 'other' ? (
           /* ── Other: coming soon placeholder ──────────────────────────── */
