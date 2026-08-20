@@ -289,7 +289,7 @@ export default function MeScreen() {
                     <InfoTooltip
                       size={11}
                       label="Community"
-                      text="The HOA community you belong to. This connects you to local courts, coaches, and neighbors."
+                      text={isCommunityMode ? "The HOA community you belong to. This connects you to your community and neighbors." : "The HOA community you belong to. This connects you to local courts, coaches, and neighbors."}
                     />
                   </View>
                   <Text style={[styles.statValue, styles.statValueSmall]} numberOfLines={1}>
