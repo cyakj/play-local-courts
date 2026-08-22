@@ -105,6 +105,14 @@ function eventTypeLabel(type: string): string {
   return EVENT_TYPE_CONFIG[type]?.label ?? type;
 }
 
+// Mirrors eventTypeLabel() above but for the filter-chip option strings
+// (EVENT_TYPE_FILTERS), which are plural labels rather than event_type keys —
+// applied at the render site only, EVENT_TYPE_FILTERS itself stays untouched.
+function filterChipLabel(opt: string): string {
+  if (isCommunityMode && opt === 'Court Reservations') return 'Amenity Reservations';
+  return opt;
+}
+
 export default function ResidentCalendarScreen() {
   const now = new Date();
   const { theme } = useTheme();
@@ -552,7 +560,7 @@ export default function ResidentCalendarScreen() {
                   style={[styles.typeChip, active && styles.typeChipActive]}
                   onPress={() => setActiveEventType(opt)}
                   activeOpacity={0.7}>
-                  <Text style={[styles.typeChipLabel, active && styles.typeChipLabelActive]}>{opt}</Text>
+                  <Text style={[styles.typeChipLabel, active && styles.typeChipLabelActive]}>{filterChipLabel(opt)}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -563,7 +571,7 @@ export default function ResidentCalendarScreen() {
             {visibleLegendEntries.map(([k, v]) => (
               <View key={k} testID="legend-item" style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: v.color }]} />
-                <Text style={styles.legendLabel}>{v.label}</Text>
+                <Text style={styles.legendLabel}>{eventTypeLabel(k)}</Text>
               </View>
             ))}
           </View>

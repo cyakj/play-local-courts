@@ -10,12 +10,12 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import {
-  AlertTriangle, FileText, Mail, MapPin, Megaphone, Phone,
+  AlertTriangle, ChevronRight, FileText, Mail, MapPin, Megaphone, Phone,
 } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import {
-  FontFamily, FontSize, MaxWidth, Radius, Spacing,
+  Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing,
 } from '@/constants/design';
 import { Header } from '@/components/ui/Header';
 import { useTheme } from '@/context/ThemeContext';
@@ -135,27 +135,38 @@ export default function CommunityScreen() {
 
               {contactRows.length > 0 && (
                 <>
-                  <Text style={[styles.sectionTitle, { marginTop: 24, marginBottom: 8 }]}>Contact</Text>
-                  {contactRows.map((row, i) => (
-                    <TouchableOpacity
-                      key={i}
-                      style={styles.contactRow}
-                      disabled={!row.onPress}
-                      onPress={row.onPress}
-                      activeOpacity={row.onPress ? 0.7 : 1}>
-                      <row.Icon color={theme.textMuted} size={16} strokeWidth={1.5} />
-                      <Text style={styles.contactLabel}>{row.label}</Text>
-                    </TouchableOpacity>
-                  ))}
+                  <View style={[styles.sectionHeaderRow, { marginTop: 24 }]}>
+                    <Phone color={theme.textMuted} size={16} strokeWidth={1.5} />
+                    <Text style={styles.sectionTitle}>Contact</Text>
+                  </View>
+                  <View style={styles.contactCard}>
+                    {contactRows.map((row, i) => (
+                      <TouchableOpacity
+                        key={i}
+                        style={[styles.contactRow, i > 0 && styles.contactRowDivider]}
+                        disabled={!row.onPress}
+                        onPress={row.onPress}
+                        activeOpacity={row.onPress ? 0.7 : 1}>
+                        <row.Icon color={theme.textMuted} size={16} strokeWidth={1.5} />
+                        <Text style={styles.contactLabel}>{row.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
                 </>
               )}
 
               <TouchableOpacity
-                style={[styles.contactRow, { marginTop: contactRows.length > 0 ? 16 : 24 }]}
+                style={[styles.reportCard, { marginTop: 24 }]}
                 onPress={() => router.push('/(resident)/report')}
-                activeOpacity={0.7}>
-                <AlertTriangle color={theme.textMuted} size={16} strokeWidth={1.5} />
-                <Text style={styles.contactLabel}>Report an Issue</Text>
+                activeOpacity={0.85}>
+                <View style={styles.reportIcon}>
+                  <AlertTriangle color={Colors.negative} size={18} strokeWidth={1.5} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.reportTitle}>Report an Issue</Text>
+                  <Text style={styles.reportSub}>Flag a maintenance or safety concern</Text>
+                </View>
+                <ChevronRight color={theme.textMuted} size={16} strokeWidth={1.5} />
               </TouchableOpacity>
             </>
           )}
@@ -192,7 +203,25 @@ function useStyles(theme: ReturnType<typeof useTheme>['theme']) {
     linkRow: { alignItems: 'flex-end', marginBottom: 4 },
     linkRowLabel: { fontFamily: FontFamily.manropeSemiBold, fontSize: 13, color: theme.selectedBorder },
 
-    contactRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
+    contactCard: {
+      backgroundColor: theme.cardBg, borderRadius: Radius.card,
+      borderWidth: 1, borderColor: theme.border, paddingHorizontal: 16,
+    },
+    contactRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12 },
+    contactRowDivider: { borderTopWidth: 1, borderTopColor: theme.border },
     contactLabel: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.body, color: theme.textPrimary },
+
+    reportCard: {
+      flexDirection: 'row', alignItems: 'center', gap: 12,
+      backgroundColor: theme.cardBg, borderRadius: Radius.card, padding: 16,
+      borderWidth: 1, borderColor: 'rgba(255,92,107,0.25)', ...theme.shadowCard,
+    },
+    reportIcon: {
+      width: 36, height: 36, borderRadius: 10,
+      backgroundColor: 'rgba(255,92,107,0.10)',
+      alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+    },
+    reportTitle: { fontFamily: FontFamily.manropeSemiBold, fontSize: 15, color: theme.textPrimary },
+    reportSub: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label, color: theme.textMuted, marginTop: 1 },
   }), [theme]);
 }
