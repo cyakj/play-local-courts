@@ -9,12 +9,14 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import { ChevronLeft, ChevronRight, Plus, X } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import {
   Colors, FontFamily, FontSize, MaxWidth, Shadow, Spacing,
 } from '@/constants/design';
+import { Header } from '@/components/ui/Header';
 
 const EVENT_TYPE_CONFIG: Record<string, { color: string; label: string }> = {
   community_event: { color: Colors.accentCyan, label: 'Community Event' },
@@ -332,10 +334,10 @@ export default function CMCalendarScreen() {
 
   return (
     <View style={styles.screen}>
-      {/* Custom navy header */}
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 8 }]}>
-        <View style={styles.headerTop}>
-          <Text style={styles.headerTitle}>Calendar</Text>
+      <Header variant="admin" title="Calendar" onBell={() => router.push('/notifications')} />
+
+      <View style={styles.header}>
+        <View style={[styles.headerTop, { justifyContent: 'flex-end' }]}>
           <View style={styles.viewToggle}>
             {(['week', 'month'] as const).map((mode) => (
               <TouchableOpacity
@@ -706,6 +708,7 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: Colors.navy,
     paddingHorizontal: Spacing.pagePx,
+    paddingTop: 12,
     paddingBottom: 16,
   },
   headerTop: {
@@ -713,12 +716,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 4,
-  },
-  headerTitle: {
-    fontFamily: FontFamily.manropeBlack,
-    fontSize: 28,
-    color: Colors.white,
-    lineHeight: 32,
   },
   viewToggle: {
     flexDirection: 'row',

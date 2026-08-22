@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import { ArrowLeft, Check, CheckCheck, Plus, Search, Send } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
@@ -19,6 +20,7 @@ import {
   Colors, FontFamily, FontSize, MaxWidth, Shadow, Spacing,
 } from '@/constants/design';
 import { CardSkeleton } from '@/components/ui/Skeleton';
+import { Header } from '@/components/ui/Header';
 
 interface Conversation {
   partnerId: string;
@@ -364,7 +366,8 @@ export default function CMMessagesScreen() {
   // ── CONVERSATION LIST ─────────────────────────────────────────────────────────
   return (
     <View style={styles.screen}>
-      <View style={[styles.listHeader, { paddingTop: Math.max(insets.top, 24) + 8 }]}>
+      <Header variant="admin" title="Messages" onBell={() => router.push('/notifications')} />
+      <View style={styles.listSubHeader}>
         <View style={styles.listHeaderTop}>
           <Text style={styles.inboxTag}>INBOX</Text>
           <View style={styles.listHeaderActions}>
@@ -381,10 +384,9 @@ export default function CMMessagesScreen() {
             </TouchableOpacity>
           </View>
         </View>
-        <Text style={styles.headerTitle}>Messages</Text>
 
         {/* Search bar */}
-        <View style={styles.searchBar}>
+        <View style={[styles.searchBar, { marginTop: 12 }]}>
           <Search color="rgba(255,255,255,0.5)" size={15} strokeWidth={2} />
           <TextInput
             style={styles.searchInput}
@@ -448,6 +450,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.pagePx,
     paddingBottom: 20,
   },
+  listSubHeader: {
+    backgroundColor: Colors.navy,
+    paddingHorizontal: Spacing.pagePx,
+    paddingTop: 12,
+    paddingBottom: 20,
+  },
   listHeaderTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -480,12 +488,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(0,212,255,0.4)',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  headerTitle: {
-    fontFamily: FontFamily.manropeBlack,
-    fontSize: 28,
-    color: Colors.white,
-    lineHeight: 32,
   },
   searchBar: {
     flexDirection: 'row',

@@ -7,16 +7,16 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import {
-  Bell, CalendarDays, MessageCircle, TrendingUp, UserCheck, Wrench,
+  Bell, CalendarDays, TrendingUp, UserCheck, Wrench,
 } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import {
   Colors, FontFamily, FontSize, MaxWidth, Radius, Shadow, Spacing,
 } from '@/constants/design';
+import { Header } from '@/components/ui/Header';
 
 const ALERT_CONFIG: Record<string, { Icon: typeof Bell; color: string }> = {
   approval: { Icon: UserCheck, color: Colors.accentCyan },
@@ -49,7 +49,6 @@ function timeAgo(iso: string): string {
 }
 
 export default function CMAlertsScreen() {
-  const insets = useSafeAreaInsets();
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -142,24 +141,16 @@ export default function CMAlertsScreen() {
   return (
     <View style={styles.screen}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 8 }]}>
-        <View style={styles.headerInner}>
-          <View>
-            <Text style={styles.headerTitle}>Alerts</Text>
-            <Text style={styles.headerSub}>Pending actions</Text>
-          </View>
-          <View style={styles.headerActions}>
-            <View style={[styles.urgentBadge, urgentCount > 0 && styles.urgentBadgeActive]}>
-              <Text style={styles.urgentBadgeText}>{urgentCount} Urgent</Text>
-            </View>
-            <TouchableOpacity
-              testID="messages-icon"
-              style={styles.messagesBtn}
-              onPress={() => router.push('/(cm)/messages' as any)}
-              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-              <MessageCircle color={Colors.white} size={20} strokeWidth={1.5} />
-            </TouchableOpacity>
-          </View>
+      <Header
+        variant="admin"
+        title="Alerts"
+        onBell={() => router.push('/notifications')}
+        onMessages={() => router.push('/(cm)/messages' as any)}
+      />
+      <View style={styles.subBar}>
+        <Text style={styles.headerSub}>Pending actions</Text>
+        <View style={[styles.urgentBadge, urgentCount > 0 && styles.urgentBadgeActive]}>
+          <Text style={styles.urgentBadgeText}>{urgentCount} Urgent</Text>
         </View>
       </View>
 
@@ -241,28 +232,20 @@ export default function CMAlertsScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.pageBg },
 
-  header: {
+  subBar: {
     backgroundColor: Colors.navy,
     paddingHorizontal: Spacing.pagePx,
+    paddingTop: 4,
     paddingBottom: 16,
-  },
-  headerInner: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  headerTitle: {
-    fontFamily: FontFamily.manropeExtraBold,
-    fontSize: 20,
-    color: Colors.white,
   },
   headerSub: {
     fontFamily: FontFamily.interRegular,
     fontSize: 12,
     color: 'rgba(255,255,255,0.65)',
-    marginTop: 2,
   },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   urgentBadge: {
     borderRadius: 99,
     paddingHorizontal: 14,
@@ -270,14 +253,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.12)',
   },
   urgentBadgeActive: { backgroundColor: 'rgba(239,68,68,0.25)' },
-  messagesBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   urgentBadgeText: {
     fontFamily: FontFamily.manropeExtraBold,
     fontSize: 13,

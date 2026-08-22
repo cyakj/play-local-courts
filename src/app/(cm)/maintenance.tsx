@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Alert, Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { router, useLocalSearchParams } from 'expo-router';
 import { CheckCircle, ChevronDown, X } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
@@ -12,6 +12,7 @@ import {
 } from '@/constants/design';
 import { CardSkeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Header } from '@/components/ui/Header';
 
 interface Report {
   id: string;
@@ -122,7 +123,6 @@ function FilterPicker({
 }
 
 export default function MaintenanceReportsScreen() {
-  const insets = useSafeAreaInsets();
   const { reportId } = useLocalSearchParams<{ reportId?: string }>();
   const [reports, setReports] = useState<Report[]>([]);
   const [communities, setCommunities] = useState<{ id: string; name: string }[]>([]);
@@ -268,10 +268,10 @@ export default function MaintenanceReportsScreen() {
   return (
     <View style={styles.screen}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 8 }]}>
+      <Header variant="admin" title="Maintenance" onBell={() => router.push('/notifications')} />
+      <View style={styles.header}>
         <View style={styles.headerInner}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.headerTitle}>Maintenance Reports</Text>
             <Text style={styles.headerSub}>
               {communityFilter === 'All' ? 'All communities' : communityFilter} · real time
             </Text>
@@ -480,14 +480,10 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: Colors.navy,
     paddingHorizontal: Spacing.pagePx,
+    paddingTop: 12,
     paddingBottom: 16,
   },
   headerInner: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  headerTitle: {
-    fontFamily: FontFamily.manropeExtraBold,
-    fontSize: 20,
-    color: Colors.white,
-  },
   headerSub: {
     fontFamily: FontFamily.interRegular,
     fontSize: 12,

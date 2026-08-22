@@ -48,12 +48,28 @@ interface CoachHeaderProps {
   communityName?: string;
 }
 
+interface AdminHeaderProps {
+  variant: 'admin';
+  /** Screen title, e.g. "Alerts", "Calendar", "Maintenance", "Messages". */
+  title: string;
+  /** Set when the screen is scoped to a single HOA — shown as the primary identity. */
+  communityName?: string;
+  /** Renders a back arrow when provided; omit for top-level admin screens. */
+  onBack?: () => void;
+  onBell?: () => void;
+  /** Renders the messages icon when provided. */
+  onMessages?: () => void;
+  /** Unread badge shown on the messages icon when > 0. */
+  unreadMessagesCount?: number;
+}
+
 type HeaderProps =
   | CMPortfolioHeaderProps
   | ResidentHomeHeaderProps
   | InnerScreenHeaderProps
   | ResidentHeaderProps
-  | CoachHeaderProps;
+  | CoachHeaderProps
+  | AdminHeaderProps;
 
 function useProfileInitials(): string {
   const [initials, setInitials] = useState('');
@@ -168,6 +184,60 @@ export function Header(props: HeaderProps) {
           </Text>
           <View style={styles.iconBtn}>{props.rightIcon ?? null}</View>
         </View>
+      </View>
+    );
+  }
+
+  if (props.variant === 'admin') {
+    const unread = props.unreadMessagesCount ?? 0;
+    return (
+      <View style={[styles.base, styles.adminBase, { paddingTop: topPad + 8 }]}>
+        <View style={styles.topBar}>
+          {props.onBack ? (
+            <TouchableOpacity
+              onPress={props.onBack}
+              style={styles.iconBtn}
+              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+              <ArrowLeft color="#FFFFFF" size={22} strokeWidth={1.5} />
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.iconBtn} />
+          )}
+          <View style={styles.topBarRight}>
+            {props.onMessages && (
+              <TouchableOpacity
+                testID="messages-icon"
+                style={[styles.iconBtn, styles.iconBtnRelative]}
+                onPress={props.onMessages}
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+                <MessageCircle color="#FFFFFF" size={22} strokeWidth={1.5} />
+                {unread > 0 && (
+                  <View style={styles.msgBadge}>
+                    <Text style={styles.msgBadgeText}>{unread > 99 ? '99+' : unread}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              testID="bell-icon"
+              style={styles.iconBtn}
+              onPress={props.onBell}
+              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+              <Bell color="#FFFFFF" size={22} strokeWidth={1.5} />
+            </TouchableOpacity>
+          </View>
+        </View>
+        <Text style={styles.adminEyebrow} numberOfLines={1}>
+          {props.title.toUpperCase()}
+        </Text>
+        <Text style={styles.adminIdentity} numberOfLines={1}>
+          {props.communityName ?? 'TenisX'}
+        </Text>
+        {props.communityName && (
+          <Text style={styles.poweredBy} numberOfLines={1}>
+            Powered by TenisX
+          </Text>
+        )}
       </View>
     );
   }
@@ -335,5 +405,41 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.manropeBold,
     fontSize: 10,
     color: Colors.cyan,
+  },
+  adminBase: {
+    paddingBottom: 24,
+  },
+  iconBtnRelative: {
+    position: 'relative',
+  },
+  msgBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 3,
+    backgroundColor: Colors.negative,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  msgBadgeText: {
+    fontFamily: FontFamily.jetbrainsMonoSemiBold,
+    fontSize: 9,
+    color: '#FFFFFF',
+  },
+  adminEyebrow: {
+    fontFamily: FontFamily.jetbrainsMonoSemiBold,
+    fontSize: FontSize.eyebrow,
+    color: Colors.cyan,
+    letterSpacing: 2,
+    marginBottom: 6,
+  },
+  adminIdentity: {
+    fontFamily: FontFamily.spaceGroteskBold,
+    fontSize: 26,
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
   },
 });
