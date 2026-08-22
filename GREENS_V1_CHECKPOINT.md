@@ -106,3 +106,59 @@ Problem this plan fixed: the resident shell's Community mode (`EXPO_PUBLIC_PRODU
 - [ ] Header shows the TenisX logo image, no wordmark, no "Powered by" line.
 - [ ] A `coach`-role account still lands in `/(coach)` on login.
 - [ ] Every previously-working deep link (`/match/new`, `/(resident)/coaches`, etc.) still renders normally — the Task 1 guard never fires in Tennis mode.
+
+---
+
+## 2026-08-21/22 — Overnight launch-quality pass: Amenity CRUD fix, Admin header unification, Resident polish
+
+Executed via `docs/superpowers/plans/2026-08-19-admin-amenity-redesign.md` (Tasks 1-12; Task 13 verification below) plus two additional batches (admin header, resident polish) not covered by that plan. All work on `greens-v1` directly, no worktrees. Commits `934b0fa..992edf0` (8 commits), pushed to `origin/greens-v1`.
+
+### Amenity CRUD — launch blocker, now fixed
+
+Replaced the bare Add-Amenity modal and raw-text blockout form in `manage-amenities.tsx` with three new components:
+- `src/components/ui/TimePicker.tsx`, `Stepper.tsx`, `RulesSummary.tsx` (`src/lib/format.ts` for shared 12-hour/full-date formatters).
+- `src/components/admin/AddAmenityWizard.tsx` — 4-step gated flow (Basics → Hours → Rules → Review); cannot create a half-configured amenity (name + both hours required to reach Review).
+- `src/components/admin/BlockoutSheet.tsx` — single-day/range, all-day/hourly tap-grid, reason type + optional note, and full conflict handling: detects overlapping reservations before saving, shows a resolution panel (resident/date/time), and only on explicit "Cancel & Continue" cancels those bookings, notifies each resident once (in-app + email via existing `send-booking-email` infra), then saves the blockout.
+- Fixed both Save buttons using `Button variant="accent"` (volt/lime — reserved for live/warning states per `design.ts`) → `variant="primary"`.
+- Added a disable-with-upcoming-reservations confirmation (previously silent); Delete's blocked message now points at Disable as the alternative; amenity cards now show next-blockout date.
+- Zero raw `HH:MM`/`YYYY-MM-DD` remaining anywhere on this screen — confirmed by grep.
+
+**Migration:** one staged, **not applied** — `supabase/migrations/20260821010000_greens_v1_blockout_type.sql` adds `court_maintenance.blockout_type text null` (additive). Investigation found the plan's other assumed-missing piece — an admin `UPDATE` policy on `bookings` (needed for blockout-conflict cancellation) — **already exists** (`20260318124037_...sql`, applied via the original Lovable pipeline, predates this session), so it was correctly *not* re-staged.
+
+### Admin header unification
+
+Added an `admin` variant to `src/components/ui/Header.tsx` (community identity or "TenisX" fallback, subtle "Powered by TenisX" line when community-scoped, back arrow, bell, optional messages icon with unread badge — reuses existing `styles.base`/color tokens, no new visual language). Migrated `alerts.tsx`, `calendar.tsx`, `maintenance.tsx`, `messages.tsx` off their hand-rolled `useSafeAreaInsets()` headers onto it. `manage-amenities.tsx`, `community/[hoaId].tsx`, `pending-requests.tsx` were left on `variant="inner"` deliberately — they need a custom right-side action (Add button) or back+title-only chrome that `inner` already serves correctly; `(cm)/index.tsx` stays on `cm-portfolio` (portfolio-hub greeting, intentionally distinct). This is now a complete, consistent set — no screen hand-rolls its own header chrome anymore.
+
+### Resident polish (Home, Reserve, Community, Schedule, Me)
+
+Both subagents were instructed to verify-before-changing rather than assume the brief's complaints applied — most of it turned out already fixed by the prior Community-mode IA session:
+- **Home**: only real gap was the "Book Court" quick-action label not switching to "Reserve" in Community mode (fixed, 1 line). Report Issue tile, upcoming-reservation card, Community Pulse/events were already properly card-styled.
+- **Reserve**: fully verified already correct — amenity cards already show name/type/status/hours(via sheet)/Reserve/Schedule/Report Issue, times already 12-hour formatted, no raw HH:MM, single unified list in Community mode. No changes needed.
+- **Community**: Contact rows and Report an Issue were flat/undifferentiated vs. Announcements/Documents — fixed (Contact grouped into a bordered card; Report an Issue elevated to its own accent CTA card).
+- **Schedule**: two residual tennis-flavored labels bypassing the existing mode-aware `eventTypeLabel()` helper — filter chip ("Court Reservations") and legend entry — fixed to route through it; Tennis mode output unchanged.
+- **Me**: fully verified already correct (NTRP/match/coach content already gated). No changes.
+
+### Verified, not yet fixed — flagged for a follow-up pass
+
+- `hoas.logo_url` exists in the schema but is not rendered anywhere — every header (resident, coach, and the new admin variant) shows a text wordmark only, never an actual community logo image. Wiring it up requires extending `useCommunityName()` (or adding a sibling hook) and threading a new prop through **7 call sites** (`index.tsx`, `calendar.tsx`, `courts.tsx`, `report.tsx`, `docs.tsx`, `coaches.tsx`, `book.tsx`) plus `Header.tsx` itself — deliberately not folded into tonight's admin-header batch given the blast radius; do as its own scoped task.
+- The `apple-design` skill referenced in the mission brief is not available in this environment — premium-UI guidance was instead applied via this repo's existing `DESIGN.md`/`BRAND.md` tokens and the design judgment already embedded in each subagent's brief.
+- `tests/calendar.spec.ts` is stale (references testIDs/labels like `calendar-heading`, "Amenity Booking" that don't match current code) — confirmed pre-existing via `git stash`, not caused by tonight's work, not fixed (out of scope, no test harness task was requested).
+
+### Verification performed
+
+- `npx tsc --noEmit` after every commit, diffed against the running baseline — zero new errors introduced across all 8 commits (final count 1681 vs. baseline 1679, the +2 being the pre-existing repo-wide `Button.tsx`/`button.tsx` and `Card.tsx`/`card.tsx` Windows case-collision, already present on `manage-amenities.tsx` before tonight).
+- `npx expo export --platform web` succeeded (4.6MB bundle, no bundler errors) after the amenity wiring, confirming runtime soundness beyond type-checking.
+- One subagent additionally ran a live dev server (`EXPO_PUBLIC_PRODUCT_MODE=community`) and polled for a clean HTTP 200 bundle before killing it.
+- No manual device/simulator QA performed by any agent — same limitation as every prior session in this repo. Human QA checklist below.
+
+### PENDING — Manual QA checklist for tomorrow (human verification required)
+
+- [ ] Manage Amenities: Add Amenity wizard end-to-end (all 4 steps, cannot skip Basics/Hours), edit an existing amenity's rules via the new TimePicker/Stepper controls, Save Changes persists.
+- [ ] Blockout: create a single-day and a range blockout; toggle All Day; tap the hourly grid; confirm past-today hours are disabled; create a blockout that overlaps a real test booking and confirm the conflict panel appears with correct resident/time, "Go Back" is a true no-op, "Cancel & Continue" actually cancels the booking and the resident sees it as cancelled.
+- [ ] Disable an amenity with an upcoming reservation — confirm the warning shows the correct count and the reservation is untouched after confirming.
+- [ ] Delete an amenity with upcoming reservations — confirm it's still blocked and the message mentions Disable.
+- [ ] Alerts/Calendar/Maintenance/Messages screens all render the new shared admin header consistently (community identity or TenisX, bell, messages-with-badge where applicable) with no leftover visual mismatch against Manage Amenities/Community Detail.
+- [ ] Resident Community tab: Contact card and Report an Issue card render correctly with the new card treatment.
+- [ ] Resident Schedule: filter chip reads "Amenity Reservations" and legend entries read amenity-flavored labels in Community mode; Tennis mode unchanged ("Court Reservations", "Match", etc. as before).
+- [ ] Apply the staged `20260821010000_greens_v1_blockout_type.sql` migration when ready — until applied, `blockout_type` writes will be dropped/error against the live DB (same staged-migration caveat as every prior Greens V1 migration).
+- [ ] Confirm Tennis mode (`EXPO_PUBLIC_PRODUCT_MODE` unset) is still byte-for-byte unchanged across every screen touched tonight — no file this session had any code path that runs unconditionally outside an `isCommunityMode`/admin-only gate, but a real device pass is still the only way to be sure.
