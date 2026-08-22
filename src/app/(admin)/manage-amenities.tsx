@@ -29,7 +29,13 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Header } from '@/components/ui/Header';
+import { TimePicker } from '@/components/ui/TimePicker';
+import { Stepper } from '@/components/ui/Stepper';
+import { RulesSummary } from '@/components/ui/RulesSummary';
+import { AddAmenityWizard } from '@/components/admin/AddAmenityWizard';
+import { BlockoutSheet } from '@/components/admin/BlockoutSheet';
 import { useTheme } from '@/context/ThemeContext';
+import { formatDateFull, formatTime12h } from '@/lib/format';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 import type { Database } from '@/lib/types';
 
@@ -87,13 +93,11 @@ export default function ManageAmenitiesScreen() {
 
   const [courts, setCourts] = useState<Court[]>([]);
   const [upcomingCounts, setUpcomingCounts] = useState<Record<string, number>>({});
+  const [nextBlockouts, setNextBlockouts] = useState<Record<string, Maintenance>>({});
   const [loading, setLoading] = useState(true);
 
-  // Add modal
-  const [addVisible, setAddVisible] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [newType, setNewType] = useState<CourtTypeValue>('tennis');
-  const [saving, setSaving] = useState(false);
+  // Add Amenity wizard
+  const [wizardVisible, setWizardVisible] = useState(false);
 
   // Detail modal
   const [detailCourt, setDetailCourt] = useState<Court | null>(null);
@@ -109,12 +113,8 @@ export default function ManageAmenitiesScreen() {
   const [utilization30d, setUtilization30d] = useState(0);
   const [detailSaving, setDetailSaving] = useState(false);
 
-  // Blockout form
-  const [blockoutDate, setBlockoutDate] = useState('');
-  const [blockoutEndDate, setBlockoutEndDate] = useState('');
-  const [blockoutStart, setBlockoutStart] = useState('');
-  const [blockoutEnd, setBlockoutEnd] = useState('');
-  const [blockoutReason, setBlockoutReason] = useState('');
+  // Blockout sheet
+  const [blockoutVisible, setBlockoutVisible] = useState(false);
 
   async function loadCourts() {
     setLoading(true);
@@ -126,17 +126,34 @@ export default function ManageAmenitiesScreen() {
 
     if (list.length > 0) {
       const ids = list.map((c) => c.id);
-      const { data: bookings } = await supabase
-        .from('bookings')
-        .select('court_id')
-        .in('court_id', ids)
-        .gte('date', todayISO())
-        .neq('status', 'cancelled');
+      const [bookingsRes, maintRes] = await Promise.all([
+        supabase
+          .from('bookings')
+          .select('court_id')
+          .in('court_id', ids)
+          .gte('date', todayISO())
+          .neq('status', 'cancelled'),
+        supabase
+          .from('court_maintenance')
+          .select('*')
+          .in('court_id', ids)
+          .gte('date', todayISO())
+          .order('date', { ascending: true }),
+      ]);
       const counts: Record<string, number> = {};
-      for (const b of bookings ?? []) {
+      for (const b of bookingsRes.data ?? []) {
         counts[b.court_id] = (counts[b.court_id] ?? 0) + 1;
       }
       setUpcomingCounts(counts);
+
+      const nextByCourt: Record<string, Maintenance> = {};
+      for (const m of maintRes.data ?? []) {
+        if (!nextByCourt[m.court_id]) nextByCourt[m.court_id] = m;
+      }
+      setNextBlockouts(nextByCourt);
+    } else {
+      setUpcomingCounts({});
+      setNextBlockouts({});
     }
     setLoading(false);
   }
@@ -150,7 +167,7 @@ export default function ManageAmenitiesScreen() {
     if (upcoming > 0) {
       Alert.alert(
         'Cannot Delete Amenity',
-        `"${court.name}" has ${upcoming} upcoming reservation${upcoming === 1 ? '' : 's'}. Cancel or wait until they pass before deleting.`,
+        `"${court.name}" has ${upcoming} upcoming reservation${upcoming === 1 ? '' : 's'}. Cancel those reservations first, or use "Disable" instead of Delete to stop new bookings without cancelling existing ones.`,
       );
       return;
     }
@@ -177,33 +194,30 @@ export default function ManageAmenitiesScreen() {
     loadCourts();
   }
 
-  async function toggleActive(court: Court) {
-    setCourts((prev) => prev.map((c) => (c.id === court.id ? { ...c, is_active: !c.is_active } : c)));
-    const { error } = await supabase.from('courts').update({ is_active: !court.is_active }).eq('id', court.id);
+  async function applyActiveChange(court: Court, nextActive: boolean) {
+    setCourts((prev) => prev.map((c) => (c.id === court.id ? { ...c, is_active: nextActive } : c)));
+    const { error } = await supabase.from('courts').update({ is_active: nextActive }).eq('id', court.id);
     if (error) {
       setCourts((prev) => prev.map((c) => (c.id === court.id ? { ...c, is_active: court.is_active } : c)));
       Alert.alert('Update Failed', error.message);
     }
   }
 
-  async function addCourt() {
-    if (!newName.trim()) return;
-    setSaving(true);
-    const { error } = await supabase.from('courts').insert({
-      name: newName.trim(),
-      court_type: newType,
-      hoa_id: hoaId ?? '',
-      is_active: true,
-    });
-    setSaving(false);
-    if (error) {
-      Alert.alert('Could Not Add Amenity', error.message);
+  function handleToggleActive(court: Court) {
+    const turningOff = court.is_active;
+    const upcoming = upcomingCounts[court.id] ?? 0;
+    if (turningOff && upcoming > 0) {
+      Alert.alert(
+        'Disable Amenity?',
+        `"${court.name}" has ${upcoming} upcoming reservation${upcoming === 1 ? '' : 's'}. Disabling stops new bookings but will NOT cancel or affect these existing reservations.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Disable Anyway', style: 'destructive', onPress: () => applyActiveChange(court, false) },
+        ],
+      );
       return;
     }
-    setAddVisible(false);
-    setNewName('');
-    setNewType('tennis');
-    loadCourts();
+    applyActiveChange(court, !court.is_active);
   }
 
   async function openDetail(court: Court) {
@@ -214,11 +228,6 @@ export default function ManageAmenitiesScreen() {
     setEditCapacity(court.capacity != null ? String(court.capacity) : '');
     setEditDescription(court.description ?? '');
     setEditActive(court.is_active);
-    setBlockoutDate('');
-    setBlockoutEndDate('');
-    setBlockoutStart('');
-    setBlockoutEnd('');
-    setBlockoutReason('');
 
     const [rulesRes, maintRes, bookingsRes, utilRes] = await Promise.all([
       supabase.from('amenity_rules').select('*').eq('amenity_id', court.id).maybeSingle(),
@@ -318,32 +327,13 @@ export default function ManageAmenitiesScreen() {
     loadCourts();
   }
 
-  async function addBlockout() {
-    if (!detailCourt || !blockoutDate.trim() || !blockoutStart.trim() || !blockoutEnd.trim()) return;
-    const { error } = await supabase.from('court_maintenance').insert({
-      court_id: detailCourt.id,
-      date: blockoutDate.trim(),
-      end_date: blockoutEndDate.trim() || null,
-      start_time: blockoutStart.trim(),
-      end_time: blockoutEnd.trim(),
-      description: blockoutReason.trim() || null,
-    });
-    if (error) {
-      Alert.alert('Could Not Add Blockout', error.message);
-      return;
-    }
-    setBlockoutDate('');
-    setBlockoutEndDate('');
-    setBlockoutStart('');
-    setBlockoutEnd('');
-    setBlockoutReason('');
-    const { data } = await supabase
-      .from('court_maintenance')
-      .select('*')
-      .eq('court_id', detailCourt.id)
-      .gte('date', todayISO())
-      .order('date', { ascending: true });
-    setMaintenance(data ?? []);
+  async function handleBlockoutSaved() {
+    if (!detailCourt) return;
+    // A saved blockout can also cancel conflicting bookings, so refresh the
+    // full detail set (maintenance list + upcoming reservations) plus the
+    // list-level upcoming/next-blockout counts shown on the card underneath.
+    await openDetail(detailCourt);
+    loadCourts();
   }
 
   function confirmDeleteBlockout(id: string) {
@@ -368,7 +358,7 @@ export default function ManageAmenitiesScreen() {
 
   const plusButton = (
     <TouchableOpacity
-      onPress={() => setAddVisible(true)}
+      onPress={() => setWizardVisible(true)}
       style={styles.plusBtn}
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
       <Plus color="#FFFFFF" size={22} strokeWidth={1.5} />
@@ -407,6 +397,7 @@ export default function ManageAmenitiesScreen() {
 
           {courts.map((court) => {
             const upcoming = upcomingCounts[court.id] ?? 0;
+            const nextBlockout = nextBlockouts[court.id];
             return (
               <Card key={court.id} style={styles.courtCard}>
                 <TouchableOpacity
@@ -421,6 +412,11 @@ export default function ManageAmenitiesScreen() {
                       {court.capacity != null ? ` · CAP ${court.capacity}` : ''}
                       {upcoming > 0 ? ` · ${upcoming} UPCOMING` : ''}
                     </Text>
+                    {nextBlockout && (
+                      <Text style={styles.nextBlockoutText}>
+                        Next blockout: {formatDateFull(nextBlockout.date)}
+                      </Text>
+                    )}
                   </View>
                   <Settings color={theme.textMuted} size={18} strokeWidth={1.5} />
                 </TouchableOpacity>
@@ -431,7 +427,7 @@ export default function ManageAmenitiesScreen() {
                     </Text>
                     <Switch
                       value={court.is_active}
-                      onValueChange={() => toggleActive(court)}
+                      onValueChange={() => handleToggleActive(court)}
                       trackColor={{ false: theme.border, true: Colors.accentCyan }}
                     />
                   </View>
@@ -448,62 +444,13 @@ export default function ManageAmenitiesScreen() {
         </View>
       </ScrollView>
 
-      {/* Add Amenity Modal */}
-      <Modal
-        visible={addVisible}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setAddVisible(false)}>
-        <SafeAreaView style={styles.modal}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Add Amenity</Text>
-            <TouchableOpacity
-              onPress={() => setAddVisible(false)}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <X color={theme.textMuted} size={22} strokeWidth={1.5} />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView
-            style={styles.modalScroll}
-            contentContainerStyle={styles.modalContent}
-            keyboardShouldPersistTaps="handled">
-            <Text style={styles.fieldLabel}>NAME</Text>
-            <TextInput
-              style={styles.textInput}
-              value={newName}
-              onChangeText={setNewName}
-              placeholder="e.g. Court 1, Main Pool…"
-              placeholderTextColor={theme.textMuted}
-              autoFocus
-            />
-
-            <Text style={[styles.fieldLabel, { marginTop: 20 }]}>TYPE</Text>
-            <View style={styles.typeGrid}>
-              {COURT_TYPES.map((t) => (
-                <TouchableOpacity
-                  key={t}
-                  style={[styles.typePill, newType === t && styles.typePillActive]}
-                  onPress={() => setNewType(t)}>
-                  <Text style={[styles.typePillLabel, newType === t && styles.typePillLabelActive]}>
-                    {t}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <View style={styles.modalActions}>
-              <Button
-                variant="accent"
-                label="Add Amenity"
-                onPress={addCourt}
-                loading={saving}
-                fullWidth
-              />
-            </View>
-          </ScrollView>
-        </SafeAreaView>
-      </Modal>
+      <AddAmenityWizard
+        visible={wizardVisible}
+        onClose={() => setWizardVisible(false)}
+        hoaId={hoaId ?? ''}
+        theme={theme}
+        onCreated={loadCourts}
+      />
 
       {/* Detail / Settings Modal */}
       <Modal
@@ -589,81 +536,72 @@ export default function ManageAmenitiesScreen() {
 
               <View style={styles.dividerLine} />
               <Text style={styles.sectionTitle}>Booking Rules</Text>
-
-              <View style={styles.fieldRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.fieldLabel}>OPEN (HH:MM)</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={rules.booking_start_time ?? ''}
-                    onChangeText={(v) => setRules((r) => ({ ...r, booking_start_time: v }))}
-                    placeholder="07:00"
-                    placeholderTextColor={theme.textMuted}
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.fieldLabel}>CLOSE (HH:MM)</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={rules.booking_end_time ?? ''}
-                    onChangeText={(v) => setRules((r) => ({ ...r, booking_end_time: v }))}
-                    placeholder="21:00"
-                    placeholderTextColor={theme.textMuted}
-                  />
-                </View>
+              <View style={{ marginBottom: 16 }}>
+                <RulesSummary rules={rules} theme={theme} />
               </View>
 
               <View style={styles.fieldRow}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.fieldLabel}>BOOKING DURATION (MIN)</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={rules.max_duration_minutes != null ? String(rules.max_duration_minutes) : ''}
-                    onChangeText={(v) => setRules((r) => ({ ...r, max_duration_minutes: v ? Number(v) : null }))}
-                    placeholder="60"
-                    keyboardType="number-pad"
-                    placeholderTextColor={theme.textMuted}
+                  <TimePicker
+                    label="OPEN TIME"
+                    value={rules.booking_start_time ?? null}
+                    onChange={(v) => setRules((r) => ({ ...r, booking_start_time: v }))}
+                    theme={theme}
                   />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.fieldLabel}>ADVANCE BOOKING (DAYS)</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={rules.advance_booking_days != null ? String(rules.advance_booking_days) : ''}
-                    onChangeText={(v) => setRules((r) => ({ ...r, advance_booking_days: v ? Number(v) : null }))}
-                    placeholder="14"
-                    keyboardType="number-pad"
-                    placeholderTextColor={theme.textMuted}
+                  <TimePicker
+                    label="CLOSE TIME"
+                    value={rules.booking_end_time ?? null}
+                    onChange={(v) => setRules((r) => ({ ...r, booking_end_time: v }))}
+                    theme={theme}
                   />
                 </View>
               </View>
 
-              <View style={styles.fieldRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.fieldLabel}>MIN CANCELLATION (HRS)</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={rules.min_cancellation_hours != null ? String(rules.min_cancellation_hours) : ''}
-                    onChangeText={(v) => setRules((r) => ({ ...r, min_cancellation_hours: v ? Number(v) : null }))}
-                    placeholder="2"
-                    keyboardType="number-pad"
-                    placeholderTextColor={theme.textMuted}
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.fieldLabel}>MAX RESERVATIONS / DAY</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={rules.max_reservations_per_day != null ? String(rules.max_reservations_per_day) : ''}
-                    onChangeText={(v) => setRules((r) => ({ ...r, max_reservations_per_day: v ? Number(v) : null }))}
-                    placeholder="1"
-                    keyboardType="number-pad"
-                    placeholderTextColor={theme.textMuted}
-                  />
-                </View>
+              <View style={{ marginTop: 20, gap: 20 }}>
+                <Stepper
+                  label="BOOKING DURATION"
+                  value={rules.max_duration_minutes ?? 60}
+                  onChange={(v) => setRules((r) => ({ ...r, max_duration_minutes: v }))}
+                  min={15}
+                  max={240}
+                  step={15}
+                  unit="min"
+                  theme={theme}
+                />
+                <Stepper
+                  label="ADVANCE BOOKING WINDOW"
+                  value={rules.advance_booking_days ?? 14}
+                  onChange={(v) => setRules((r) => ({ ...r, advance_booking_days: v }))}
+                  min={1}
+                  max={90}
+                  step={1}
+                  unit="days"
+                  theme={theme}
+                />
+                <Stepper
+                  label="CANCELLATION WINDOW"
+                  value={rules.min_cancellation_hours ?? 2}
+                  onChange={(v) => setRules((r) => ({ ...r, min_cancellation_hours: v }))}
+                  min={0}
+                  max={72}
+                  step={1}
+                  unit="hrs"
+                  theme={theme}
+                />
+                <Stepper
+                  label="MAX RESERVATIONS / DAY"
+                  value={rules.max_reservations_per_day ?? 1}
+                  onChange={(v) => setRules((r) => ({ ...r, max_reservations_per_day: v }))}
+                  min={1}
+                  max={10}
+                  step={1}
+                  theme={theme}
+                />
               </View>
 
-              <View style={[styles.activeRow, { marginTop: 8 }]}>
+              <View style={[styles.activeRow, { marginTop: 20 }]}>
                 <Text style={styles.activeLabel}>Requires admin approval</Text>
                 <Switch
                   value={rules.requires_admin_approval ?? false}
@@ -674,7 +612,7 @@ export default function ManageAmenitiesScreen() {
 
               <View style={styles.modalActions}>
                 <Button
-                  variant="accent"
+                  variant="primary"
                   label="Save Changes"
                   onPress={saveDetail}
                   loading={detailSaving}
@@ -691,7 +629,7 @@ export default function ManageAmenitiesScreen() {
                 <View key={m.id} style={styles.blockoutRow}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.blockoutDate}>
-                      {m.date}{m.end_date ? ` → ${m.end_date}` : ''} · {m.start_time}–{m.end_time}
+                      {formatDateFull(m.date)}{m.end_date ? ` → ${formatDateFull(m.end_date)}` : ''} · {formatTime12h(m.start_time)}–{formatTime12h(m.end_time)}
                     </Text>
                     {m.description ? <Text style={styles.blockoutDesc}>{m.description}</Text> : null}
                   </View>
@@ -703,60 +641,8 @@ export default function ManageAmenitiesScreen() {
                 </View>
               ))}
 
-              <View style={styles.fieldRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.fieldLabel}>DATE (YYYY-MM-DD)</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={blockoutDate}
-                    onChangeText={setBlockoutDate}
-                    placeholder="2026-08-20"
-                    placeholderTextColor={theme.textMuted}
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.fieldLabel}>THROUGH (OPTIONAL)</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={blockoutEndDate}
-                    onChangeText={setBlockoutEndDate}
-                    placeholder="2026-08-22"
-                    placeholderTextColor={theme.textMuted}
-                  />
-                </View>
-              </View>
-              <View style={styles.fieldRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.fieldLabel}>START (HH:MM)</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={blockoutStart}
-                    onChangeText={setBlockoutStart}
-                    placeholder="08:00"
-                    placeholderTextColor={theme.textMuted}
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.fieldLabel}>END (HH:MM)</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={blockoutEnd}
-                    onChangeText={setBlockoutEnd}
-                    placeholder="12:00"
-                    placeholderTextColor={theme.textMuted}
-                  />
-                </View>
-              </View>
-              <Text style={[styles.fieldLabel, { marginTop: 12 }]}>REASON (OPTIONAL)</Text>
-              <TextInput
-                style={styles.textInput}
-                value={blockoutReason}
-                onChangeText={setBlockoutReason}
-                placeholder="Resurfacing, cleaning, etc."
-                placeholderTextColor={theme.textMuted}
-              />
               <View style={{ marginTop: 12 }}>
-                <Button variant="ghost" label="Add Blockout" onPress={addBlockout} fullWidth />
+                <Button variant="ghost" label="Add Blockout" onPress={() => setBlockoutVisible(true)} fullWidth />
               </View>
 
               <View style={styles.dividerLine} />
@@ -767,7 +653,9 @@ export default function ManageAmenitiesScreen() {
                 <Text style={styles.emptyInlineText}>No upcoming reservations.</Text>
               ) : upcomingBookings.map((b) => (
                 <View key={b.id} style={styles.reservationRow}>
-                  <Text style={styles.reservationDate}>{b.date} · {b.start_time}–{b.end_time}</Text>
+                  <Text style={styles.reservationDate}>
+                    {formatDateFull(b.date)} · {formatTime12h(b.start_time)}–{formatTime12h(b.end_time)}
+                  </Text>
                   <Text style={styles.reservationName}>{b.residentName}</Text>
                 </View>
               ))}
@@ -775,6 +663,22 @@ export default function ManageAmenitiesScreen() {
           </SafeAreaView>
         )}
       </Modal>
+
+      {detailCourt && (
+        <BlockoutSheet
+          visible={blockoutVisible}
+          onClose={() => setBlockoutVisible(false)}
+          courtId={detailCourt.id}
+          courtName={detailCourt.name}
+          hoaId={detailCourt.hoa_id}
+          rules={rules}
+          theme={theme}
+          onSaved={() => {
+            setBlockoutVisible(false);
+            handleBlockoutSaved();
+          }}
+        />
+      )}
     </View>
   );
 }
@@ -846,6 +750,12 @@ function useStyles(theme: ThemeTokens) {
       color: theme.textMuted,
       letterSpacing: 1,
       marginTop: 2,
+    },
+    nextBlockoutText: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.metadata,
+      color: Colors.negative,
+      marginTop: 4,
     },
     courtFooter: {
       flexDirection: 'row',
