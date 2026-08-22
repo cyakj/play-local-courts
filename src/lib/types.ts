@@ -1154,6 +1154,7 @@ export type Database = {
       }
       court_maintenance: {
         Row: {
+          blockout_type: string | null
           court_id: string
           created_at: string | null
           date: string
@@ -1165,6 +1166,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          blockout_type?: string | null
           court_id: string
           created_at?: string | null
           date: string
@@ -1176,6 +1178,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          blockout_type?: string | null
           court_id?: string
           created_at?: string | null
           date?: string
