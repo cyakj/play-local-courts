@@ -505,7 +505,7 @@ export default function HomeScreen() {
               onPress={() => router.push('/(resident)/courts')}
               activeOpacity={0.75}>
               <MapPin color={theme.cyanOnLight} size={26} strokeWidth={1.5} />
-              <Text style={styles.quickActionLabel}>Book Court</Text>
+              <Text style={styles.quickActionLabel}>{isCommunityMode ? 'Reserve' : 'Book Court'}</Text>
             </TouchableOpacity>
             {isCommunityMode ? (
               <TouchableOpacity
