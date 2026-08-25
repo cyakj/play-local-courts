@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { router } from 'expo-router';
 import { CalendarDays } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import { sendNotificationEmail } from '@/lib/emailNotifications';
+import { platformAlert } from '@/lib/platformAlert';
 import { Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing } from '@/constants/design';
 import { Header } from '@/components/ui/Header';
 import { CardSkeleton } from '@/components/ui/Skeleton';
@@ -20,14 +21,16 @@ interface Booking {
   end_time: string;
   status: string;
   courtName: string;
+  courtId: string;
+  minCancellationHours: number;
 }
 
-const MIN_CANCELLATION_HOURS = 2;
+const DEFAULT_MIN_CANCELLATION_HOURS = 2;
 
-function canCancelBooking(date: string, startTime: string): boolean {
+function canCancelBooking(date: string, startTime: string, minHours: number): boolean {
   const bookingStart = new Date(`${date}T${startTime}`);
   const hoursUntilStart = (bookingStart.getTime() - Date.now()) / (1000 * 60 * 60);
-  return hoursUntilStart >= MIN_CANCELLATION_HOURS;
+  return hoursUntilStart >= minHours;
 }
 
 function formatTime(t: string): string {
@@ -68,10 +71,22 @@ export default function MyReservationsScreen() {
 
     const { data } = await supabase
       .from('bookings')
-      .select('id, date, start_time, end_time, status, courts(name)')
+      .select('id, date, start_time, end_time, status, court_id, courts(name)')
       .eq('user_id', user.id)
       .order('date', { ascending: false })
       .order('start_time', { ascending: false });
+
+    const courtIds = [...new Set((data ?? []).map((b: any) => b.court_id).filter(Boolean))];
+    const rulesByCourtId = new Map<string, number>();
+    if (courtIds.length > 0) {
+      const { data: rules } = await supabase
+        .from('amenity_rules')
+        .select('amenity_id, min_cancellation_hours')
+        .in('amenity_id', courtIds);
+      for (const r of rules ?? []) {
+        if (r.min_cancellation_hours != null) rulesByCourtId.set(r.amenity_id, r.min_cancellation_hours);
+      }
+    }
 
     const all = (data ?? []).map((b: any) => ({
       id: b.id,
@@ -80,6 +95,8 @@ export default function MyReservationsScreen() {
       end_time: b.end_time,
       status: b.status,
       courtName: b.courts?.name ?? 'Court',
+      courtId: b.court_id,
+      minCancellationHours: rulesByCourtId.get(b.court_id) ?? DEFAULT_MIN_CANCELLATION_HOURS,
     }));
 
     setUpcoming(all.filter((b) => b.date >= today && b.status !== 'cancelled').reverse());
@@ -90,7 +107,7 @@ export default function MyReservationsScreen() {
   useEffect(() => { load(); }, []);
 
   async function cancelBooking(booking: Booking) {
-    Alert.alert('Cancel Booking', 'Are you sure you want to cancel this booking?', [
+    platformAlert('Cancel Booking', 'Are you sure you want to cancel this booking?', [
       { text: 'No', style: 'cancel' },
       {
         text: 'Yes, Cancel',
@@ -100,7 +117,7 @@ export default function MyReservationsScreen() {
           const { error } = await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', booking.id).eq('user_id', userId);
           setCancelling(null);
           if (error) {
-            Alert.alert('Cancellation failed', 'Could not cancel this booking. Please try again.');
+            platformAlert('Cancellation failed', 'Could not cancel this booking. Please try again.');
             return;
           }
           sendNotificationEmail({
@@ -144,7 +161,7 @@ export default function MyReservationsScreen() {
           <StatusPill status={bookingStatus(b.status)} label={b.status} />
         </View>
 
-        {isUpcoming && canCancelBooking(b.date, b.start_time) && (
+        {isUpcoming && canCancelBooking(b.date, b.start_time, b.minCancellationHours) && (
           <TouchableOpacity
             style={styles.cancelBtn}
             onPress={() => cancelBooking(b)}
@@ -154,9 +171,9 @@ export default function MyReservationsScreen() {
             </Text>
           </TouchableOpacity>
         )}
-        {isUpcoming && !canCancelBooking(b.date, b.start_time) && (
+        {isUpcoming && !canCancelBooking(b.date, b.start_time, b.minCancellationHours) && (
           <View style={[styles.cancelBtn, { opacity: 0.4 }]}>
-            <Text style={styles.cancelText}>{'<2h'}</Text>
+            <Text style={styles.cancelText}>{`<${b.minCancellationHours}h`}</Text>
           </View>
         )}
       </View>
