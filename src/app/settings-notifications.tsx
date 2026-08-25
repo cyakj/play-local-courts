@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
+import { platformAlert } from '@/lib/platformAlert';
 import type { Json } from '@/lib/types';
 import { Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing } from '@/constants/design';
 import { useTheme } from '@/context/ThemeContext';
@@ -74,7 +75,7 @@ export default function SettingsNotificationsScreen() {
       .eq('id', user.id);
     setSaving(false);
     if (error) {
-      Alert.alert('Error', 'Could not save preferences. Please try again.');
+      platformAlert('Error', 'Could not save preferences. Please try again.');
     } else {
       router.back();
     }

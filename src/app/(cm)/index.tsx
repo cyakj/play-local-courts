@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  Alert, Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
+  Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -9,6 +9,7 @@ import {
 } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
+import { platformAlert } from '@/lib/platformAlert';
 import {
   Colors, FontFamily, FontSize, Spacing, getHealthColor, getHealthAccent, MaxWidth, Shadow,
 } from '@/constants/design';
@@ -109,7 +110,7 @@ export default function AdminHubScreen() {
 
     if (error || !hoa) {
       setAddSaving(false);
-      Alert.alert('Could Not Create Community', error?.message ?? 'Please try again.');
+      platformAlert('Could Not Create Community', error?.message ?? 'Please try again.');
       return;
     }
 
@@ -124,7 +125,7 @@ export default function AdminHubScreen() {
     setAddSaving(false);
 
     if (membershipError) {
-      Alert.alert(
+      platformAlert(
         'Community Created, But Membership Failed',
         `${hoa ? 'The community was created' : 'Something went wrong'}, but you weren't added as its admin: ${membershipError.message}`,
       );

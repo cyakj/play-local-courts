@@ -15,6 +15,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { supabase } from '@/lib/supabase';
+import { platformAlert } from '@/lib/platformAlert';
 import {
   Colors, FontFamily, FontSize, Radius, Spacing,
 } from '@/constants/design';
@@ -233,7 +234,7 @@ export default function AmenityBookScreen() {
     setConfirming(true);
     const dateStr = selectedDate.toISOString().split('T')[0];
     const endTime = getEndTime(selectedSlot, selectedDuration);
-    await supabase.from('bookings').insert({
+    const { error } = await supabase.from('bookings').insert({
       court_id: amenityId,
       user_id: userId,
       date: dateStr,
@@ -242,6 +243,27 @@ export default function AmenityBookScreen() {
       status: 'confirmed',
     });
     setConfirming(false);
+    if (error) {
+      const takenSlot = error.code === '23505';
+      platformAlert(
+        takenSlot ? 'Slot No Longer Available' : 'Booking Failed',
+        takenSlot
+          ? 'That time was just booked by someone else. Please pick another slot.'
+          : (error.message || 'Could not create this booking. Please try again.'),
+      );
+      if (takenSlot) {
+        // Refresh booked slots so the taken slot shows as unavailable.
+        const { data } = await supabase
+          .from('bookings')
+          .select('start_time, end_time')
+          .eq('court_id', amenityId)
+          .eq('date', dateStr)
+          .eq('status', 'confirmed');
+        setBookedSlots(data ?? []);
+        setSelectedSlot(null);
+      }
+      return;
+    }
     router.back();
   }
 

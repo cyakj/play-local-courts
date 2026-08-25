@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   Modal,
   ScrollView,
   StyleSheet,
@@ -17,6 +16,7 @@ import {
 } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
+import { platformAlert } from '@/lib/platformAlert';
 import {
   Colors,
   FontFamily,
@@ -165,13 +165,13 @@ export default function ManageAmenitiesScreen() {
   function confirmDelete(court: Court) {
     const upcoming = upcomingCounts[court.id] ?? 0;
     if (upcoming > 0) {
-      Alert.alert(
+      platformAlert(
         'Cannot Delete Amenity',
         `"${court.name}" has ${upcoming} upcoming reservation${upcoming === 1 ? '' : 's'}. Cancel those reservations first, or use "Disable" instead of Delete to stop new bookings without cancelling existing ones.`,
       );
       return;
     }
-    Alert.alert(
+    platformAlert(
       'Delete Amenity',
       `Are you sure you want to delete "${court.name}"? This cannot be undone.`,
       [
@@ -188,7 +188,7 @@ export default function ManageAmenitiesScreen() {
   async function deleteCourt(id: string) {
     const { error } = await supabase.from('courts').delete().eq('id', id);
     if (error) {
-      Alert.alert('Delete Failed', error.message);
+      platformAlert('Delete Failed', error.message);
       return;
     }
     loadCourts();
@@ -199,7 +199,7 @@ export default function ManageAmenitiesScreen() {
     const { error } = await supabase.from('courts').update({ is_active: nextActive }).eq('id', court.id);
     if (error) {
       setCourts((prev) => prev.map((c) => (c.id === court.id ? { ...c, is_active: court.is_active } : c)));
-      Alert.alert('Update Failed', error.message);
+      platformAlert('Update Failed', error.message);
     }
   }
 
@@ -207,7 +207,7 @@ export default function ManageAmenitiesScreen() {
     const turningOff = court.is_active;
     const upcoming = upcomingCounts[court.id] ?? 0;
     if (turningOff && upcoming > 0) {
-      Alert.alert(
+      platformAlert(
         'Disable Amenity?',
         `"${court.name}" has ${upcoming} upcoming reservation${upcoming === 1 ? '' : 's'}. Disabling stops new bookings but will NOT cancel or affect these existing reservations.`,
         [
@@ -296,7 +296,7 @@ export default function ManageAmenitiesScreen() {
 
     if (courtError) {
       setDetailSaving(false);
-      Alert.alert('Save Failed', courtError.message);
+      platformAlert('Save Failed', courtError.message);
       return;
     }
 
@@ -319,7 +319,7 @@ export default function ManageAmenitiesScreen() {
     setDetailSaving(false);
 
     if (rulesRes.error) {
-      Alert.alert('Booking Rules Not Saved', `${rulesRes.error.message} (amenity details were saved)`);
+      platformAlert('Booking Rules Not Saved', `${rulesRes.error.message} (amenity details were saved)`);
       return;
     }
 
@@ -337,7 +337,7 @@ export default function ManageAmenitiesScreen() {
   }
 
   function confirmDeleteBlockout(id: string) {
-    Alert.alert(
+    platformAlert(
       'Remove Blockout',
       'Residents will be able to book this amenity during this window again. Continue?',
       [
@@ -350,7 +350,7 @@ export default function ManageAmenitiesScreen() {
   async function deleteBlockout(id: string) {
     const { error } = await supabase.from('court_maintenance').delete().eq('id', id);
     if (error) {
-      Alert.alert('Delete Failed', error.message);
+      platformAlert('Delete Failed', error.message);
       return;
     }
     setMaintenance((prev) => prev.filter((m) => m.id !== id));

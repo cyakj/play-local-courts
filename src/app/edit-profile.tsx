@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -15,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, Check } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
+import { platformAlert } from '@/lib/platformAlert';
 import { Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing } from '@/constants/design';
 import { useTheme } from '@/context/ThemeContext';
 import type { ThemeTokens } from '@/constants/theme-tokens';
@@ -151,7 +151,7 @@ export default function EditProfileScreen() {
     if (!dirty) { router.back(); return; }
     const trimmed = fullName.trim();
     if (!trimmed) {
-      Alert.alert('Name required', 'Please enter your full name.');
+      platformAlert('Name required', 'Please enter your full name.');
       return;
     }
     setSaving(true);
@@ -185,7 +185,7 @@ export default function EditProfileScreen() {
 
     setSaving(false);
     if (error) {
-      Alert.alert('Error', 'Could not save profile. Please try again.');
+      platformAlert('Error', 'Could not save profile. Please try again.');
     } else {
       router.back();
     }

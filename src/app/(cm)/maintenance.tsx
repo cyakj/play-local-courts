@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Alert, Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
+  Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { CheckCircle, ChevronDown, X } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
+import { platformAlert } from '@/lib/platformAlert';
 import {
   Colors, FontFamily, FontSize, Radius, Spacing, MaxWidth, Shadow,
 } from '@/constants/design';
@@ -236,13 +237,18 @@ export default function MaintenanceReportsScreen() {
   async function saveDetail() {
     if (!selected) return;
     setSaving(true);
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('maintenance_reports')
       .update({ status: detailStatus, admin_notes: adminNote || undefined })
-      .eq('id', selected.id);
+      .eq('id', selected.id)
+      .select('id');
     setSaving(false);
     if (error) {
-      Alert.alert('Save Failed', error.message);
+      platformAlert('Save Failed', error.message);
+      return;
+    }
+    if (!data || data.length === 0) {
+      platformAlert('Save Failed', 'You do not have permission to update this report.');
       return;
     }
     setSelected(null);

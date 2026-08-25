@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  Alert,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -16,6 +15,7 @@ import { router } from 'expo-router';
 import { ArrowLeft, Check, CheckCheck, Plus, Search, Send } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
+import { platformAlert } from '@/lib/platformAlert';
 import {
   Colors, FontFamily, FontSize, MaxWidth, Shadow, Spacing,
 } from '@/constants/design';
@@ -151,7 +151,7 @@ export default function CMMessagesScreen() {
       .single();
     setSending(false);
     if (error || !newMsg) {
-      Alert.alert('Message not sent', 'Could not send your message. Please try again.');
+      platformAlert('Message not sent', 'Could not send your message. Please try again.');
       return;
     }
     setThread((prev) => [...prev, newMsg]);

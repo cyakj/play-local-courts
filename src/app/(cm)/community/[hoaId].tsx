@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   Modal,
   RefreshControl,
   ScrollView,
@@ -17,6 +16,7 @@ import {
 } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
+import { platformAlert } from '@/lib/platformAlert';
 import {
   Colors, FontFamily, FontSize, MaxWidth, Radius, Shadow, Spacing,
 } from '@/constants/design';
@@ -231,7 +231,7 @@ export default function CommunityDetailScreen() {
       .eq('id', selectedReport.id);
     setReportSaving(false);
     if (error) {
-      Alert.alert('Save Failed', error.message);
+      platformAlert('Save Failed', error.message);
       return;
     }
     setSelectedReport(null);
@@ -254,7 +254,7 @@ export default function CommunityDetailScreen() {
   }
 
   function confirmDeactivate(m: MemberRow) {
-    Alert.alert(
+    platformAlert(
       'Deactivate Member',
       `Remove ${m.fullName}'s access to this community? This can be reversed by re-approving their membership.`,
       [
@@ -265,7 +265,7 @@ export default function CommunityDetailScreen() {
           onPress: async () => {
             const { error } = await supabase.from('hoa_memberships').update({ status: 'removed' }).eq('id', m.membershipId);
             if (error) {
-              Alert.alert('Could Not Deactivate Member', error.message);
+              platformAlert('Could Not Deactivate Member', error.message);
               return;
             }
             load();
@@ -285,10 +285,10 @@ export default function CommunityDetailScreen() {
       read: false,
     });
     if (error) {
-      Alert.alert('Could Not Send Reminder', error.message);
+      platformAlert('Could Not Send Reminder', error.message);
       return;
     }
-    Alert.alert('Reminder Sent', `${m.fullName} will see a reminder notification in their app.`);
+    platformAlert('Reminder Sent', `${m.fullName} will see a reminder notification in their app.`);
   }
 
   const filteredReports = useMemo(() => reports.filter((r) => {
