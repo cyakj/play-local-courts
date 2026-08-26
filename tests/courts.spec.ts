@@ -6,7 +6,9 @@ test.describe('Courts Screen — Phase 3 Refined', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(COURTS);
     await page.waitForLoadState('domcontentloaded');
-    await expect(page.locator('[data-testid="tenisx-logo"]').first()).toBeVisible({ timeout: 60000 });
+    // Community mode renders the community wordmark, not the TenisX logo mark
+    // (Header.tsx: isCommunityMode branch renders testID="community-wordmark").
+    await expect(page.locator('[data-testid="courts-screen"]')).toBeVisible({ timeout: 15000 });
   });
 
   // ── Navigation ─────────────────────────────────────────────────────────────
@@ -15,10 +17,12 @@ test.describe('Courts Screen — Phase 3 Refined', () => {
     await expect(page.locator('[data-testid="courts-screen"]')).toBeVisible({ timeout: 15000 });
   });
 
-  test('Universal header visible (logo, bell, menu)', async ({ page }) => {
-    await expect(page.locator('[data-testid="tenisx-logo"]').first()).toBeVisible();
+  test('Universal header visible (community wordmark, bell, avatar)', async ({ page }) => {
+    // Community mode: community wordmark + "Powered by TenisX", no hamburger
+    // menu — avatar-icon replaced menu-icon as the rightmost header action.
+    await expect(page.locator('[data-testid="community-wordmark"]').first()).toBeVisible({ timeout: 12000 });
     await expect(page.locator('[data-testid="bell-icon"]')).toBeVisible();
-    await expect(page.locator('[data-testid="menu-icon"]')).toBeVisible();
+    await expect(page.locator('[data-testid="avatar-icon"]')).toBeVisible();
   });
 
   // ── No exterior date strip ─────────────────────────────────────────────────
@@ -34,22 +38,15 @@ test.describe('Courts Screen — Phase 3 Refined', () => {
   });
 
   // ── Tennis/Amenities tab ───────────────────────────────────────────────────
+  // Community mode shows one unified list (courts.tsx: `isCommunityMode
+  // ? courts : (activeTab === 'tennis' ? tennisCourts : amenityCourts)`) —
+  // the Tennis/Amenities segmented control only renders when `isTennisMode`.
 
-  test('Tennis/Amenities segmented control visible', async ({ page }) => {
-    await expect(page.locator('[data-testid="tab-control"]')).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('[data-testid="tab-tennis"]')).toBeVisible();
-    await expect(page.locator('[data-testid="tab-amenities"]')).toBeVisible();
-  });
-
-  test('Tennis tab is default active', async ({ page }) => {
-    await expect(page.locator('[data-testid="tab-tennis"]')).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('[data-testid="tab-control"]').getByText('Tennis')).toBeVisible();
-  });
-
-  test('Tapping Amenities tab switches view', async ({ page }) => {
-    await page.locator('[data-testid="tab-amenities"]').click();
-    await page.waitForTimeout(1000);
-    await expect(page.locator('[data-testid="courts-screen"]')).toBeVisible();
+  test('No Tennis/Amenities segmented control in Community mode (unified list)', async ({ page }) => {
+    await expect(page.locator('[data-testid="tab-control"]')).toHaveCount(0);
+    await page.waitForTimeout(4000);
+    const cards = page.locator('[data-testid^="court-card-"]');
+    expect(await cards.count()).toBeGreaterThan(0);
   });
 
   // ── Playing Conditions ─────────────────────────────────────────────────────
@@ -119,36 +116,45 @@ test.describe('Courts Screen — Phase 3 Refined', () => {
     }
   });
 
-  test('Date selector shows Other Days chip (not all future dates)', async ({ page }) => {
+  test('"Dates" chip opens a calendar picker (not an expanded chip row)', async ({ page }) => {
+    // Redesigned since this spec was written: tapping the 3rd date chip now
+    // opens CalendarPicker (testID="booking-calendar") instead of expanding
+    // sheet-date-2/sheet-date-less chips, and its label reads "Dates", not
+    // "More Dates" (courts.tsx BookingSheet dateRow).
     await page.waitForTimeout(4000);
     const ctas = page.locator('[data-testid^="court-cta-"]');
     if (await ctas.count() > 0) {
       await ctas.first().click();
       await expect(page.locator('[data-testid="booking-sheet"]')).toBeVisible({ timeout: 10000 });
-      // Should see "Other Days" button instead of individual date chips for day 3+
       const moreDatesBtn = page.locator('[data-testid="sheet-date-more"]');
-      if (await moreDatesBtn.count() > 0) {
-        await expect(moreDatesBtn).toBeVisible();
-        await expect(page.getByText('More Dates')).toBeVisible();
-      }
+      await expect(moreDatesBtn).toBeVisible({ timeout: 10000 });
+      await expect(page.getByText('Other Days')).toHaveCount(0);
+      await moreDatesBtn.dispatchEvent('click');
+      await expect(page.locator('[data-testid="booking-calendar"]')).toBeVisible({ timeout: 5000 });
     }
   });
 
-  test('Other Days expands additional date chips', async ({ page }) => {
+  test('Selecting a date in the calendar picker updates the sheet (no crash)', async ({ page }) => {
     await page.waitForTimeout(4000);
     const ctas = page.locator('[data-testid^="court-cta-"]');
     if (await ctas.count() > 0) {
       await ctas.first().click();
       await expect(page.locator('[data-testid="booking-sheet"]')).toBeVisible({ timeout: 10000 });
-      await expect(page.locator('[data-testid="duration-selector"]')).toBeVisible({ timeout: 15000 });
-      await page.waitForTimeout(800);
-      const moreDatesBtn = page.locator('[data-testid="sheet-date-more"]');
-      if (await moreDatesBtn.count() > 0) {
-        // dispatchEvent bypasses Playwright stability check for re-rendering horizontal scroll chips
-        await moreDatesBtn.dispatchEvent('click');
+      await page.locator('[data-testid="sheet-date-more"]').dispatchEvent('click');
+      await expect(page.locator('[data-testid="booking-calendar"]')).toBeVisible({ timeout: 5000 });
+      // Stick to tomorrow: per-amenity advance_booking_days rules can disable
+      // farther-out calendar cells entirely (onPress is a no-op when
+      // isDisabled — CalendarPicker.tsx), so a farther offset can flake.
+      const dayOfMonth = await page.evaluate(() => {
+        const d = new Date(); d.setDate(d.getDate() + 1); return d.getDate();
+      });
+      const dayCell = page.locator(`[data-testid="cal-day-${dayOfMonth}"]`);
+      if (await dayCell.count() > 0) {
+        await dayCell.dispatchEvent('click');
         await page.waitForTimeout(600);
-        await expect(page.locator('[data-testid="sheet-date-2"]')).toBeVisible({ timeout: 5000 });
-        await expect(page.locator('[data-testid="sheet-date-less"]')).toBeVisible({ timeout: 5000 });
+        await expect(page.locator('[data-testid="booking-sheet"]')).toBeVisible();
+        // Calendar closes on select
+        await expect(page.locator('[data-testid="booking-calendar"]')).toHaveCount(0);
       }
     }
   });
@@ -159,7 +165,11 @@ test.describe('Courts Screen — Phase 3 Refined', () => {
     if (await ctas.count() > 0) {
       await ctas.first().click();
       await expect(page.locator('[data-testid="booking-sheet"]')).toBeVisible({ timeout: 10000 });
-      await expect(page.locator('[data-testid="duration-selector"]')).toBeVisible({ timeout: 15000 });
+      // Duration UI differs by amenity type — tennis shows read-only
+      // duration-info, everything else shows the duration-selector chips.
+      await expect(
+        page.locator('[data-testid="duration-info"]').or(page.locator('[data-testid="duration-selector"]'))
+      ).toBeVisible({ timeout: 15000 });
       await page.waitForTimeout(800);
       const tomorrowChip = page.locator('[data-testid="sheet-date-1"]');
       if (await tomorrowChip.count() > 0) {
@@ -172,13 +182,29 @@ test.describe('Courts Screen — Phase 3 Refined', () => {
 
   // ── Duration selector ──────────────────────────────────────────────────────
 
-  test('Duration selector appears in booking sheet', async ({ page }) => {
+  test('Duration selector appears in booking sheet (non-tennis amenity)', async ({ page }) => {
+    // Tennis bookings show read-only duration-info (locked by singles/doubles
+    // play type), not the selectable duration-selector — courts.tsx renders
+    // sortedCourts with tennis-type facilities first when open, so this test
+    // must specifically pick a non-tennis card rather than ctas.first().
     await page.waitForTimeout(4000);
-    const ctas = page.locator('[data-testid^="court-cta-"]');
-    if (await ctas.count() > 0) {
-      await ctas.first().click();
+    const cards = page.locator('[data-testid^="court-card-"]');
+    const count = await cards.count();
+    let opened = false;
+    for (let i = 0; i < count; i++) {
+      const card = cards.nth(i);
+      await card.locator('[data-testid^="court-cta-"]').click();
       await expect(page.locator('[data-testid="booking-sheet"]')).toBeVisible({ timeout: 10000 });
-      await page.waitForTimeout(2000);
+      await page.waitForTimeout(1500);
+      if (await page.locator('[data-testid="duration-info"]').count() > 0) {
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(400);
+        continue;
+      }
+      opened = true;
+      break;
+    }
+    if (opened) {
       await expect(page.locator('[data-testid="duration-selector"]')).toBeVisible({ timeout: 8000 });
     }
   });
@@ -206,8 +232,9 @@ test.describe('Courts Screen — Phase 3 Refined', () => {
       await ctas.first().click();
       await expect(page.locator('[data-testid="booking-sheet"]')).toBeVisible({ timeout: 10000 });
       await page.waitForTimeout(3000);
-      // Slot rows — check that time slots are present as vertical rows
-      const slotsScroll = page.locator('[data-testid="time-slots-scroll"]');
+      // Slot rows are rendered by TimeSlotWheel (testID="time-slot-wheel"),
+      // not the older "time-slots-scroll" container this test named.
+      const slotsScroll = page.locator('[data-testid="time-slot-wheel"]');
       const noSlots = page.locator('[data-testid="no-slots-state"]');
       const hasSlots = await slotsScroll.count() > 0;
       const hasNoSlots = await noSlots.count() > 0;
@@ -293,7 +320,9 @@ test.describe('Courts Screen — Phase 3 Refined', () => {
     }
   });
 
-  test('Schedule sheet has legend with Available / Reserved / Maintenance', async ({ page }) => {
+  test('Schedule sheet has legend with Available / Booked / Maintenance', async ({ page }) => {
+    // Legend label is "Booked", not "Reserved" (courts.tsx ScheduleSheet
+    // legend also adds a 4th "My Reservation" entry not asserted here).
     await page.waitForTimeout(4000);
     const scheduleBtn = page.locator('[data-testid^="view-schedule-"]').first();
     if (await scheduleBtn.count() > 0) {
@@ -303,7 +332,7 @@ test.describe('Courts Screen — Phase 3 Refined', () => {
       await expect(legend).toBeVisible({ timeout: 5000 });
       // Scope all text searches to legend to avoid matching off-screen status text
       await expect(legend.getByText('Available', { exact: true })).toBeVisible();
-      await expect(legend.getByText('Reserved', { exact: true })).toBeVisible();
+      await expect(legend.getByText('Booked', { exact: true })).toBeVisible();
       await expect(legend.getByText('Maintenance', { exact: true })).toBeVisible();
     }
   });
@@ -356,52 +385,49 @@ test.describe('Courts Screen — Phase 3 Refined', () => {
   });
 
   // ── Schedule sheet date navigation ─────────────────────────────────────────
+  // Redesigned since this spec was written: the Today/Tomorrow chip strip
+  // (schedule-date-scroll / sched-date-today / sched-date-1) was replaced by
+  // a single expandable date button (sched-date-btn) that reveals a
+  // CalendarPicker (testID="schedule-calendar") with cal-day-N cells.
 
-  test('Schedule sheet has a date picker row', async ({ page }) => {
+  test('Schedule sheet has a date selector button', async ({ page }) => {
     await page.waitForTimeout(4000);
     const scheduleBtn = page.locator('[data-testid^="view-schedule-"]').first();
     if (await scheduleBtn.count() > 0) {
       await scheduleBtn.click();
       await expect(page.locator('[data-testid="schedule-sheet"]')).toBeVisible({ timeout: 10000 });
-      await page.waitForTimeout(1000);
-      await expect(page.locator('[data-testid="schedule-date-scroll"]')).toBeVisible({ timeout: 5000 });
+      await expect(page.locator('[data-testid="sched-date-btn"]')).toBeVisible({ timeout: 5000 });
     }
   });
 
-  test('Schedule date picker shows Today chip', async ({ page }) => {
+  test('Tapping the schedule date button opens the calendar picker', async ({ page }) => {
     await page.waitForTimeout(4000);
     const scheduleBtn = page.locator('[data-testid^="view-schedule-"]').first();
     if (await scheduleBtn.count() > 0) {
       await scheduleBtn.click();
       await expect(page.locator('[data-testid="schedule-sheet"]')).toBeVisible({ timeout: 10000 });
-      await page.waitForTimeout(1000);
-      await expect(page.locator('[data-testid="sched-date-today"]')).toBeVisible({ timeout: 5000 });
+      await page.locator('[data-testid="sched-date-btn"]').click();
+      await expect(page.locator('[data-testid="schedule-calendar"]')).toBeVisible({ timeout: 5000 });
     }
   });
 
-  test('Schedule date picker shows Tomorrow chip', async ({ page }) => {
+  test('Selecting Tomorrow in the schedule calendar updates the view (no crash)', async ({ page }) => {
     await page.waitForTimeout(4000);
     const scheduleBtn = page.locator('[data-testid^="view-schedule-"]').first();
     if (await scheduleBtn.count() > 0) {
       await scheduleBtn.click();
       await expect(page.locator('[data-testid="schedule-sheet"]')).toBeVisible({ timeout: 10000 });
-      await page.waitForTimeout(1000);
-      await expect(page.locator('[data-testid="sched-date-1"]')).toBeVisible({ timeout: 5000 });
-    }
-  });
-
-  test('Tapping Tomorrow in schedule updates the date label (no crash)', async ({ page }) => {
-    await page.waitForTimeout(4000);
-    const scheduleBtn = page.locator('[data-testid^="view-schedule-"]').first();
-    if (await scheduleBtn.count() > 0) {
-      await scheduleBtn.click();
-      await expect(page.locator('[data-testid="schedule-sheet"]')).toBeVisible({ timeout: 10000 });
-      await page.waitForTimeout(1000);
-      const tomorrowChip = page.locator('[data-testid="sched-date-1"]');
-      if (await tomorrowChip.count() > 0) {
-        await tomorrowChip.dispatchEvent('click');
-        await page.waitForTimeout(1200);
+      await page.locator('[data-testid="sched-date-btn"]').click();
+      await expect(page.locator('[data-testid="schedule-calendar"]')).toBeVisible({ timeout: 5000 });
+      const tomorrowDay = await page.evaluate(() => {
+        const d = new Date(); d.setDate(d.getDate() + 1); return d.getDate();
+      });
+      const dayCell = page.locator(`[data-testid="cal-day-${tomorrowDay}"]`);
+      if (await dayCell.count() > 0) {
+        await dayCell.dispatchEvent('click');
+        await page.waitForTimeout(1000);
         await expect(page.locator('[data-testid="schedule-sheet"]')).toBeVisible();
+        await expect(page.locator('[data-testid="schedule-calendar"]')).toHaveCount(0);
       }
     }
   });
@@ -418,18 +444,22 @@ test.describe('Courts Screen — Phase 3 Refined', () => {
   });
 
   test('Report Issue back button returns to Courts (not Home)', async ({ page }) => {
+    // This is a React Native app rendered to web for QA — there is no browser
+    // chrome, so page.goBack() (raw history navigation) does not exercise the
+    // same code path as tapping the in-app back arrow, which calls
+    // report.tsx's closeForm() -> goBack() -> router.back()/replace(courts)
+    // using the `returnTo` param. Tap the actual back button instead.
     await page.waitForTimeout(4000);
     const reportBtn = page.locator('[data-testid^="report-issue-"]').first();
     if (await reportBtn.count() > 0) {
       await reportBtn.click();
       await expect(page).toHaveURL(/report/, { timeout: 15000 });
       await expect(page.locator('[data-testid="court-issue-header"]')).toBeVisible({ timeout: 10000 });
-      const backBtn = page.locator('[data-testid="court-issue-header"] *').filter({ hasText: '' }).first();
-      // Use goBack browser API to simulate back — validates returnTo routing
-      await page.goBack();
+      // Back arrow is the first child of court-issue-header (report.tsx: courtIssueBackBtn).
+      await page.locator('[data-testid="court-issue-header"] > *').first().click();
       await page.waitForTimeout(1000);
       // Should be on courts, not home
-      await expect(page.locator('[data-testid="courts-screen"]').or(page.locator('[data-testid="tab-control"]'))).toBeVisible({ timeout: 10000 });
+      await expect(page.locator('[data-testid="courts-screen"]')).toBeVisible({ timeout: 10000 });
     }
   });
 });
