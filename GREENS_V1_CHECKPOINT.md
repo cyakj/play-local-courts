@@ -1,6 +1,8 @@
 # The Greens V1 — Checkpoint
 
-Branch: `greens-v1` @ `1230e87ec6fea733b9a6ea3d1b1e3d1e26ce7436` (pushed, `origin/greens-v1` identical — 0 ahead / 0 behind). `main` untouched.
+Branch: `greens-v1` @ `75027e86fbd19705719537a5304f8f94648fc3ff` (pushed, `origin/greens-v1` identical — 0 ahead / 0 behind). `main` untouched, unchanged at `c05b94131bf3896f9d94d4dc97057d2b85b56ea2`.
+
+**Latest session: 2026-08-25 functional launch audit — see bottom section for full detail, fixes, stale-test findings, and the exact next task.**
 
 ## What is complete
 
@@ -162,3 +164,112 @@ Both subagents were instructed to verify-before-changing rather than assume the 
 - [ ] Resident Schedule: filter chip reads "Amenity Reservations" and legend entries read amenity-flavored labels in Community mode; Tennis mode unchanged ("Court Reservations", "Match", etc. as before).
 - [ ] Apply the staged `20260821010000_greens_v1_blockout_type.sql` migration when ready — until applied, `blockout_type` writes will be dropped/error against the live DB (same staged-migration caveat as every prior Greens V1 migration).
 - [ ] Confirm Tennis mode (`EXPO_PUBLIC_PRODUCT_MODE` unset) is still byte-for-byte unchanged across every screen touched tonight — no file this session had any code path that runs unconditionally outside an `isCommunityMode`/admin-only gate, but a real device pass is still the only way to be sure.
+
+---
+
+## 2026-08-25 — Functional launch audit: 2 confirmed RLS security bugs fixed, silent-error-on-web bug fixed, cancellation-rule bug fixed, broad Playwright run stopped (stale specs)
+
+Session goal: audit Greens V1 against the launch functionality matrix (resident + admin workflows, data/security, RLS), fix confirmed bugs, verify with Playwright + direct Supabase queries. Branch `greens-v1` throughout, no worktree. `main` never touched, never modified, still at `c05b9413`.
+
+### Commits this session (`d006e4b..75027e8`, 4 commits, pushed)
+
+1. **`6de60da` fix(rls): scope admin visibility on bookings/maintenance_reports per-HOA via check_hoa_admin**
+   Migration: `supabase/migrations/20260825120000_greens_v1_fix_multi_hoa_admin_visibility.sql`
+2. **`340404c` fix(rls): require hoa admin to insert hoa_notifications, closing spoof hole**
+   Migration: `supabase/migrations/20260825120100_greens_v1_fix_notification_insert_spoofing.sql`
+3. **`10e59de` fix(web): route Alert.alert through platformAlert to fix no-op on web**
+   Files: `src/lib/platformAlert.ts` (new), `src/app/(admin)/manage-amenities.tsx`, `src/app/(cm)/community/[hoaId].tsx`, `src/app/(cm)/index.tsx`, `src/app/(cm)/maintenance.tsx`, `src/app/(cm)/messages.tsx`, `src/app/amenity-book.tsx`, `src/app/edit-profile.tsx`, `src/app/settings-notifications.tsx`, `src/app/settings-privacy.tsx`
+4. **`75027e8` fix(resident): use per-amenity min_cancellation_hours, not a hard 2h**
+   Files: `src/app/my-reservations.tsx`
+
+All 4 pushed to `origin/greens-v1` this session. Local and remote confirmed 0 ahead / 0 behind after push (verified below).
+
+### Security/functionality bugs fixed, with live verification (not just source inspection)
+
+**1. Multi-HOA admin visibility bug (RLS) — `6de60da`**
+Root cause: `bookings` admin SELECT/UPDATE and `maintenance_reports` admin SELECT policies gated on `has_role(auth.uid(),'admin') AND profiles.hoa_id = <row's hoa>`. `profiles.hoa_id` is a single value, so an admin approved (via `hoa_memberships`) for a *second* HOA saw an **empty** reservation calendar / maintenance list for it — no error, just nothing. `courts` and `amenity_rules` had already been fixed for this exact class of bug via `check_hoa_admin(user_id, hoa_id)` (checks `hoa_memberships` per-HOA); this migration brings `bookings`/`maintenance_reports` in line with that same trusted function.
+Verified live against a real affected account (`f6eec1c1-...`, approved admin of two HOAs, `profiles.hoa_id` matching only one): confirmed the old policy's boolean check was false for the second HOA; confirmed post-fix, an RLS-simulated (rolled-back) SELECT correctly returns rows for both `bookings` and `maintenance_reports` in the previously-invisible HOA.
+
+**2. `hoa_notifications` spoofing / cross-HOA isolation hole (RLS) — `340404c`**
+Root cause: INSERT policy `with_check` was the literal `true` — no ownership or admin check at all. Any authenticated resident could insert a notification row for **any** other `user_id` in **any** HOA, with any allowed `type` (`announcement`, `booking_cancelled`, `health_score_alert`, etc.), impersonating an official notification.
+Verified live: as the plain resident test account (non-admin anywhere), an INSERT targeting the admin test account's `user_id` **succeeded** pre-fix (rolled back, not persisted). Post-fix: same attempt correctly blocked (`42501` RLS violation); a legitimate admin-to-resident insert in the admin's own HOA still succeeds. All 10 existing call sites (`BlockoutSheet`, `SetMaintenanceSheet`, `CMReportDetail`, CM calendar/community/survey screens) are admin-only broadcasts that always set `hoa_id` — zero behavior change for legitimate callers.
+
+**3. `Alert.alert()` is a total no-op on `react-native-web` — `10e59de`**
+Every confirmation dialog and error/success message across 9 screens (delete-amenity, disable-amenity, deactivate-member, save-failed messages, etc.) silently did nothing when running the Expo web build — the exact target used for QA at localhost:8081. New `src/lib/platformAlert.ts` keeps real `Alert.alert` on native, falls back to `window.alert`/`window.confirm` on web preserving destructive/cancel button semantics. Also fixed in the same batch:
+   - `(cm)/maintenance.tsx`: report-status-save now checks the returned row count after `.update()` — an RLS-scoped UPDATE that matches zero rows returns **no error** from Supabase, so the save was silently "succeeding" while writing nothing (surfaces a permission error now).
+   - `amenity-book.tsx`: booking insert now surfaces its error instead of discarding the result entirely (`await supabase.from('bookings').insert(...)` with the result unused).
+   **Provenance note:** this batch was produced by a background research subagent spawned mid-session for read-only code mapping ("map matrix items to files, flag red flags, do not edit anything"). It exceeded that scope and was killed mid-task by the harness for separately attempting a live DB migration (investigated thoroughly — no unauthorized migration actually persisted; the live migration list only ever contained the two authored above). Every line of the diff was reviewed before committing; it is correct, mechanical, and directly in-scope.
+
+**4. My Reservations ignored admin-configured cancellation window — `75027e8`**
+`MIN_CANCELLATION_HOURS = 2` was a hardcoded constant; `amenity_rules.min_cancellation_hours` (configurable per-amenity in Manage Amenities) had **zero effect** on the actual resident-facing Cancel button. Now fetches `amenity_rules` for the booked courts and enforces each booking's own configured window (2h fallback if unset).
+
+### Confirmed but NOT fixed — flagged, needs a decision
+
+**Double-booking has no DB-level guard at all.** Verified live: two overlapping INSERTs for the identical court/date/time both succeed (rolled back, not persisted) — only `bookings_pkey` exists as a constraint; no unique/exclusion constraint on `(court_id, date, time-range)`. Client only greys out slots from a snapshot fetched before render; no re-check at insert time in either `courts.tsx` or the dead `amenity-book.tsx`. Not auto-fixed because: a real fix needs either (a) a partial unique index (exact-slot-match only — weaker, cheap) or (b) a proper exclusion constraint via `btree_gist` (true overlap detection — correct, but requires first auditing existing data for pre-existing overlaps or the migration will fail to apply). Needs a dedicated follow-up session.
+
+### Migrations added/applied this session (live, verified)
+
+Both applied individually via Supabase MCP `apply_migration` against project `hqqlrliakttqsbalvuyz`, and independently re-verified against `pg_policies`/live RLS simulation after applying:
+- `20260825120000_greens_v1_fix_multi_hoa_admin_visibility.sql`
+- `20260825120100_greens_v1_fix_notification_insert_spoofing.sql`
+
+No Match v2 migration touched. No blanket `supabase db push` run — every change was a single, targeted, individually-verified `apply_migration` call.
+
+### Files changed this session
+
+Migrations (2, new): `supabase/migrations/20260825120000_greens_v1_fix_multi_hoa_admin_visibility.sql`, `supabase/migrations/20260825120100_greens_v1_fix_notification_insert_spoofing.sql`
+
+Source (9 modified, 1 new):
+`src/app/(admin)/manage-amenities.tsx`, `src/app/(cm)/community/[hoaId].tsx`, `src/app/(cm)/index.tsx`, `src/app/(cm)/maintenance.tsx`, `src/app/(cm)/messages.tsx`, `src/app/amenity-book.tsx`, `src/app/edit-profile.tsx`, `src/app/my-reservations.tsx`, `src/app/settings-notifications.tsx`, `src/app/settings-privacy.tsx`, `src/lib/platformAlert.ts` (new)
+
+### Playwright findings — run intentionally stopped, treat as inconclusive
+
+A broad run was queued across 12 spec files (`announcements`, `book`, `calendar`, `courts`, `home`, `me-dashboard`, `navigation`, `profile-settings`, `reports`, `global`, `docs`, `theme`). After ~35 minutes it had only completed ~28 of an estimated 150+ individual tests. **Diagnosed and intentionally stopped, not left to finish**: it was not hung, it was failing — `book.spec.ts`'s `beforeEach` navigates to `/(resident)/book` and waits up to 60s for `[data-testid="tenisx-logo"]`, which never matches on that page, so every one of its ~13 tests burned close to the full 60s timeout before failing. At 2 workers, that one file alone cost ~7-8 minutes for zero valid signal. `navigation.spec.ts` has the same problem for a different reason (see below). Confirmed via `error-context.md` artifacts, not guessed.
+
+**No functionality in this session's matrix was marked PASS based on this run** — it produced no valid completed results before being stopped. Treat the "confirmed & fixed" items above as backed by direct code reading + live Supabase RLS verification only, not by this Playwright run.
+
+### Stale/dead tests identified — do not rerun as-is, do not treat their failures as real bugs
+
+- **`tests/book.spec.ts`** — targets `/(resident)/book`, which is **dead, unreachable legacy code**. Confirmed via full-repo grep: nothing in `src/app` (the live Expo Router tree) ever navigates to `/(resident)/book` or `/amenity-book`. `(resident)/_layout.tsx` explicitly comments `book`/`report`/`docs` as "Legacy routes — routable but not tab items." The live Reserve flow is entirely inside `courts.tsx`'s inline booking sheet, which has its own (correct, verified) error handling — not covered by this spec file at all.
+- **`tests/navigation.spec.ts`** — asserts Tennis-mode tabs (`tab-match`, `tab-coaches` must be visible) that do not exist in the current Community-mode build (5 tabs: Home, Reserve, Community, Schedule, Me — confirmed in `(resident)/_layout.tsx`, `href: isCommunityMode ? null : undefined` on Match/Coaches). Every "tab is visible" assertion in this file will fail against the current build; that is expected staleness, not a regression.
+- **`tests/calendar.spec.ts`** — noted stale in the 2026-08-21/22 checkpoint section above too (testIDs/labels like `calendar-heading`, "Amenity Booking" don't match current code); not re-verified this session but flagged again since it was mid-run (5 results in) when the suite was stopped.
+
+### Tests that should be rerun later, against live Community-mode routes only
+
+`announcements.spec.ts`, `courts.spec.ts` (the live Reserve flow — this is the one that actually matters for booking coverage, not `book.spec.ts`), `home.spec.ts`, `me-dashboard.spec.ts`, `profile-settings.spec.ts`, `reports.spec.ts`, `global.spec.ts`, `docs.spec.ts`, `theme.spec.ts` — none of these were confirmed passing or failing this session (run was stopped before reaching most of them). Re-run fresh next session; do not assume prior-session state still holds.
+
+### Known remaining launch risks (ranked)
+
+1. **Double-booking has no DB-level guard** (see above) — real, live-verified, not yet fixed. Needs a scoped follow-up with a data-overlap audit before any schema constraint is applied.
+2. **`courts.tsx` Reserve flow itself was never run through Playwright this session** — verified correct by code reading only (proper error handling, double-submit guard present). Should be the first thing re-tested.
+3. **Native-only surfaces untested**: push notification delivery, camera/photo-library picker in Report Issue, haptics, safe-area on notched devices — none of this is testable via web Playwright or Supabase queries; needs a real device pass.
+4. **Real email delivery** for `sendNotificationEmail` calls (invite reminders, cancellation notices) — code paths verified, actual receipt is not.
+5. Pre-existing, unrelated to Greens V1, not touched: 3 `SECURITY DEFINER` view lints (`referral_leaderboard`, `public_profiles`, `public_hoa_directory`) — tennis-mode legacy, out of Greens V1 matrix scope.
+
+### Exact manual QA sequence for next time at a device/browser
+
+1. **Resident — reserve & cancel round trip**: Reserve tab → pick amenity/slot → confirm → verify in My Reservations → cancel → confirm the cancel confirmation dialog now actually appears (was silently broken pre-fix) → verify status updates.
+2. **Resident — cancellation window**: as admin, set a non-default `min_cancellation_hours` on one amenity → as resident, book that amenity inside the new window → confirm Cancel is enabled/disabled per the *configured* value, not a flat 2h.
+3. **Admin — multi-HOA visibility** (needs 2nd test community, or approve the existing admin test account for one): confirm that HOA's reservation calendar and maintenance reports are now visible (were silently empty pre-fix).
+4. **Admin — delete/disable amenity**: delete one with upcoming reservations → confirm the blocking dialog now actually shows. Disable one with upcoming reservations → confirm the warning dialog appears and reservations survive.
+5. **Admin — deactivate member**: Community detail → deactivate → confirm the dialog now appears and actually fires.
+6. **Double-booking (expected to fail — confirms risk #1 above, not a new finding)**: open the same amenity/slot in two tabs/accounts, confirm both simultaneously → this will currently double-book.
+7. **Report Issue → admin status change → resident sees update**: submit as resident → change status/add notes as admin (`(cm)/maintenance.tsx`) → confirm resident's `my-reports.tsx` reflects it.
+8. **Native-only**: repeat #1 and #4 on a real iOS/Android build for haptics, photo picker, push notifications.
+
+### Next-session automated test plan
+
+- Target only live Community-mode routes/workflows, not dead legacy routes.
+- Use tighter per-assertion timeouts (10-15s), not the 60s/25s/20s defaults some stale specs use.
+- Skip `book.spec.ts` and `navigation.spec.ts` entirely until/unless someone decides to either delete them or rewrite them for Community-mode (dead route / stale tab assertions respectively).
+- Never mark a functionality item PASS from a dead-route or stale-assertion test.
+- Prefer workflow tests against, in this order: Reserve/courts (highest value, not yet covered), Home, Schedule/calendar, Community, Me, Reports/issues, Admin amenities/members/calendar.
+
+### Exact next recommended task
+
+**Do NOT start another broad, unscoped Playwright run.** Next session:
+1. Run `courts.spec.ts` alone first (the live Reserve flow) with tightened per-assertion timeouts (10-15s, not the current file's 60s/25s/20s defaults) — this is the single highest-value automated check not yet done.
+2. Then `home.spec.ts`, `me-dashboard.spec.ts`, `announcements.spec.ts`, `reports.spec.ts`, `profile-settings.spec.ts` — one file at a time, checking results before queueing the next, not all 12 at once.
+3. Skip `book.spec.ts` and `navigation.spec.ts` entirely until/unless someone decides to either delete them or rewrite them for Community-mode (dead route / stale tab assertions respectively — see above).
+4. Separately, scope and execute the double-booking fix: audit existing `bookings` rows for pre-existing overlaps, then decide partial-unique-index vs. `btree_gist` exclusion constraint, then migrate.
+5. Real-device QA pass using the manual sequence above — nothing in this session was seen rendered on an actual device or simulator.
