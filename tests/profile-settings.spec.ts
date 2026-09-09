@@ -41,7 +41,7 @@ test.describe('Settings — main screen', () => {
   test('Notifications row navigates to notification prefs screen', async ({ page }) => {
     await goSettings(page);
     await page.getByText('Notifications').click();
-    await expect(page.getByText('ALERT PREFERENCES')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('ALERT PREFERENCES', { exact: true })).toBeVisible({ timeout: 15000 });
   });
 
   test('Privacy row navigates to privacy screen', async ({ page }) => {
@@ -59,7 +59,7 @@ test.describe('Settings — main screen', () => {
   test('Help & Support row navigates to help screen', async ({ page }) => {
     await goSettings(page);
     await page.getByText('Help & Support').click();
-    await expect(page.getByText('SUPPORT')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('SUPPORT', { exact: true })).toBeVisible({ timeout: 15000 });
   });
 
   test('Appearance toggle — switching to Dark persists on return', async ({ page }) => {
@@ -100,11 +100,11 @@ test.describe('Settings — Notifications screen', () => {
   });
 
   test('Lesson Reminders toggle is visible', async ({ page }) => {
-    await expect(page.getByText('Lesson Reminders')).toBeVisible({ timeout: 20000 });
+    await expect(page.getByText('Lesson Reminders', { exact: true })).toBeVisible({ timeout: 20000 });
   });
 
   test('Announcements toggle is visible', async ({ page }) => {
-    await expect(page.getByText('Announcements')).toBeVisible({ timeout: 20000 });
+    await expect(page.getByText('Announcements', { exact: true })).toBeVisible({ timeout: 20000 });
   });
 
   test('Coach Messages toggle is visible', async ({ page }) => {
@@ -119,9 +119,14 @@ test.describe('Settings — Notifications screen', () => {
     await page.goto('/settings');
     await expect(page.locator('[data-testid="theme-toggle"]')).toBeVisible({ timeout: 30000 });
     await page.getByText('Notifications').click();
-    await expect(page.getByText('ALERT PREFERENCES')).toBeVisible({ timeout: 15000 });
-    // tap the back arrow (ArrowLeft)
-    await page.locator('button').first().click();
+    await expect(page.getByText('ALERT PREFERENCES', { exact: true })).toBeVisible({ timeout: 15000 });
+    // Tap the back arrow (ArrowLeft). It's a TouchableOpacity, which
+    // react-native-web renders as a plain div (no literal <button> tag
+    // anywhere on this screen — the old `page.locator('button')` locator
+    // matched zero elements and hung for the full 120s test timeout).
+    // Browser back exercises the same onPress handler
+    // (router.canGoBack() ? router.back() : router.replace('/settings')).
+    await page.goBack();
     // should return to settings
     await expect(page.locator('[data-testid="theme-toggle"]')).toBeVisible({ timeout: 15000 });
   });
@@ -198,7 +203,7 @@ test.describe('Settings — Help & Support screen', () => {
   });
 
   test('screen loads without red error', async ({ page }) => {
-    await expect(page.getByText('SUPPORT')).toBeVisible({ timeout: 20000 });
+    await expect(page.getByText('SUPPORT', { exact: true })).toBeVisible({ timeout: 20000 });
   });
 
   test('FAQ row is visible', async ({ page }) => {
@@ -238,32 +243,39 @@ test.describe('Edit Profile screen', () => {
     await expect(page.getByText('FULL NAME')).toBeVisible({ timeout: 20000 });
   });
 
-  test('NTRP RATING field is visible', async ({ page }) => {
-    await expect(page.getByText('NTRP RATING')).toBeVisible({ timeout: 20000 });
+  // NTRP/hand/backhand/playing-style/surface/goals/years-playing are wrapped
+  // in `isTennisMode &&` in edit-profile.tsx ("Tennis-only fields ... Hidden
+  // in Community mode: an HOA resident profile has no tennis-player
+  // concepts" — community-mode-ia fix wave). This build runs in Community
+  // mode, so these must NOT render, same as the MATCH FORMAT / PREFERRED
+  // PLAY TIMES fields below.
+
+  test('NTRP RATING field is not present (Community mode)', async ({ page }) => {
+    await expect(page.getByText('NTRP RATING')).not.toBeVisible({ timeout: 5000 });
   });
 
-  test('DOMINANT HAND field is visible', async ({ page }) => {
-    await expect(page.getByText('DOMINANT HAND')).toBeVisible({ timeout: 20000 });
+  test('DOMINANT HAND field is not present (Community mode)', async ({ page }) => {
+    await expect(page.getByText('DOMINANT HAND')).not.toBeVisible({ timeout: 5000 });
   });
 
-  test('BACKHAND field is visible', async ({ page }) => {
-    await expect(page.getByText('BACKHAND')).toBeVisible({ timeout: 20000 });
+  test('BACKHAND field is not present (Community mode)', async ({ page }) => {
+    await expect(page.getByText('BACKHAND')).not.toBeVisible({ timeout: 5000 });
   });
 
-  test('PLAYING STYLE field is visible', async ({ page }) => {
-    await expect(page.getByText('PLAYING STYLE')).toBeVisible({ timeout: 20000 });
+  test('PLAYING STYLE field is not present (Community mode)', async ({ page }) => {
+    await expect(page.getByText('PLAYING STYLE')).not.toBeVisible({ timeout: 5000 });
   });
 
-  test('FAVORITE SURFACE field is visible', async ({ page }) => {
-    await expect(page.getByText('FAVORITE SURFACE')).toBeVisible({ timeout: 20000 });
+  test('FAVORITE SURFACE field is not present (Community mode)', async ({ page }) => {
+    await expect(page.getByText('FAVORITE SURFACE')).not.toBeVisible({ timeout: 5000 });
   });
 
-  test('TENNIS GOALS field is visible', async ({ page }) => {
-    await expect(page.getByText('TENNIS GOALS')).toBeVisible({ timeout: 20000 });
+  test('TENNIS GOALS field is not present (Community mode)', async ({ page }) => {
+    await expect(page.getByText('TENNIS GOALS')).not.toBeVisible({ timeout: 5000 });
   });
 
-  test('YEARS PLAYING field is visible', async ({ page }) => {
-    await expect(page.getByText('YEARS PLAYING')).toBeVisible({ timeout: 20000 });
+  test('YEARS PLAYING field is not present (Community mode)', async ({ page }) => {
+    await expect(page.getByText('YEARS PLAYING')).not.toBeVisible({ timeout: 5000 });
   });
 
   test('MATCH FORMAT field is no longer present', async ({ page }) => {
@@ -286,27 +298,27 @@ test.describe('Edit Profile screen', () => {
     await expect(page.getByText('PROFILE VISIBILITY')).toBeVisible({ timeout: 20000 });
   });
 
-  test('Right / Left / Two-handed hand chips are visible', async ({ page }) => {
-    await expect(page.getByText('Right')).toBeVisible({ timeout: 20000 });
-    await expect(page.getByText('Left')).toBeVisible({ timeout: 20000 });
-    await expect(page.getByText('Two-handed')).toBeVisible({ timeout: 20000 });
+  test('Right / Left / Two-handed hand chips are not present (Community mode)', async ({ page }) => {
+    await expect(page.getByText('Right')).not.toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('Left')).not.toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('Two-handed')).not.toBeVisible({ timeout: 5000 });
   });
 
-  test('One-Handed / Two-Handed backhand chips are visible', async ({ page }) => {
-    await expect(page.getByText('One-Handed')).toBeVisible({ timeout: 20000 });
-    await expect(page.getByText('Two-Handed')).toBeVisible({ timeout: 20000 });
+  test('One-Handed / Two-Handed backhand chips are not present (Community mode)', async ({ page }) => {
+    await expect(page.getByText('One-Handed')).not.toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('Two-Handed')).not.toBeVisible({ timeout: 5000 });
   });
 
-  test('Favorite Surface chips are visible', async ({ page }) => {
-    await expect(page.getByText('Hard')).toBeVisible({ timeout: 20000 });
-    await expect(page.getByText('Clay')).toBeVisible({ timeout: 20000 });
-    await expect(page.getByText('Grass')).toBeVisible({ timeout: 20000 });
-    await expect(page.getByText('Indoor')).toBeVisible({ timeout: 20000 });
+  test('Favorite Surface chips are not present (Community mode)', async ({ page }) => {
+    await expect(page.getByText('Hard')).not.toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('Clay')).not.toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('Grass')).not.toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('Indoor')).not.toBeVisible({ timeout: 5000 });
   });
 
-  test('Tennis Goals chips are visible', async ({ page }) => {
-    await expect(page.getByText('Have Fun')).toBeVisible({ timeout: 20000 });
-    await expect(page.getByText('Tournament Ready')).toBeVisible({ timeout: 20000 });
+  test('Tennis Goals chips are not present (Community mode)', async ({ page }) => {
+    await expect(page.getByText('Have Fun')).not.toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('Tournament Ready')).not.toBeVisible({ timeout: 5000 });
   });
 
   test('Public / Community / Private visibility chips visible', async ({ page }) => {
