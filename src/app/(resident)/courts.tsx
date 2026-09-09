@@ -57,6 +57,8 @@ interface TodayBooking {
 }
 
 interface MaintenanceBlock {
+  date: string;
+  end_date: string | null;
   start_time: string;
   end_time: string;
   description: string | null;
@@ -151,6 +153,14 @@ function timeToMins(t: string): number {
 
 function slotsOverlap(startA: string, endA: string, startB: string, endB: string): boolean {
   return timeToMins(startA) < timeToMins(endB) && timeToMins(endA) > timeToMins(startB);
+}
+
+// BlockoutSheet writes ranges as a single row (date = start, end_date = end,
+// null for a single day) — never one row per day — so any date-scoped
+// maintenance query must range-check, not exact-match `date`.
+function isMaintenanceActiveOnDate(block: MaintenanceBlock, dateStr: string): boolean {
+  const end = block.end_date ?? block.date;
+  return block.date <= dateStr && dateStr <= end;
 }
 
 function getSlotWeatherIcon(hour: number, selectedDate: Date, now: Date, weather: WeatherData | null): 'sun' | 'cloud' | 'rain' | 'storm' | null {
@@ -269,6 +279,7 @@ export default function CourtsScreen() {
   const [sheetPlayType, setSheetPlayType] = useState<'singles' | 'doubles'>('singles');
   const [sheetDurationOverride, setSheetDurationOverride] = useState<number | null>(null);
   const [sheetSelectedSlot, setSheetSelectedSlot] = useState<string | null>(null);
+  const [sheetMaintenanceAll, setSheetMaintenanceAll] = useState<MaintenanceBlock[]>([]);
   const [confirming, setConfirming] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
@@ -349,6 +360,7 @@ export default function CourtsScreen() {
     setSheetDurationOverride(null);
     setBookingSuccess(false);
     setSheetRules(null);
+    setSheetMaintenanceAll([]);
     setSheetRulesLoading(true);
 
     const dateStr = today.toISOString().split('T')[0];
@@ -359,6 +371,15 @@ export default function CourtsScreen() {
           const { data } = await supabase.from('amenity_rules').select('booking_start_time, booking_end_time, singles_duration_minutes, doubles_duration_minutes, advance_booking_days, min_cancellation_hours').eq('amenity_id', court.id).maybeSingle();
           setSheetRules(data ?? null);
         } catch { setSheetRules(null); }
+      })(),
+      (async () => {
+        try {
+          // Not date-filtered server-side — a blockout row can span a date
+          // range (end_date), so every candidate row is fetched once and
+          // range-checked per-date client-side via isMaintenanceActiveOnDate.
+          const { data } = await supabase.from('court_maintenance').select('date, end_date, start_time, end_time, description').eq('court_id', court.id);
+          setSheetMaintenanceAll((data ?? []) as MaintenanceBlock[]);
+        } catch { setSheetMaintenanceAll([]); }
       })(),
     ]);
     setSheetRulesLoading(false);
@@ -384,11 +405,14 @@ export default function CourtsScreen() {
     try {
       const dateStr = today.toISOString().split('T')[0];
       await fetchBookingsForDate(dateStr, [court.id]);
+      // Fetched once for the whole court, not scoped to a single `date` —
+      // BlockoutSheet writes a multi-day range as one row (date=start,
+      // end_date=end), so an exact `.eq('date', dateStr)` match only ever
+      // caught the range's first day. Filtered per-date below instead.
       const maintRes = await supabase
         .from('court_maintenance')
-        .select('start_time, end_time, description')
-        .eq('court_id', court.id)
-        .eq('date', dateStr);
+        .select('date, end_date, start_time, end_time, description')
+        .eq('court_id', court.id);
       setMaintenanceBlocks((maintRes.data ?? []) as MaintenanceBlock[]);
       const rulesRes = await supabase
         .from('amenity_rules')
@@ -405,15 +429,11 @@ export default function CourtsScreen() {
     setScheduleDate(date);
     setScheduleLoading(true);
     try {
-      const dateStr = date.toISOString().split('T')[0];
-      await fetchBookingsForDate(dateStr, [scheduleSheet.courtId]);
-      const maintRes = await supabase
-        .from('court_maintenance')
-        .select('start_time, end_time, description')
-        .eq('court_id', scheduleSheet.courtId)
-        .eq('date', dateStr);
-      setMaintenanceBlocks((maintRes.data ?? []) as MaintenanceBlock[]);
-    } catch { /* keep existing blocks */ }
+      // Maintenance rows for this court are already fully loaded (see
+      // openScheduleSheet) and re-filtered per-date in scheduleMaintenanceForDate
+      // below — only bookings need refetching per selected date.
+      await fetchBookingsForDate(date.toISOString().split('T')[0], [scheduleSheet.courtId]);
+    } catch { /* keep existing bookings cache */ }
     finally { setScheduleLoading(false); }
   }
 
@@ -459,6 +479,13 @@ export default function CourtsScreen() {
         merged.push(ob);
       }
     }
+    // Admin-scheduled maintenance/blockouts must also block the slot — this
+    // was previously not checked at all here, so a resident could book
+    // straight through an active blockout with no server-side guard either.
+    const activeMaintenance = sheetMaintenanceAll.filter(b => isMaintenanceActiveOnDate(b, dateStr));
+    for (const mb of activeMaintenance) {
+      merged.push({ court_id: bookingSheet.courtId, start_time: mb.start_time, end_time: mb.end_time });
+    }
 
     const startHour = sheetRules?.booking_start_time ? parseInt(sheetRules.booking_start_time.split(':')[0]) : 7;
     const endHour = sheetRules?.booking_end_time ? parseInt(sheetRules.booking_end_time.split(':')[0]) : 21;
@@ -485,7 +512,7 @@ export default function CourtsScreen() {
       }
     }
     return slots;
-  }, [bookingSheet, sheetDate, bookingsByDate, sheetDuration, sheetRules, userBookings, userId]);
+  }, [bookingSheet, sheetDate, bookingsByDate, sheetDuration, sheetRules, userBookings, userId, sheetMaintenanceAll]);
 
   // ── Confirm booking ─────────────────────────────────────────────────────────
   async function handleConfirm() {
@@ -544,6 +571,11 @@ export default function CourtsScreen() {
     if (first && courtStatuses[first.id]) return `Next available: ${first.name} · ${courtStatuses[first.id].detailText}`;
     return null;
   }, [visibleCourts, openCount, sortedCourts, courtStatuses, courtsLoading, activeTab]);
+
+  const scheduleMaintenanceForDate = useMemo(() => {
+    const dateStr = scheduleDate.toISOString().split('T')[0];
+    return maintenanceBlocks.filter(b => isMaintenanceActiveOnDate(b, dateStr));
+  }, [maintenanceBlocks, scheduleDate]);
 
   const todayUserBooking = useMemo(() => userBookings.find(b => b.date === now.toISOString().split('T')[0]) ?? null, [userBookings, now]);
   const upcomingCount = useMemo(() => userBookings.filter(b => b.date >= now.toISOString().split('T')[0]).length, [userBookings, now]);
@@ -742,7 +774,7 @@ export default function CourtsScreen() {
           onDateChange={onScheduleDateChange}
           rules={scheduleRules}
           bookings={(bookingsByDate[scheduleDate.toISOString().split('T')[0]] ?? []).filter(b => b.court_id === scheduleSheet.courtId)}
-          maintenance={maintenanceBlocks}
+          maintenance={scheduleMaintenanceForDate}
           loading={scheduleLoading}
           userId={userId}
           onBook={(slot) => { setScheduleSheet(null); openBookingSheet({ id: scheduleSheet.courtId, name: scheduleSheet.courtName, court_type: scheduleSheet.courtType, hoa_id: '' }, slot); }}
