@@ -343,7 +343,12 @@ export function BlockoutSheet({
         body: `Your reservation for ${courtName} on ${formatDateFull(c.date)} at ${formatTime12h(
           c.start_time,
         )}–${formatTime12h(c.end_time)} was cancelled because ${courtName} is blocked for ${reasonLabel.toLowerCase()}.`,
-        type: 'booking_cancellation',
+        // hoa_notifications.type has a DB CHECK constraint allowing 'booking_cancelled',
+        // not 'booking_cancellation' (that string is only valid for the separate
+        // sendNotificationEmail() payload below) — using the wrong value here made
+        // every one of these inserts silently fail the constraint, so the resident
+        // never got an in-app notification for an admin-cancelled reservation.
+        type: 'booking_cancelled',
         read: false,
       });
 
