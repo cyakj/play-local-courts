@@ -6,21 +6,29 @@ test.describe('Resident Docs Screen', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(DOCS);
     await page.waitForLoadState('domcontentloaded');
-    await expect(page.locator('[data-testid="tenisx-logo"]').first()).toBeVisible({ timeout: 60000 });
+    // Community mode's Header renders testID="community-wordmark", not
+    // "tenisx-logo" (Header.tsx: isCommunityMode branch) — waiting on the
+    // wrong one hung every test in this file for the full 60s timeout.
+    // docs-heading is docs.tsx's own always-rendered testID, independent of
+    // header variant, so anchor on that instead.
+    await expect(page.locator('[data-testid="docs-heading"]')).toBeVisible({ timeout: 15000 });
   });
 
   // ── Header ────────────────────────────────────────────────────────────────
 
-  test('header logo is visible', async ({ page }) => {
-    await expect(page.locator('[data-testid="tenisx-logo"]').first()).toBeVisible({ timeout: 10000 });
+  test('header wordmark is visible', async ({ page }) => {
+    await expect(page.locator('[data-testid="community-wordmark"]').first()).toBeVisible({ timeout: 10000 });
   });
 
   test('bell icon is visible', async ({ page }) => {
     await expect(page.locator('[data-testid="bell-icon"]')).toBeVisible({ timeout: 10000 });
   });
 
-  test('hamburger menu icon is visible', async ({ page }) => {
-    await expect(page.locator('[data-testid="menu-icon"]')).toBeVisible({ timeout: 10000 });
+  test('avatar icon is visible', async ({ page }) => {
+    // Header.tsx no longer has a "menu-icon" testID at all (in either mode) —
+    // avatar-icon replaced the hamburger menu as the rightmost header action
+    // (same finding already documented in courts.spec.ts).
+    await expect(page.locator('[data-testid="avatar-icon"]')).toBeVisible({ timeout: 10000 });
   });
 
   // ── Hero ──────────────────────────────────────────────────────────────────
