@@ -9,7 +9,7 @@ const EXPECTED_CATEGORY_LABELS = [
   'Lighting & Electrical',
   'Buildings & Structures',
   'Grounds & Landscaping',
-  'Amenities & Equipment',
+  'Amenities & Equipment', // report.tsx/my-reports.tsx share this exact label set (getCategoryLabel map)
   'Safety',
   'Other',
 ];
@@ -64,21 +64,28 @@ test.describe('Resident Reports Screen', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(REPORTS);
     await page.waitForLoadState('domcontentloaded');
-    await expect(page.locator('[data-testid="tenisx-logo"]').first()).toBeVisible({ timeout: 60000 });
+    // Header.tsx only renders testID="tenisx-logo" in Tennis mode — Community
+    // mode (this app's active build) renders "community-wordmark" instead
+    // (same split already documented/fixed in courts.spec.ts / docs.spec.ts).
+    // Anchor on report.tsx's own always-rendered filter-tabs testID instead.
+    await expect(page.locator('[data-testid="filter-tabs"]')).toBeVisible({ timeout: 30000 });
   });
 
   // ── Header ────────────────────────────────────────────────────────────────
 
-  test('header logo is visible', async ({ page }) => {
-    await expect(page.locator('[data-testid="tenisx-logo"]').first()).toBeVisible({ timeout: 10000 });
+  test('header wordmark is visible', async ({ page }) => {
+    await expect(page.locator('[data-testid="community-wordmark"]').first()).toBeVisible({ timeout: 10000 });
   });
 
   test('bell icon is visible', async ({ page }) => {
     await expect(page.locator('[data-testid="bell-icon"]')).toBeVisible({ timeout: 10000 });
   });
 
-  test('hamburger menu icon is visible', async ({ page }) => {
-    await expect(page.locator('[data-testid="menu-icon"]')).toBeVisible({ timeout: 10000 });
+  test('avatar icon is visible', async ({ page }) => {
+    // Header.tsx has no "menu-icon" testID in either mode — avatar-icon is
+    // the rightmost header action app-wide (same finding as courts.spec.ts /
+    // docs.spec.ts).
+    await expect(page.locator('[data-testid="avatar-icon"]')).toBeVisible({ timeout: 10000 });
   });
 
   // ── Hero ──────────────────────────────────────────────────────────────────
@@ -445,9 +452,11 @@ test.describe('Resident Reports Screen', () => {
     await expect(page.locator('[data-testid="filter-resolved"]')).toBeVisible();
     // Bottom nav bar visible
     await expect(page.locator('[data-testid="bottom-nav"]')).toBeVisible({ timeout: 5000 });
-    // All 5 tab labels present
+    // All 5 Community-mode tab labels present (Home/Reserve/Community/Schedule/Me —
+    // (resident)/_layout.tsx; report/book/docs are legacy href:null routes, never
+    // tab items, so the old HOME/BOOK/REPORTS/CALENDAR/DOCS label set here was stale)
     const nav = page.locator('[data-testid="bottom-nav"]');
-    for (const label of ['HOME', 'BOOK', 'REPORTS', 'CALENDAR', 'DOCS']) {
+    for (const label of ['HOME', 'RESERVE', 'COMMUNITY', 'SCHEDULE', 'ME']) {
       await expect(nav.getByText(label, { exact: true })).toBeVisible({ timeout: 5000 });
     }
   });

@@ -33,8 +33,8 @@ const CATEGORIES = [
   { key: 'plumbing',            label: 'Water & Plumbing',       Icon: Droplet },
   { key: 'electrical',          label: 'Lighting & Electrical',  Icon: Zap },
   { key: 'structural',          label: 'Buildings & Structures', Icon: Building2 },
-  { key: 'grounds',             label: 'Grounds',                Icon: Layers },
-  { key: 'equipment',           label: 'Equipment',              Icon: Wrench },
+  { key: 'grounds_landscaping', label: 'Grounds & Landscaping',  Icon: Layers },
+  { key: 'equipment',           label: 'Amenities & Equipment',  Icon: Wrench },
   { key: 'safety',              label: 'Safety',                 Icon: Shield },
   { key: 'other',               label: 'Other',                  Icon: HelpCircle },
 ] as const;
