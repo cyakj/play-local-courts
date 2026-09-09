@@ -1,6 +1,5 @@
 import { Fragment, useMemo, useState } from 'react';
 import {
-  Alert,
   Modal,
   ScrollView,
   StyleSheet,
@@ -14,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
+import { platformAlert } from '@/lib/platformAlert';
 import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/design';
 import { Button } from '@/components/ui/Button';
 import { Stepper } from '@/components/ui/Stepper';
@@ -157,7 +157,7 @@ export function AddAmenityWizard({ visible, onClose, hoaId, theme, onCreated }: 
 
     if (courtError || !court) {
       setSaving(false);
-      Alert.alert('Could Not Create Amenity', courtError?.message ?? 'Unknown error creating amenity.');
+      platformAlert('Could Not Create Amenity', courtError?.message ?? 'Unknown error creating amenity.');
       return;
     }
 
@@ -176,7 +176,7 @@ export function AddAmenityWizard({ visible, onClose, hoaId, theme, onCreated }: 
     setSaving(false);
 
     if (rulesError) {
-      Alert.alert('Booking Rules Not Saved', `${rulesError.message} (amenity was created — finish setup from Manage Amenities)`);
+      platformAlert('Booking Rules Not Saved', `${rulesError.message} (amenity was created — finish setup from Manage Amenities)`);
       return;
     }
 

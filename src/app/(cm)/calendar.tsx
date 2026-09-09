@@ -13,6 +13,7 @@ import { router } from 'expo-router';
 import { ChevronLeft, ChevronRight, Plus, X } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
+import { platformAlert } from '@/lib/platformAlert';
 import {
   Colors, FontFamily, FontSize, MaxWidth, Shadow, Spacing,
 } from '@/constants/design';
@@ -75,6 +76,16 @@ function getWeekDates(year: number, month: number, day: number) {
     d.setDate(monday.getDate() + i);
     return d;
   });
+}
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_RE = /^\d{2}:\d{2}$/;
+
+function parseDateTimeISO(date: string, time: string): string | null {
+  if (!DATE_RE.test(date) || !TIME_RE.test(time)) return null;
+  const d = new Date(`${date}T${time}`);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
 }
 
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
@@ -275,9 +286,22 @@ export default function CMCalendarScreen() {
 
   async function handleCreateEvent() {
     if (!evTitle.trim() || !evDate || !evStartTime || !evCommunityId || !userId) return;
+
+    const startsAt = parseDateTimeISO(evDate, evStartTime);
+    if (!startsAt) {
+      platformAlert('Invalid Date or Time', 'Please enter the date as YYYY-MM-DD and the start time as HH:MM (24-hour).');
+      return;
+    }
+    let endsAt: string | null = null;
+    if (evEndTime) {
+      endsAt = parseDateTimeISO(evDate, evEndTime);
+      if (!endsAt) {
+        platformAlert('Invalid End Time', 'Please enter the end time as HH:MM (24-hour), or leave it blank.');
+        return;
+      }
+    }
+
     setCreating(true);
-    const startsAt = new Date(`${evDate}T${evStartTime}`).toISOString();
-    const endsAt = evEndTime ? new Date(`${evDate}T${evEndTime}`).toISOString() : null;
 
     const { error } = await supabase.from('hoa_events').insert({
       hoa_id: evCommunityId,
@@ -292,7 +316,13 @@ export default function CMCalendarScreen() {
       status: 'active',
     });
 
-    if (!error && evNotify) {
+    if (error) {
+      setCreating(false);
+      platformAlert('Could Not Create Event', error.message);
+      return;
+    }
+
+    if (evNotify) {
       const { data: members } = await supabase
         .from('hoa_memberships')
         .select('user_id')

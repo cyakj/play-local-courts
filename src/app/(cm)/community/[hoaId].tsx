@@ -225,13 +225,18 @@ export default function CommunityDetailScreen() {
   async function saveReport() {
     if (!selectedReport) return;
     setReportSaving(true);
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('maintenance_reports')
       .update({ status: reportDetailStatus, admin_notes: reportAdminNote || undefined })
-      .eq('id', selectedReport.id);
+      .eq('id', selectedReport.id)
+      .select('id');
     setReportSaving(false);
     if (error) {
       platformAlert('Save Failed', error.message);
+      return;
+    }
+    if (!data || data.length === 0) {
+      platformAlert('Save Failed', 'You do not have permission to update this report.');
       return;
     }
     setSelectedReport(null);
@@ -263,9 +268,17 @@ export default function CommunityDetailScreen() {
           text: 'Deactivate',
           style: 'destructive',
           onPress: async () => {
-            const { error } = await supabase.from('hoa_memberships').update({ status: 'removed' }).eq('id', m.membershipId);
+            const { data, error } = await supabase
+              .from('hoa_memberships')
+              .update({ status: 'removed' })
+              .eq('id', m.membershipId)
+              .select('id');
             if (error) {
               platformAlert('Could Not Deactivate Member', error.message);
+              return;
+            }
+            if (!data || data.length === 0) {
+              platformAlert('Could Not Deactivate Member', 'You do not have permission to update this membership.');
               return;
             }
             load();

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   Modal,
   ScrollView,
   StyleSheet,
@@ -14,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
+import { platformAlert } from '@/lib/platformAlert';
 import { sendNotificationEmail } from '@/lib/emailNotifications';
 import { formatDateFull, formatTime12h } from '@/lib/format';
 import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/design';
@@ -281,11 +281,11 @@ export function BlockoutSheet({
 
   async function handleSavePress() {
     if (mode === 'range' && endDate < startDate) {
-      Alert.alert('Invalid Date Range', 'The end date cannot be earlier than the start date.');
+      platformAlert('Invalid Date Range', 'The end date cannot be earlier than the start date.');
       return;
     }
     if (!allDay && selectedHours.size === 0) {
-      Alert.alert('Select Hours', 'Choose at least one hour to block, or switch to All Day.');
+      platformAlert('Select Hours', 'Choose at least one hour to block, or switch to All Day.');
       return;
     }
 
@@ -301,14 +301,14 @@ export function BlockoutSheet({
       const err = await insertBlockout();
       setSaving(false);
       if (err) {
-        Alert.alert('Could Not Save Blockout', err);
+        platformAlert('Could Not Save Blockout', err);
         return;
       }
       onSaved();
       onClose();
     } catch (e: any) {
       setSaving(false);
-      Alert.alert('Could Not Save Blockout', e?.message ?? 'Please try again.');
+      platformAlert('Could Not Save Blockout', e?.message ?? 'Please try again.');
     }
   }
 
@@ -362,7 +362,7 @@ export function BlockoutSheet({
     const err = await insertBlockout();
     setResolving(false);
     if (err) {
-      Alert.alert('Could Not Save Blockout', err);
+      platformAlert('Could Not Save Blockout', err);
       return;
     }
     onSaved();
