@@ -541,6 +541,10 @@ export default function CourtsScreen() {
       await fetchBookingsForDate(dateStr);
       await loadCourts();
       setTimeout(() => { setBookingSheet(null); setBookingSuccess(false); setBookingError(null); }, 1400);
+    } else if (error.code === '23P01') {
+      setBookingError('That time slot was just taken — please pick another.');
+      await fetchBookingsForDate(dateStr);
+      await loadCourts();
     } else {
       setBookingError(error.message ?? 'Booking failed. Please try again.');
     }
