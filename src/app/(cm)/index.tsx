@@ -451,7 +451,7 @@ const styles = StyleSheet.create({
   communityName: {
     fontFamily: FontFamily.manropeExtraBold,
     fontSize: FontSize.sectionTitle,
-    color: Colors.navy,
+    color: Colors.textPrimary,
     flex: 1,
     marginRight: 8,
   },

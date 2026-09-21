@@ -68,6 +68,22 @@ function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+// Mirrors the local getCategoryLabel in (cm)/maintenance.tsx — kept in sync
+// manually with the live maintenance_reports_category_check values, not the
+// stale legacy key set in src/lib/maintenanceUtils.ts.
+function getCategoryLabel(cat: string): string {
+  const map: Record<string, string> = {
+    plumbing:            'Water & Plumbing',
+    electrical:          'Lighting & Electrical',
+    structural:          'Buildings & Structures',
+    grounds_landscaping: 'Grounds & Landscaping',
+    equipment:           'Amenities & Equipment',
+    safety:              'Safety',
+    other:               'Other',
+  };
+  return map[cat] ?? cat.charAt(0).toUpperCase() + cat.slice(1);
+}
+
 const REPORT_STATUS_TABS = [
   { value: 'active', label: 'Active' },
   { value: 'all', label: 'All' },
@@ -410,7 +426,7 @@ export default function CommunityDetailScreen() {
                       <View style={{ flex: 1 }}>
                         {r.is_urgent && <View style={styles.urgentBadge}><Text style={styles.urgentBadgeText}>URGENT</Text></View>}
                         <Text style={styles.reportTitle} numberOfLines={1}>
-                          {r.amenityName ?? r.category}
+                          {r.amenityName ?? getCategoryLabel(r.category)}
                         </Text>
                         <Text style={styles.reportMeta}>{r.reporterName} · {timeAgo(r.created_at)}</Text>
                       </View>
@@ -549,7 +565,7 @@ export default function CommunityDetailScreen() {
               </TouchableOpacity>
             </View>
             <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
-              <Text style={styles.reportTitle}>{selectedReport.amenityName ?? selectedReport.category}</Text>
+              <Text style={styles.reportTitle}>{selectedReport.amenityName ?? getCategoryLabel(selectedReport.category)}</Text>
               <Text style={styles.reportMeta}>Reported by {selectedReport.reporterName} · {timeAgo(selectedReport.created_at)}</Text>
               <Text style={styles.fieldLabel}>DESCRIPTION</Text>
               <View style={styles.descBlock}>
@@ -573,7 +589,7 @@ export default function CommunityDetailScreen() {
                 style={styles.noteInput}
                 value={reportAdminNote}
                 onChangeText={setReportAdminNote}
-                placeholder="Internal notes about progress/resolution"
+                placeholder="Notes about progress/resolution — visible to the resident"
                 placeholderTextColor={Colors.textMuted}
                 multiline
                 numberOfLines={3}
@@ -688,7 +704,7 @@ const styles = StyleSheet.create({
   modalContent: { padding: Spacing.pagePx, paddingBottom: 40 },
   fieldLabel: { fontFamily: FontFamily.interSemiBold, fontSize: FontSize.metadata, color: Colors.textMuted, letterSpacing: 1.2, marginTop: 12, marginBottom: 6 },
   descBlock: { backgroundColor: Colors.pageBg, borderRadius: Radius.input, padding: 14 },
-  descText: { fontFamily: FontFamily.interRegular, fontSize: 14, color: Colors.navy, lineHeight: 21 },
+  descText: { fontFamily: FontFamily.interRegular, fontSize: 14, color: Colors.textPrimary, lineHeight: 21 },
   noteInput: {
     borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.input, padding: 12,
     fontFamily: FontFamily.interRegular, fontSize: FontSize.body, color: Colors.navy,
