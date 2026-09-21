@@ -281,6 +281,16 @@ export default function ManageAmenitiesScreen() {
 
   async function saveDetail() {
     if (!detailCourt) return;
+
+    if (
+      rules.booking_start_time &&
+      rules.booking_end_time &&
+      rules.booking_end_time <= rules.booking_start_time
+    ) {
+      platformAlert('Invalid Hours', 'Close time must be after open time.');
+      return;
+    }
+
     setDetailSaving(true);
 
     const { error: courtError } = await supabase

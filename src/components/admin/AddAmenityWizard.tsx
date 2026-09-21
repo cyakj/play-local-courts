@@ -110,7 +110,7 @@ export function AddAmenityWizard({ visible, onClose, hoaId, theme, onCreated }: 
       case 'Basics':
         return name.trim().length > 0;
       case 'Hours':
-        return !!openTime && !!closeTime;
+        return !!openTime && !!closeTime && closeTime > openTime;
       case 'Rules':
       case 'Review':
         return true;
@@ -139,7 +139,7 @@ export function AddAmenityWizard({ visible, onClose, hoaId, theme, onCreated }: 
   };
 
   async function handleCreate() {
-    if (!name.trim() || !openTime || !closeTime) return;
+    if (!name.trim() || !openTime || !closeTime || closeTime <= openTime) return;
     setSaving(true);
 
     const { data: court, error: courtError } = await supabase
@@ -295,6 +295,9 @@ export function AddAmenityWizard({ visible, onClose, hoaId, theme, onCreated }: 
               <View style={{ marginTop: 16 }}>
                 <TimePicker value={closeTime} onChange={setCloseTime} theme={theme} label="CLOSE TIME" />
               </View>
+              {!!openTime && !!closeTime && closeTime <= openTime && (
+                <Text style={styles.errorText}>Close time must be after open time.</Text>
+              )}
             </View>
           )}
 
@@ -540,6 +543,12 @@ function useStyles(theme: ThemeTokens) {
       fontSize: FontSize.label,
       color: theme.textSecondary,
       lineHeight: 20,
+    },
+    errorText: {
+      fontFamily: FontFamily.manropeSemiBold,
+      fontSize: FontSize.label,
+      color: Colors.negative,
+      marginTop: 12,
     },
 
     reviewCard: {
