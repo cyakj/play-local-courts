@@ -1,7 +1,7 @@
 # The Greens V1 — Launch Readiness Matrix
 
-Branch: `greens-v1` @ `9c746c9` (10 commits ahead of the previous `origin/greens-v1` @ `f4ce454` at the
-start of this pass; pushed at the end of it — see §6).
+Branch: `greens-v1` @ `2728ddf` (3 commits ahead of `9c746c9`/`0817e53`, the post-Turbo-Release baseline
+this file originally described — see §9 for the post-`/verify` remediation pass that produced them).
 `main` untouched, unchanged at `c05b94131bf3896f9d94d4dc97057d2b85b56ea2`.
 
 Product mode: `EXPO_PUBLIC_PRODUCT_MODE=community` (the launch target). Tennis mode is the code default and
@@ -110,4 +110,55 @@ Fixed this pass (were stale, now Community-mode-correct and green): `courts.spec
 
 - Real-device QA pass using the manual sequence in `GREENS_V1_CHECKPOINT.md` §"Exact manual QA sequence".
 - Decide: rewrite `home.spec.ts` + `calendar.spec.ts` for Community mode, or delete `book.spec.ts` + `navigation.spec.ts`.
-- `/verify`, code review, UI/design pass, SDK 57 upgrade — all explicitly deferred.
+- Code review, UI/design pass, SDK 57 upgrade — still explicitly deferred (the independent `/verify` pass referenced in §9 has now run once).
+
+## 9. Post-`/verify` remediation pass (2026-09-21)
+
+An independent `/verify` session (separate Claude Code session, report not committed) exercised
+`greens-v1` @ `0817e53` live in the browser against the real Supabase project and reported 2 P0
+security/authorization defects, 2 P1 functional defects, and 3 small verified issues. This pass
+reproduced, root-caused, fixed, and live-proved each one. No new Turbo-style feature work; no code
+review, redesign, or second `/verify` pass was started, per scope.
+
+### /verify VERIFIED (re-confirms §1 items, no changes needed)
+Amenity lifecycle, reservation lifecycle, single-day/all-day blockout, the `bookings_no_overlapping_confirmed`
+double-booking constraint (23P01 + `courts.tsx` handler), Report Issue round-trip, resident core screens
+with zero Tennis leakage, cross-HOA RLS on `courts`/`bookings`/`court_maintenance`/`hoa_events`, and login/logout
+were all independently re-verified live and needed no code change. Multi-day/hourly blockout conflict handling,
+membership approval/deactivation, password-reset completion, and native/real-device behavior remain HUMAN QA —
+unchanged from §7.
+
+### Fixed and live-proved this pass
+
+| # | Defect | Severity | Root cause | Fix | Proof |
+|---|---|---|---|---|---|
+| A | `GET /rest/v1/hoas` returned all HOA rows to any authenticated user | P0 security | Stale `"Allow public read access to hoas"` RLS policy (`USING true`, role `public`) OR'd with the two legitimate scoped policies. The sanctioned pre-auth directory already goes through the SECURITY DEFINER `public_hoa_directory` view (bypasses RLS), so this policy had no legitimate caller. | Migration `20260921230632_greens_v1_remove_public_hoas_enumeration` drops the policy. | Live REST proof with the resident test token: 3 rows → 1 row (own HOA only); anon key → 0 rows; legitimate multi-HOA admin (approved admin of 2 HOAs + resident of a 3rd, live-confirmed via `hoa_memberships`) unaffected (still 3 rows). |
+| B | Cold load / refresh of `/calendar` (and any `(cm)`/`(admin)` URL) put a plain resident into the Condo Manager / Admin shell | P0 authorization | `(cm)/_layout.tsx` and `(admin)/_layout.tsx` only checked session presence, never role. Role-based routing exists solely in `src/app/index.tsx`'s one-time redirect from the literal `/` route, which a direct deep link or refresh never passes through. | Added a role check (reusing `isCMRoutable()` from `src/lib/roleRouting.ts`, same helper `index.tsx`/`login.tsx` already use) to both `(cm)/_layout.tsx` and `(admin)/_layout.tsx`; unauthorized sessions redirect to `/(resident)`. | Playwright cold-load and hard-refresh of `/calendar` as the resident test account: redirected to resident Home, zero admin chrome (`Portfolio` tab count 0). Admin test account: `/calendar` still renders the CM calendar correctly (regression-safe). Resident's own Schedule tab still reaches `/calendar` with correct resident content (regression-safe). |
+| C | Add Amenity wizard (and the existing-amenity edit form) accepted Close ≤ Open, e.g. open 6:00 PM / close 5:00 PM, creating a permanently unbookable amenity | P1 functional | `canAdvance()`/`handleCreate()` in `AddAmenityWizard.tsx` and `saveDetail()` in `manage-amenities.tsx` only checked that both times were *set*, never their order. | Both call sites now require `closeTime > openTime` (safe string comparison — `TimePicker` values are zero-padded `HH:MM`); wizard shows an inline error and disables Next. | Live: Open 6:00 PM / Close 5:00 PM shows "Close time must be after open time," Next stays disabled (screenshotted); correcting Close to 7:00 PM clears the error and re-enables Next. |
+| D | Sign In sometimes required two clicks, first producing no auth event | P1 functional | Investigated; one plausible hypothesis (browser-autofill DOM value desyncing from React's controlled `TextInput` state, hitting the silent `if (!email.trim() \|\| !password.trim()) return;` guard in `signIn()`) was built and tested with a Playwright reproduction that mimics that exact desync. It did **not** reproduce. | **No code change** — left as HUMAN QA per the pass instructions ("if not reproducible, leave HUMAN QA"). | N/A — documented as investigated-not-reproduced. |
+| E | Admin report-detail note field placeholder said "Internal notes…" though its value (`admin_notes`) is rendered directly to the resident | Small | Stale placeholder text in `(cm)/community/[hoaId].tsx`, predates `admin_notes` becoming resident-visible. | Reworded placeholder to state it's resident-visible. | Live screenshot of the field showing the corrected placeholder. |
+| F | Admin Reports (Community Detail) showed the raw category enum (e.g. `equipment`) instead of a friendly label whenever a report had no linked amenity | Small | `(cm)/community/[hoaId].tsx` fell back to raw `r.category`; unlike `(cm)/maintenance.tsx`, it never imported/reimplemented `getCategoryLabel()`. | Added the same `getCategoryLabel()` mapping used in `(cm)/maintenance.tsx` (kept in sync manually — it matches the *live* `maintenance_reports_category_check` values; the shared `src/lib/maintenanceUtils.ts` version uses stale pre-migration keys and would not have fixed this). | Live screenshot: report category now reads "Water & Plumbing" instead of the raw key. |
+| G | ~1.1:1 text contrast on Portfolio "My Communities" card titles and Report Detail description | Small | `communityName` (`(cm)/index.tsx`) and `descText` (`(cm)/community/[hoaId].tsx`) both hardcoded `Colors.navy` (`#0F1F3D`, the pre-dark-theme text color) on top of dark surfaces (`Colors.cardBg`/`Colors.pageBg`) — leftover from before this app's dark-first conversion. | Switched both to `Colors.textPrimary` (`#F5F8FF`). Deliberately scoped to only these 2 confirmed spots — other same-class `Colors.navy`-on-dark instances noticed in the same file (`sectionTitle`, `activityText`) were **not** touched; see below. | Live `getComputedStyle` measurement: card title contrast 1.1:1 → 16.33:1. Description block confirmed visually (light text clearly legible on its dark inset box) in the same screenshot that also shows fixes E and F live together. |
+
+### Test artifacts the `/verify` pass left in the live DB — removed
+
+Deleted after confirming each row was self-labeled as test data (e.g. `court_maintenance.description = "/verify QA blockout test — pump repair, safe to delete."`) and scoped to The Greens: the `courts` row "Verify QA Pickleball Court" (`02256ad7…`), its `amenity_rules` row, its `court_maintenance` blockout, its one `bookings` row (already `cancelled`), and one `maintenance_reports` row with description prefixed `VERIFY QA TEST —`. Confirmed zero matching rows remain post-cleanup.
+
+### Regression evidence for this pass
+
+| Check | Result |
+|---|---|
+| `npx tsc --noEmit` | 1681 error lines before and after C–G's edits (0 new); zero errors attributable to any of the 6 files this pass touched beyond the pre-existing Windows `Card.tsx`/`card.tsx`, `Button.tsx`/`button.tsx`, `Skeleton.tsx`/`skeleton.tsx` casing-collision noise already documented in §4/§6 of `GREENS_V1_CHECKPOINT.md`. |
+| Playwright — resident core (`announcements`, `courts`, `docs`, `reports`, `profile-settings`) | **153 passed / 0 failed** (3.8m) — identical to the Turbo Release baseline in §4, confirming no regression from the `(cm)`/`(admin)` layout and Community Detail changes. |
+| `main` | untouched, unchanged at `c05b941` — reconfirmed before and after this pass. |
+
+### Noticed but explicitly not fixed this pass (out of scope, flagged for the user)
+
+- `profiles` table: a direct `select id, hoa_id, full_name` as the resident test account returned **every** profile row platform-wide, not just the caller's own. Same *class* of bug as A (an overly-permissive RLS policy), found incidentally while proving A, but **not** one of the `/verify` pass's confirmed defects — not fixed here, per the narrow remediation scope. Flagging for a dedicated look.
+- `(cm)/community/[hoaId].tsx`: `sectionTitle` ("Recent Activity" heading) and `activityText` visually exhibit the same `Colors.navy`-on-dark-surface contrast bug as G, but were not in the `/verify` pass's confirmed findings. Left untouched per "minimal token correction, no redesign" / the explicit DEFER list.
+
+### Commits this pass (`0817e53..2728ddf`, 3 commits, pushed)
+
+1. `9d7ed88` fix(security): close hoas RLS enumeration and admin-shell role bypass (A + B)
+2. `87243bb` fix(admin): prevent close-before-open amenity hours (C)
+3. `2728ddf` fix(admin): correct mislabeled note field, raw category text, and low-contrast text in Community Detail (E + F + G)
