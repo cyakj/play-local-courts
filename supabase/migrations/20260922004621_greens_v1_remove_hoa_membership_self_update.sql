@@ -1,0 +1,23 @@
+-- Root cause: "hoa_memberships_update_own" (FOR UPDATE, USING (user_id =
+-- auth.uid()), no WITH CHECK) reuses USING as the post-update check per
+-- Postgres RLS semantics for UPDATE policies with no explicit WITH CHECK.
+-- Since USING only constrains user_id, NO column is actually protected --
+-- any authenticated user can freely rewrite their own membership row's
+-- role/status/hoa_id. Live-reproduced with the resident test account:
+-- insert a pending membership for an HOA they don't belong to, then
+-- UPDATE role='admin', status='approved' on it directly via REST -- the
+-- update succeeds, granting full admin rights over that HOA via
+-- check_hoa_admin(). Test row inserted and deleted in the same session,
+-- no lasting state change.
+--
+-- A full codebase search found zero legitimate self-service update use
+-- case for this table -- the only UPDATE call site in the app is the
+-- admin-gated approve/reject flow in pending-requests.tsx, which is (and
+-- remains) covered by the separate hoa_memberships_update_admin policy.
+-- Self-withdrawal of a pending request is already covered by the existing,
+-- narrowly-scoped "Users can cancel their own pending requests" DELETE
+-- policy (status='pending' only), which is untouched.
+--
+-- Fix: remove the unnecessary writable surface entirely rather than try to
+-- retrofit a WITH CHECK for a feature that doesn't exist.
+DROP POLICY IF EXISTS "hoa_memberships_update_own" ON public.hoa_memberships;
