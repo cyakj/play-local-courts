@@ -1,8 +1,7 @@
 # The Greens V1 — Launch Readiness Matrix
 
-Branch: `greens-v1` @ `4498584` (4 commits ahead of `9c746c9`/`0817e53`, the post-Turbo-Release baseline
-this file originally described — see §9 for the post-`/verify` remediation pass, §10 for the
-follow-up `profiles` cross-HOA fix).
+Branch: `greens-v1` @ `ebe8d4b` (post-`/verify` remediation → follow-up `profiles` fix → independent code
+review → this post-review remediation pass — see §9, §10, §11 respectively).
 `main` untouched, unchanged at `c05b94131bf3896f9d94d4dc97057d2b85b56ea2`.
 
 Product mode: `EXPO_PUBLIC_PRODUCT_MODE=community` (the launch target). Tennis mode is the code default and
@@ -249,3 +248,211 @@ out of scope for this HOA-tenant-isolation fix.
 
 `4498584` `fix(security): scope profiles discovery to non-HOA users, close cross-HOA profile leak` —
 pushed to `origin/greens-v1`.
+
+## 11. Post-code-review remediation (2026-09-22)
+
+An independent code review of the full `greens-v1` diff against `main` (73 commits, ~8200 lines,
+in-session `general-purpose` reviewer with read-only git + live-Supabase access) found 2 Critical and 5
+Important findings plus one security-adjacent Minor. This section fixes all of them. No code review,
+SDK 57, redesign, or another `/verify` pass was started; remaining Minor findings from the review were
+left untouched per scope.
+
+### C1 — `hoa_memberships` self-escalation to admin — confirmed, fixed
+
+**Reproduced:** as the resident test account, inserted a `pending` membership for an HOA they don't
+belong to (DBE), then `UPDATE ... SET role='admin', status='approved'` on it directly via REST —
+succeeded. `check_hoa_admin()` for that account against DBE then returned `true`: full admin rights
+over courts, bookings, reports, member management, notifications, and (via `is_admin_in_same_hoa()`)
+every member's PII. Test row deleted in the same session.
+
+**Root cause:** `hoa_memberships_update_own` (`FOR UPDATE`, `USING (user_id = auth.uid())`, no
+`WITH CHECK`) reuses `USING` as the post-update check per Postgres RLS semantics — only `user_id` was
+ever protected. A full codebase search found zero legitimate self-update use case for this table (the
+only `UPDATE` call site is the admin-gated approve/reject in `pending-requests.tsx`, covered by the
+separate, untouched `hoa_memberships_update_admin` policy).
+
+**Fix:** migration `20260922004621` drops `hoa_memberships_update_own` entirely. Self-withdrawal
+remains covered by the existing "Users can cancel their own pending requests" `DELETE` policy.
+
+**Proof:** same exploit re-run post-fix → silent no-op (0 rows). Legitimate self-withdrawal (delete own
+pending) still works. Legitimate admin approval of a real join request in their own HOA still works.
+
+### C2 — `public_profiles` SECURITY DEFINER view bypass — confirmed, fixed
+
+**Reproduced:** a completely unauthenticated request (no token) to
+`GET /rest/v1/public_profiles?select=id,full_name,hoa_id,hoa_role,hoa_status,zip_code,gender` returned
+all 7 profiles, including cross-HOA `hoa_id`/`hoa_role`/`hoa_status` and PII — pre-auth.
+
+**Root cause:** `public_profiles` selects from `profiles` with zero row filtering and is `SECURITY
+DEFINER`, so RLS on the base table (including §10's `is_hoa_affiliated()` fix) never applied to it;
+`SELECT` was granted to both `anon` and `authenticated`.
+
+**Determined unused:** a full codebase search found zero `from('public_profiles')` call sites — the
+only hits were generated FK-reference annotations in `src/lib/types.ts`, a type-generator artifact
+(Postgres FKs can't target a plain view), not an actual query path. No other view/function depends on
+it (checked `pg_depend`).
+
+**Fix:** migration `20260922004730` drops the view outright rather than trying to scope dead surface.
+
+**Proof:** both anonymous and authenticated queries against `public_profiles` now `404` (relation does
+not exist). Base `profiles` table's existing HOA scoping unaffected. Supabase security advisor no
+longer lists `public_profiles` under `security_definer_view` (count 3 → 2; the 2 remaining —
+`public_hoa_directory`, `referral_leaderboard` — are the same pre-existing, out-of-scope findings
+already documented in §3).
+
+### I1 — `amenity-book.tsx` wrong double-booking error code — confirmed, fixed
+
+**Reproduced (by code inspection):** `error.code === '23505'` (unique_violation) checked for the
+double-booking race, but `bookings` has no unique constraint — only the `bookings_no_overlapping_confirmed`
+EXCLUDE constraint, which raises `23P01`. `courts.tsx` was fixed for this in `9c746c9`; this sibling
+screen (still routable via `(resident)/book.tsx`, confirmed a live caller — not retired) was never
+updated and showed raw constraint text with no slot refresh.
+
+**Fix:** corrected to `'23P01'`, matching `courts.tsx`'s handling exactly (commit `7ac4ec1`, bundled
+with I2 — see below).
+
+### I2 — amenity business rules enforced client-side only — confirmed, fixed
+
+**Inventory:** the only `amenity_rules` actually configured by any Greens V1 admin screen
+(`AddAmenityWizard.tsx` / `manage-amenities.tsx`) are `booking_start_time`/`end_time`,
+`max_duration_minutes`, `advance_booking_days`, `max_reservations_per_day`, `requires_admin_approval`.
+`max_reservations_per_week` and the remaining legacy Tennis-mode columns (peak hours, security deposit,
+singles/doubles-only, ball machine, lifeguard ack) are schema-present but unconfigured by any Greens V1
+UI — **not enforced**, documented rather than invented.
+
+**Reproduced (by code inspection):** neither `courts.tsx` nor `amenity-book.tsx` checked
+`requires_admin_approval` or `max_reservations_per_day` at all before inserting; both hardcode
+`status: 'confirmed'`. `advance_booking_days` only bounded the date picker UI.
+
+**Fix:** migration `20260922005137` adds a `BEFORE INSERT` trigger (`enforce_amenity_booking_rules`,
+`SECURITY DEFINER`) validating all four server-side, forcing `status='pending'` when
+`requires_admin_approval` is set. `bookings_status_check` widened to allow `'pending'`
+(`my-reservations.tsx`'s `bookingStatus()` already had a display case for it — not a new concept to the
+client). Slot-reservation semantics documented and deliberately unchanged: `bookings_no_overlapping_confirmed`
+stays scoped to `status='confirmed'` only, so a pending booking does not hold the slot; the first admin
+approval (a normal `UPDATE ... status='confirmed'`) wins if two pending requests turn out to overlap,
+and the second is rejected by the same constraint at that point. No admin approve/reject UI exists yet
+for pending bookings — out of scope, flagged below.
+
+**Caught by testing the positive path, not just the exploit:** the first trigger version used one
+blanket `max_duration_minutes` cap and broke every real tennis booking — live data shows "The Greens
+Court" has `singles_duration_minutes=90`/`doubles_duration_minutes=90` but `max_duration_minutes=60`,
+three different values. Corrected (migration `20260922005928`) to mirror `courts.tsx`'s own
+`court_type`-based duration logic exactly.
+
+`courts.tsx`/`amenity-book.tsx` now read back the actual persisted `status` after insert and show a
+distinct "pending approval" state instead of claiming "Booked!" when the trigger overrode the request.
+
+**Proof:** live REST + live UI — a `requires_admin_approval` booking persists as `pending` (proven both
+via direct REST and by completing the real booking flow through the Reserve sheet, screenshotted).
+Advance-window, operating-hours, duration-cap (tennis and non-tennis), and max-reservations/day bypass
+attempts all rejected with friendly messages via direct API. Legitimate bookings within all rules still
+succeed as `confirmed`. `bookings_no_overlapping_confirmed` (23P01) re-verified firing correctly,
+unaffected by the new trigger.
+
+### I3 — `BlockoutSheet` swallowed cancellation failures — confirmed, fixed
+
+**Reproduced (by code inspection):** `handleCancelAndContinue()`'s per-row loop did `if (error) continue;`
+with no accumulation, then unconditionally created the blockout and reported success regardless.
+
+**Fix:** commit `ebe8d4b` tracks cancellation and notification failures separately; also checks the
+update's returned row count (not just `error`) since an RLS-scoped update matching zero rows returns no
+error — the same failure class already fixed elsewhere in this codebase. If any conflicting booking
+fails to cancel, the blockout is **not** created (fail-closed — not a single atomic transaction, since
+rows already cancelled earlier in the loop stay cancelled, but the blockout itself is never saved over
+a still-confirmed reservation), the failed rows are put back in the conflict panel, and the admin sees
+an exact failure count. A separate alert covers the blockout-succeeded-but-some-notifications-failed
+case.
+
+**Proof:** live, through the actual admin UI — created a real conflicting reservation on Greens Pool,
+opened Add Blockout, resolved via Cancel & Continue, and confirmed (via DB) the booking was cancelled
+with the correct reason/`cancelled_by`, the notification was created with correct content, and the
+blockout was saved with no false-failure or false-success alert. Test artifacts cleaned up after.
+
+### I4 — `hoas` INSERT ownership spoofing — confirmed, fixed
+
+**Reproduced:** the resident test account inserted `{name, admin_id: <admin test account's uid>}` with
+`Prefer: return=minimal` — `HTTP 201`, row persisted with `admin_id` set to a different user than the
+inserter. (`Prefer: return=representation` was avoided for this reproduction — Postgres applies a
+table's `SELECT` RLS policies to an `INSERT ... RETURNING`, and a brand-new `hoas` row isn't
+SELECT-visible to *anyone* yet regardless of `admin_id`, which would have produced a generic RLS error
+for both the exploit and a legitimate insert alike and masked the actual finding.)
+
+**Root cause:** `"Authenticated users can create communities"` — `WITH CHECK (auth.uid() IS NOT NULL)`
+only, no ownership check.
+
+**Fix:** migration `20260922010455` — `WITH CHECK (auth.uid() = admin_id)`.
+
+**Proof:** spoofed insert → `403`. Legitimate self-owned insert (matching `AddCommunityModal.tsx`'s
+exact pattern) → `201`, unaffected. Anonymous insert → `401`.
+
+**Discovered, not fixed (separate, pre-existing, out of scope):** the live "Add Community" flow's own
+`hoas` insert (`AddCommunityModal.tsx`) uses `.select('id').single()`, which fails for **every** user
+today, admin_id spoofed or not — the exact `SELECT`-RLS-on-`RETURNING` behavior above. This is
+unrelated to I4 and was present before this fix; flagging for a dedicated look, not addressed here.
+
+### I5 — booking cancellation window bypass — confirmed, fixed
+
+**Reproduced (by code inspection):** `canCancelBooking()` in `my-reservations.tsx` only gates the
+Cancel button's visibility; the actual `UPDATE ... status='cancelled' WHERE id=... AND user_id=...` is
+permitted by `"Users can cancel their own bookings"` (`USING auth.uid()=user_id`, no time-window
+check).
+
+**Fix:** migration `20260922010715` adds a `BEFORE UPDATE` trigger (`enforce_booking_cancellation_window`,
+`SECURITY DEFINER`) rather than a tightened RLS policy, so a rejection is a clear, catchable error
+instead of a silent zero-rows no-op. Only restricts the *owning* user cancelling their own booking; an
+HOA admin cancelling any booking in their own HOA (e.g. `BlockoutSheet`'s conflict resolution) is
+explicitly exempted — `"Admins can update bookings in their HOA"` already grants that unrestricted, and
+this preserves it exactly rather than inventing a new override. `my-reservations.tsx` now surfaces the
+trigger's specific message instead of a generic failure string.
+
+**Proof:** cancelling a real booking ~2 hours before start (24h configured window) → rejected with a
+friendly message. Cancelling one ~48 hours out → succeeds. Admin cancelling the same within-window
+booking (the override path, exercised the same way `BlockoutSheet` uses it) → still succeeds
+unrestricted.
+
+### Security-adjacent Minor — `hoa_notifications` "mark as read" content rewrite — confirmed, fixed
+
+**Reproduced:** against a real notification row for the resident test account,
+`PATCH {"title":"SPOOFED TITLE..."}` succeeded pre-fix (title actually changed).
+
+**Root cause:** `"Users can mark own as read"` — same reused-`USING`-as-check gap as C1/I5, on
+`hoa_notifications` this time. No separate admin `UPDATE` policy exists on this table to preserve.
+
+**Fix:** migration `20260922010908` adds a `BEFORE UPDATE` trigger
+(`prevent_notification_content_changes`) mirroring the existing `prevent_profile_sensitive_changes`
+pattern — blocks the mutation outright if `user_id`/`hoa_id`/`type`/`title`/`body`/`metadata`/`created_at`
+would change.
+
+**Proof:** title-rewrite attempt on the same real row → rejected (23514, content unchanged).
+Legitimate `{"read": true}` → still succeeds. Row's `read` state restored to its original value after.
+
+### Regression / release evidence
+
+| Check | Result |
+|---|---|
+| Supabase security advisor | `security_definer_view`: 2 (down from 3 pre-§10; `public_profiles` gone, only the pre-existing `public_hoa_directory`/`referral_leaderboard` remain). `function_search_path_mutable`: 10, none of this pass's 4 new functions among them (all correctly set `SET search_path`). New functions (`is_hoa_affiliated`, `enforce_amenity_booking_rules`, `enforce_booking_cancellation_window`, `prevent_notification_content_changes`) join the same pre-existing, already-accepted `SECURITY DEFINER`-executable-by-`anon`/`authenticated` pattern as ~50 existing functions — not a new class of finding. |
+| Cross-HOA resident isolation (final re-check) | Resident: `hoas` → 1 row (own only); `profiles` → 6 rows (own + same-HOA + unaffiliated, no cross-HOA). |
+| Legitimate multi-HOA admin (final re-check) | Admin (approved admin of 2 HOAs + resident of a 3rd): `hoas` → all 3; `profiles` → all 7 — every row backed by a real membership, none via a leak. |
+| Reservation lifecycle, double-booking, requires-admin-approval, booking-limit/advance-window bypass, cancellation cutoff, blockout conflict handling, Add Community | All re-tested live per-finding above (see each section). |
+| `npx tsc --noEmit` | 1681, unchanged from §9/§10's baseline. Zero errors in any of this pass's 4 edited files beyond the pre-existing Windows `Card`/`Button`/`Skeleton` casing-collision noise already documented. |
+| Playwright — resident core (`announcements`, `courts`, `docs`, `reports`, `profile-settings`) | **153 passed / 0 failed**, identical to every prior baseline in this file — including `courts.spec.ts`'s own live booking-flow test, an incidental additional regression check on I1/I2. |
+| `main` | untouched, unchanged at `c05b941` — reconfirmed before and after this pass. |
+
+### Remaining findings from the code review (not addressed — out of this pass's scope)
+
+- **Minor** — `sendMessage()` in Community Detail swallows insert errors with no admin feedback.
+- **Minor** — redundant/dead-code-adjacent `hoas` "Users can view their HOA" policy (legacy `profiles.hoa_id`-keyed).
+- **Minor** — one migration drops a constraint without `IF EXISTS`, inconsistent with siblings.
+- **Minor** — `(resident)/book.tsx` → `/amenity-book` orphaned from the active UI but still routable (I1 fixed its bug; whether to re-wire or retire the screen itself is a separate decision).
+- **New, discovered during I4** — the live "Add Community" flow's `hoas` insert fails for every user due to `SELECT`-RLS-on-`RETURNING` — see I4 above.
+
+### Commits this pass (`bb12776..ebe8d4b` on top of §10's `82705a8`, 7 commits, pushed)
+
+1. `bb12776` fix(security): close hoa_memberships self-escalation to admin (C1)
+2. `77784f4` fix(security): drop unused public_profiles SECURITY DEFINER view (C2)
+3. `7ac4ec1` fix(booking): correct double-booking error code and enforce amenity rules server-side (I1+I2)
+4. `9911fd4` fix(security): enforce hoas.admin_id = auth.uid() on create (I4)
+5. `d725199` fix(security): enforce booking cancellation window server-side (I5)
+6. `0832fdb` fix(security): prevent notification content rewriting via mark-as-read
+7. `ebe8d4b` fix(admin): detect and report partial blockout-cancellation failures (I3)
