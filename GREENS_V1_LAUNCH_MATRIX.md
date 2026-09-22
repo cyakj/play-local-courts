@@ -1,7 +1,8 @@
 # The Greens V1 — Launch Readiness Matrix
 
-Branch: `greens-v1` @ `ebe8d4b` (post-`/verify` remediation → follow-up `profiles` fix → independent code
-review → this post-review remediation pass — see §9, §10, §11 respectively).
+Branch: `greens-v1` @ `37787d3` (post-`/verify` remediation → follow-up `profiles` fix → independent code
+review → post-review remediation → this final pre-gate Add Community fix — see §9, §10, §11, §12
+respectively).
 `main` untouched, unchanged at `c05b94131bf3896f9d94d4dc97057d2b85b56ea2`.
 
 Product mode: `EXPO_PUBLIC_PRODUCT_MODE=community` (the launch target). Tennis mode is the code default and
@@ -456,3 +457,88 @@ Legitimate `{"read": true}` → still succeeds. Row's `read` state restored to i
 5. `d725199` fix(security): enforce booking cancellation window server-side (I5)
 6. `0832fdb` fix(security): prevent notification content rewriting via mark-as-read
 7. `ebe8d4b` fix(admin): detect and report partial blockout-cancellation failures (I3)
+
+## 12. Final pre-gate targeted fix — Add Community (2026-09-22)
+
+§11's I4 fix note flagged a newly-discovered, pre-existing bug: the live Add Community flow
+(`(cm)/index.tsx` `addCommunity()`) fails for every admin, unrelated to admin_id spoofing. This section
+fixes it as the sole required functional item before the verification gate.
+
+### Reproduction
+
+Through the real UI, logged in as the admin test account, Portfolio → Add Community → filled name →
+Create Community: **"Could Not Create Community — new row violates row-level security policy for table
+\"hoas\""**, every time, reproduced twice with distinct community names. Checked the database
+immediately after each attempt: **no orphaned `hoas` row exists either time** — Postgres applies a
+table's `SELECT` RLS policies to an `INSERT ... RETURNING` as part of the same atomic statement, so when
+the post-insert `SELECT`-visibility check fails, the whole statement (insert included) rolls back, not
+just the returned data. `hoa_memberships` insert is never reached (the client code returns early on
+`error || !hoa`), so no partial membership record exists either.
+
+### Root cause
+
+Neither `hoas` `SELECT` policy covers "a row I am about to create as its admin":
+- `"Users can view their HOA"` requires `profiles.hoa_id` to already point at it — a separate, legacy
+  single-value column this flow never touches.
+- `"Approved members can read full hoa details"` requires an approved `hoa_memberships` row — which the
+  app creates in a *second* insert, immediately after the first. That second insert's own
+  `WITH CHECK` subquery (`EXISTS (... hoas h WHERE h.admin_id = auth.uid())`) is itself subject to
+  `hoas`' `SELECT` RLS, so it hits the identical gap even if the first insert somehow got past it.
+
+Legacy `AddCommunityModal.tsx` (web/Vite, unused — confirmed zero imports in `src/app`) has the exact
+same pattern; irrelevant to Greens V1 but not a separate bug to track.
+
+### Fix
+
+Migration `20260922013341` adds one `SELECT` policy: `"Creators can view their own HOA"` —
+`USING (admin_id = auth.uid())`, mirroring the exact boundary `"Admins can update their HOA"` (`UPDATE`)
+already trusts. Because `admin_id = auth.uid()` has been enforced at `INSERT` time since §11's I4 fix
+(`20260922010455`), this new policy can **only ever match rows the caller is genuinely the admin of** —
+it is structurally incapable of exposing another user's HOA, so it cannot reopen the cross-HOA
+enumeration issue closed in `20260921230632`. One narrow RLS addition closes the gap for both the first
+insert's `RETURNING` and the second insert's own subquery — no new `SECURITY DEFINER` RPC needed. The
+one remaining non-atomic seam (the `hoas` insert succeeding but the follow-up `hoa_memberships` insert
+failing for some unrelated reason) was already explicitly and non-silently handled by the pre-existing
+client code (`"Community Created, But Membership Failed"`), so a full transactional rewrite wasn't
+required to reach coherent success/failure behavior.
+
+### Live proof — positive
+
+Through the real UI: filled name + address, clicked Create Community — **no error dialog**, the new HOA
+appeared immediately in Portfolio's "My Communities" (`1 MEMBERS`, portfolio total `5 MEMBERS` up from
+4). DB confirmed `hoas.admin_id` = `hoa_memberships.user_id` = the admin test account,
+`role='admin'`, `status='approved'`. Survived a fresh login + hard page reload in a new browser context.
+
+### Live proof — security / negative
+
+- Resident test account's full `/hoas` REST list: unchanged, still only their own HOA. A direct by-id
+  query for the new HOA: empty.
+- An unrelated HOA's admin (Ramon Dominguez, admin of The Fairways only, simulated via
+  `request.jwt.claims` — the same technique already validated safe earlier in this branch's work):
+  direct by-id query for the new HOA returns nothing; full list still only his own HOA.
+- Spoofed `admin_id` creation by a different authenticated account: still `403` (I4 fix intact).
+- No partial `hoas`/`hoa_memberships` rows exist from either pre-fix failed reproduction attempt —
+  confirmed via direct count query — so a retry after a reported failure cannot duplicate anything,
+  since nothing was ever created to duplicate.
+
+Test community (`AFTERFIX Add Community Live Test`) and its membership row deleted after confirming.
+
+### Regression
+
+Resident `/hoas` enumeration re-confirmed scoped (1 row). Legitimate multi-HOA admin re-confirmed
+correct (all 3 real HOAs, unchanged from before this fix, post test-cleanup). `npx tsc --noEmit`: 1681,
+unchanged (DB-only fix, no app code touched). Playwright resident core (`announcements`, `courts`,
+`docs`, `reports`, `profile-settings`): **153 passed / 0 failed**. No automated Admin/Community test
+suite exists yet (per §2/§7) to run beyond the live UI proof above. `main` untouched, reconfirmed.
+
+### Commit
+
+`37787d3` `fix(security): allow HOA creators to see their own new HOA, fixing Add Community` — pushed to
+`origin/greens-v1`.
+
+### Remaining launch findings (unchanged from §11, still out of scope)
+
+The 4 pre-existing Minor findings from the code review (message-send error swallowing, redundant `hoas`
+policy, one migration missing `IF EXISTS`, orphaned `/amenity-book` route) remain untouched. No new
+findings surfaced by this fix. §7's launch-blocker list (real-device QA, Home/Schedule automated
+coverage, password-reset re-verification, `npm run lint`, pre-existing security advisors) is unchanged.
