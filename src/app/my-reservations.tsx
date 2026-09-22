@@ -117,7 +117,15 @@ export default function MyReservationsScreen() {
           const { error } = await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', booking.id).eq('user_id', userId);
           setCancelling(null);
           if (error) {
-            platformAlert('Cancellation failed', 'Could not cancel this booking. Please try again.');
+            // error.code '23514' is the DB-enforced cancellation-window
+            // rejection (enforce_booking_cancellation_window trigger) --
+            // its message is already resident-friendly. Anything else
+            // falls back to a generic message rather than leaking raw
+            // Postgres error text.
+            platformAlert(
+              'Cancellation Failed',
+              error.code === '23514' ? error.message : 'Could not cancel this booking. Please try again.',
+            );
             return;
           }
           sendNotificationEmail({
