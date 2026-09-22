@@ -1,0 +1,21 @@
+-- Root cause: "public_profiles" is a SECURITY DEFINER view over profiles
+-- with no row filtering at all (selects hoa_id, hoa_role, hoa_status,
+-- zip_code, gender, full_name, username, location, etc. for every row
+-- unconditionally). Because it is SECURITY DEFINER, it runs with the view
+-- owner's privileges and RLS on the underlying profiles table -- including
+-- this branch's own is_hoa_affiliated() fix -- never applies to it. SELECT
+-- was granted to both anon and authenticated. Live-reproduced with a
+-- completely unauthenticated request (no token at all):
+--   GET /rest/v1/public_profiles?select=id,full_name,hoa_id,hoa_role,hoa_status,zip_code,gender
+-- returned all 7 profiles in the project, including cross-HOA hoa_id/
+-- hoa_role/hoa_status and PII, to a pre-auth caller. Flagged by the
+-- Supabase security advisor as an ERROR-level security_definer_view finding.
+--
+-- A full codebase search found zero runtime call sites
+-- (`from('public_profiles')`) anywhere in the app; the only hits are
+-- generated FK-reference annotations in src/lib/types.ts /
+-- src/integrations/supabase/types.ts, which are a type-generator artifact
+-- (Postgres foreign keys cannot target a plain view) and do not reflect any
+-- actual query against this view. No other view/function depends on it
+-- (checked pg_depend). It is unused dead security surface -- drop it.
+DROP VIEW IF EXISTS public.public_profiles;
