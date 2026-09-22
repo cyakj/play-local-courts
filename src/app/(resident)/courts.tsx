@@ -282,6 +282,7 @@ export default function CourtsScreen() {
   const [sheetMaintenanceAll, setSheetMaintenanceAll] = useState<MaintenanceBlock[]>([]);
   const [confirming, setConfirming] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(false);
+  const [bookingPending, setBookingPending] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
 
   // ── Schedule sheet state ──────────────────────────────────────────────────────
@@ -359,6 +360,7 @@ export default function CourtsScreen() {
     setSheetPlayType('singles');
     setSheetDurationOverride(null);
     setBookingSuccess(false);
+    setBookingPending(false);
     setSheetRules(null);
     setSheetMaintenanceAll([]);
     setSheetRulesLoading(true);
@@ -521,26 +523,33 @@ export default function CourtsScreen() {
     setBookingError(null);
     const dateStr = sheetDate.toISOString().split('T')[0];
     const endTime = getEndTime(sheetSelectedSlot, sheetDuration);
-    const { error } = await supabase.from('bookings').insert({
+    const { data, error } = await supabase.from('bookings').insert({
       court_id: bookingSheet.courtId, user_id: userId, date: dateStr,
       start_time: `${sheetSelectedSlot}:00`, end_time: `${endTime}:00`,
       play_type: sheetPlayType, status: 'confirmed',
-    });
+    }).select('status').single();
     setConfirming(false);
     if (!error) {
-      setBookingSuccess(true);
-      sendNotificationEmail({
-        type: 'booking_confirmation',
-        userId,
-        courtName: bookingSheet.courtName,
-        date: dateStr,
-        startTime: `${sheetSelectedSlot}:00`,
-        endTime: `${endTime}:00`,
-        playType: sheetPlayType,
-      });
+      // A DB trigger forces status to 'pending' when the amenity is
+      // configured with requires_admin_approval — the client always
+      // requests 'confirmed', but the persisted row is authoritative.
+      if (data?.status === 'pending') {
+        setBookingPending(true);
+      } else {
+        setBookingSuccess(true);
+        sendNotificationEmail({
+          type: 'booking_confirmation',
+          userId,
+          courtName: bookingSheet.courtName,
+          date: dateStr,
+          startTime: `${sheetSelectedSlot}:00`,
+          endTime: `${endTime}:00`,
+          playType: sheetPlayType,
+        });
+      }
       await fetchBookingsForDate(dateStr);
       await loadCourts();
-      setTimeout(() => { setBookingSheet(null); setBookingSuccess(false); setBookingError(null); }, 1400);
+      setTimeout(() => { setBookingSheet(null); setBookingSuccess(false); setBookingPending(false); setBookingError(null); }, 1400);
     } else if (error.code === '23P01') {
       setBookingError('That time slot was just taken — please pick another.');
       await fetchBookingsForDate(dateStr);
@@ -761,6 +770,7 @@ export default function CourtsScreen() {
           weather={weather}
           confirming={confirming}
           success={bookingSuccess}
+          pending={bookingPending}
           bookingError={bookingError}
           onConfirm={handleConfirm}
           onClose={() => { setBookingSheet(null); setBookingError(null); }}
@@ -853,7 +863,7 @@ const BookingSheet = memo(function BookingSheet({
   playType, onPlayTypeChange, rules, rulesLoading,
   timeSlots, selectedSlot, onSelectSlot,
   duration, availableDurations, isTennis, onDurationChange,
-  weather, confirming, success, bookingError, onConfirm, onClose, insets,
+  weather, confirming, success, pending, bookingError, onConfirm, onClose, insets,
 }: {
   courtName: string; courtType: string; now: Date;
   sheetDate: Date; onSheetDateChange: (d: Date) => void;
@@ -862,7 +872,7 @@ const BookingSheet = memo(function BookingSheet({
   timeSlots: string[]; selectedSlot: string | null; onSelectSlot: (s: string | null) => void;
   duration: number; availableDurations: number[]; isTennis: boolean; onDurationChange: (d: number) => void;
   weather: WeatherData | null;
-  confirming: boolean; success: boolean; bookingError: string | null; onConfirm: () => void; onClose: () => void;
+  confirming: boolean; success: boolean; pending: boolean; bookingError: string | null; onConfirm: () => void; onClose: () => void;
   insets: { bottom: number };
 }) {
   const { theme } = useTheme();
@@ -1064,11 +1074,11 @@ const BookingSheet = memo(function BookingSheet({
               <Text testID="booking-error" style={styles.bookingErrorText}>{bookingError}</Text>
             )}
             <TouchableOpacity testID="confirm-booking-btn"
-              style={[styles.confirmBtn, (!selectedSlot || confirming) && styles.confirmBtnDisabled, success && styles.confirmBtnSuccess]}
-              onPress={onConfirm} disabled={!selectedSlot || confirming || success} activeOpacity={0.85}>
+              style={[styles.confirmBtn, (!selectedSlot || confirming) && styles.confirmBtnDisabled, (success || pending) && styles.confirmBtnSuccess]}
+              onPress={onConfirm} disabled={!selectedSlot || confirming || success || pending} activeOpacity={0.85}>
               {confirming ? <ActivityIndicator color={Colors.white} size="small" /> : (
                 <Text style={styles.confirmBtnText}>
-                  {success ? '✓ Booked!' : selectedSlot ? 'Confirm Reservation' : 'Select a time slot'}
+                  {success ? '✓ Booked!' : pending ? '✓ Submitted — Pending Approval' : selectedSlot ? 'Confirm Reservation' : 'Select a time slot'}
                 </Text>
               )}
             </TouchableOpacity>

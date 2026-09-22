@@ -234,17 +234,17 @@ export default function AmenityBookScreen() {
     setConfirming(true);
     const dateStr = selectedDate.toISOString().split('T')[0];
     const endTime = getEndTime(selectedSlot, selectedDuration);
-    const { error } = await supabase.from('bookings').insert({
+    const { data, error } = await supabase.from('bookings').insert({
       court_id: amenityId,
       user_id: userId,
       date: dateStr,
       start_time: `${selectedSlot}:00`,
       end_time: `${endTime}:00`,
       status: 'confirmed',
-    });
+    }).select('status').single();
     setConfirming(false);
     if (error) {
-      const takenSlot = error.code === '23505';
+      const takenSlot = error.code === '23P01';
       platformAlert(
         takenSlot ? 'Slot No Longer Available' : 'Booking Failed',
         takenSlot
@@ -253,16 +253,22 @@ export default function AmenityBookScreen() {
       );
       if (takenSlot) {
         // Refresh booked slots so the taken slot shows as unavailable.
-        const { data } = await supabase
+        const { data: refreshed } = await supabase
           .from('bookings')
           .select('start_time, end_time')
           .eq('court_id', amenityId)
           .eq('date', dateStr)
           .eq('status', 'confirmed');
-        setBookedSlots(data ?? []);
+        setBookedSlots(refreshed ?? []);
         setSelectedSlot(null);
       }
       return;
+    }
+    // A DB trigger forces status to 'pending' when the amenity is
+    // configured with requires_admin_approval — the client always requests
+    // 'confirmed', but the persisted row is authoritative.
+    if (data?.status === 'pending') {
+      platformAlert('Booking Submitted', 'This amenity requires admin approval. Your reservation is pending review.');
     }
     router.back();
   }
