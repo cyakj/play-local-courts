@@ -329,14 +329,22 @@ export function BlockoutSheet({
     // never re-fire the cancellation/notification loop for the same rows.
     setConflicts(null);
 
+    const cancelFailures: typeof toResolve = [];
+    const notifyFailures: typeof toResolve = [];
+
     for (const c of toResolve) {
-      const { error } = await supabase
+      const { data: cancelled, error } = await supabase
         .from('bookings')
         .update({ status: 'cancelled', cancellation_reason: cancelReasonText, cancelled_by: 'admin' })
-        .eq('id', c.id);
-      if (error) continue;
+        .eq('id', c.id)
+        .select('id');
+      // An RLS-scoped update that matches zero rows returns no error, so a
+      // silent no-op (e.g. the booking was already changed by someone else
+      // between conflict detection and this action) must be checked for
+      // explicitly, not just `error`.
+      if (error || !cancelled || cancelled.length === 0) { cancelFailures.push(c); continue; }
 
-      await supabase.from('hoa_notifications').insert({
+      const { error: notifyError } = await supabase.from('hoa_notifications').insert({
         user_id: c.user_id,
         hoa_id: hoaId,
         title: 'Reservation Cancelled',
@@ -351,6 +359,7 @@ export function BlockoutSheet({
         type: 'booking_cancelled',
         read: false,
       });
+      if (notifyError) notifyFailures.push(c);
 
       sendNotificationEmail({
         type: 'booking_cancellation',
@@ -364,11 +373,34 @@ export function BlockoutSheet({
       });
     }
 
+    // Fail closed: if any conflicting reservation could not be cancelled,
+    // do not create the blockout over it. This isn't a single atomic
+    // transaction (bookings that WERE already cancelled above stay
+    // cancelled even if a later one in the loop fails), but it does
+    // guarantee the blockout itself is never saved while a conflicting
+    // reservation is still confirmed, and the admin is told exactly what
+    // still needs attention instead of seeing a false "success".
+    if (cancelFailures.length > 0) {
+      setResolving(false);
+      setConflicts(cancelFailures);
+      platformAlert(
+        'Some Reservations Were Not Cancelled',
+        `${cancelFailures.length} of ${toResolve.length} conflicting reservation(s) could not be cancelled, so the blockout was NOT created. Please resolve ${cancelFailures.length === 1 ? 'it' : 'them'} and try again.`,
+      );
+      return;
+    }
+
     const err = await insertBlockout();
     setResolving(false);
     if (err) {
       platformAlert('Could Not Save Blockout', err);
       return;
+    }
+    if (notifyFailures.length > 0) {
+      platformAlert(
+        'Blockout Saved — Some Notifications Failed',
+        `The blockout was created and the conflicting reservation(s) were cancelled, but ${notifyFailures.length} of ${toResolve.length} resident notification(s) failed to send. You may want to follow up with them directly.`,
+      );
     }
     onSaved();
     onClose();
