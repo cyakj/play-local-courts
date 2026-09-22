@@ -1,7 +1,8 @@
 # The Greens V1 — Launch Readiness Matrix
 
-Branch: `greens-v1` @ `2728ddf` (3 commits ahead of `9c746c9`/`0817e53`, the post-Turbo-Release baseline
-this file originally described — see §9 for the post-`/verify` remediation pass that produced them).
+Branch: `greens-v1` @ `4498584` (4 commits ahead of `9c746c9`/`0817e53`, the post-Turbo-Release baseline
+this file originally described — see §9 for the post-`/verify` remediation pass, §10 for the
+follow-up `profiles` cross-HOA fix).
 `main` untouched, unchanged at `c05b94131bf3896f9d94d4dc97057d2b85b56ea2`.
 
 Product mode: `EXPO_PUBLIC_PRODUCT_MODE=community` (the launch target). Tennis mode is the code default and
@@ -162,3 +163,89 @@ Deleted after confirming each row was self-labeled as test data (e.g. `court_mai
 1. `9d7ed88` fix(security): close hoas RLS enumeration and admin-shell role bypass (A + B)
 2. `87243bb` fix(admin): prevent close-before-open amenity hours (C)
 3. `2728ddf` fix(admin): correct mislabeled note field, raw category text, and low-contrast text in Community Detail (E + F + G)
+
+## 10. Follow-up: `profiles` cross-HOA enumeration (2026-09-22) — confirmed P0, fixed
+
+The `profiles` leak flagged as "noticed but not fixed" in §9 was investigated as its own scoped
+follow-up and **confirmed live**, then fixed. No code review, redesign, SDK 57, or another `/verify`
+pass was started.
+
+### Reproduction (before fix)
+
+Authenticated REST query as the resident test account (`28-027@sanignacio.pr`, sole approved
+membership: The Greens):
+
+```
+GET /rest/v1/profiles?select=id,full_name,hoa_id,phone_number,date_of_birth,gender,zip_code,unit_number
+```
+
+Returned **all 7 profile rows in the project**, including `Ramon Dominguez` — admin of a completely
+different HOA ("The Fairways") — with his `phone_number`. Anonymous (no token) access returned `[]`
+(anon was never the vector). Root cause confirmed via `pg_policy`: `"Discoverable profiles visible to
+authenticated users"` (`USING (location_visible = true)`, role `authenticated`, no HOA scoping)
+OR'd with the correctly-scoped `"Members can view profiles in same HOA"` policy — and every profile
+row in the project has `location_visible = true` (the column's default), so this one permissive
+policy alone exposed the whole table to any signed-in user, regardless of HOA. Traced to migration
+`20260605235104_profiles_location_visible_select_policy` — a real, intentional feature for Tennis
+mode's cross-community "Find a Partner / Find a Coach" discovery (`src/components/locker/
+FindPartner.tsx` et al.), which has no HOA concept and was never scoped for one.
+
+### Root cause and fix
+
+A profile should only be reachable through the discovery policy if its owner has **no approved HOA
+membership anywhere** — HOA-affiliated users fall back to the existing, already-correctly-scoped
+`"Members can view profiles in same HOA"` policy (own profile / same-HOA member / admin of a shared
+HOA via `is_in_same_hoa()` / `is_admin_in_same_hoa()`, both pre-existing and untouched). Added
+`is_hoa_affiliated(_user_id)` — `SECURITY DEFINER`, matching the existing `check_hoa_admin` /
+`is_in_same_hoa` / `is_admin_in_same_hoa` pattern exactly, and for the same reason: `hoa_memberships`'
+own RLS (`user_id = auth.uid()` / admin-only) would make a plain inline subquery here invisible for
+every user except the caller, silently defeating the check for anyone else's membership — confirmed
+this by reading `hoa_memberships`' policies before writing the fix, not assumed. Migration
+`20260922000420_greens_v1_scope_discoverable_profiles_to_non_hoa_users` adds the function and
+`ALTER POLICY`s the existing policy's `USING` clause to `location_visible = true AND NOT
+is_hoa_affiliated(id)`. No recursive RLS (the function queries a different table); no UI-side
+filtering involved.
+
+Before applying, inspected every Stage-1 admin/resident screen that queries `profiles` directly
+(`(cm)/community/[hoaId].tsx` Members/reporters, `(admin)/pending-requests.tsx`, `(cm)/index.tsx`,
+`(resident)/*` own-profile reads) — all are same-HOA or own-profile lookups already covered by
+`"Members can view profiles in same HOA"`, independent of the Discoverable policy. One workflow
+needed care: `pending-requests.tsx` looks up applicant profiles by `user_id` from
+`community_join_requests`, and a pending applicant's `hoa_memberships` row is `status='pending'`, not
+`'approved'` — so `is_admin_in_same_hoa()` doesn't cover them either. Confirmed this remains safe: a
+pending applicant has no *approved* membership yet, so `is_hoa_affiliated()` is `false` for them and
+they stay visible through the (now-scoped) discovery policy exactly as before — this pass didn't
+introduce a new dependency here, it just didn't break the pre-existing one.
+
+### Post-fix live proof
+
+Same REST query, resident token, after the migration: **6 rows** — own profile, the one same-HOA
+member (`Ron Glickman`, The Greens), and 4 genuinely unaffiliated profiles (no `hoa_memberships` row
+at all — confirmed via SQL join before concluding this). `Ramon Dominguez` (Fairways admin) no longer
+returned. Anonymous: still `[]`. The legitimate multi-HOA admin test account (`thegreens.tennis@gmail.com`
+— approved admin of DBE + The Greens, approved resident of The Fairways, confirmed via
+`hoa_memberships`) still sees all 7 rows, unchanged — every one of them is a real membership/admin
+relationship for that account, none of it routed through the now-restricted Discoverable policy.
+Admin's Community Detail → Members tab for The Greens re-checked live: still renders both members by
+name (`Cyrus Josephs`, `Ron Glickman`) correctly. Pending Requests screen still loads with no errors
+(no live pending applicant existed to exercise the edge case above, but the query path is unaffected).
+
+### Regression
+
+No application code changed (DB migration only). `npx tsc --noEmit`: 1681 error lines, unchanged.
+Playwright `profile-settings` + resident core (`announcements`, `courts`, `docs`, `reports`):
+**153 passed / 0 failed**, identical to §9's baseline. `main` reconfirmed untouched at `c05b941`.
+
+### Remaining risk
+
+This is now the platform-wide behavior: any user with **zero** approved HOA memberships anywhere
+(a pure Tennis-mode player) is still discoverable to any other authenticated user via
+`location_visible`, unchanged from before — that is the intended, unmodified Tennis-mode feature, not
+a Greens V1 concern. Whether the discovery feature's *columns* (it still exposes `zip_code`, `gender`,
+etc. for non-HOA users, by original design) are appropriate for that audience was not evaluated here —
+out of scope for this HOA-tenant-isolation fix.
+
+### Commit
+
+`4498584` `fix(security): scope profiles discovery to non-HOA users, close cross-HOA profile leak` —
+pushed to `origin/greens-v1`.
