@@ -35,6 +35,9 @@ import { isCommunityMode, isTennisMode } from '@/config/productMode';
 
 const OUTDOOR_TYPES = new Set(['tennis', 'pickleball', 'basketball', 'pool', 'outdoor']);
 const TENNIS_TYPES = new Set(['tennis']);
+// Must match the RAISE EXCEPTION message in enforce_amenity_booking_rules()
+// (supabase/migrations/..._greens_v1_enforce_blockout_conflicts.sql) exactly.
+const BLOCKOUT_CONFLICT_MESSAGE = 'This time is unavailable because the amenity is blocked for maintenance';
 
 function isOutdoor(courtType: string): boolean {
   return OUTDOOR_TYPES.has(courtType.toLowerCase());
@@ -352,6 +355,16 @@ export default function CourtsScreen() {
   }
 
   // ── Booking sheet open ──────────────────────────────────────────────────────
+  async function fetchMaintenanceForSheet(courtId: string) {
+    try {
+      // Not date-filtered server-side — a blockout row can span a date
+      // range (end_date), so every candidate row is fetched once and
+      // range-checked per-date client-side via isMaintenanceActiveOnDate.
+      const { data } = await supabase.from('court_maintenance').select('date, end_date, start_time, end_time, description').eq('court_id', courtId);
+      setSheetMaintenanceAll((data ?? []) as MaintenanceBlock[]);
+    } catch { setSheetMaintenanceAll([]); }
+  }
+
   async function openBookingSheet(court: Court, preselectedSlot?: string) {
     const today = new Date();
     setSheetDate(today);
@@ -374,15 +387,7 @@ export default function CourtsScreen() {
           setSheetRules(data ?? null);
         } catch { setSheetRules(null); }
       })(),
-      (async () => {
-        try {
-          // Not date-filtered server-side — a blockout row can span a date
-          // range (end_date), so every candidate row is fetched once and
-          // range-checked per-date client-side via isMaintenanceActiveOnDate.
-          const { data } = await supabase.from('court_maintenance').select('date, end_date, start_time, end_time, description').eq('court_id', court.id);
-          setSheetMaintenanceAll((data ?? []) as MaintenanceBlock[]);
-        } catch { setSheetMaintenanceAll([]); }
-      })(),
+      fetchMaintenanceForSheet(court.id),
     ]);
     setSheetRulesLoading(false);
   }
@@ -554,6 +559,15 @@ export default function CourtsScreen() {
       setBookingError('That time slot was just taken — please pick another.');
       await fetchBookingsForDate(dateStr);
       await loadCourts();
+    } else if (error.message === BLOCKOUT_CONFLICT_MESSAGE) {
+      // A maintenance blockout can be created by an admin while this sheet
+      // is open with stale slot data — refetch bookings AND maintenance so
+      // the now-blocked time disappears instead of letting the resident
+      // retry the same request.
+      setBookingError('This time is unavailable because the amenity is blocked for maintenance.');
+      await fetchBookingsForDate(dateStr);
+      await loadCourts();
+      await fetchMaintenanceForSheet(bookingSheet.courtId);
     } else {
       setBookingError(error.message ?? 'Booking failed. Please try again.');
     }

@@ -26,6 +26,9 @@ import type { ThemeTokens } from '@/constants/theme-tokens';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+// Must match the RAISE EXCEPTION message in enforce_amenity_booking_rules()
+// (supabase/migrations/..._greens_v1_enforce_blockout_conflicts.sql) exactly.
+const BLOCKOUT_CONFLICT_MESSAGE = 'This time is unavailable because the amenity is blocked for maintenance';
 
 const AMENITY_LABELS: Record<string, string> = {
   tennis: 'Court', pickleball: 'Court', pool: 'Pool', barbecue: 'BBQ Area',
@@ -245,14 +248,19 @@ export default function AmenityBookScreen() {
     setConfirming(false);
     if (error) {
       const takenSlot = error.code === '23P01';
+      const blocked = error.message === BLOCKOUT_CONFLICT_MESSAGE;
       platformAlert(
-        takenSlot ? 'Slot No Longer Available' : 'Booking Failed',
+        takenSlot ? 'Slot No Longer Available' : blocked ? 'Amenity Unavailable' : 'Booking Failed',
         takenSlot
           ? 'That time was just booked by someone else. Please pick another slot.'
-          : (error.message || 'Could not create this booking. Please try again.'),
+          : blocked
+            ? 'This time is unavailable because the amenity is blocked for maintenance.'
+            : (error.message || 'Could not create this booking. Please try again.'),
       );
-      if (takenSlot) {
-        // Refresh booked slots so the taken slot shows as unavailable.
+      if (takenSlot || blocked) {
+        // Refresh booked slots so the now-unavailable time shows as such —
+        // relevant both for a race (takenSlot) and for a blockout an admin
+        // may have just created while this screen was open with stale data.
         const { data: refreshed } = await supabase
           .from('bookings')
           .select('start_time, end_time')
