@@ -542,3 +542,131 @@ The 4 pre-existing Minor findings from the code review (message-send error swall
 policy, one migration missing `IF EXISTS`, orphaned `/amenity-book` route) remain untouched. No new
 findings surfaced by this fix. §7's launch-blocker list (real-device QA, Home/Schedule automated
 coverage, password-reset re-verification, `npm run lint`, pre-existing security advisors) is unchanged.
+
+## 13. Final P1 remediation — server-side blockout enforcement (2026-09-22)
+
+`verification-before-completion` found the last open Important/P1 item: a resident could create a
+confirmed booking that overlaps an active `court_maintenance` blockout via the raw Supabase API. This
+section fixes it — the last required functional item before the app is ready for SDK 57 / real-device
+QA.
+
+### Reproduction
+
+Live, with controlled test data: admin created a real blockout (Greens Pool, 07:00–18:00), resident then
+`POST`ed a confirmed booking for 09:00–10:00 directly via REST — `HTTP 201`, accepted, squarely inside
+the blocked window. Neither `bookings_no_overlapping_confirmed` (only checks other `bookings` rows) nor
+`enforce_amenity_booking_rules` (only checked `amenity_rules`) referenced `court_maintenance` at all;
+blockout filtering existed only client-side in `courts.tsx`'s slot generation. Test rows deleted after
+confirming.
+
+### Root cause and semantics (mirrored from the existing product, not invented)
+
+`court_maintenance` has no status/enabled/deleted column — every row is implicitly active; removal is a
+real `DELETE`. `date`/`end_date` form an inclusive day range (`end_date IS NULL` = single day), and "All
+Day" is persisted as `start_time`/`end_time` = the amenity's own open/close hours
+(`BlockoutSheet.insertBlockout()`), not a `00:00–23:59` sentinel — both confirmed by reading
+`BlockoutSheet.findConflicts()`, the app's own existing authoritative conflict logic, and by inspecting
+live rows.
+
+### Fix
+
+Migration `20260922024947` extends the same trigger added for I2 (`enforce_amenity_booking_rules`)
+rather than adding an unrelated second one. It now also fires on `UPDATE` — guarded so it only
+re-validates when `court_id`/`date`/`start_time`/`end_time` actually change, so the app's one real
+`UPDATE` call site (`my-reservations.tsx`'s cancel, which only ever sets `status`) is untouched and can
+never be silently flipped back to `'pending'`. The overlap check itself:
+
+```sql
+NEW.status IN ('confirmed','pending') AND EXISTS (
+  SELECT 1 FROM court_maintenance cm
+  WHERE cm.court_id = NEW.court_id
+    AND NEW.date BETWEEN cm.date AND COALESCE(cm.end_date, cm.date)
+    AND NEW.start_time < cm.end_time
+    AND NEW.end_time > cm.start_time
+)
+```
+
+— half-open, so a booking ending exactly when a blockout starts (or starting exactly when one ends) is
+not a conflict. No admin bypass was added or existed to preserve: the codebase has no admin-side
+`INSERT` into `bookings` at all (only `courts.tsx`/`amenity-book.tsx`, both resident-facing), so the
+check applies unconditionally. `BlockoutSheet`'s own admin conflict-resolution flow inserts into
+`court_maintenance`, a different table, and is untouched.
+
+### Edge cases A–N — all proven live
+
+| # | Case | Result |
+|---|---|---|
+| A | Entirely inside blockout | REJECTED |
+| B | Partial overlap at blockout start | REJECTED |
+| C | Partial overlap at blockout end | REJECTED |
+| D | Spans entire blockout | REJECTED |
+| E | Ends exactly when blockout begins | ALLOWED |
+| F | Starts exactly when blockout ends | ALLOWED |
+| G | Same time, different amenity | ALLOWED (correctly `pending` — requires_admin_approval still applied, M) |
+| H | Same amenity, non-blocked date | ALLOWED |
+| I | All-day blockout | blocks every time in the amenity's operating hours |
+| J | Multi-day blockout | blocks every day in the range (both boundary days tested) |
+| K | Normal reservation, no blockout | succeeds, unaffected |
+| L | Double-booking constraint (`23P01`) | still fires correctly |
+| M | `requires_admin_approval` | still forces `pending` (see G) |
+| N | Advance window / duration / hours enforcement | all re-verified rejecting correctly |
+
+Also proved beyond the requested list: a direct `UPDATE` attempting to move an existing booking's time
+into a blocked interval is rejected the same way; the existing cancel flow (`status` only) is completely
+unaffected by the trigger now also firing on `UPDATE`.
+
+### UI error handling
+
+Both `courts.tsx` and `amenity-book.tsx` now recognize the blockout rejection by its exact message
+(`error.message === BLOCKOUT_CONFLICT_MESSAGE`, a constant kept in sync with the trigger's
+`RAISE EXCEPTION` text) and show a friendly message — no raw Postgres error ever reaches the resident,
+matching the existing pattern already used for `23P01`. `courts.tsx` also now refetches both bookings
+*and* `court_maintenance` (previously fetched once when the sheet opens and never refreshed) so a
+blockout created by an admin while the sheet is open no longer leaves the resident looking at stale,
+already-blocked slots. Live-proved: with a blockout pre-existing before the sheet opens, the blocked
+half-hour is correctly absent from the rendered slot list while other times remain selectable — normal
+client-side filtering is unaffected by this pass.
+
+### Regression
+
+New file `tests/blockout-enforcement.spec.ts` (4 tests: direct-API overlap rejection, boundary
+non-overlap success, normal reservation success with no blockout, and UI slot filtering). Full
+regression: `announcements`, `courts`, `docs`, `reports`, `profile-settings`, plus the new blockout
+suite — **157 passed / 0 failed** (153 prior baseline + 4 new). `npx tsc --noEmit`: **1684**, confirmed
+via `git stash` A/B against HEAD (1684 with the fix stashed out, 1684 with it applied) — 0 new errors
+from this change; the pre-existing count itself had already drifted from the 1681 figure recorded
+earlier in this doc to 1684 by unrelated intervening commits, not from this fix.
+
+### Delta verification (Prompt 2, 2026-09-23)
+
+A second session picked this fix up uncommitted (implemented and migration already live, but never
+committed and never re-verified end-to-end) and ran a full focused delta pass before committing:
+
+- **Blockout enforcement, all 10 documented edge cases (partial-overlap start/end, full-span, exact
+  boundary allow on both sides, different-amenity allow, non-blocked-date allow, all-day blockout,
+  multi-day blockout)** — re-proven live via direct `SECURITY DEFINER`-bypassing SQL against the
+  trigger itself (not just the app's REST path), all 8 additional cases **PASS** on top of the 4 already
+  covered by `blockout-enforcement.spec.ts`.
+- **Regression (double-booking EXCLUDE constraint, back-to-back booking, `requires_admin_approval`,
+  advance-booking-days window, duration cap, operating hours, max-reservations-per-day cap, cancellation
+  + slot reopening, `min_cancellation_hours` server enforcement)** — re-proven live, **9/9 PASS**. The
+  `min_cancellation_hours` check was exercised as a real resident (via REST, since it reads `auth.uid()`)
+  with a same-day booking inside the 24h window: resident cancel attempt correctly rejected with
+  `23514`; admin cancel on the same row correctly exempted.
+- **Security smoke (resident HOA enumeration, resident cross-HOA profile visibility, membership
+  self-promotion, spoofed `admin_id` creation, legitimate Add Community, notification content
+  rewrite-via-mark-as-read)** — re-proven live via REST as the real resident/admin test accounts,
+  **6/6 PASS**.
+- All test data created during this pass (SQL-level and REST-level) was deleted/cancelled immediately
+  after each check; a final sweep query confirmed zero leftover rows.
+- Full Playwright regression + `tsc` baseline as above.
+
+**GREENS V1 FUNCTIONAL GATE: PASSED.** No Critical/P0 or Important/P1 defects outstanding. Greens V1 is
+ready to proceed to the isolated SDK 57 upgrade, subject to the pre-existing, explicitly-deferred items
+in §7 (real-device QA, Home/Schedule automated coverage, password-reset re-verification, `npm run lint`,
+pre-existing security advisors) and the 4 deferred Minor code-review findings — none of which this pass
+was scoped to address.
+
+### Commit
+
+`b572eb5` — fix(booking): enforce court_maintenance blockouts at the DB boundary
