@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,15 +9,27 @@ import {
   View,
 } from 'react-native';
 import {
-  ChevronDown, ChevronRight, Download, Eye, Search,
+  AlertCircle, CheckCircle2, Download, Eye, File as FileIcon, FileImage, FileSpreadsheet,
+  FileText, FolderOpen, RefreshCw, Search, X,
 } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import {
-  Colors, FontFamily, FontSize, MaxWidth, Radius, Shadow, Spacing,
+  Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing,
 } from '@/constants/design';
 import { Header } from '@/components/ui/Header';
-import { useCommunityName } from '@/hooks/useCommunityName';
+import { useActiveCommunity } from '@/hooks/useActiveCommunity';
+import { useTheme } from '@/context/ThemeContext';
+import type { ThemeTokens } from '@/constants/theme-tokens';
+import {
+  DOCUMENT_CATEGORIES,
+  categoryLabel,
+  failureMessage,
+  fileKind,
+  formatBytes,
+  type FileKind,
+} from '@/lib/communityDocuments';
+import { downloadDocument, viewDocument } from '@/lib/communityDocumentActions';
 
 interface HoaDocument {
   id: string;
@@ -31,112 +42,114 @@ interface HoaDocument {
   created_at: string;
 }
 
-const CATEGORIES = [
-  { key: 'rules_bylaws', label: 'Rules & Bylaws' },
-  { key: 'meeting_minutes', label: 'Meeting Minutes' },
-  { key: 'financial_statements', label: 'Financial Statements' },
-  { key: 'maintenance_records', label: 'Maintenance Records' },
-  { key: 'forms_applications', label: 'Forms & Applications' },
-];
-
-const FILE_EMOJI: Record<string, string> = {
-  pdf: '📄', doc: '📝', docx: '📝',
-  xls: '📊', xlsx: '📊', csv: '📊',
-  png: '🖼️', jpg: '🖼️', jpeg: '🖼️',
+const KIND_ICON: Record<FileKind, typeof FileText> = {
+  pdf: FileText,
+  doc: FileText,
+  sheet: FileSpreadsheet,
+  image: FileImage,
+  file: FileIcon,
 };
 
-function getFileEmoji(fileName: string | null): string {
-  if (!fileName) return '📄';
-  const ext = fileName.split('.').pop()?.toLowerCase() ?? '';
-  return FILE_EMOJI[ext] ?? '📄';
-}
-
-function formatBytes(bytes: number | null): string {
-  if (!bytes) return '';
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
+type Busy = { id: string; action: 'view' | 'download' } | null;
+type Notice = { tone: 'success' | 'error'; title: string; body: string } | null;
 
 function isNew(createdAt: string): boolean {
   return Date.now() - new Date(createdAt).getTime() < 7 * 24 * 60 * 60 * 1000;
 }
 
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
 export default function DocsScreen() {
-  const communityName = useCommunityName();
+  const { theme } = useTheme();
+  const styles = useStyles(theme);
+  const { community, loading: communityLoading } = useActiveCommunity();
+  const hoaId = community?.hoaId;
+
   const [docs, setDocs] = useState<HoaDocument[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [search, setSearch] = useState('');
-  const [expandedCats, setExpandedCats] = useState<Set<string>>(
-    new Set(CATEGORIES.map((c) => c.key)),
-  );
+  const [category, setCategory] = useState<string | null>(null);
+  const [busy, setBusy] = useState<Busy>(null);
+  const [notice, setNotice] = useState<Notice>(null);
+
+  const load = useCallback(async () => {
+    if (!hoaId) return;
+    setLoading(true);
+    setLoadError(false);
+    // Scoped to the active community; RLS additionally limits residents to
+    // `all_residents` documents of communities they are an approved member of.
+    const { data, error } = await supabase
+      .from('hoa_documents')
+      .select('id, hoa_id, title, category, file_name, file_url, file_size_bytes, created_at')
+      .eq('hoa_id', hoaId)
+      .eq('visibility', 'all_residents')
+      .order('created_at', { ascending: false });
+    if (error) {
+      setLoadError(true);
+      setDocs([]);
+    } else {
+      setDocs((data ?? []) as HoaDocument[]);
+    }
+    setLoading(false);
+  }, [hoaId]);
 
   useEffect(() => {
-    async function load() {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const user = session?.user ?? null;
-        if (!user) { setLoading(false); return; }
-
-        const { data: membership } = await supabase
-          .from('hoa_memberships')
-          .select('hoa_id')
-          .eq('user_id', user.id)
-          .eq('status', 'approved')
-          .limit(1)
-          .single();
-
-        const hoaId = membership?.hoa_id;
-        if (!hoaId) { setLoading(false); return; }
-
-        const { data } = await supabase
-          .from('hoa_documents')
-          .select('id, hoa_id, title, category, file_name, file_url, file_size_bytes, created_at')
-          .eq('hoa_id', hoaId)
-          .eq('visibility', 'all_residents')
-          .order('created_at', { ascending: false });
-
-        setDocs((data ?? []) as HoaDocument[]);
-        setLoading(false);
-      } catch {
-        setLoading(false);
-      }
-    }
+    if (communityLoading) return;
+    if (!hoaId) { setLoading(false); return; }
     load();
-  }, []);
+  }, [communityLoading, hoaId, load]);
 
-  function toggleCat(key: string) {
-    setExpandedCats((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+  async function run(doc: HoaDocument, action: 'view' | 'download') {
+    if (busy) return;
+    setBusy({ id: doc.id, action });
+    setNotice(null);
+    const result = action === 'view' ? await viewDocument(doc) : await downloadDocument(doc);
+    setBusy(null);
+    if (!result.ok) {
+      const m = failureMessage(result.failure);
+      setNotice({ tone: 'error', title: m.title, body: `${doc.title}: ${m.body}` });
+    } else if (action === 'download') {
+      setNotice({
+        tone: 'success',
+        title: 'Document ready',
+        body: `Use “Save to Files” in the share sheet to keep ${doc.title} on this device.`,
+      });
+    }
   }
 
-  async function openDoc(doc: HoaDocument) {
-    if (!doc.file_url) return;
-    const canOpen = await Linking.canOpenURL(doc.file_url);
-    if (canOpen) Linking.openURL(doc.file_url);
-  }
-
-  const filtered = docs.filter(
-    (d) => !search
-      || d.title.toLowerCase().includes(search.toLowerCase())
-      || d.category.toLowerCase().includes(search.toLowerCase()),
+  const presentCategories = useMemo(
+    () => DOCUMENT_CATEGORIES.filter((c) => docs.some((d) => d.category === c.key)),
+    [docs],
   );
 
-  const groupedCats = CATEGORIES.map((cat) => ({
-    ...cat,
-    docs: filtered.filter((d) => d.category === cat.key),
-  })).filter((cat) => cat.docs.length > 0);
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return docs.filter((d) => {
+      if (category && d.category !== category) return false;
+      if (!q) return true;
+      return d.title.toLowerCase().includes(q)
+        || (d.file_name ?? '').toLowerCase().includes(q)
+        || categoryLabel(d.category).toLowerCase().includes(q);
+    });
+  }, [docs, search, category]);
+
+  const grouped = useMemo(() => {
+    const keys = [...new Set(filtered.map((d) => d.category))];
+    keys.sort((a, b) => {
+      const ia = DOCUMENT_CATEGORIES.findIndex((c) => c.key === a);
+      const ib = DOCUMENT_CATEGORIES.findIndex((c) => c.key === b);
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+    });
+    return keys.map((key) => ({ key, label: categoryLabel(key), docs: filtered.filter((d) => d.category === key) }));
+  }, [filtered]);
 
   return (
     <View style={styles.screen}>
+      <Header variant="resident" />
 
-      <Header variant="resident" communityName={communityName} />
-
-      {/* ── Hero title ──────────────────────────────────────────────────── */}
       <View style={styles.hero}>
         <Text style={styles.heroLabel}>DOCUMENTS</Text>
         <Text testID="docs-heading" style={styles.heroTitle}>Community Documents</Text>
@@ -145,117 +158,163 @@ export default function DocsScreen() {
         </Text>
       </View>
 
-      {/* ── Body ────────────────────────────────────────────────────────── */}
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
         <View style={{ maxWidth: MaxWidth, width: '100%', alignSelf: 'center' }}>
 
-          {/* Search */}
           <View style={styles.searchRow}>
-            <Search color={Colors.textMuted} size={16} strokeWidth={1.5} />
+            <Search color={theme.textMuted} size={18} strokeWidth={1.75} />
             <TextInput
               testID="search-input"
               style={styles.searchInput}
               value={search}
               onChangeText={setSearch}
-              placeholder="Search documents…"
-              placeholderTextColor={Colors.textPlaceholder}
+              placeholder="Search documents"
+              placeholderTextColor={theme.textMuted}
+              returnKeyType="search"
+              autoCorrect={false}
+              accessibilityLabel="Search documents"
             />
+            {search.length > 0 && (
+              <TouchableOpacity
+                onPress={() => setSearch('')}
+                accessibilityLabel="Clear search"
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <X color={theme.textMuted} size={18} strokeWidth={1.75} />
+              </TouchableOpacity>
+            )}
           </View>
 
-          {loading ? (
-            <View style={styles.loadingBox}>
-              <ActivityIndicator color={Colors.accentCyan} size="large" />
+          {presentCategories.length > 1 && (
+            <View style={styles.chipRow} testID="category-filters">
+              {[{ key: null as string | null, label: 'All' }, ...presentCategories].map((c) => {
+                const active = category === c.key;
+                return (
+                  <TouchableOpacity
+                    key={c.key ?? 'all'}
+                    testID={`category-chip-${c.key ?? 'all'}`}
+                    style={[styles.chip, active && styles.chipActive]}
+                    onPress={() => setCategory(c.key)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}>
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>{c.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+
+          {notice && (
+            <View
+              testID="doc-notice"
+              style={[styles.notice, notice.tone === 'error' ? styles.noticeError : styles.noticeSuccess]}>
+              {notice.tone === 'error'
+                ? <AlertCircle color={Colors.negative} size={20} strokeWidth={1.75} />
+                : <CheckCircle2 color={Colors.positive} size={20} strokeWidth={1.75} />}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.noticeTitle}>{notice.title}</Text>
+                <Text style={styles.noticeBody}>{notice.body}</Text>
+              </View>
+              <TouchableOpacity onPress={() => setNotice(null)} accessibilityLabel="Dismiss message"
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <X color={theme.textSecondary} size={18} strokeWidth={1.75} />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {loading || communityLoading ? (
+            <View testID="docs-loading" style={styles.stateBox}>
+              <ActivityIndicator color={theme.cyanOnLight} size="large" />
+              <Text style={styles.stateBody}>Loading documents…</Text>
+            </View>
+          ) : loadError ? (
+            <View testID="docs-error" style={styles.stateBox}>
+              <AlertCircle color={Colors.negative} size={36} strokeWidth={1.5} />
+              <Text style={styles.stateTitle}>Couldn’t load documents</Text>
+              <Text style={styles.stateBody}>Check your connection and try again.</Text>
+              <TouchableOpacity style={styles.retryBtn} onPress={load} accessibilityRole="button">
+                <RefreshCw color={theme.cyanOnLight} size={16} strokeWidth={1.75} />
+                <Text style={styles.retryText}>Try again</Text>
+              </TouchableOpacity>
             </View>
           ) : filtered.length === 0 ? (
-            <View testID="docs-empty" style={styles.emptyBox}>
-              <Text style={styles.emptyTitle}>No documents</Text>
-              <Text style={styles.emptySubtitle}>
-                Your HOA hasn't uploaded any documents yet.
+            <View testID="docs-empty" style={styles.stateBox}>
+              <FolderOpen color={theme.textMuted} size={36} strokeWidth={1.5} />
+              <Text style={styles.stateTitle}>
+                {docs.length === 0 ? 'No documents yet' : 'No matching documents'}
+              </Text>
+              <Text style={styles.stateBody}>
+                {docs.length === 0
+                  ? 'Your community hasn’t shared any documents yet.'
+                  : 'Try a different search or category.'}
               </Text>
             </View>
           ) : (
-            groupedCats.map((cat) => {
-              const newCount = cat.docs.filter((d) => isNew(d.created_at)).length;
-              const isExpanded = expandedCats.has(cat.key);
-              return (
-                <View key={cat.key} testID="category-section" style={styles.catSection}>
+            grouped.map((group) => (
+              <View key={group.key} testID="category-section" style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Text testID="category-label" style={styles.sectionLabel}>{group.label.toUpperCase()}</Text>
+                  <Text style={styles.sectionCount}>{group.docs.length}</Text>
+                </View>
 
-                  {/* Category header */}
-                  <TouchableOpacity
-                    style={styles.catHeader}
-                    onPress={() => toggleCat(cat.key)}>
-                    <View style={styles.catAccentBar} />
-                    <Text testID="category-label" style={styles.catLabel}>{cat.label}</Text>
-                    {newCount > 0 ? (
-                      <View style={[styles.catCountPill, styles.catNewPill]}>
-                        <Text style={styles.catNewText}>{newCount} new</Text>
-                      </View>
-                    ) : (
-                      <View style={styles.catCountPill}>
-                        <Text style={styles.catCountText}>{cat.docs.length}</Text>
-                      </View>
-                    )}
-                    {isExpanded
-                      ? <ChevronDown color={Colors.textMuted} size={16} strokeWidth={1.5} />
-                      : <ChevronRight color={Colors.textMuted} size={16} strokeWidth={1.5} />}
-                  </TouchableOpacity>
-
-                  {/* Document rows */}
-                  {isExpanded && cat.docs.map((doc) => (
-                    <TouchableOpacity
-                      key={doc.id}
-                      testID="doc-card"
-                      style={styles.docRow}
-                      onPress={() => openDoc(doc)}
-                      activeOpacity={0.7}>
-
-                      {isNew(doc.created_at) && <View style={styles.newDot} />}
-
-                      <View style={styles.fileIconBox}>
-                        <Text style={styles.fileIconEmoji}>
-                          {getFileEmoji(doc.file_name)}
-                        </Text>
+                {group.docs.map((doc) => {
+                  const { kind, label: typeLabel } = fileKind(doc.file_name);
+                  const Icon = KIND_ICON[kind];
+                  const size = formatBytes(doc.file_size_bytes);
+                  const viewing = busy?.id === doc.id && busy.action === 'view';
+                  const downloading = busy?.id === doc.id && busy.action === 'download';
+                  const disabled = !!busy;
+                  return (
+                    <View key={doc.id} testID="doc-card" style={styles.card}>
+                      <View style={styles.cardTop}>
+                        <View style={styles.fileIconBox}>
+                          <Icon color={theme.cyanOnLight} size={22} strokeWidth={1.6} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.docTitle} numberOfLines={2} ellipsizeMode="tail">{doc.title}</Text>
+                          <View style={styles.metaRow}>
+                            <Text style={styles.typeTag}>{typeLabel}</Text>
+                            {!!size && <Text style={styles.docMeta}>{size}</Text>}
+                            <Text style={styles.docMeta}>{formatDate(doc.created_at)}</Text>
+                            {isNew(doc.created_at) && <Text style={styles.newTag}>NEW</Text>}
+                          </View>
+                        </View>
                       </View>
 
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.docTitle} numberOfLines={2}>
-                          {doc.title}
-                        </Text>
-                        <Text style={styles.docMeta}>
-                          {new Date(doc.created_at).toLocaleDateString('en-US', {
-                            month: 'short', day: 'numeric', year: 'numeric',
-                          })}
-                          {doc.file_size_bytes
-                            ? ` · ${formatBytes(doc.file_size_bytes)}`
-                            : ''}
-                        </Text>
-                      </View>
-
-                      <TouchableOpacity
-                        testID="doc-eye-btn"
-                        style={styles.docActionBtn}
-                        onPress={() => openDoc(doc)}
-                        hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
-                        <Eye color={Colors.accentCyan} size={16} strokeWidth={1.5} />
-                      </TouchableOpacity>
-
-                      {doc.file_url && (
+                      <View style={styles.actions}>
+                        <TouchableOpacity
+                          testID="doc-eye-btn"
+                          style={[styles.actionBtn, styles.viewBtn, disabled && styles.actionDisabled]}
+                          onPress={() => run(doc, 'view')}
+                          disabled={disabled}
+                          accessibilityRole="button"
+                          accessibilityLabel={`View ${doc.title}`}>
+                          {viewing
+                            ? <ActivityIndicator size="small" color={theme.cyanOnLight} />
+                            : <Eye color={theme.cyanOnLight} size={18} strokeWidth={1.75} />}
+                          <Text style={styles.viewText}>{viewing ? 'Opening…' : 'View'}</Text>
+                        </TouchableOpacity>
                         <TouchableOpacity
                           testID="doc-download-btn"
-                          style={[styles.docActionBtn, styles.docDownloadBtn]}
-                          onPress={() => openDoc(doc)}
-                          hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
-                          <Download color={Colors.accentCyan} size={16} strokeWidth={1.5} />
+                          style={[styles.actionBtn, styles.downloadBtn, disabled && styles.actionDisabled]}
+                          onPress={() => run(doc, 'download')}
+                          disabled={disabled}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Download ${doc.title}`}>
+                          {downloading
+                            ? <ActivityIndicator size="small" color={Colors.white} />
+                            : <Download color={Colors.white} size={18} strokeWidth={1.75} />}
+                          <Text style={styles.downloadText}>{downloading ? 'Downloading…' : 'Download'}</Text>
                         </TouchableOpacity>
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              );
-            })
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            ))
           )}
         </View>
       </ScrollView>
@@ -263,178 +322,167 @@ export default function DocsScreen() {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.pageBg },
+function useStyles(theme: ThemeTokens) {
+  return useMemo(() => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: theme.pageBg },
 
   hero: {
-    backgroundColor: Colors.headerBg,
+    backgroundColor: theme.headerBg,
     paddingHorizontal: Spacing.pagePx,
-    paddingTop: 8,
+    paddingTop: 12,
     paddingBottom: 24,
   },
   heroLabel: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: FontSize.metadata,
-    color: Colors.accentCyan,
-    letterSpacing: 2.2,
-    marginBottom: 4,
+    fontFamily: FontFamily.jetbrainsMonoSemiBold,
+    fontSize: FontSize.eyebrow,
+    color: Colors.cyan,
+    letterSpacing: 2,
+    marginBottom: 6,
   },
   heroTitle: {
-    fontFamily: FontFamily.manropeBlack,
+    fontFamily: FontFamily.spaceGroteskBold,
     fontSize: 32,
-    color: Colors.white,
-    lineHeight: 36,
+    color: '#FFFFFF',
+    lineHeight: 38,
+    letterSpacing: -0.6,
   },
   heroSub: {
-    fontFamily: FontFamily.interRegular,
+    fontFamily: FontFamily.manropeMedium,
     fontSize: FontSize.body,
-    color: 'rgba(0,212,255,0.7)',
+    color: 'rgba(255,255,255,0.75)',
     marginTop: 6,
   },
 
-  content: { padding: Spacing.pagePx, paddingBottom: 80 },
+  content: { padding: Spacing.pagePx, paddingBottom: 96 },
 
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: Colors.white,
+    backgroundColor: theme.cardBg,
     borderRadius: Radius.input,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: theme.border,
     paddingHorizontal: 14,
-    marginBottom: 20,
-    ...Shadow,
+    minHeight: 48,
   },
   searchInput: {
     flex: 1,
-    height: 44,
-    fontFamily: FontFamily.interRegular,
+    minHeight: 48,
+    fontFamily: FontFamily.manropeMedium,
     fontSize: FontSize.body,
-    color: Colors.textPrimary,
+    color: theme.textPrimary,
   },
 
-  loadingBox: {
-    alignItems: 'center',
-    paddingVertical: 48,
-  },
-  emptyBox: {
-    alignItems: 'center',
-    paddingVertical: 48,
-    gap: 8,
-  },
-  emptyTitle: {
-    fontFamily: FontFamily.manropeBold,
-    fontSize: FontSize.sectionTitle,
-    color: Colors.navy,
-  },
-  emptySubtitle: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.body,
-    color: Colors.textMuted,
-    textAlign: 'center',
-    paddingHorizontal: 32,
-  },
-
-  catSection: {
-    backgroundColor: Colors.white,
-    borderRadius: Radius.card,
-    marginBottom: 12,
-    overflow: 'hidden',
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
+  chip: {
+    minHeight: 36,
+    paddingHorizontal: 14,
+    justifyContent: 'center',
+    borderRadius: Radius.chip,
     borderWidth: 1,
-    borderColor: Colors.border,
-    ...Shadow,
+    borderColor: theme.border,
+    backgroundColor: theme.cardBg,
   },
-  catHeader: {
+  chipActive: { borderColor: theme.selectedBorder, backgroundColor: theme.selectedBg },
+  chipText: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label, color: theme.textSecondary },
+  chipTextActive: { color: theme.cyanOnLight },
+
+  notice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginTop: 16,
+    padding: 14,
+    borderRadius: Radius.card,
+    borderWidth: 1,
+  },
+  noticeError: { backgroundColor: 'rgba(255,92,107,0.10)', borderColor: 'rgba(255,92,107,0.40)' },
+  noticeSuccess: { backgroundColor: 'rgba(47,217,139,0.10)', borderColor: 'rgba(47,217,139,0.40)' },
+  noticeTitle: { fontFamily: FontFamily.manropeBold, fontSize: FontSize.body, color: theme.textPrimary },
+  noticeBody: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label, color: theme.textSecondary, marginTop: 2, lineHeight: 20 },
+
+  stateBox: { alignItems: 'center', paddingVertical: 56, gap: 10 },
+  stateTitle: { fontFamily: FontFamily.manropeBold, fontSize: FontSize.cardTitle, color: theme.textPrimary, textAlign: 'center' },
+  stateBody: {
+    fontFamily: FontFamily.manropeMedium,
+    fontSize: FontSize.body,
+    color: theme.textSecondary,
+    textAlign: 'center',
+    paddingHorizontal: 24,
+  },
+  retryBtn: {
+    marginTop: 8,
+    minHeight: 44,
+    paddingHorizontal: 18,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
-    paddingHorizontal: 16,
     gap: 8,
+    borderRadius: Radius.button,
+    borderWidth: 1,
+    borderColor: theme.selectedBorder,
   },
-  catAccentBar: {
-    width: 3,
-    height: 16,
-    borderRadius: 2,
-    backgroundColor: Colors.accentCyan,
-    flexShrink: 0,
+  retryText: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label, color: theme.cyanOnLight },
+
+  section: { marginTop: 24 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  sectionLabel: {
+    fontFamily: FontFamily.jetbrainsMonoSemiBold,
+    fontSize: FontSize.eyebrow,
+    color: theme.textMuted,
+    letterSpacing: 1.8,
   },
-  catLabel: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: 11,
-    color: Colors.textMuted,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    flex: 1,
+  sectionCount: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: FontSize.eyebrow, color: theme.textMuted },
+
+  card: {
+    backgroundColor: theme.cardBg,
+    borderRadius: Radius.card,
+    borderWidth: 1,
+    borderColor: theme.border,
+    ...theme.shadowCard,
+    padding: 16,
+    marginBottom: 12,
+    gap: 14,
   },
-  catCountPill: {
-    backgroundColor: Colors.pageBg,
-    borderRadius: Radius.pill,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+  cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 14 },
+  fileIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: theme.surface2,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  catCountText: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: 11,
-    color: Colors.textMuted,
+  docTitle: { fontFamily: FontFamily.manropeBold, fontSize: FontSize.body, color: theme.textPrimary, lineHeight: 22 },
+  metaRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 10, rowGap: 4, marginTop: 6 },
+  typeTag: {
+    fontFamily: FontFamily.jetbrainsMonoSemiBold,
+    fontSize: FontSize.eyebrow,
+    color: theme.cyanOnLight,
+    letterSpacing: 1,
   },
-  catNewPill: { backgroundColor: Colors.accentCyan },
-  catNewText: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: 10,
-    color: Colors.white,
-    letterSpacing: 0.3,
+  docMeta: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label, color: theme.textMuted },
+  newTag: {
+    fontFamily: FontFamily.jetbrainsMonoSemiBold,
+    fontSize: FontSize.eyebrow,
+    color: theme.cyanOnLight,
+    letterSpacing: 1,
   },
 
-  docRow: {
+  actions: { flexDirection: 'row', gap: 10 },
+  actionBtn: {
+    flex: 1,
+    minHeight: 46,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-  },
-  newDot: {
-    position: 'absolute',
-    top: 8,
-    left: 8,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.accentCyan,
-  },
-  fileIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: '#E0F7FA',
-    alignItems: 'center',
     justifyContent: 'center',
-    flexShrink: 0,
+    gap: 8,
+    borderRadius: Radius.button,
   },
-  fileIconEmoji: { fontSize: 18 },
-  docTitle: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: FontSize.uiLabel,
-    color: Colors.textPrimary,
-  },
-  docMeta: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.metadata,
-    color: Colors.textMuted,
-    marginTop: 2,
-  },
-  docActionBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: Colors.pageBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  docDownloadBtn: { backgroundColor: '#E0F7FA' },
-});
+  actionDisabled: { opacity: 0.55 },
+  viewBtn: { borderWidth: 1, borderColor: theme.selectedBorder, backgroundColor: theme.selectedBg },
+  viewText: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label, color: theme.cyanOnLight },
+  downloadBtn: { backgroundColor: Colors.blue },
+  downloadText: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label, color: Colors.white },
+}), [theme]);
+}
