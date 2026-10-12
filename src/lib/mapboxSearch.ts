@@ -1,20 +1,28 @@
 import { MAPBOX_ACCESS_TOKEN, MAPBOX_SEARCH_BASE_URL } from '@/config/mapbox';
+import {
+  LocationProviderError,
+  failureKindFromStatus,
+  type LocationSuggestion,
+  type LocationValue,
+} from '@/lib/locationSearch';
 
-export type LocationSuggestion = {
-  mapboxId: string;
-  name: string;
-  placeFormatted: string;
-};
+// fetch() rejects only when the request never completed (offline, DNS, TLS). An HTTP
+// status is a provider answer and must not be reported as a connection problem.
+async function providerFetch(url: string, signal: AbortSignal): Promise<Response> {
+  let res: Response;
+  try {
+    res = await fetch(url, { signal });
+  } catch (e: any) {
+    if (e?.name === 'AbortError') throw e;
+    throw new LocationProviderError('offline', 'Network request failed');
+  }
+  if (!res.ok) {
+    throw new LocationProviderError(failureKindFromStatus(res.status), `Location provider responded ${res.status}`);
+  }
+  return res;
+}
 
-export type LocationValue = {
-  display_name: string;
-  city: string | null;
-  state_region: string | null;
-  country: string | null;
-  latitude: number;
-  longitude: number;
-  mapbox_place_id: string;
-};
+export type { LocationSuggestion, LocationValue } from '@/lib/locationSearch';
 
 export function createSessionToken(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
@@ -25,7 +33,7 @@ export async function suggestLocations(
   sessionToken: string,
   signal: AbortSignal,
 ): Promise<LocationSuggestion[]> {
-  if (!MAPBOX_ACCESS_TOKEN) return [];
+  if (!MAPBOX_ACCESS_TOKEN) throw new LocationProviderError('not-configured', 'Mapbox token not set');
 
   const params = new URLSearchParams({
     q: query,
@@ -36,10 +44,7 @@ export async function suggestLocations(
     types: 'place,locality,neighborhood,address,postcode,region',
   });
 
-  const res = await fetch(`${MAPBOX_SEARCH_BASE_URL}/suggest?${params.toString()}`, { signal });
-  if (!res.ok) {
-    throw new Error(`Mapbox suggest failed with status ${res.status}`);
-  }
+  const res = await providerFetch(`${MAPBOX_SEARCH_BASE_URL}/suggest?${params.toString()}`, signal);
   const json = await res.json();
   const suggestions = Array.isArray(json?.suggestions) ? json.suggestions : [];
 
@@ -47,6 +52,7 @@ export async function suggestLocations(
     mapboxId: s.mapbox_id,
     name: s.name ?? '',
     placeFormatted: s.place_formatted ?? s.full_address ?? '',
+    source: 'mapbox' as const,
   }));
 }
 
@@ -55,17 +61,14 @@ export async function retrieveLocation(
   sessionToken: string,
   signal: AbortSignal,
 ): Promise<LocationValue | null> {
-  if (!MAPBOX_ACCESS_TOKEN) return null;
+  if (!MAPBOX_ACCESS_TOKEN) throw new LocationProviderError('not-configured', 'Mapbox token not set');
 
   const params = new URLSearchParams({
     access_token: MAPBOX_ACCESS_TOKEN,
     session_token: sessionToken,
   });
 
-  const res = await fetch(`${MAPBOX_SEARCH_BASE_URL}/retrieve/${mapboxId}?${params.toString()}`, { signal });
-  if (!res.ok) {
-    throw new Error(`Mapbox retrieve failed with status ${res.status}`);
-  }
+  const res = await providerFetch(`${MAPBOX_SEARCH_BASE_URL}/retrieve/${mapboxId}?${params.toString()}`, signal);
   const json = await res.json();
   const feature = json?.features?.[0];
   if (!feature) return null;
