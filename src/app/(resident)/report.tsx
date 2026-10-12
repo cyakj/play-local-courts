@@ -24,6 +24,7 @@ import {
 } from '@/constants/design';
 import { Header } from '@/components/ui/Header';
 import { useTheme } from '@/context/ThemeContext';
+import { useActiveCommunity } from '@/hooks/useActiveCommunity';
 import { useCommunityName } from '@/hooks/useCommunityName';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 
@@ -132,6 +133,7 @@ export default function ReportScreen() {
   const { theme } = useTheme();
   const styles = useStyles(theme);
   const communityName = useCommunityName();
+  const { community: activeCommunity } = useActiveCommunity();
   // Facility pre-fill params (when navigated from court/amenity card)
   const params = useLocalSearchParams<{ courtId?: string; courtName?: string; facilityType?: string; returnTo?: string }>();
   const returnTo = params.returnTo ?? null;
@@ -148,7 +150,11 @@ export default function ReportScreen() {
   const [filter, setFilter] = useState<'active' | 'all' | 'resolved'>('active');
 
   // Form state
-  const [showForm, setShowForm] = useState(isCourtReport);
+  // The facility-context entry (from a court/amenity card) lands on the Reports overview;
+  // the facility form only opens once the resident chooses to start a new report.
+  const [showForm, setShowForm] = useState(false);
+  const [facilityFormOpen, setFacilityFormOpen] = useState(false);
+  const [submittedId, setSubmittedId] = useState<string | null>(null);
   const [step, setStep] = useState<1 | 2>(1);
   const [category, setCategory] = useState<string>(isCourtReport ? facilityCategories[0].key : 'plumbing');
   const [severity, setSeverity] = useState<SeverityKey>('medium');
@@ -169,15 +175,19 @@ export default function ReportScreen() {
       if (!user) { setLoading(false); return; }
       setUserId(user.id);
 
-      const { data: membership } = await supabase
-        .from('hoa_memberships')
-        .select('hoa_id')
-        .eq('user_id', user.id)
-        .eq('status', 'approved')
-        .limit(1)
-        .single();
-
-      const hId = membership?.hoa_id ?? '';
+      // Reports are scoped to the active community; fall back to the first approved
+      // membership only if the active-community store has not resolved yet.
+      let hId = activeCommunity?.hoaId ?? '';
+      if (!hId) {
+        const { data: membership } = await supabase
+          .from('hoa_memberships')
+          .select('hoa_id')
+          .eq('user_id', user.id)
+          .eq('status', 'approved')
+          .limit(1)
+          .single();
+        hId = membership?.hoa_id ?? '';
+      }
       setHoaId(hId);
 
       if (hId) {
@@ -195,12 +205,12 @@ export default function ReportScreen() {
     }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [activeCommunity?.hoaId]);
   useFocusEffect(useCallback(() => {
     load();
     if (prefilledCourtId) {
       const cats = getCategoriesForFacilityType(prefilledFacilityType);
-      setShowForm(true);
+      setFacilityFormOpen(false);
       setStep(1);
       setCategory(cats[0].key);
       setSeverity('medium');
@@ -340,16 +350,10 @@ export default function ReportScreen() {
       }
     }
 
+    setSubmittedId(inserted.id);
     setSubmitSuccess(true);
     await load();
-    setTimeout(() => {
-      if (isCourtReport) {
-        goBack();
-      } else {
-        setShowForm(false);
-        resetForm();
-      }
-    }, 1500);
+    // The confirmation stays up until the resident opens the report or returns to the list.
   }
 
   function resetForm() {
@@ -359,6 +363,7 @@ export default function ReportScreen() {
     setDescription('');
     setPhotoUri(null);
     setSubmitSuccess(false);
+    setSubmittedId(null);
     setSubmitError(null);
     setSubmitting(false);
     setUploading(false);
@@ -384,13 +389,30 @@ export default function ReportScreen() {
   }
 
   function closeForm() {
-    if (isCourtReport) {
-      goBack();
-    } else {
-      setShowForm(false);
-      resetForm();
-    }
+    setShowForm(false);
+    setFacilityFormOpen(false);
+    resetForm();
   }
+
+  function openFacilityForm() {
+    resetForm();
+    setFacilityFormOpen(true);
+  }
+
+  // Confirmation actions: open the report just filed, or go back to the Reports list.
+  const SubmitActions = () => (
+    <View style={styles.submitActions}>
+      {submittedId && (
+        <TouchableOpacity testID="view-report-btn" style={styles.primaryBtn} activeOpacity={0.85}
+          onPress={() => { const id = submittedId; closeForm(); router.push(`/report-detail/${id}` as any); }}>
+          <Text style={styles.primaryBtnLabel}>View Report</Text>
+        </TouchableOpacity>
+      )}
+      <TouchableOpacity testID="back-to-reports-btn" style={styles.secondaryBtn} activeOpacity={0.85} onPress={closeForm}>
+        <Text style={styles.secondaryBtnLabel}>Back to Reports</Text>
+      </TouchableOpacity>
+    </View>
+  );
 
   const FILTER_TABS = [
     { key: 'active',   label: 'Active',   count: activeReports.length },
@@ -401,7 +423,7 @@ export default function ReportScreen() {
   const isActive = (status: string) => ['open', 'in_progress', 'accepted', 'reopened'].includes(status);
 
   // ── Facility issue: clean form-only screen (no reports list behind it) ──
-  if (isCourtReport) {
+  if (isCourtReport && facilityFormOpen) {
     return (
       <View style={styles.screen}>
         {/* Inner header — back + facility name */}
@@ -420,6 +442,7 @@ export default function ReportScreen() {
           <View testID="submit-success" style={styles.successBox}>
             <Text style={styles.successText}>✓ Report submitted!</Text>
             <Text style={styles.successSub}>Your issue has been reported.</Text>
+            <SubmitActions />
           </View>
         ) : step === 1 ? (
           <ScrollView contentContainerStyle={[styles.formBody, { paddingTop: 24 }]} keyboardShouldPersistTaps="handled">
@@ -576,8 +599,8 @@ export default function ReportScreen() {
       <View style={styles.hero}>
         <View style={styles.heroContent}>
           <Text style={styles.heroLabel}>MAINTENANCE</Text>
-          <Text style={styles.heroTitle}>{isCourtReport ? `${prefilledCourtName ?? 'Court'}` : 'My Reports'}</Text>
-          <Text style={styles.heroSub}>{isCourtReport ? 'Report an issue with this court.' : 'Track and submit maintenance issues in your community.'}</Text>
+          <Text style={styles.heroTitle}>My Reports</Text>
+          <Text style={styles.heroSub}>Track and submit maintenance issues in your community.</Text>
         </View>
         <TouchableOpacity testID="new-report-btn" style={styles.newReportBtn}
           onPress={openForm} activeOpacity={0.85}>
@@ -611,6 +634,18 @@ export default function ReportScreen() {
       {/* ── Reports list ── */}
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         <View style={{ maxWidth: MaxWidth, width: '100%', alignSelf: 'center' }}>
+          {isCourtReport && (
+            <TouchableOpacity testID="facility-report-cta" style={styles.facilityCta}
+              onPress={openFacilityForm} activeOpacity={0.85}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.facilityCtaEyebrow}>NEW REPORT</Text>
+                <Text style={styles.facilityCtaTitle} numberOfLines={2}>
+                  Report an issue with {prefilledCourtName ?? 'this facility'}
+                </Text>
+              </View>
+              <ChevronRight color={theme.cyanOnLight} size={20} strokeWidth={2} />
+            </TouchableOpacity>
+          )}
           {loading ? (
             <View style={styles.loadingBox} />
           ) : filteredReports.length === 0 ? (
@@ -688,6 +723,7 @@ export default function ReportScreen() {
               <View testID="submit-success" style={styles.successBox}>
                 <Text style={styles.successText}>✓ Report submitted!</Text>
                 <Text style={styles.successSub}>{isCourtReport ? 'Your issue has been reported.' : 'Your HOA admin has been notified.'}</Text>
+                <SubmitActions />
               </View>
             ) : step === 1 ? (
               /* ── Step 1: category + severity ── */
@@ -937,7 +973,7 @@ function useStyles(t: ThemeTokens) {
     fontSize: FontSize.uiLabel,
     color: Colors.textMuted,
   },
-  filterTabLabelActive: { color: Colors.white, fontFamily: FontFamily.manropeBold },
+  filterTabLabelActive: { color: t.textPrimary, fontFamily: FontFamily.manropeBold },
   countBadge: {
     minWidth: 22,
     height: 22,
@@ -1288,6 +1324,26 @@ function useStyles(t: ThemeTokens) {
     color: Colors.white,
   },
 
+  submitActions: { alignSelf: 'stretch', gap: 12, marginTop: 24, paddingHorizontal: 24 },
+  facilityCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderRadius: Radius.card,
+    borderWidth: 1,
+    borderColor: t.selectedBorder,
+    backgroundColor: t.selectedBg,
+  },
+  facilityCtaEyebrow: {
+    fontFamily: FontFamily.jetbrainsMonoSemiBold,
+    fontSize: FontSize.eyebrow,
+    color: t.cyanOnLight,
+    letterSpacing: 1.8,
+    marginBottom: 4,
+  },
+  facilityCtaTitle: { fontFamily: FontFamily.manropeBold, fontSize: FontSize.body, color: t.textPrimary },
   successBox: {
     flex: 1,
     alignItems: 'center',

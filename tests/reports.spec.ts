@@ -483,51 +483,47 @@ test.describe('Resident Reports Screen', () => {
   });
 
   // ── Facility-specific categories ──────────────────────────────────────────
+  // A facility "Report Issue" entry lands on the Reports overview first; the
+  // facility form opens only after the resident taps the facility CTA.
 
-  test('Court issue form from courts shows facility-specific categories', async ({ page }) => {
-    // Navigate directly to report with tennis court context
-    await page.goto('/(resident)/report?courtId=test-id&courtName=Court+1&facilityType=tennis&returnTo=/(resident)/courts');
+  async function openFacilityForm(page: any, query: string) {
+    await page.goto('/(resident)/report?' + query);
     await page.waitForLoadState('domcontentloaded');
-    await page.waitForTimeout(3000);
-    // Should show court-issue header directly
-    const header = page.locator('[data-testid="court-issue-header"]');
-    if (await header.count() > 0) {
-      await expect(header).toBeVisible({ timeout: 10000 });
-      // Tennis categories should include Surface, Net
-      await expect(page.locator('[data-testid="category-grid"]')).toBeVisible({ timeout: 8000 });
-      await expect(page.locator('[data-testid="category-grid"]').getByText('Surface', { exact: true })).toBeVisible({ timeout: 5000 });
-      await expect(page.locator('[data-testid="category-grid"]').getByText('Net', { exact: true })).toBeVisible({ timeout: 5000 });
-      // Pool-specific should NOT be there
-      await expect(page.locator('[data-testid="category-grid"]').getByText('Water Quality', { exact: true })).not.toBeVisible();
-    }
+    // Overview first: heading + list, NOT the form.
+    await expect(page.locator('[data-testid="facility-report-cta"]')).toBeVisible({ timeout: 30000 });
+    await expect(page.locator('[data-testid="court-issue-header"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="filter-tabs"]')).toBeVisible();
+    await page.locator('[data-testid="facility-report-cta"]').click();
+    await expect(page.locator('[data-testid="court-issue-header"]')).toBeVisible({ timeout: 10000 });
+  }
+
+  test('Report Issue from a court opens the Reports overview, then the form', async ({ page }) => {
+    await openFacilityForm(page, 'courtId=test-id&courtName=Court+1&facilityType=tennis&returnTo=/(resident)/courts');
+    await expect(page.locator('[data-testid="category-grid"]')).toBeVisible({ timeout: 8000 });
+    await expect(page.locator('[data-testid="category-grid"]').getByText('Surface', { exact: true })).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('[data-testid="category-grid"]').getByText('Net', { exact: true })).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('[data-testid="category-grid"]').getByText('Water Quality', { exact: true })).not.toBeVisible();
+  });
+
+  test('closing the facility form returns to the Reports overview', async ({ page }) => {
+    await openFacilityForm(page, 'courtId=test-id&courtName=Court+1&facilityType=tennis&returnTo=/(resident)/courts');
+    await page.locator('[data-testid="court-issue-header"] >> role=button').first().click();
+    await expect(page.locator('[data-testid="facility-report-cta"]')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('[data-testid="filter-tabs"]')).toBeVisible();
   });
 
   test('Pool facility issue form shows pool-specific categories', async ({ page }) => {
-    await page.goto('/(resident)/report?courtId=pool-id&courtName=Community+Pool&facilityType=pool&returnTo=/(resident)/courts');
-    await page.waitForLoadState('domcontentloaded');
-    await page.waitForTimeout(3000);
-    const header = page.locator('[data-testid="court-issue-header"]');
-    if (await header.count() > 0) {
-      await expect(header).toBeVisible({ timeout: 10000 });
-      await expect(page.locator('[data-testid="category-grid"]')).toBeVisible({ timeout: 8000 });
-      // Pool categories
-      await expect(page.locator('[data-testid="category-grid"]').getByText('Water Quality', { exact: true })).toBeVisible({ timeout: 5000 });
-      await expect(page.locator('[data-testid="category-grid"]').getByText('Deck Area', { exact: true })).toBeVisible({ timeout: 5000 });
-      // Tennis-specific should NOT be there
-      await expect(page.locator('[data-testid="category-grid"]').getByText('Net', { exact: true })).not.toBeVisible();
-    }
+    await openFacilityForm(page, 'courtId=pool-id&courtName=Community+Pool&facilityType=pool&returnTo=/(resident)/courts');
+    await expect(page.locator('[data-testid="category-grid"]')).toBeVisible({ timeout: 8000 });
+    await expect(page.locator('[data-testid="category-grid"]').getByText('Water Quality', { exact: true })).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('[data-testid="category-grid"]').getByText('Deck Area', { exact: true })).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('[data-testid="category-grid"]').getByText('Net', { exact: true })).not.toBeVisible();
   });
 
   test('Report Issue label says "REPORT ISSUE" not "REPORT COURT ISSUE"', async ({ page }) => {
-    await page.goto('/(resident)/report?courtId=test-id&courtName=Court+1&facilityType=tennis&returnTo=/(resident)/courts');
-    await page.waitForLoadState('domcontentloaded');
-    await page.waitForTimeout(3000);
-    const header = page.locator('[data-testid="court-issue-header"]');
-    if (await header.count() > 0) {
-      await expect(header).toBeVisible({ timeout: 10000 });
-      await expect(page.getByText('REPORT COURT ISSUE')).toHaveCount(0);
-      await expect(page.getByText('REPORT ISSUE')).toBeVisible({ timeout: 5000 });
-    }
+    await openFacilityForm(page, 'courtId=test-id&courtName=Court+1&facilityType=tennis&returnTo=/(resident)/courts');
+    await expect(page.getByText('REPORT COURT ISSUE')).toHaveCount(0);
+    await expect(page.getByText('REPORT ISSUE')).toBeVisible({ timeout: 5000 });
   });
 
   test('Upcoming Reservations link is visible on Courts screen after booking', async ({ page }) => {
