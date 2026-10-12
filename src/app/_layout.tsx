@@ -167,6 +167,7 @@ export default function RootLayout() {
           <Stack.Screen name="settings" />
           <Stack.Screen name="messages" />
           <Stack.Screen name="my-reservations" />
+          <Stack.Screen name="reservation-detail/[id]" />
           <Stack.Screen name="my-reports" />
           <Stack.Screen name="hoa-application" />
           <Stack.Screen name="amenity-book" />
@@ -182,6 +183,9 @@ export default function RootLayout() {
           <Stack.Screen name="settings-account" />
           <Stack.Screen name="settings-change-password" />
           <Stack.Screen name="settings-help" />
+          <Stack.Screen name="faq" />
+          <Stack.Screen name="licenses" />
+          <Stack.Screen name="legal/[doc]" />
         </Stack>
       </ThemeProvider>
     </NativeAuthProvider>
