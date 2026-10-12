@@ -8,6 +8,8 @@ import { Colors, FontFamily, FontSize } from '@/constants/design';
 import { useTheme } from '@/context/ThemeContext';
 import { supabase } from '@/lib/supabase';
 import { isCommunityMode, isTennisMode } from '@/config/productMode';
+import { CommunityLogo, TenisXLogo } from '@/components/branding/BrandLogos';
+import { useActiveCommunity } from '@/hooks/useActiveCommunity';
 
 interface CMPortfolioHeaderProps {
   variant: 'cm-portfolio';
@@ -30,6 +32,12 @@ interface InnerScreenHeaderProps {
   title: string;
   onBack?: () => void;
   rightIcon?: React.ReactNode;
+  /**
+   * Community-mode branding strip above the title. 'full' (default) shows TenisX plus
+   * the active community; 'platform' shows TenisX only (portfolio/admin screens that
+   * are not scoped to the user's active community).
+   */
+  brand?: 'full' | 'platform';
 }
 
 interface ResidentHeaderProps {
@@ -96,6 +104,18 @@ export function Header(props: HeaderProps) {
   const topPad = Math.max(insets.top, 24);
   const { theme } = useTheme();
   const profileInitials = useProfileInitials();
+  const { community } = useActiveCommunity();
+
+  // A screen may pass its own `communityName`. Only reuse the active community's
+  // logo when that name is the active community — never pair a name with another
+  // community's artwork.
+  const passedName = (props as { communityName?: string }).communityName;
+  const identityMatches = !passedName || passedName === community?.name;
+  const identity = {
+    hoaId: identityMatches ? community?.hoaId : undefined,
+    logoUrl: identityMatches ? community?.logoUrl : undefined,
+    name: passedName ?? community?.name,
+  };
 
   if (props.variant === 'resident' || props.variant === 'coach') {
     const isCoach = props.variant === 'coach';
@@ -110,14 +130,7 @@ export function Header(props: HeaderProps) {
       <View style={[styles.base, styles.residentBase, { paddingTop: topPad + 8, backgroundColor: theme.headerBg, borderBottomColor: theme.headerBorder }]}>
         <View style={[styles.topBar, styles.residentTopBar]}>
           {isCommunityMode ? (
-            <View testID="community-wordmark" style={styles.residentLogoWrap}>
-              <Text style={styles.communityWordmark} numberOfLines={1}>
-                {(props as ResidentHeaderProps | CoachHeaderProps).communityName ?? 'Community'}
-              </Text>
-              <Text style={styles.poweredBy} numberOfLines={1}>
-                Powered by TenisX
-              </Text>
-            </View>
+            <TenisXLogo height={30} testID="tenisx-logo" />
           ) : (
             <View testID="tenisx-logo" style={styles.residentLogoWrap}>
               <Image
@@ -161,28 +174,63 @@ export function Header(props: HeaderProps) {
             </TouchableOpacity>
           </View>
         </View>
+        {isCommunityMode && (
+          // Second tier: the community's own identity, drawn directly on the header.
+          <View testID="community-wordmark" style={styles.communityRow}>
+            <CommunityLogo
+              hoaId={identity.hoaId}
+              logoUrl={identity.logoUrl}
+              name={identity.name}
+              height={36}
+              maxWidth={240}
+            />
+          </View>
+        )}
       </View>
     );
   }
 
   if (props.variant === 'inner') {
+    const showBrand = isCommunityMode;
+    const showCommunity = showBrand && props.brand !== 'platform' && !!identity.name;
     return (
       <View style={[styles.base, { paddingTop: topPad + 8, paddingBottom: 20 }]}>
+        {showBrand && (
+          <View style={styles.brandStrip}>
+            <TenisXLogo height={22} testID="tenisx-logo" />
+            {showCommunity && (
+              <View testID="community-wordmark" style={styles.brandStripCommunity}>
+                <CommunityLogo
+                  hoaId={identity.hoaId}
+                  logoUrl={identity.logoUrl}
+                  name={identity.name}
+                  height={24}
+                  maxWidth={150}
+                />
+              </View>
+            )}
+          </View>
+        )}
         <View style={styles.innerRow}>
-          {props.onBack ? (
-            <TouchableOpacity
-              onPress={props.onBack}
-              style={styles.iconBtn}
-              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
-              <ArrowLeft color="#FFFFFF" size={22} strokeWidth={1.5} />
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.iconBtn} />
-          )}
-          <Text style={styles.innerTitle} numberOfLines={1}>
+          {/* Fixed-width side slots keep the title centred. They are plain layout
+              spacers (no fill/border), so nothing renders as an empty box. */}
+          <View style={styles.innerSide}>
+            {props.onBack && (
+              <TouchableOpacity
+                testID="header-back"
+                onPress={props.onBack}
+                style={styles.iconBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Back"
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+                <ArrowLeft color="#FFFFFF" size={22} strokeWidth={1.5} />
+              </TouchableOpacity>
+            )}
+          </View>
+          <Text style={styles.innerTitle} numberOfLines={1} accessibilityRole="header">
             {props.title}
           </Text>
-          <View style={styles.iconBtn}>{props.rightIcon ?? null}</View>
+          <View style={[styles.innerSide, styles.innerSideRight]}>{props.rightIcon ?? null}</View>
         </View>
       </View>
     );
@@ -193,16 +241,17 @@ export function Header(props: HeaderProps) {
     return (
       <View style={[styles.base, styles.adminBase, { paddingTop: topPad + 8 }]}>
         <View style={styles.topBar}>
-          {props.onBack ? (
-            <TouchableOpacity
-              onPress={props.onBack}
-              style={styles.iconBtn}
-              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
-              <ArrowLeft color="#FFFFFF" size={22} strokeWidth={1.5} />
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.iconBtn} />
-          )}
+          <View style={styles.topBarLeft}>
+            {props.onBack && (
+              <TouchableOpacity
+                onPress={props.onBack}
+                style={styles.iconBtn}
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+                <ArrowLeft color="#FFFFFF" size={22} strokeWidth={1.5} />
+              </TouchableOpacity>
+            )}
+            {isCommunityMode && <TenisXLogo height={28} testID="tenisx-logo" />}
+          </View>
           <View style={styles.topBarRight}>
             {props.onMessages && (
               <TouchableOpacity
@@ -233,11 +282,6 @@ export function Header(props: HeaderProps) {
         <Text style={styles.adminIdentity} numberOfLines={1}>
           {props.communityName ?? 'TenisX'}
         </Text>
-        {props.communityName && (
-          <Text style={styles.poweredBy} numberOfLines={1}>
-            Powered by TenisX
-          </Text>
-        )}
       </View>
     );
   }
@@ -294,6 +338,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
+  topBarLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   topBarRight: {
     flexDirection: 'row',
     gap: 8,
@@ -318,6 +367,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   residentLogoWrap: {},
+  communityRow: {
+    marginTop: 6,
+    paddingBottom: 4,
+    minHeight: 36,
+    justifyContent: 'center',
+  },
+  brandStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 16,
+    marginBottom: 12,
+  },
+  brandStripCommunity: {
+    flexShrink: 1,
+    alignItems: 'flex-end',
+  },
   residentLogo: {
     width: 148,
     height: 64,
@@ -372,6 +438,13 @@ const styles = StyleSheet.create({
     fontSize: FontSize.body,
     color: 'rgba(45,224,255,0.75)',
   },
+  innerSide: {
+    width: 76,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+  },
+  innerSideRight: { alignItems: 'flex-end' },
   innerRow: {
     flexDirection: 'row',
     alignItems: 'center',

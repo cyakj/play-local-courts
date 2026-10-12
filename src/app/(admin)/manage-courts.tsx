@@ -181,7 +181,7 @@ export default function ManageCourtsScreen() {
 
   return (
     <View style={styles.screen}>
-      <Header variant="inner" title="Manage Amenities" onBack={() => router.back()} />
+      <Header variant="inner" brand="platform" title="Manage Amenities" onBack={() => router.back()} />
 
       {/* Hero section */}
       <View style={styles.hero}>

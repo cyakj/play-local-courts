@@ -337,7 +337,7 @@ export default function CommunityDetailScreen() {
 
   return (
     <View style={styles.screen}>
-      <Header variant="inner" title={hoaName || 'Community'} onBack={() => router.back()} />
+      <Header variant="inner" brand="platform" title={hoaName || 'Community'} onBack={() => router.back()} />
 
       <View style={styles.tabBar}>
         {(['overview', 'reports', 'amenities', 'members'] as Tab[]).map((t) => (

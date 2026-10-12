@@ -126,7 +126,7 @@ export default function PendingRequestsScreen() {
 
   return (
     <View style={styles.screen}>
-      <Header variant="inner" title="Pending Requests" onBack={() => router.back()} />
+      <Header variant="inner" brand="platform" title="Pending Requests" onBack={() => router.back()} />
 
       {/* Hero section */}
       <View style={styles.hero}>
