@@ -507,7 +507,7 @@ test.describe('Resident Reports Screen', () => {
 
   test('closing the facility form returns to the Reports overview', async ({ page }) => {
     await openFacilityForm(page, 'courtId=test-id&courtName=Court+1&facilityType=tennis&returnTo=/(resident)/courts');
-    await page.locator('[data-testid="court-issue-header"] >> role=button').first().click();
+    await page.locator('[data-testid="facility-form-back"]').click();
     await expect(page.locator('[data-testid="facility-report-cta"]')).toBeVisible({ timeout: 10000 });
     await expect(page.locator('[data-testid="filter-tabs"]')).toBeVisible();
   });

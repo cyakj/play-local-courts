@@ -428,7 +428,7 @@ export default function ReportScreen() {
       <View style={styles.screen}>
         {/* Inner header — back + facility name */}
         <View testID="court-issue-header" style={styles.courtIssueHeader}>
-          <TouchableOpacity onPress={closeForm} style={styles.courtIssueBackBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <TouchableOpacity testID="facility-form-back" accessibilityRole="button" accessibilityLabel="Back to reports" onPress={closeForm} style={styles.courtIssueBackBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <ArrowLeft color={Colors.white} size={22} strokeWidth={1.5} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>

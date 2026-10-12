@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import * as fs from 'fs';
 
 const DOCS = '/(resident)/docs';
 
@@ -109,5 +110,80 @@ test.describe('Resident Docs Screen', () => {
   test('each document card has a download button', async ({ page }) => {
     await expect(page.locator('[data-testid="doc-card"]').first()).toBeVisible({ timeout: 30000 });
     await expect(page.locator('[data-testid="doc-download-btn"]').first()).toBeVisible({ timeout: 5000 });
+  });
+
+  // ── Storage access (private bucket → signed URLs) ─────────────────────────
+  // Root cause of the reported "404 Bucket not found": file_url stores a *public* object
+  // URL but the hoa-documents bucket is private. View/Download now sign the path.
+
+  test('View opens a signed, authorized URL — never the public bucket URL', async ({ page, context }) => {
+    await expect(page.locator('[data-testid="doc-card"]').first()).toBeVisible({ timeout: 30000 });
+    // window.open(..., 'noopener') leaves popup.url() empty until navigation completes, so
+    // read the URL from the popup's first GET instead.
+    const popupPromise = context.waitForEvent('page');
+    const signedRequestPromise = context.waitForEvent('request', {
+      predicate: (r: import('@playwright/test').Request) =>
+        r.method() === 'GET' && /\/object\/sign\/hoa-documents\//.test(r.url()),
+      timeout: 20000,
+    });
+    await page.locator('[data-testid="doc-eye-btn"]').first().click();
+    const popup = await popupPromise;
+    const url = (await signedRequestPromise).url();
+    expect(url).toMatch(/\/storage\/v1\/object\/sign\/hoa-documents\/.+token=/);
+    expect(url).not.toMatch(/object\/public/);
+    const res = await page.request.get(url);
+    expect(res.status()).toBe(200);
+    expect(res.headers()['content-type']).toContain('application/pdf');
+    expect((await res.body()).subarray(0, 4).toString()).toBe('%PDF');
+    await popup.close();
+  });
+
+  test('Download delivers the actual PDF', async ({ page }) => {
+    await expect(page.locator('[data-testid="doc-card"]').first()).toBeVisible({ timeout: 30000 });
+    const [download] = await Promise.all([
+      page.waitForEvent('download', { timeout: 30000 }),
+      page.locator('[data-testid="doc-download-btn"]').first().click(),
+    ]);
+    expect(download.suggestedFilename()).toMatch(/\.pdf$/i);
+    const file = await download.path();
+    const bytes = fs.readFileSync(file!);
+    expect(bytes.length).toBeGreaterThan(10000);
+    expect(bytes.subarray(0, 4).toString()).toBe('%PDF');
+  });
+
+  for (const [label, handler, expected] of [
+    ['missing file', (r: any) => r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ statusCode: '404', error: 'not_found', message: 'Object not found' }) }), /Document unavailable/],
+    ['unauthorized', (r: any) => r.fulfill({ status: 403, contentType: 'application/json', body: JSON.stringify({ statusCode: '403', error: 'Unauthorized', message: 'new row violates row-level security policy' }) }), /Access denied/],
+    ['expired session', (r: any) => r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ statusCode: '400', error: 'InvalidJWT', message: 'jwt expired' }) }), /Session expired/],
+    ['offline', (r: any) => r.abort('failed'), /Connection problem/],
+  ] as const) {
+    test(`failure state — ${label} — shows a readable message, not raw storage errors`, async ({ page }) => {
+      await expect(page.locator('[data-testid="doc-card"]').first()).toBeVisible({ timeout: 30000 });
+      await page.route('**/storage/v1/object/sign/**', handler as any);
+      await page.locator('[data-testid="doc-eye-btn"]').first().click();
+      const notice = page.locator('[data-testid="doc-notice"]');
+      await expect(notice).toBeVisible({ timeout: 15000 });
+      await expect(notice).toContainText(expected);
+      await expect(notice).not.toContainText(/NoSuchBucket|Bucket not found|404/);
+    });
+  }
+
+  test('document UI uses vector icons — no emoji', async ({ page }) => {
+    await expect(page.locator('[data-testid="doc-card"]').first()).toBeVisible({ timeout: 30000 });
+    const text = await page.locator('[data-testid="doc-card"]').first().innerText();
+    expect(text).not.toMatch(/\p{Extended_Pictographic}/u);
+  });
+
+  test('category filter chips narrow the list', async ({ page }) => {
+    await expect(page.locator('[data-testid="doc-card"]').first()).toBeVisible({ timeout: 30000 });
+    const chips = page.locator('[data-testid^="category-chip-"]');
+    if ((await chips.count()) > 2) {
+      const total = await page.locator('[data-testid="doc-card"]').count();
+      await chips.nth(1).click();
+      const filtered = await page.locator('[data-testid="doc-card"]').count();
+      expect(filtered).toBeLessThan(total);
+      await page.locator('[data-testid="category-chip-all"]').click();
+      expect(await page.locator('[data-testid="doc-card"]').count()).toBe(total);
+    }
   });
 });

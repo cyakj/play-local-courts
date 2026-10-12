@@ -733,11 +733,11 @@ export default function ManageAmenitiesScreen() {
               ) : upcomingBookings.length === 0 ? (
                 <Text style={styles.emptyInlineText}>No upcoming reservations.</Text>
               ) : upcomingBookings.map((b) => (
-                <View key={b.id} testID="admin-reservation-row" style={styles.reservationRow}>
+                <View key={b.id} testID="admin-reservation-row" style={styles.reservationCard}>
                   <Text style={styles.reservationDate}>
                     {formatDateFull(b.date)} · {formatTime12h(b.start_time)}–{formatTime12h(b.end_time)}
                   </Text>
-                  <Text style={styles.reservationName}>{b.residentName}</Text>
+                  <Text style={[styles.reservationName, { marginTop: 2 }]}>{b.residentName}</Text>
                   <View style={{ marginTop: 8 }}>
                     <ReservationStatusPill status={b.status ?? 'confirmed'} />
                   </View>
@@ -1021,6 +1021,11 @@ function useStyles(theme: ThemeTokens) {
     approveText: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label, color: Colors.positive },
     declineBtn: { backgroundColor: 'rgba(255,92,107,0.10)', borderColor: 'rgba(255,92,107,0.40)' },
     declineText: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label, color: Colors.negative },
+    reservationCard: {
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.border,
+    },
     reservationRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
