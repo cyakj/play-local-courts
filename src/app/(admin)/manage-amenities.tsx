@@ -38,6 +38,8 @@ import { useTheme } from '@/context/ThemeContext';
 import { formatDateFull, formatTime12h } from '@/lib/format';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 import type { Database } from '@/lib/types';
+import { ReservationStatusPill } from '@/components/ui/ReservationStatusPill';
+import { communityToday } from '@/lib/communityTime';
 
 type Court = Database['public']['Tables']['courts']['Row'];
 type AmenityRules = Database['public']['Tables']['amenity_rules']['Row'];
@@ -83,7 +85,7 @@ function getTypeIcon(courtType: string) {
 }
 
 function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  return communityToday();
 }
 
 export default function ManageAmenitiesScreen() {
@@ -112,6 +114,7 @@ export default function ManageAmenitiesScreen() {
   const [upcomingBookings, setUpcomingBookings] = useState<UpcomingBooking[]>([]);
   const [utilization30d, setUtilization30d] = useState(0);
   const [detailSaving, setDetailSaving] = useState(false);
+  const [reviewing, setReviewing] = useState<string | null>(null);
 
   // Blockout sheet
   const [blockoutVisible, setBlockoutVisible] = useState(false);
@@ -242,7 +245,7 @@ export default function ManageAmenitiesScreen() {
         .select('id, date, start_time, end_time, status, user_id')
         .eq('court_id', court.id)
         .gte('date', todayISO())
-        .neq('status', 'cancelled')
+        .not('status', 'in', '(cancelled,rejected)')
         .order('date', { ascending: true })
         .limit(10),
       supabase
@@ -273,6 +276,65 @@ export default function ManageAmenitiesScreen() {
     })));
 
     setDetailLoading(false);
+  }
+
+  // Approve / decline a pending reservation request. The DB trigger
+  // (enforce_booking_status_transitions) is the authority: only an admin of this
+  // community may do this, and approval re-checks overlaps and blockouts.
+  async function reviewBooking(b: UpcomingBooking, decision: 'confirmed' | 'rejected') {
+    if (!detailCourt) return;
+    setReviewing(b.id);
+    const { data, error } = await supabase
+      .from('bookings')
+      .update({ status: decision })
+      .eq('id', b.id)
+      .eq('status', 'pending')
+      .select('id, user_id');
+    setReviewing(null);
+
+    if (error) {
+      let message = 'Could not update this reservation. Please try again.';
+      if (error.code === '23P01') message = 'Another confirmed reservation already holds this time, so this request cannot be approved.';
+      else if (error.code === '23514' && /bookings_status_check/.test(error.message)) message = 'Declining requests is not available until the latest database update is applied.';
+      else if (error.code === '23514') message = error.message;
+      platformAlert(decision === 'confirmed' ? 'Could Not Approve' : 'Could Not Decline', message);
+      return;
+    }
+    if (!data || data.length === 0) {
+      platformAlert('Already Handled', 'This request is no longer pending.');
+      await openDetail(detailCourt);
+      return;
+    }
+
+    const when = `${formatDateFull(b.date)} at ${formatTime12h(b.start_time)}–${formatTime12h(b.end_time)}`;
+    await supabase.from('hoa_notifications').insert({
+      user_id: data[0].user_id,
+      hoa_id: detailCourt.hoa_id,
+      title: decision === 'confirmed' ? 'Reservation Approved' : 'Reservation Declined',
+      body: decision === 'confirmed'
+        ? `Your request for ${detailCourt.name} on ${when} was approved.`
+        : `Your request for ${detailCourt.name} on ${when} was declined.`,
+      type: decision === 'confirmed' ? 'booking_confirmed' : 'booking_rejected',
+      read: false,
+    });
+
+    await openDetail(detailCourt);
+    loadCourts();
+  }
+
+  function confirmReview(b: UpcomingBooking, decision: 'confirmed' | 'rejected') {
+    platformAlert(
+      decision === 'confirmed' ? 'Approve Reservation' : 'Decline Reservation',
+      `${b.residentName} · ${formatDateFull(b.date)} · ${formatTime12h(b.start_time)}–${formatTime12h(b.end_time)}`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: decision === 'confirmed' ? 'Approve' : 'Decline',
+          style: decision === 'confirmed' ? 'default' : 'destructive',
+          onPress: () => reviewBooking(b, decision),
+        },
+      ],
+    );
   }
 
   function closeDetail() {
@@ -379,6 +441,7 @@ export default function ManageAmenitiesScreen() {
     <View style={styles.screen}>
       <Header
         variant="inner"
+        brand="platform"
         title="Manage Amenities"
         onBack={() => router.back()}
         rightIcon={plusButton}
@@ -612,8 +675,16 @@ export default function ManageAmenitiesScreen() {
               </View>
 
               <View style={[styles.activeRow, { marginTop: 20 }]}>
-                <Text style={styles.activeLabel}>Requires admin approval</Text>
+                <View style={{ flex: 1, paddingRight: 12 }}>
+                  <Text style={styles.activeLabel}>Requires admin approval</Text>
+                  <Text style={styles.approvalHint}>
+                    {(rules.requires_admin_approval ?? false)
+                      ? 'New reservations stay pending until you approve them.'
+                      : 'New reservations are confirmed automatically.'}
+                  </Text>
+                </View>
                 <Switch
+                  testID="requires-approval-switch"
                   value={rules.requires_admin_approval ?? false}
                   onValueChange={(v) => setRules((r) => ({ ...r, requires_admin_approval: v }))}
                   trackColor={{ false: theme.border, true: Colors.accentCyan }}
@@ -662,11 +733,34 @@ export default function ManageAmenitiesScreen() {
               ) : upcomingBookings.length === 0 ? (
                 <Text style={styles.emptyInlineText}>No upcoming reservations.</Text>
               ) : upcomingBookings.map((b) => (
-                <View key={b.id} style={styles.reservationRow}>
+                <View key={b.id} testID="admin-reservation-row" style={styles.reservationRow}>
                   <Text style={styles.reservationDate}>
                     {formatDateFull(b.date)} · {formatTime12h(b.start_time)}–{formatTime12h(b.end_time)}
                   </Text>
                   <Text style={styles.reservationName}>{b.residentName}</Text>
+                  <View style={{ marginTop: 8 }}>
+                    <ReservationStatusPill status={b.status ?? 'confirmed'} />
+                  </View>
+                  {b.status === 'pending' && (
+                    <View style={styles.reviewActions}>
+                      <TouchableOpacity
+                        testID="approve-reservation-btn"
+                        style={[styles.reviewBtn, styles.approveBtn]}
+                        disabled={reviewing === b.id}
+                        onPress={() => confirmReview(b, 'confirmed')}
+                        accessibilityRole="button">
+                        <Text style={styles.approveText}>{reviewing === b.id ? 'Working…' : 'Approve'}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        testID="decline-reservation-btn"
+                        style={[styles.reviewBtn, styles.declineBtn]}
+                        disabled={reviewing === b.id}
+                        onPress={() => confirmReview(b, 'rejected')}
+                        accessibilityRole="button">
+                        <Text style={styles.declineText}>Decline</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
                 </View>
               ))}
             </ScrollView>
@@ -908,6 +1002,25 @@ function useStyles(theme: ThemeTokens) {
       color: theme.textMuted,
       marginTop: 2,
     },
+    approvalHint: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.label,
+      color: theme.textMuted,
+      marginTop: 2,
+    },
+    reviewActions: { flexDirection: 'row', gap: 10, marginTop: 10 },
+    reviewBtn: {
+      flex: 1,
+      minHeight: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: Radius.button,
+      borderWidth: 1,
+    },
+    approveBtn: { backgroundColor: 'rgba(47,217,139,0.12)', borderColor: 'rgba(47,217,139,0.45)' },
+    approveText: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label, color: Colors.positive },
+    declineBtn: { backgroundColor: 'rgba(255,92,107,0.10)', borderColor: 'rgba(255,92,107,0.40)' },
+    declineText: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label, color: Colors.negative },
     reservationRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',

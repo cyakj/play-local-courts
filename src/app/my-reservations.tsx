@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { router } from 'expo-router';
-import { CalendarDays } from 'lucide-react-native';
+import { router, useFocusEffect } from 'expo-router';
+import { CalendarDays, ChevronRight, Info } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import { sendNotificationEmail } from '@/lib/emailNotifications';
@@ -10,9 +10,11 @@ import { Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing } from '@/const
 import { Header } from '@/components/ui/Header';
 import { CardSkeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { StatusPill } from '@/components/ui/StatusPill';
+import { ReservationStatusPill } from '@/components/ui/ReservationStatusPill';
 import { useTheme } from '@/context/ThemeContext';
+import { useActiveCommunity } from '@/hooks/useActiveCommunity';
 import type { ThemeTokens } from '@/constants/theme-tokens';
+import { cancellationState, formatTime12, isUpcoming } from '@/lib/reservations';
 
 interface Booking {
   id: string;
@@ -26,55 +28,39 @@ interface Booking {
 }
 
 const DEFAULT_MIN_CANCELLATION_HOURS = 2;
+const HISTORY_PAGE = 5;
 
-function canCancelBooking(date: string, startTime: string, minHours: number): boolean {
-  const bookingStart = new Date(`${date}T${startTime}`);
-  const hoursUntilStart = (bookingStart.getTime() - Date.now()) / (1000 * 60 * 60);
-  return hoursUntilStart >= minHours;
-}
-
-function formatTime(t: string): string {
-  const [h, m] = t.split(':');
-  const hour = parseInt(h, 10);
-  const suffix = hour < 12 ? 'AM' : 'PM';
-  const display = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-  const mins = m && m !== '00' ? `:${m}` : '';
-  return `${display}${mins} ${suffix}`;
-}
-
-function formatMonthYear(iso: string): string {
-  const d = new Date(iso + 'T00:00:00');
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function bookingStatus(status: string): 'optimal' | 'needs-attention' | 'critical' | 'pending' {
-  if (status === 'confirmed') return 'optimal';
-  if (status === 'cancelled') return 'critical';
-  if (status === 'pending') return 'pending';
-  return 'needs-attention';
+function formatShortDate(iso: string): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 }
 
 export default function MyReservationsScreen() {
   const { theme } = useTheme();
   const styles = useStyles(theme);
-  const [upcoming, setUpcoming] = useState<Booking[]>([]);
-  const [past, setPast] = useState<Booking[]>([]);
+  const { community } = useActiveCommunity();
+  const hoaId = community?.hoaId;
+
+  const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [userId, setUserId] = useState('');
+  const [historyShown, setHistoryShown] = useState(HISTORY_PAGE);
 
-  async function load() {
+  const load = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
     setUserId(user.id);
-    const today = new Date().toISOString().split('T')[0];
 
-    const { data } = await supabase
+    // Scoped to the active community (courts.hoa_id), newest first.
+    let query = supabase
       .from('bookings')
-      .select('id, date, start_time, end_time, status, court_id, courts(name)')
+      .select('id, date, start_time, end_time, status, court_id, courts!inner(name, hoa_id)')
       .eq('user_id', user.id)
       .order('date', { ascending: false })
       .order('start_time', { ascending: false });
+    if (hoaId) query = query.eq('courts.hoa_id', hoaId);
+    const { data } = await query;
 
     const courtIds = [...new Set((data ?? []).map((b: any) => b.court_id).filter(Boolean))];
     const rulesByCourtId = new Map<string, number>();
@@ -88,44 +74,49 @@ export default function MyReservationsScreen() {
       }
     }
 
-    const all = (data ?? []).map((b: any) => ({
+    setBookings((data ?? []).map((b: any) => ({
       id: b.id,
       date: b.date,
       start_time: b.start_time,
       end_time: b.end_time,
       status: b.status,
-      courtName: b.courts?.name ?? 'Court',
+      courtName: b.courts?.name ?? 'Amenity',
       courtId: b.court_id,
       minCancellationHours: rulesByCourtId.get(b.court_id) ?? DEFAULT_MIN_CANCELLATION_HOURS,
-    }));
-
-    setUpcoming(all.filter((b) => b.date >= today && b.status !== 'cancelled').reverse());
-    setPast(all.filter((b) => b.date < today || b.status === 'cancelled'));
+    })));
     setLoading(false);
-  }
+  }, [hoaId]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const { upcoming, history } = useMemo(() => {
+    const now = new Date();
+    const up = bookings
+      .filter((b) => isUpcoming(b.status, b.date, b.end_time, now))
+      .sort((a, b) => (a.date + a.start_time).localeCompare(b.date + b.start_time));
+    const upIds = new Set(up.map((b) => b.id));
+    return { upcoming: up, history: bookings.filter((b) => !upIds.has(b.id)) };
+  }, [bookings]);
 
   async function cancelBooking(booking: Booking) {
-    platformAlert('Cancel Booking', 'Are you sure you want to cancel this booking?', [
-      { text: 'No', style: 'cancel' },
+    platformAlert('Cancel Reservation', `Cancel your ${booking.courtName} reservation?`, [
+      { text: 'Keep it', style: 'cancel' },
       {
-        text: 'Yes, Cancel',
+        text: 'Cancel Reservation',
         style: 'destructive',
         onPress: async () => {
           setCancelling(booking.id);
           const { error } = await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', booking.id).eq('user_id', userId);
           setCancelling(null);
           if (error) {
-            // error.code '23514' is the DB-enforced cancellation-window
-            // rejection (enforce_booking_cancellation_window trigger) --
-            // its message is already resident-friendly. Anything else
-            // falls back to a generic message rather than leaking raw
-            // Postgres error text.
+            // 23514 is the DB-enforced cancellation window; its message is already
+            // resident-friendly. Anything else gets a generic message, never raw Postgres text.
             platformAlert(
               'Cancellation Failed',
-              error.code === '23514' ? error.message : 'Could not cancel this booking. Please try again.',
+              error.code === '23514' ? error.message : 'Could not cancel this reservation. Please try again.',
             );
+            load();
             return;
           }
           sendNotificationEmail({
@@ -142,49 +133,60 @@ export default function MyReservationsScreen() {
     ]);
   }
 
-  function BookingCard({ b, isUpcoming }: { b: Booking; isUpcoming: boolean }) {
-    const d = new Date(b.date + 'T00:00:00');
-    const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
-    const dayNum = d.getDate();
+  function BookingCard({ b, isUpcoming: up }: { b: Booking; isUpcoming: boolean }) {
+    const d = new Date(`${b.date}T00:00:00Z`);
+    const dayName = d.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
+    const dayNum = d.getUTCDate();
+    const cancel = up
+      ? cancellationState({ status: b.status, date: b.date, startTime: b.start_time, minHours: b.minCancellationHours })
+      : { canCancel: false } as ReturnType<typeof cancellationState>;
+
     return (
-      <View style={styles.card}>
-        <View style={[styles.dateSidebar, isUpcoming ? styles.dateSidebarUpcoming : styles.dateSidebarPast]}>
-          <Text style={[styles.dateDayName, isUpcoming ? styles.dateTextUpcoming : styles.dateTextPast]}>
-            {dayName}
-          </Text>
-          <Text style={[styles.dateDayNum, isUpcoming ? styles.dateTextUpcoming : styles.dateTextPast]}>
-            {dayNum}
-          </Text>
-        </View>
+      <TouchableOpacity
+        testID="reservation-card"
+        style={styles.card}
+        activeOpacity={0.85}
+        onPress={() => router.push(`/reservation-detail/${b.id}` as any)}
+        accessibilityRole="button"
+        accessibilityLabel={`${b.courtName}, ${formatShortDate(b.date)}, ${b.status}. Opens reservation details`}>
+        <View style={styles.cardRow}>
+          <View style={[styles.dateSidebar, up ? styles.dateSidebarUpcoming : styles.dateSidebarPast]}>
+            <Text style={[styles.dateDayName, up ? styles.dateTextUpcoming : styles.dateTextPast]}>{dayName}</Text>
+            <Text style={[styles.dateDayNum, up ? styles.dateTextUpcoming : styles.dateTextPast]}>{dayNum}</Text>
+          </View>
 
-        <View style={styles.cardBody}>
-          <Text
-            style={[styles.cardCourt, !isUpcoming && { color: theme.textMuted }]}
-            numberOfLines={1}>
-            {b.courtName}
-          </Text>
-          <Text style={styles.cardTime}>
-            {formatMonthYear(b.date)} · {formatTime(b.start_time)}–{formatTime(b.end_time)}
-          </Text>
-          <StatusPill status={bookingStatus(b.status)} label={b.status} />
-        </View>
-
-        {isUpcoming && canCancelBooking(b.date, b.start_time, b.minCancellationHours) && (
-          <TouchableOpacity
-            style={styles.cancelBtn}
-            onPress={() => cancelBooking(b)}
-            disabled={cancelling === b.id}>
-            <Text style={styles.cancelText}>
-              {cancelling === b.id ? '…' : 'Cancel'}
+          <View style={styles.cardBody}>
+            <Text style={[styles.cardCourt, !up && { color: theme.textMuted }]} numberOfLines={1}>
+              {b.courtName}
             </Text>
-          </TouchableOpacity>
-        )}
-        {isUpcoming && !canCancelBooking(b.date, b.start_time, b.minCancellationHours) && (
-          <View style={[styles.cancelBtn, { opacity: 0.4 }]}>
-            <Text style={styles.cancelText}>{`<${b.minCancellationHours}h`}</Text>
+            <Text style={styles.cardTime}>
+              {formatShortDate(b.date)} · {formatTime12(b.start_time)}–{formatTime12(b.end_time)}
+            </Text>
+            <ReservationStatusPill status={b.status} />
+          </View>
+          <ChevronRight color={theme.textMuted} size={18} strokeWidth={1.75} />
+        </View>
+
+        {up && (cancel.canCancel || cancel.reason) && (
+          <View style={styles.cardFooter}>
+            {cancel.canCancel ? (
+              <TouchableOpacity
+                testID="cancel-reservation-btn"
+                style={styles.cancelBtn}
+                onPress={() => cancelBooking(b)}
+                disabled={cancelling === b.id}
+                accessibilityRole="button">
+                <Text style={styles.cancelText}>{cancelling === b.id ? 'Cancelling…' : 'Cancel reservation'}</Text>
+              </TouchableOpacity>
+            ) : (
+              <View testID="cancel-unavailable" style={styles.cancelUnavailable}>
+                <Info color={theme.textMuted} size={16} strokeWidth={1.75} />
+                <Text style={styles.cancelUnavailableText}>{cancel.reason}</Text>
+              </View>
+            )}
           </View>
         )}
-      </View>
+      </TouchableOpacity>
     );
   }
 
@@ -203,16 +205,25 @@ export default function MyReservationsScreen() {
                 <EmptyState
                   icon={<CalendarDays color={theme.textMuted} size={40} strokeWidth={1.5} />}
                   title="No upcoming reservations"
-                  subtitle="Book a court to see it here."
+                  subtitle="Reserve an amenity to see it here."
                 />
               ) : (
                 upcoming.map((b) => <BookingCard key={b.id} b={b} isUpcoming />)
               )}
 
-              {past.length > 0 && (
+              {history.length > 0 && (
                 <>
-                  <Text style={[styles.sectionTitle, { marginTop: 28 }]}>Past Reservations</Text>
-                  {past.slice(0, 5).map((b) => <BookingCard key={b.id} b={b} isUpcoming={false} />)}
+                  <Text style={[styles.sectionTitle, { marginTop: 28 }]}>History ({history.length})</Text>
+                  {history.slice(0, historyShown).map((b) => <BookingCard key={b.id} b={b} isUpcoming={false} />)}
+                  {history.length > historyShown && (
+                    <TouchableOpacity
+                      testID="show-more-history"
+                      style={styles.showMore}
+                      onPress={() => setHistoryShown((n) => n + HISTORY_PAGE)}
+                      accessibilityRole="button">
+                      <Text style={styles.showMoreText}>Show {Math.min(HISTORY_PAGE, history.length - historyShown)} more</Text>
+                    </TouchableOpacity>
+                  )}
                 </>
               )}
             </>
@@ -241,12 +252,12 @@ function useStyles(theme: ThemeTokens) {
       borderWidth: 1,
       borderColor: theme.border,
       ...theme.shadowCard,
-      flexDirection: 'row',
       overflow: 'hidden',
-      alignItems: 'center',
     },
+    cardRow: { flexDirection: 'row', alignItems: 'center', paddingRight: 12 },
     dateSidebar: {
       width: 64,
+      alignSelf: 'stretch',
       paddingVertical: 16,
       alignItems: 'center',
       justifyContent: 'center',
@@ -258,7 +269,7 @@ function useStyles(theme: ThemeTokens) {
     dateDayNum:  { fontFamily: FontFamily.manropeBlack, fontSize: 22, lineHeight: 26 },
     dateTextUpcoming: { color: Colors.white },
     dateTextPast:     { color: theme.textMuted },
-    cardBody: { flex: 1, padding: 14, gap: 3 },
+    cardBody: { flex: 1, padding: 14, gap: 4 },
     cardCourt: {
       fontFamily: FontFamily.spaceGroteskBold,
       fontSize: FontSize.cardTitle,
@@ -269,10 +280,15 @@ function useStyles(theme: ThemeTokens) {
       fontSize: FontSize.label,
       color: theme.textSecondary,
     },
-    cancelBtn: {
+    cardFooter: {
+      borderTopWidth: 1,
+      borderTopColor: theme.border,
       paddingHorizontal: 14,
       paddingVertical: 10,
-      marginRight: 4,
+    },
+    cancelBtn: {
+      alignSelf: 'flex-start',
+      paddingHorizontal: 14,
       borderRadius: Radius.button,
       backgroundColor: 'rgba(255,92,107,0.12)',
       borderWidth: 1,
@@ -285,5 +301,22 @@ function useStyles(theme: ThemeTokens) {
       fontSize: FontSize.label,
       color: Colors.negative,
     },
+    cancelUnavailable: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+    cancelUnavailableText: {
+      flex: 1,
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.label,
+      lineHeight: 20,
+      color: theme.textMuted,
+    },
+    showMore: {
+      minHeight: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: Radius.button,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    showMoreText: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label, color: Colors.cyan },
   }), [theme]);
 }
