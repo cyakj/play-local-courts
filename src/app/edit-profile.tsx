@@ -10,8 +10,6 @@ import {
   View,
 } from 'react-native';
 import { router } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, Check } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import { platformAlert } from '@/lib/platformAlert';
@@ -22,6 +20,9 @@ import { InfoTooltip } from '@/components/ui/InfoTooltip';
 import { LocationAutocomplete } from '@/components/ui/LocationAutocomplete';
 import type { LocationValue } from '@/lib/mapboxSearch';
 import { isTennisMode } from '@/config/productMode';
+import { Header } from '@/components/ui/Header';
+import { HeaderSaveButton } from '@/components/ui/HeaderSaveButton';
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 
 const NTRP_OPTIONS = [1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0];
 const HAND_OPTIONS = ['Right', 'Left', 'Two-handed'] as const;
@@ -63,7 +64,6 @@ const EMPTY_ORIG: OrigState = {
 };
 
 export default function EditProfileScreen() {
-  const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const styles = useStyles(theme);
 
@@ -147,16 +147,16 @@ export default function EditProfileScreen() {
     setTennisGoals(prev => prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g]);
   }
 
-  async function handleSave() {
-    if (!dirty) { router.back(); return; }
+  // Persist without navigating; resolves true only when the write succeeded.
+  async function persist(): Promise<boolean> {
     const trimmed = fullName.trim();
     if (!trimmed) {
       platformAlert('Name required', 'Please enter your full name.');
-      return;
+      return false;
     }
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setSaving(false); return; }
+    if (!user) { setSaving(false); return false; }
 
     const parsedYears = yearsPlaying.trim() ? parseInt(yearsPlaying, 10) : null;
 
@@ -186,9 +186,33 @@ export default function EditProfileScreen() {
     setSaving(false);
     if (error) {
       platformAlert('Error', 'Could not save profile. Please try again.');
-    } else {
-      router.back();
+      return false;
     }
+    // The saved value becomes the new baseline, so the form is clean again.
+    setOrig({
+      fullName: trimmed, ntrp, dominantHand, backhand, playingStyle, favoriteSurface,
+      tennisGoals, yearsPlaying, bio, location, visibility,
+    });
+    return true;
+  }
+
+  const guard = useUnsavedChangesGuard({
+    dirty,
+    save: persist,
+    discard: () => {
+      setFullName(orig.fullName); setNtrp(orig.ntrp); setHand(orig.dominantHand); setBackhand(orig.backhand);
+      setPlayingStyle(orig.playingStyle); setSurface(orig.favoriteSurface); setTennisGoals(orig.tennisGoals);
+      setYearsPlaying(orig.yearsPlaying); setBio(orig.bio); setLocation(orig.location); setVisibility(orig.visibility);
+    },
+  });
+
+  function goBack() {
+    if (router.canGoBack()) router.back(); else router.replace('/settings' as any);
+  }
+
+  async function handleSave() {
+    if (!dirty) { goBack(); return; }
+    if (await persist()) { guard.allowNavigation(); goBack(); }
   }
 
   const initials = fullName.trim().split(' ').filter(Boolean)
@@ -207,24 +231,12 @@ export default function EditProfileScreen() {
       style={[styles.screen, { backgroundColor: theme.pageBg }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
 
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 8, backgroundColor: theme.headerBg }]}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => router.back()}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <ArrowLeft color={Colors.white} size={20} strokeWidth={1.5} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Edit Profile</Text>
-        <TouchableOpacity
-          style={[styles.saveBtn, (!dirty || saving) && styles.saveBtnDisabled]}
-          onPress={handleSave}
-          disabled={saving || loading}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          {saving
-            ? <Text style={styles.saveBtnText}>Saving...</Text>
-            : <><Check size={14} color={Colors.white} strokeWidth={2.5} /><Text style={styles.saveBtnText}>Save</Text></>}
-        </TouchableOpacity>
-      </View>
+      <Header
+        variant="inner"
+        title="Edit Profile"
+        onBack={goBack}
+        rightIcon={<HeaderSaveButton onPress={handleSave} saving={saving} disabled={loading || !dirty} />}
+      />
 
       <ScrollView
         style={{ flex: 1 }}
@@ -459,6 +471,7 @@ export default function EditProfileScreen() {
 
         </View>
       </ScrollView>
+      {guard.dialog}
     </KeyboardAvoidingView>
   );
 }

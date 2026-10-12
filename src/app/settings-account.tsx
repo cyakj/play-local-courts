@@ -1,19 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Redirect, router } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, ChevronRight, LogOut, Mail, Phone } from 'lucide-react-native';
+import { ChevronRight, LogOut, Mail, Phone } from 'lucide-react-native';
 
 import { useSession } from '@/context/NativeAuthContext';
 import { supabase } from '@/lib/supabase';
 import { confirmAndSignOut } from '@/lib/authActions';
 import { Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing } from '@/constants/design';
 import { useTheme } from '@/context/ThemeContext';
+import { Header } from '@/components/ui/Header';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 
 export default function SettingsAccountScreen() {
   const { session, loading } = useSession();
-  const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const styles = useStyles(theme);
 
@@ -42,13 +41,7 @@ export default function SettingsAccountScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.pageBg }]}>
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 8, backgroundColor: theme.headerBg }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => { if (router.canGoBack()) router.back(); else router.replace('/settings' as any); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <ArrowLeft color={Colors.white} size={20} strokeWidth={1.5} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Account</Text>
-        <View style={styles.backBtn} />
-      </View>
+      <Header variant="inner" title="Account" onBack={() => { if (router.canGoBack()) router.back(); else router.replace('/settings' as any); }} />
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={{ maxWidth: MaxWidth, width: '100%', alignSelf: 'center' }}>

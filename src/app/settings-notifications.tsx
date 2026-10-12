@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { router } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import { platformAlert } from '@/lib/platformAlert';
@@ -10,6 +8,10 @@ import type { Json } from '@/lib/types';
 import { Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing } from '@/constants/design';
 import { useTheme } from '@/context/ThemeContext';
 import type { ThemeTokens } from '@/constants/theme-tokens';
+import { Header } from '@/components/ui/Header';
+import { HeaderSaveButton } from '@/components/ui/HeaderSaveButton';
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
+import { hasUnsavedChanges } from '@/lib/unsavedChanges';
 
 type Prefs = {
   match_invitations: boolean;
@@ -36,11 +38,12 @@ const ROWS: { key: keyof Prefs; label: string; desc: string }[] = [
 ];
 
 export default function SettingsNotificationsScreen() {
-  const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const styles = useStyles(theme);
 
   const [prefs, setPrefs]   = useState<Prefs>(DEFAULT_PREFS);
+  // Last persisted value: dirty means "differs from this", not "was touched".
+  const [saved, setSaved]   = useState<Prefs>(DEFAULT_PREFS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
 
@@ -54,7 +57,9 @@ export default function SettingsNotificationsScreen() {
         .eq('id', user.id)
         .single();
       if (data?.notification_preferences && typeof data.notification_preferences === 'object') {
-        setPrefs({ ...DEFAULT_PREFS, ...(data.notification_preferences as Partial<Prefs>) });
+        const loaded = { ...DEFAULT_PREFS, ...(data.notification_preferences as Partial<Prefs>) };
+        setPrefs(loaded);
+        setSaved(loaded);
       }
       setLoading(false);
     }
@@ -65,10 +70,13 @@ export default function SettingsNotificationsScreen() {
     setPrefs(prev => ({ ...prev, [key]: !prev[key] }));
   }
 
-  async function save() {
+  const dirty = hasUnsavedChanges(prefs, saved);
+
+  // Persist without navigating; resolves true only when the write succeeded.
+  async function persist(): Promise<boolean> {
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setSaving(false); return; }
+    if (!user) { setSaving(false); return false; }
     const { error } = await supabase
       .from('profiles')
       .update({ notification_preferences: prefs as unknown as Json })
@@ -76,26 +84,35 @@ export default function SettingsNotificationsScreen() {
     setSaving(false);
     if (error) {
       platformAlert('Error', 'Could not save preferences. Please try again.');
-    } else {
-      router.back();
+      return false;
     }
+    setSaved(prefs);
+    return true;
+  }
+
+  const guard = useUnsavedChangesGuard({
+    dirty,
+    save: persist,
+    discard: () => setPrefs(saved),
+  });
+
+  function goBack() {
+    if (router.canGoBack()) router.back(); else router.replace('/settings' as any);
+  }
+
+  async function save() {
+    if (!dirty) { goBack(); return; }
+    if (await persist()) { guard.allowNavigation(); goBack(); }
   }
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.pageBg }]}>
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 8, backgroundColor: theme.headerBg }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => { if (router.canGoBack()) router.back(); else router.replace('/settings' as any); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <ArrowLeft color={Colors.white} size={20} strokeWidth={1.5} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Notifications</Text>
-        <TouchableOpacity
-          style={[styles.saveBtn, saving && styles.saveBtnDim]}
-          onPress={save}
-          disabled={saving || loading}>
-          <Text style={styles.saveBtnTxt}>{saving ? 'Saving...' : 'Save'}</Text>
-        </TouchableOpacity>
-      </View>
-
+      <Header
+        variant="inner"
+        title="Notifications"
+        onBack={goBack}
+        rightIcon={<HeaderSaveButton onPress={save} saving={saving} disabled={loading || !dirty} />}
+      />
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={{ maxWidth: MaxWidth, width: '100%', alignSelf: 'center' }}>
           <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>ALERT PREFERENCES</Text>
@@ -124,6 +141,7 @@ export default function SettingsNotificationsScreen() {
           </Text>
         </View>
       </ScrollView>
+      {guard.dialog}
     </View>
   );
 }

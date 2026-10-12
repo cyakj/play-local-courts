@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Redirect, router } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSession } from '@/context/NativeAuthContext';
-import { ArrowLeft, Bell, ChevronRight, LifeBuoy, Lock, Moon, Shield, Sun } from 'lucide-react-native';
+import { Bell, ChevronRight, LifeBuoy, Lock, Moon, Shield, Sun } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import { confirmAndSignOut } from '@/lib/authActions';
 import { Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing } from '@/constants/design';
 import { useTheme } from '@/context/ThemeContext';
+import { Header } from '@/components/ui/Header';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 import { isCMRoutable, isCoachRoutable } from '@/lib/roleRouting';
 
@@ -21,7 +21,6 @@ const SETTINGS_LINKS = [
 
 export default function SettingsScreen() {
   const { session, loading } = useSession();
-  const insets = useSafeAreaInsets();
   const { mode, theme, setTheme } = useTheme();
   const [signOutError, setSignOutError] = useState('');
 
@@ -49,13 +48,7 @@ export default function SettingsScreen() {
   return (
     <View style={[styles.screen, { backgroundColor: theme.pageBg }]}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 8, backgroundColor: theme.headerBg }]}>
-        <TouchableOpacity onPress={() => { void handleBack(); }} style={styles.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <ArrowLeft color={Colors.white} size={20} strokeWidth={1.5} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Settings</Text>
-        <View style={styles.backBtn} />
-      </View>
+      <Header variant="inner" title="Settings" onBack={() => { void handleBack(); }} />
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.content, { backgroundColor: theme.pageBg }]} showsVerticalScrollIndicator={false}>
         <View style={{ maxWidth: MaxWidth, width: '100%', alignSelf: 'center' }}>

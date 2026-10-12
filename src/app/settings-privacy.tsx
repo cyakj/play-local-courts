@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { router } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, ChevronRight, UserCircle } from 'lucide-react-native';
+import { ChevronRight, UserCircle } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import { platformAlert } from '@/lib/platformAlert';
 import { Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing } from '@/constants/design';
 import { useTheme } from '@/context/ThemeContext';
 import type { ThemeTokens } from '@/constants/theme-tokens';
+import { Header } from '@/components/ui/Header';
+import { HeaderSaveButton } from '@/components/ui/HeaderSaveButton';
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
+import { hasUnsavedChanges } from '@/lib/unsavedChanges';
 
 type PrivacyState = {
   location_visible:           boolean;
@@ -32,11 +35,12 @@ const ROWS: { key: keyof PrivacyState; label: string; desc: string }[] = [
 ];
 
 export default function SettingsPrivacyScreen() {
-  const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const styles = useStyles(theme);
 
   const [state, setState]     = useState<PrivacyState>(DEFAULT);
+  // Last persisted value: dirty means "differs from this", not "was touched".
+  const [saved, setSaved]     = useState<PrivacyState>(DEFAULT);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
 
@@ -50,12 +54,14 @@ export default function SettingsPrivacyScreen() {
         .eq('id', user.id)
         .single();
       if (data) {
-        setState({
+        const loaded: PrivacyState = {
           location_visible:             data.location_visible             ?? DEFAULT.location_visible,
           show_activity_status:         data.show_activity_status         ?? DEFAULT.show_activity_status,
           show_exact_distance:          data.show_exact_distance          ?? DEFAULT.show_exact_distance,
           hide_contact_until_confirmed: data.hide_contact_until_confirmed ?? DEFAULT.hide_contact_until_confirmed,
-        });
+        };
+        setState(loaded);
+        setSaved(loaded);
       }
       setLoading(false);
     }
@@ -66,10 +72,13 @@ export default function SettingsPrivacyScreen() {
     setState(prev => ({ ...prev, [key]: !prev[key] }));
   }
 
-  async function save() {
+  const dirty = hasUnsavedChanges(state, saved);
+
+  // Persist without navigating; resolves true only when the write succeeded.
+  async function persist(): Promise<boolean> {
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setSaving(false); return; }
+    if (!user) { setSaving(false); return false; }
     const { error } = await supabase
       .from('profiles')
       .update(state)
@@ -77,26 +86,35 @@ export default function SettingsPrivacyScreen() {
     setSaving(false);
     if (error) {
       platformAlert('Error', 'Could not save privacy settings. Please try again.');
-    } else {
-      router.back();
+      return false;
     }
+    setSaved(state);
+    return true;
+  }
+
+  const guard = useUnsavedChangesGuard({
+    dirty,
+    save: persist,
+    discard: () => setState(saved),
+  });
+
+  function goBack() {
+    if (router.canGoBack()) router.back(); else router.replace('/settings' as any);
+  }
+
+  async function save() {
+    if (!dirty) { goBack(); return; }
+    if (await persist()) { guard.allowNavigation(); goBack(); }
   }
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.pageBg }]}>
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 8, backgroundColor: theme.headerBg }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => { if (router.canGoBack()) router.back(); else router.replace('/settings' as any); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <ArrowLeft color={Colors.white} size={20} strokeWidth={1.5} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Privacy</Text>
-        <TouchableOpacity
-          style={[styles.saveBtn, saving && styles.saveBtnDim]}
-          onPress={save}
-          disabled={saving || loading}>
-          <Text style={styles.saveBtnTxt}>{saving ? 'Saving...' : 'Save'}</Text>
-        </TouchableOpacity>
-      </View>
-
+      <Header
+        variant="inner"
+        title="Privacy"
+        onBack={goBack}
+        rightIcon={<HeaderSaveButton onPress={save} saving={saving} disabled={loading || !dirty} />}
+      />
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={{ maxWidth: MaxWidth, width: '100%', alignSelf: 'center' }}>
 
@@ -143,6 +161,7 @@ export default function SettingsPrivacyScreen() {
 
         </View>
       </ScrollView>
+      {guard.dialog}
     </View>
   );
 }

@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Redirect, router } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, Check, Eye, EyeOff, KeyRound } from 'lucide-react-native';
+import { Check, Eye, EyeOff, KeyRound } from 'lucide-react-native';
 
 import { useSession } from '@/context/NativeAuthContext';
 import { supabase } from '@/lib/supabase';
 import { useResendCooldown } from '@/hooks/useResendCooldown';
 import { Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing } from '@/constants/design';
 import { useTheme } from '@/context/ThemeContext';
+import { Header } from '@/components/ui/Header';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 
 const REQUIREMENTS: { label: string; test: (v: string) => boolean }[] = [
@@ -64,7 +64,6 @@ function PasswordField({
 
 export default function SettingsChangePasswordScreen() {
   const { session, loading } = useSession();
-  const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const styles = useStyles(theme);
 
@@ -163,13 +162,7 @@ export default function SettingsChangePasswordScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.pageBg }]}>
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 8, backgroundColor: theme.headerBg }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => { if (router.canGoBack()) router.back(); else router.replace('/settings-account' as any); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <ArrowLeft color={Colors.white} size={20} strokeWidth={1.5} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Change Password</Text>
-        <View style={styles.backBtn} />
-      </View>
+      <Header variant="inner" title="Change Password" onBack={() => { if (router.canGoBack()) router.back(); else router.replace('/settings-account' as any); }} />
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
