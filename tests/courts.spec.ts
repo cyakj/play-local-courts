@@ -337,16 +337,18 @@ test.describe('Courts Screen — Phase 3 Refined', () => {
     }
   });
 
-  // ── Report Court Issue — direct form ───────────────────────────────────────
+  // ── Report Court Issue — Reports overview first, then the form ───────────────────────────────────────
 
-  test('Tapping Report Issue opens facility issue form directly', async ({ page }) => {
+  test('Tapping Report Issue opens the Reports overview, then the facility form', async ({ page }) => {
     await page.waitForTimeout(4000);
     const reportBtn = page.locator('[data-testid^="report-issue-"]').first();
     if (await reportBtn.count() > 0) {
       await reportBtn.click();
       // Should navigate to report route
       await expect(page).toHaveURL(/report/, { timeout: 15000 });
-      // Should show the court issue header, not the main reports list
+      // Reports overview comes first; the facility CTA opens the form
+      await expect(page.locator('[data-testid="facility-report-cta"]')).toBeVisible({ timeout: 10000 });
+      await page.locator('[data-testid="facility-report-cta"]').click();
       await expect(page.locator('[data-testid="court-issue-header"]')).toBeVisible({ timeout: 10000 });
     }
   });
@@ -357,20 +359,21 @@ test.describe('Courts Screen — Phase 3 Refined', () => {
     if (await reportBtn.count() > 0) {
       await reportBtn.click();
       await expect(page).toHaveURL(/report/, { timeout: 15000 });
+      await expect(page.locator('[data-testid="facility-report-cta"]')).toBeVisible({ timeout: 10000 });
+      await page.locator('[data-testid="facility-report-cta"]').click();
       await expect(page.locator('[data-testid="court-issue-header"]')).toBeVisible({ timeout: 10000 });
-      // Category grid should be visible directly (form auto-opened)
       await expect(page.locator('[data-testid="category-grid"]')).toBeVisible({ timeout: 8000 });
     }
   });
 
-  test('No active reports list visible when reporting from court card', async ({ page }) => {
+  test('Reports overview is shown first when reporting from a court card', async ({ page }) => {
     await page.waitForTimeout(4000);
     const reportBtn = page.locator('[data-testid^="report-issue-"]').first();
     if (await reportBtn.count() > 0) {
       await reportBtn.click();
       await expect(page).toHaveURL(/report/, { timeout: 15000 });
-      // Reports list/filter tabs should NOT be visible
-      await expect(page.locator('[data-testid="filter-tabs"]')).toHaveCount(0);
+      await expect(page.locator('[data-testid="filter-tabs"]')).toBeVisible({ timeout: 10000 });
+      await expect(page.locator('[data-testid="facility-report-cta"]')).toBeVisible();
     }
   });
 
@@ -454,9 +457,13 @@ test.describe('Courts Screen — Phase 3 Refined', () => {
     if (await reportBtn.count() > 0) {
       await reportBtn.click();
       await expect(page).toHaveURL(/report/, { timeout: 15000 });
+      await expect(page.locator('[data-testid="facility-report-cta"]')).toBeVisible({ timeout: 10000 });
+      await page.locator('[data-testid="facility-report-cta"]').click();
       await expect(page.locator('[data-testid="court-issue-header"]')).toBeVisible({ timeout: 10000 });
-      // Back arrow is the first child of court-issue-header (report.tsx: courtIssueBackBtn).
-      await page.locator('[data-testid="court-issue-header"] > *').first().click();
+      // Form back returns to the Reports overview; the Courts tab returns to Courts.
+      await page.locator('[data-testid="facility-form-back"]').click();
+      await expect(page.locator('[data-testid="facility-report-cta"]')).toBeVisible({ timeout: 10000 });
+      await page.locator('[data-testid="tab-courts"]').click();
       await page.waitForTimeout(1000);
       // Should be on courts, not home
       await expect(page.locator('[data-testid="courts-screen"]')).toBeVisible({ timeout: 10000 });

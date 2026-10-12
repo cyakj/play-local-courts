@@ -301,6 +301,9 @@ test.describe('Resident Reports Screen', () => {
       description: 'Playwright grounds test — please ignore',
     });
     await expect(page.locator('[data-testid="submit-success"]')).toBeVisible({ timeout: 15000 });
+    // The confirmation stays until the resident chooses View Report or Back to Reports.
+    await expect(page.locator('[data-testid="view-report-btn"]')).toBeVisible();
+    await page.locator('[data-testid="back-to-reports-btn"]').first().click();
     await expect(page.locator('[data-testid="report-form"]')).not.toBeVisible({ timeout: 10000 });
 
     await page.locator('[data-testid="filter-all"]').click();

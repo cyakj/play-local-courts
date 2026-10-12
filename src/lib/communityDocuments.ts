@@ -47,13 +47,13 @@ export function classifyStorageError(err: StorageErrorLike | null | undefined): 
   const text = `${err.message ?? ''} ${err.error ?? ''}`.toLowerCase();
   const status = Number(err.status ?? err.statusCode ?? 0);
 
-  if (/jwt expired|token.*expired|expired.*token|\bexp\b.*claim|signature has expired|link.*expired/.test(text)) {
+  if (/jwt expired|token.*expired|expired.*token|\bexp\b.*claim|signature has expired|link.*expired|invalid ?jwt|signature verification failed/.test(text)) {
     return 'expired';
   }
   if (/bucket not found|nosuchbucket|object not found|nosuchkey|not[_ ]found/.test(text) || status === 404) {
     return 'not-found';
   }
-  if (/unauthori[sz]ed|not authori[sz]ed|forbidden|row-level security|permission denied|invalid jwt/.test(text)
+  if (/unauthori[sz]ed|not authori[sz]ed|forbidden|row-level security|permission denied/.test(text)
     || status === 401 || status === 403) {
     return 'unauthorized';
   }
