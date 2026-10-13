@@ -41,6 +41,11 @@ SELECT
   ((now() AT TIME ZONE 'America/Puerto_Rico')::date + 1)        AS d;
 
 GRANT ALL ON t_results, t_ctx TO authenticated;
+GRANT ALL ON SEQUENCE t_results_n_seq TO authenticated;
+
+-- Live test accounts may already hold bookings on the test day (per-day limit); clear them inside this rolled-back txn.
+DELETE FROM public.bookings b USING t_ctx c
+ WHERE b.user_id IN (c.resident, c.admin) AND b.court_id IN (c.court_pending, c.court_auto) AND b.date = c.d;
 
 -- 1. Approval-required amenity: server forces 'pending' even if the client asks for 'confirmed'
 DO $$
@@ -154,8 +159,15 @@ BEGIN
   PERFORM pg_temp.as_user(c.admin);
   INSERT INTO public.bookings (court_id, user_id, date, start_time, end_time, status, play_type)
   VALUES (c.court_pending, c.admin, c.d, '14:00', '14:30', 'confirmed', 'singles');
+  -- Since 20261013110000 the API can no longer create a blockout over a live reservation, so simulate a
+  -- legacy blockout by disabling the guard inside this rolled-back transaction.
+  PERFORM pg_temp.as_owner();
+  DELETE FROM public.bookings WHERE user_id = c.admin AND court_id = c.court_pending AND date = c.d AND start_time <> '14:00';
+  ALTER TABLE public.court_maintenance DISABLE TRIGGER guard_court_maintenance_trigger;
   INSERT INTO public.court_maintenance (court_id, date, start_time, end_time, description)
   VALUES (c.court_pending, c.d, '13:30', '15:00', 'booking_approval.sql test blockout');
+  ALTER TABLE public.court_maintenance ENABLE TRIGGER guard_court_maintenance_trigger;
+  PERFORM pg_temp.as_user(c.admin);
   BEGIN
     UPDATE public.bookings SET status = 'confirmed'
     WHERE user_id = c.admin AND court_id = c.court_pending AND date = c.d AND start_time = '14:00';
@@ -206,7 +218,7 @@ END $$;
 
 -- Report, then abort the transaction on purpose: raising guarantees nothing is committed
 -- and returns the result table in the error message (psql: read the NOTICE/ERROR line).
-DO $
+DO $$
 DECLARE r text;
 BEGIN
   SELECT string_agg(format('%s %s [%s] %s', CASE WHEN ok THEN 'PASS' ELSE 'FAIL' END, name, n, detail), E'
@@ -214,4 +226,4 @@ BEGIN
     INTO r FROM t_results;
   RAISE EXCEPTION E'ROLLED BACK - results:
 %', r;
-END $;
+END $$;

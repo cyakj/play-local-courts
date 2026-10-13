@@ -1,7 +1,7 @@
 -- Admin redesign — database verification script (blockouts, notifications, isolation, guards).
 --
--- NOT RUN against live (the migrations are not applied there). Run it ONLY on a Supabase branch
--- or a scratch database that has, in order, these migrations applied:
+-- Passed in full against the TENISX REAL test project on 2026-10-13 after migrations 1-3 were applied.
+-- Requires, in order, these migrations:
 --   20261012190000_greens_v1_booking_approval_workflow.sql
 --   20261013100000_admin_reports_internal_notes_and_notifications.sql
 --   20261013110000_admin_blockouts_and_reservation_workflow.sql
@@ -38,10 +38,15 @@ SELECT
   'f6eec1c1-fa0e-4806-b0fb-c61480870a95'::uuid AS admin,
   (SELECT id FROM public.courts WHERE name = 'The Greens Court') AS court_a,
   (SELECT id FROM public.courts WHERE name = 'Greens Pool')      AS court_pool,
-  (SELECT id FROM public.courts WHERE name = 'DBE Tennis Court') AS court_other,
+  (SELECT c.id FROM public.courts c JOIN public.hoas h ON h.id = c.hoa_id WHERE h.name = 'The Fairways' LIMIT 1) AS court_other, -- admin is only a resident of The Fairways
   ((now() AT TIME ZONE 'America/Puerto_Rico')::date + 1)        AS d;
 
 GRANT ALL ON t_results, t_ctx TO authenticated;
+GRANT ALL ON SEQUENCE t_results_n_seq TO authenticated;
+
+-- Clear the test accounts' bookings on the test day (per-day limits); rolled back with everything else.
+DELETE FROM public.bookings b USING t_ctx c
+ WHERE b.user_id IN (c.resident, c.admin) AND b.court_id IN (c.court_a, c.court_pool) AND b.date = c.d;
 
 -- Records an expected failure: runs the statement as `uid`, passes if it raises SQLSTATE `code`.
 CREATE FUNCTION pg_temp.expect_error(uid uuid, stmt text, code text, label text) RETURNS void LANGUAGE plpgsql AS $$
@@ -197,6 +202,7 @@ BEGIN
     INSERT INTO public.bookings (court_id, user_id, date, start_time, end_time, status, play_type)
     VALUES (c.court_a, c.resident, c.d, '12:00', '12:30', 'confirmed', 'singles');
     INSERT INTO t_results (name, ok, detail) VALUES ('slot can be booked again after the blockout is removed', true, 'inserted');
+    DELETE FROM public.bookings WHERE user_id = c.resident AND court_id = c.court_a AND date = c.d AND start_time = '12:00' AND status IN ('confirmed','pending');
   EXCEPTION WHEN OTHERS THEN
     INSERT INTO t_results (name, ok, detail) VALUES ('slot can be booked again after the blockout is removed', false, SQLERRM);
   END;
