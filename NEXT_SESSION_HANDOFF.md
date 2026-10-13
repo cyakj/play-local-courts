@@ -194,3 +194,34 @@ It was not lost. `(cm)/messages.tsx` was built in the web-to-native migration an
 5. Optional approval-activation UI test: seed one pending application for the throwaway account Yasameen (`b33c8142`), run with `E2E_APPROVE_APPLICATION_ID`, then revert (delete the created community + membership, remove the added `admin` role row, restore her profile `hoa_id/hoa_status/hoa_role` recorded before). Needs your explicit OK.
 6. Regenerate `src/lib/types.ts`, remove `untypedDb`, iPhone verification, push-notification work (unchanged from session 2).
 
+
+
+---
+
+# SESSION 4 UPDATE (2026-10-13) â€” security migration APPLIED and verified
+
+## Applied to TENISX REAL (approved)
+`platform_approval_and_secure_messaging` (exact contents of `supabase/migrations/20261013120000_...sql`). Live migration list now ends: booking approval, report notes, blockouts, platform approval + secure messaging.
+
+## Preflight (before applying)
+- Cyrus Josephs `platform_reviewer` role present since 2026-01-03; `has_role` true; reviewer can list applications and read their own role (dashboard + routing queries) â€” unchanged by the migration. No credential or role was modified.
+- The Greens' empty `admin_id` does NOT block essential administration: Greens admin can approve members, deactivate residents, edit amenities, read reports (rolled-back test). It DOES block exactly two things (both pre-existing, neither introduced by this migration): updating the `hoas` row itself (policy `admin_id = auth.uid()`), and granting/removing ANOTHER administrator (owner-only guard from session 2).
+
+## Post-apply verification
+- 44/44 SQL checks PASS on the applied database (rolled back): approval/rejection/needs-info/resubmit, no bypasses, role-escalation blocked, messaging boundaries, immutability, contacts, Fairways admin access, all historical conversation directions sendable.
+- Integrity vs snapshot `backup_20261013`: hoas 3, memberships 5, user_roles 6, messages 32, applications 1, profiles 7, bookings 47, reports 81, notifications 183 â€” all equal; zero rows missing or changed in roles, memberships, messages. Communities all `approved`; The Fairways linked to its source application.
+- E2E (real PostgREST + real browsers): `authorization.e2e` 9/9 PASS; `messaging.e2e` 2/2 PASS (resident -> HOA -> reply: unread badge, live delivery both ways without reload, read receipt, persistence after reload). Test messages (`e2e-` prefix) removed afterwards; messages back to 32. No email/SMS/push (community messaging never calls edge functions; no booking flows run).
+- NOT YET RUN: `community-approval.e2e` and the Yasameen activation test â€” waiting for the reviewer session file (`node scripts/capture-session.cjs reviewer`, run by the user).
+
+## Follow-up needing approval
+- `supabase/migrations/20261013130000_revoke_anon_execute_on_admin_rpcs.sql` (NOT APPLIED): `admin_create_blockout`, `admin_blockout_conflicts`, `hoa_is_approved` are executable by `anon` (Supabase default grants; `REVOKE FROM PUBLIC` did not remove them). Not exploitable (they reject callers without `auth.uid()`), but should be closed. Optional later: also revoke API-role EXECUTE on trigger functions.
+
+## Yasameen isolated activation test â€” plan and exact restore
+Before-state saved in `backup_20261013.yas_before_*`: profile `hoa_id NULL, hoa_status 'pending', hoa_role 'resident'`; roles `{resident}`; 0 memberships; 0 applications; 3 communities (`yas_before_hoas` ids). Plan: (1) insert ONE application row for her (`hoa_name 'e2e-Activation Test HOA'`) via SQL; (2) reviewer approves it in the real dashboard (`E2E_APPROVE_APPLICATION_ID`); (3) verify community/membership/role/notification; (4) restore: delete the created community (cascades), her memberships, the `admin` row in `user_roles` (only that row), her application, `application_notifications` and `hoa_application_notes` rows for it; reset her profile to the before-state; verify counts equal the snapshot. No session as Yasameen is used (no credentials); applicant-side UI is covered by the resident-session flow in `community-approval.e2e`.
+
+## The Greens missing-owner issue â€” findings and recommendation
+- The Greens was created 2025-06-04, before `admin_id` was populated by the app; it is the only community without one (DBE: Ron; Fairways: Ramon via application). Its only approved admin is Ron Glickman; its other member is a resident.
+- Impact today: the native app never updates `hoas` rows (no community-profile editor exists), invite regeneration uses `check_hoa_admin` (works), so no shipped feature is broken. It becomes visible when (a) a community profile/logo editor is built, or (b) Greens needs a second administrator.
+- **Recommended (safest): do not change anything automatically.** When you want it fixed: Option A â€” after confirming with the Greens board that Ron Glickman is the rightful owner, a platform admin sets `hoas.admin_id` for The Greens to his user id with one reviewed `UPDATE` (reversible by setting it back to NULL; effect limited to The Greens: lets him edit the community row and add/remove other administrators). Option B (systemic, later) â€” change the `hoas` UPDATE policy to `check_hoa_admin(auth.uid(), id)` and treat any approved admin as owner for communities whose `admin_id IS NULL`; broader policy change, so only if more owner-less communities can appear (they cannot after this migration: communities are created only through approval, which always sets `admin_id`).
+- Decision needed from the owner of The Greens relationship; no change made.
+
