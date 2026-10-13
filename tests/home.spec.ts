@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { isCommunityMode, isTennisMode } from './helpers/productMode';
 
 const HOME = '/(resident)';
 
@@ -19,14 +20,18 @@ test.describe('Home Screen — Phase 2', () => {
     await expect(page.locator('[data-testid="bell-icon"]')).toBeVisible({ timeout: 10000 });
   });
 
-  test('menu icon is visible', async ({ page }) => {
-    await expect(page.locator('[data-testid="menu-icon"]')).toBeVisible({ timeout: 10000 });
+  // The old hamburger "menu-icon" no longer exists; the profile avatar is the header's
+  // entry point to Me / Settings.
+  test('avatar icon is visible', async ({ page }) => {
+    await expect(page.locator('[data-testid="avatar-icon"]')).toBeVisible({ timeout: 10000 });
   });
 
   // ── Hero — tennis-first identity ────────────────────────────────────────────
 
+  // The hero is a "WELCOME BACK" eyebrow plus the resident's first name.
   test('greeting text is visible', async ({ page }) => {
-    await expect(page.getByText(/Good (morning|afternoon|evening),/i).first()).toBeVisible({ timeout: 20000 });
+    await expect(page.getByText('WELCOME BACK', { exact: true })).toBeVisible({ timeout: 20000 });
+    await expect(page.locator('[data-testid="greeting-name"]')).toBeVisible({ timeout: 20000 });
   });
 
   test('HOA name is NOT in the hero', async ({ page }) => {
@@ -66,12 +71,21 @@ test.describe('Home Screen — Phase 2', () => {
     await expect(page.locator('[data-testid="quick-book-court"]')).toBeVisible({ timeout: 10000 });
   });
 
-  test('"Find Match" quick action is visible', async ({ page }) => {
+  test('"Find Match" quick action is visible (tennis mode only)', async ({ page }) => {
+    test.skip(!isTennisMode, 'tennis-only; Community mode asserts it is absent below');
     await expect(page.locator('[data-testid="quick-find-match"]')).toBeVisible({ timeout: 10000 });
   });
 
-  test('"Find Coach" quick action is visible', async ({ page }) => {
+  test('"Find Coach" quick action is visible (tennis mode only)', async ({ page }) => {
+    test.skip(!isTennisMode, 'tennis-only; Community mode asserts it is absent below');
     await expect(page.locator('[data-testid="quick-find-coach"]')).toBeVisible({ timeout: 10000 });
+  });
+
+  test('Community mode shows Report Issue instead of Find Match / Find Coach', async ({ page }) => {
+    test.skip(!isCommunityMode, 'tennis build shows Find Match / Find Coach');
+    await expect(page.locator('[data-testid="quick-report-issue"]')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('[data-testid="quick-find-match"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="quick-find-coach"]')).toHaveCount(0);
   });
 
   test('"Invite Coach" label is not present', async ({ page }) => {
@@ -85,23 +99,41 @@ test.describe('Home Screen — Phase 2', () => {
     await expect(page).toHaveURL(/courts/, { timeout: 15000 });
   });
 
-  test('"Find Match" navigates to Match tab', async ({ page }) => {
+  test('"Find Match" navigates to Match tab (tennis mode only)', async ({ page }) => {
+    test.skip(!isTennisMode, 'tennis-only');
     await page.locator('[data-testid="quick-find-match"]').click();
     await expect(page).toHaveURL(/match/, { timeout: 15000 });
   });
 
-  test('"Find Coach" navigates to Coaches tab', async ({ page }) => {
+  test('"Find Coach" navigates to Coaches tab (tennis mode only)', async ({ page }) => {
+    test.skip(!isTennisMode, 'tennis-only');
     await page.locator('[data-testid="quick-find-coach"]').click();
     await expect(page).toHaveURL(/coaches/, { timeout: 15000 });
   });
 
   // ── My Next Court ─────────────────────────────────────────────────────────────
 
-  test('next court card renders', async ({ page }) => {
+  test('next court card renders (tennis mode only)', async ({ page }) => {
+    test.skip(!isTennisMode, 'Community mode uses the upcoming-reservation card below');
     await expect(page.locator('[data-testid="next-court-card"]')).toBeVisible({ timeout: 10000 });
   });
 
-  test('next court card shows booking or Book a Court CTA', async ({ page }) => {
+  test('upcoming reservation card renders (community mode only)', async ({ page }) => {
+    test.skip(!isCommunityMode, 'tennis build uses the next-court card');
+    await expect(page.locator('[data-testid="upcoming-reservation-card"]')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('[data-testid="next-court-card"]')).toHaveCount(0);
+  });
+
+  test('upcoming reservation card shows a reservation or the Reserve CTA (community mode only)', async ({ page }) => {
+    test.skip(!isCommunityMode, 'tennis build uses the next-court card');
+    await expect(
+      page.locator('[data-testid="upcoming-reservation-row"]').first()
+        .or(page.locator('[data-testid="reserve-cta"]'))
+    ).toBeVisible({ timeout: 25000 });
+  });
+
+  test('next court card shows booking or Book a Court CTA (tennis mode only)', async ({ page }) => {
+    test.skip(!isTennisMode, 'Community mode uses the upcoming-reservation card above');
     await expect(
       page.locator('[data-testid="next-court-row"]').first()
         .or(page.locator('[data-testid="book-court-cta"]'))
@@ -129,7 +161,11 @@ test.describe('Home Screen — Phase 2', () => {
     const count = await card.count();
     if (count > 0) {
       await expect(card).toBeVisible();
-      await expect(page.locator('[data-testid="upcoming-match-row"]').first()).toBeVisible();
+      // accepted challenge matches and open-match listings render as different rows
+      await expect(
+        page.locator('[data-testid="upcoming-match-row"]').first()
+          .or(page.locator('[data-testid="upcoming-open-match-row"]').first())
+      ).toBeVisible();
     }
   });
 
@@ -216,21 +252,30 @@ test.describe('Home Screen — Phase 2', () => {
     await expect(page.locator('[data-testid^="tab-"]')).toHaveCount(5);
   });
 
-  test('correct tab labels: Home | Courts | Match | Coaches | Me', async ({ page }) => {
+  test('correct tab labels for the active product mode', async ({ page }) => {
     const nav = page.locator('[data-testid="bottom-nav"]');
-    for (const label of ['HOME', 'COURTS', 'MATCH', 'COACHES']) {
-      await expect(nav.getByText(label)).toBeVisible({ timeout: 10000 });
+    // Tennis: Home · Reserve · VS (glyph, no text label) · Coaches · Me
+    // Community: Home · Reserve · Community · Schedule · Me
+    const labels = isCommunityMode ? ['HOME', 'RESERVE', 'COMMUNITY', 'SCHEDULE'] : ['HOME', 'RESERVE', 'COACHES'];
+    for (const label of labels) {
+      await expect(nav.getByText(label, { exact: true })).toBeVisible({ timeout: 10000 });
     }
+    if (isTennisMode) await expect(page.locator('[data-testid="tab-match"]').getByText('VS')).toBeVisible();
     await expect(page.locator('[data-testid="tab-me"]').getByText('ME', { exact: true })).toBeVisible();
   });
 
   // ── Scroll behaviour ─────────────────────────────────────────────────────────
 
   test('quick action buttons meet 48px min height', async ({ page }) => {
-    const ids = ['quick-book-court', 'quick-find-match', 'quick-find-coach'];
+    const ids = isCommunityMode
+      ? ['quick-book-court', 'quick-report-issue']
+      : ['quick-book-court', 'quick-find-match', 'quick-find-coach'];
     for (const id of ids) {
-      const box = await page.locator(`[data-testid="${id}"]`).boundingBox();
-      if (box) expect(box.height).toBeGreaterThanOrEqual(48);
+      const el = page.locator(`[data-testid="${id}"]`);
+      await expect(el).toBeVisible({ timeout: 15000 });
+      const box = await el.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.height).toBeGreaterThanOrEqual(48);
     }
   });
 
@@ -254,7 +299,7 @@ test.describe('Home Screen — Phase 2', () => {
   });
 
   test('hero greeting scrolls away when scrolled', async ({ page }) => {
-    const greeting = page.getByText(/Good (morning|afternoon|evening),/i).first();
+    const greeting = page.locator('[data-testid="greeting-name"]');
     await expect(greeting).toBeVisible({ timeout: 20000 });
     const boxBefore = await greeting.boundingBox();
     await page.evaluate(() => {

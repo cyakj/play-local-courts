@@ -24,10 +24,10 @@ test.describe('Global Header — every resident screen', () => {
       await expect(page.locator('[data-testid="bell-icon"]')).toBeVisible({ timeout: 50000 });
     });
 
-    test(`Hamburger menu visible on ${route}`, async ({ page }) => {
+    test(`Profile avatar visible on ${route}`, async ({ page }) => {
       await page.goto(route);
       await page.waitForLoadState('domcontentloaded');
-      await expect(page.locator('[data-testid="menu-icon"]')).toBeVisible({ timeout: 50000 });
+      await expect(page.locator('[data-testid="avatar-icon"]')).toBeVisible({ timeout: 50000 });
     });
   }
 });
@@ -51,7 +51,7 @@ test.describe('Global Font Sizes', () => {
 });
 
 test.describe('Tab Bar', () => {
-  test('tab bar labels are at least 12px', async ({ page }) => {
+  test('tab bar labels are at least 11px (DESIGN.md Bottom Navigation)', async ({ page }) => {
     await page.goto('/(resident)/');
     await page.waitForLoadState('domcontentloaded');
     await expect(page.locator('[data-testid="bottom-nav"]')).toBeVisible({ timeout: 50000 });
@@ -62,12 +62,12 @@ test.describe('Tab Bar', () => {
       return allEls
         .filter((el) => {
           const text = (el as HTMLElement).innerText?.trim().toUpperCase();
-          return ['HOME', 'BOOK', 'REPORTS', 'CALENDAR', 'DOCS'].includes(text ?? '');
+          return ['HOME', 'RESERVE', 'COMMUNITY', 'SCHEDULE', 'COACHES', 'ME'].includes(text ?? '');
         })
         .map((el) => parseFloat(window.getComputedStyle(el).fontSize));
     });
     expect(tabLabels.length).toBeGreaterThan(0);
-    tabLabels.forEach((size) => expect(size).toBeGreaterThanOrEqual(12));
+    tabLabels.forEach((size) => expect(size).toBeGreaterThanOrEqual(11));
   });
 
   test('tab bar height is at least 70px', async ({ page }) => {

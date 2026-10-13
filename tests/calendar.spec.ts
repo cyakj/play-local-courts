@@ -1,4 +1,11 @@
 import { test, expect } from '@playwright/test';
+import { isCommunityMode, isTennisMode } from './helpers/productMode';
+
+// Legend / filter wording per mode (src/app/(resident)/calendar.tsx):
+//   community: Amenity Reservation · Community Event · Board Meeting · Maintenance
+//   tennis:    Court Reservation · Match · Lesson · Club Event · Board Meeting · Maintenance
+const RESERVATION = isCommunityMode ? 'Amenity Reservation' : 'Court Reservation';
+const CLUB_EVENT = isCommunityMode ? 'Community Event' : 'Club Event';
 
 const CALENDAR = '/(resident)/calendar';
 
@@ -19,14 +26,14 @@ test.describe('Resident Calendar Screen', () => {
     await expect(page.locator('[data-testid="bell-icon"]')).toBeVisible({ timeout: 10000 });
   });
 
-  test('hamburger menu icon is visible', async ({ page }) => {
-    await expect(page.locator('[data-testid="menu-icon"]')).toBeVisible({ timeout: 10000 });
+  test('profile avatar icon is visible', async ({ page }) => {
+    await expect(page.locator('[data-testid="avatar-icon"]')).toBeVisible({ timeout: 10000 });
   });
 
   // ── Hero ──────────────────────────────────────────────────────────────────
 
-  test('"Calendar" heading is visible', async ({ page }) => {
-    await expect(page.locator('[data-testid="calendar-heading"]')).toBeVisible({ timeout: 10000 });
+  test('"Schedule" heading is visible', async ({ page }) => {
+    await expect(page.locator('[data-testid="schedule-heading"]')).toHaveText('Schedule', { timeout: 10000 });
   });
 
   test('current month label is visible', async ({ page }) => {
@@ -60,12 +67,12 @@ test.describe('Resident Calendar Screen', () => {
 
   // ── Legend ────────────────────────────────────────────────────────────────
 
-  test('legend shows Amenity Booking', async ({ page }) => {
-    await expect(page.locator('[data-testid="legend-item"]').filter({ hasText: 'Amenity Booking' })).toBeVisible({ timeout: 10000 });
+  test('legend shows the reservation type for the active mode', async ({ page }) => {
+    await expect(page.locator('[data-testid="legend-item"]').filter({ hasText: RESERVATION })).toBeVisible({ timeout: 10000 });
   });
 
-  test('legend shows Community Event', async ({ page }) => {
-    await expect(page.locator('[data-testid="legend-item"]').filter({ hasText: 'Community Event' })).toBeVisible({ timeout: 10000 });
+  test('legend shows the club / community event type for the active mode', async ({ page }) => {
+    await expect(page.locator('[data-testid="legend-item"]').filter({ hasText: CLUB_EVENT })).toBeVisible({ timeout: 10000 });
   });
 
   test('legend shows Board Meeting', async ({ page }) => {
@@ -82,12 +89,21 @@ test.describe('Resident Calendar Screen', () => {
     await expect(page.locator('[data-testid="event-type-tab"]').filter({ hasText: /^All$/ })).toBeVisible({ timeout: 10000 });
   });
 
-  test('filter tab "Amenity Booking" exists', async ({ page }) => {
-    await expect(page.locator('[data-testid="event-type-tab"]').filter({ hasText: 'Amenity Booking' })).toBeVisible({ timeout: 10000 });
+  test('reservation filter tab exists for the active mode', async ({ page }) => {
+    const label = isCommunityMode ? 'Amenity Reservations' : 'Court Reservations';
+    await expect(page.locator('[data-testid="event-type-tab"]').filter({ hasText: label })).toBeVisible({ timeout: 10000 });
   });
 
-  test('filter tab "Community Event" exists', async ({ page }) => {
-    await expect(page.locator('[data-testid="event-type-tab"]').filter({ hasText: 'Community Event' })).toBeVisible({ timeout: 10000 });
+  test('club / community event filter tab exists for the active mode', async ({ page }) => {
+    const label = isCommunityMode ? 'Community Events' : 'Club Events';
+    await expect(page.locator('[data-testid="event-type-tab"]').filter({ hasText: label })).toBeVisible({ timeout: 10000 });
+  });
+
+  test('Matches / Lessons filter tabs are tennis-only', async ({ page }) => {
+    await expect(page.locator('[data-testid="event-type-tab"]').filter({ hasText: 'All' }).first()).toBeVisible({ timeout: 10000 });
+    const expected = isTennisMode ? 1 : 0;
+    await expect(page.locator('[data-testid="event-type-tab"]').filter({ hasText: 'Matches' })).toHaveCount(expected);
+    await expect(page.locator('[data-testid="event-type-tab"]').filter({ hasText: 'Lessons' })).toHaveCount(expected);
   });
 
   test('filter tab "Board Meeting" exists', async ({ page }) => {
@@ -134,8 +150,13 @@ test.describe('Resident Calendar Screen', () => {
 
   // ── Hero polish ───────────────────────────────────────────────────────────
 
-  test('"SCHEDULE" redundant label is NOT present', async ({ page }) => {
-    await expect(page.getByText('SCHEDULE', { exact: true })).not.toBeVisible({ timeout: 5000 });
+  test('"SCHEDULE" redundant label is NOT present in the page body', async ({ page }) => {
+    // The Community bottom-nav tab is legitimately labelled SCHEDULE; only the hero/body
+    // must not repeat it as an all-caps eyebrow above the "Schedule" title.
+    await expect(page.locator('[data-testid="schedule-heading"]')).toBeVisible({ timeout: 10000 });
+    const total = await page.getByText('SCHEDULE', { exact: true }).count();
+    const inNav = await page.locator('[data-testid="bottom-nav"]').getByText('SCHEDULE', { exact: true }).count();
+    expect(total - inNav).toBe(0);
   });
 
   test('hero subtitle (month label) is visible', async ({ page }) => {
@@ -144,10 +165,13 @@ test.describe('Resident Calendar Screen', () => {
 
   // ── Legend polish ─────────────────────────────────────────────────────────
 
-  test('all four legend items are visible', async ({ page }) => {
+  test('all legend items for the active mode are visible', async ({ page }) => {
     const items = page.locator('[data-testid="legend-item"]');
-    await expect(items).toHaveCount(4, { timeout: 10000 });
-    for (const label of ['Amenity Booking', 'Community Event', 'Board Meeting', 'Maintenance']) {
+    const labels = isCommunityMode
+      ? [RESERVATION, CLUB_EVENT, 'Board Meeting', 'Maintenance']
+      : [RESERVATION, 'Match', 'Lesson', CLUB_EVENT, 'Board Meeting', 'Maintenance'];
+    await expect(items).toHaveCount(labels.length, { timeout: 10000 });
+    for (const label of labels) {
       await expect(items.filter({ hasText: label })).toBeVisible({ timeout: 5000 });
     }
   });

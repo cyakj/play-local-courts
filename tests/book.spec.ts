@@ -18,8 +18,8 @@ test.describe('Resident Book Screen', () => {
     await expect(page.locator('[data-testid="bell-icon"]')).toBeVisible({ timeout: 10000 });
   });
 
-  test('hamburger menu icon is visible', async ({ page }) => {
-    await expect(page.locator('[data-testid="menu-icon"]')).toBeVisible({ timeout: 10000 });
+  test('profile avatar icon is visible', async ({ page }) => {
+    await expect(page.locator('[data-testid="avatar-icon"]')).toBeVisible({ timeout: 10000 });
   });
 
   test('"No amenities available" is NOT shown — real data loads', async ({ page }) => {

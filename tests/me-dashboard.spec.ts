@@ -103,6 +103,8 @@ test.describe('Me screen — dashboard', () => {
     await expect(
       page.getByText(/no upcoming matches — find an opponent/i)
         .or(page.getByText(/^vs /))
+        // newest open-match listing renders as "Singles · <location>" / "Doubles · <location>"
+        .or(page.getByText(/^(Singles|Doubles) · /))
     ).toBeVisible({ timeout: 15000 });
   });
 

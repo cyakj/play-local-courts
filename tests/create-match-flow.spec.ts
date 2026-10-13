@@ -1,7 +1,12 @@
 // tests/create-match-flow.spec.ts
 import { test, expect } from '@playwright/test';
+import { isTennisMode } from './helpers/productMode';
 
-test.describe('Create Match flow', () => {
+test.describe('Create Match flow (tennis mode only)', () => {
+  // Matches are a tennis-only feature: Community mode has no Match tab or entry point.
+  // These run (and must pass) against a Tennis-mode build.
+  test.skip(!isTennisMode, 'Match creation is tennis-only');
+
   test('Next is disabled until Activity step has both fields set', async ({ page }) => {
     await page.goto('/match/new');
     // The Next button renders as <View disabled><Text>Next</Text></View> on web.

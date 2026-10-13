@@ -69,8 +69,8 @@ const styles = StyleSheet.create({
   },
   label: {
     fontFamily: FontFamily.jetbrainsMonoSemiBold,
-    fontSize: 10,
-    letterSpacing: 0.8,
+    fontSize: 11, // DESIGN.md Bottom Navigation: JetBrains Mono 11px
+    letterSpacing: 0.5,
   },
   dot: {
     width: 4,

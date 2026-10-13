@@ -102,6 +102,7 @@ function fmtTime(t: string): string {
 // Task 8 filtered the chip/legend lists at the render site, not the config.
 function eventTypeLabel(type: string): string {
   if (isCommunityMode && type === 'court_reservation') return 'Amenity Reservation';
+  if (isCommunityMode && type === 'club_event') return 'Community Event';
   return EVENT_TYPE_CONFIG[type]?.label ?? type;
 }
 
@@ -110,6 +111,7 @@ function eventTypeLabel(type: string): string {
 // applied at the render site only, EVENT_TYPE_FILTERS itself stays untouched.
 function filterChipLabel(opt: string): string {
   if (isCommunityMode && opt === 'Court Reservations') return 'Amenity Reservations';
+  if (isCommunityMode && opt === 'Club Events') return 'Community Events';
   return opt;
 }
 

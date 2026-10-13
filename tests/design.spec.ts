@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { isCommunityMode, isTennisMode } from './helpers/productMode';
 
 const HOME = '/(resident)';
 
@@ -19,11 +20,14 @@ test.describe('TenisX Design System — v1.0 enforcement', () => {
     await expect(page.locator('[data-testid="bottom-nav"]')).toHaveCount(1);
   });
 
-  test('correct tab labels: HOME · COURTS · MATCH · COACHES · ME', async ({ page }) => {
+  test('correct tab labels for the active product mode', async ({ page }) => {
     const nav = page.locator('[data-testid="bottom-nav"]');
-    for (const label of ['HOME', 'COURTS', 'MATCH', 'COACHES']) {
-      await expect(nav.getByText(label)).toBeVisible({ timeout: 10000 });
+    // Tennis: HOME · RESERVE · VS (glyph) · COACHES · ME; Community: HOME · RESERVE · COMMUNITY · SCHEDULE · ME
+    const labels = isCommunityMode ? ['HOME', 'RESERVE', 'COMMUNITY', 'SCHEDULE'] : ['HOME', 'RESERVE', 'COACHES'];
+    for (const label of labels) {
+      await expect(nav.getByText(label, { exact: true })).toBeVisible({ timeout: 10000 });
     }
+    if (isTennisMode) await expect(page.locator('[data-testid="tab-match"]').getByText('VS')).toBeVisible();
     await expect(page.locator('[data-testid="tab-me"]').getByText('ME', { exact: true })).toBeVisible();
   });
 
@@ -58,8 +62,8 @@ test.describe('TenisX Design System — v1.0 enforcement', () => {
     await expect(page.locator('[data-testid="bell-icon"]')).toBeVisible();
   });
 
-  test('settings/menu icon visible', async ({ page }) => {
-    await expect(page.locator('[data-testid="menu-icon"]')).toBeVisible();
+  test('profile avatar icon visible', async ({ page }) => {
+    await expect(page.locator('[data-testid="avatar-icon"]')).toBeVisible();
   });
 
   test('bell icon touch zone meets 44px minimum', async ({ page }) => {
@@ -71,8 +75,8 @@ test.describe('TenisX Design System — v1.0 enforcement', () => {
     }
   });
 
-  test('menu icon touch zone meets 44px minimum', async ({ page }) => {
-    const menu = page.locator('[data-testid="menu-icon"]');
+  test('avatar icon touch zone meets 44px minimum', async ({ page }) => {
+    const menu = page.locator('[data-testid="avatar-icon"]');
     const box = await menu.boundingBox();
     if (box) {
       expect(box.width).toBeGreaterThanOrEqual(44);
@@ -92,18 +96,25 @@ test.describe('TenisX Design System — v1.0 enforcement', () => {
     await expect(page).toHaveURL(/courts/, { timeout: 15000 });
   });
 
-  test('Find Match quick action visible and navigates', async ({ page }) => {
+  test('Find Match quick action visible and navigates (tennis mode only)', async ({ page }) => {
+    test.skip(!isTennisMode, 'tennis-only; see Community Report Issue test');
     await page.goto(HOME);
     await expect(page.locator('[data-testid="quick-find-match"]')).toBeVisible({ timeout: 15000 });
     await page.locator('[data-testid="quick-find-match"]').click();
     await expect(page).toHaveURL(/match/, { timeout: 15000 });
   });
 
-  test('Find Coach quick action visible and navigates', async ({ page }) => {
+  test('Find Coach quick action visible and navigates (tennis mode only)', async ({ page }) => {
+    test.skip(!isTennisMode, 'tennis-only; see Community Report Issue test');
     await page.goto(HOME);
     await expect(page.locator('[data-testid="quick-find-coach"]')).toBeVisible({ timeout: 15000 });
     await page.locator('[data-testid="quick-find-coach"]').click();
     await expect(page).toHaveURL(/coaches/, { timeout: 15000 });
+  });
+
+  test('Report Issue quick action visible (community mode only)', async ({ page }) => {
+    test.skip(!isCommunityMode, 'tennis build shows Find Match / Find Coach');
+    await expect(page.locator('[data-testid="quick-report-issue"]')).toBeVisible({ timeout: 15000 });
   });
 
   test('View Full Schedule navigates to calendar', async ({ page }) => {
@@ -114,15 +125,21 @@ test.describe('TenisX Design System — v1.0 enforcement', () => {
   });
 
   test('quick action buttons meet 48px min height', async ({ page }) => {
-    const ids = ['quick-book-court', 'quick-find-match', 'quick-find-coach'];
+    const ids = isCommunityMode
+      ? ['quick-book-court', 'quick-report-issue']
+      : ['quick-book-court', 'quick-find-match', 'quick-find-coach'];
     for (const id of ids) {
-      const box = await page.locator(`[data-testid="${id}"]`).boundingBox();
-      if (box) expect(box.height).toBeGreaterThanOrEqual(48);
+      const el = page.locator(`[data-testid="${id}"]`);
+      await expect(el).toBeVisible({ timeout: 15000 });
+      const box = await el.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.height).toBeGreaterThanOrEqual(48);
     }
   });
 
-  test('next court card renders', async ({ page }) => {
-    await expect(page.locator('[data-testid="next-court-card"]')).toBeVisible({ timeout: 15000 });
+  test('next court / upcoming reservation card renders', async ({ page }) => {
+    const id = isCommunityMode ? 'upcoming-reservation-card' : 'next-court-card';
+    await expect(page.locator(`[data-testid="${id}"]`)).toBeVisible({ timeout: 15000 });
   });
 
   test('calendar link is tappable (≥48px height)', async ({ page }) => {
@@ -165,13 +182,21 @@ test.describe('TenisX Design System — v1.0 enforcement', () => {
     await expect(page.locator('[data-testid="tenisx-logo"]').first()).toBeVisible({ timeout: 15000 });
   });
 
-  test('Match tab navigates and shows universal header', async ({ page }) => {
+  test('Match tab navigates and shows universal header (tennis mode only)', async ({ page }) => {
+    test.skip(!isTennisMode, 'Match tab is tennis-only');
     await page.locator('[data-testid="tab-match"]').click();
     await expect(page.locator('[data-testid="tenisx-logo"]').first()).toBeVisible({ timeout: 15000 });
   });
 
-  test('Coaches tab navigates and shows universal header', async ({ page }) => {
+  test('Coaches tab navigates and shows universal header (tennis mode only)', async ({ page }) => {
+    test.skip(!isTennisMode, 'Coaches tab is tennis-only');
     await page.locator('[data-testid="tab-coaches"]').click();
+    await expect(page.locator('[data-testid="tenisx-logo"]').first()).toBeVisible({ timeout: 15000 });
+  });
+
+  test('Community tab navigates and shows universal header (community mode only)', async ({ page }) => {
+    test.skip(!isCommunityMode, 'Community tab is community-only');
+    await page.locator('[data-testid="tab-community"]').click();
     await expect(page.locator('[data-testid="tenisx-logo"]').first()).toBeVisible({ timeout: 15000 });
   });
 
