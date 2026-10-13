@@ -7,7 +7,9 @@ import {
 } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
+import { errorMessage } from '@/lib/errors';
 import { platformAlert } from '@/lib/platformAlert';
+import { communityToday } from '@/lib/communityTime';
 import { A, AShadow } from '@/constants/adminTheme';
 import { FontFamily } from '@/constants/design';
 import {
@@ -28,13 +30,6 @@ interface CommunityStats {
   todayBookings: number;
 }
 
-// Local calendar date (not UTC) so "today" matches the resident's wall clock.
-function localToday(): string {
-  const d = new Date();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${d.getFullYear()}-${mm}-${dd}`;
-}
 
 export default function PortfolioScreen() {
   const insets = useSafeAreaInsets();
@@ -67,7 +62,7 @@ export default function PortfolioScreen() {
       const { data: hoas, error: hoaErr } = await supabase.from('hoas').select('id, name, logo_url').order('name');
       if (hoaErr) throw hoaErr;
 
-      const today = localToday();
+      const today = communityToday(); // community wall-clock date, not the device's
       const stats = await Promise.all((hoas ?? []).map(async (hoa): Promise<CommunityStats> => {
         const [members, issues, courts, joins] = await Promise.all([
           supabase.from('hoa_memberships').select('id', { count: 'exact', head: true })
@@ -110,7 +105,7 @@ export default function PortfolioScreen() {
       }));
       setCommunities(stats);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load your communities.');
+      setError(errorMessage(e, 'Could not load your communities.'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -145,7 +140,7 @@ export default function PortfolioScreen() {
       setNewAddress('');
       load();
     } catch (e) {
-      platformAlert('Could not create community', e instanceof Error ? e.message : 'Please try again.');
+      platformAlert('Could not create community', errorMessage(e, 'Please try again.'));
     } finally {
       setAddSaving(false);
     }

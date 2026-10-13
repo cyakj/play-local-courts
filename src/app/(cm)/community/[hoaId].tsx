@@ -6,14 +6,18 @@ import {
 } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
+import { errorMessage } from '@/lib/errors';
 import { platformAlert } from '@/lib/platformAlert';
 import { A } from '@/constants/adminTheme';
 import { FontFamily } from '@/constants/design';
 import {
-  AdminHeader, AdminScreen, Button, Card, Chip, ChipRow, EmptyBlock, ErrorBlock, LoadingBlock, MetricCard,
+  AdminHeader, AdminScreen, Button, Card, EmptyBlock, Segmented, ErrorBlock, LoadingBlock, MetricCard,
   MetricGrid, Pill, SectionTitle, StatusBadge, timeAgo,
 } from '@/components/admin/kit';
 import { ReportsPanel, useAdminReports, categoryLabel } from '@/components/admin/ReportsPanel';
+import { CommunityLogo } from '@/components/branding/BrandLogos';
+import { bundledLogoFor } from '@/config/communityBranding';
+import { communityToday } from '@/lib/communityTime';
 
 type Tab = 'overview' | 'reports' | 'amenities' | 'members';
 const TABS: { key: Tab; label: string }[] = [
@@ -37,10 +41,6 @@ interface MemberRow {
   membershipId: string; userId: string; fullName: string; unitNumber: string | null; role: string; status: string;
 }
 
-function localToday(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
 
 export default function CommunityDetailScreen() {
   const { hoaId, tab: tabParam } = useLocalSearchParams<{ hoaId: string; tab?: Tab }>();
@@ -100,7 +100,7 @@ export default function CommunityDetailScreen() {
           : { data: [], error: null },
         courtIds.length
           ? supabase.from('bookings').select('id', { count: 'exact', head: true })
-              .in('court_id', courtIds).gte('date', localToday()).in('status', ['confirmed', 'pending'])
+              .in('court_id', courtIds).gte('date', communityToday()).in('status', ['confirmed', 'pending'])
           : { count: 0, error: null },
       ]);
       const secondErr = [rulesRes, bookingsRes, upcomingRes].find((r) => r.error)?.error;
@@ -139,7 +139,7 @@ export default function CommunityDetailScreen() {
         })),
       ]);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load this community.');
+      setError(errorMessage(e, 'Could not load this community.'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -213,18 +213,23 @@ export default function CommunityDetailScreen() {
       header={<AdminHeader onBack={() => router.back()} community={hoa ? { hoaId, name: hoa.name, logoUrl: hoa.logoUrl } : { name: 'Community' }} />}
       refreshing={refreshing}
       onRefresh={() => { setRefreshing(true); load(); reportsData.reload(); }}>
-      <ChipRow>
-        {TABS.map((t) => (
-          <Chip key={t.key} testID={`tab-${t.key}`} label={t.label} selected={tab === t.key} onPress={() => setTab(t.key)} />
-        ))}
-      </ChipRow>
+      {hoa?.logoUrl || bundledLogoFor(hoaId) ? (
+        <View style={{ minHeight: 40, justifyContent: 'center' }}>
+          <CommunityLogo hoaId={hoaId} name={hoa?.name} logoUrl={hoa?.logoUrl} height={40} maxWidth={220} />
+        </View>
+      ) : null}
+      <Segmented
+        value={tab}
+        onChange={setTab}
+        options={TABS.map((t) => ({ value: t.key, label: t.label, testID: `tab-${t.key}` }))}
+      />
 
       {error ? <ErrorBlock message={error} onRetry={load} /> : null}
 
       {tab === 'overview' && (
         <>
           {loading ? <LoadingBlock rows={2} /> : (
-            <MetricGrid>
+            <MetricGrid columns={3}>
               <MetricCard Icon={Users} tone="accent" value={activeMembers} label="Active members" onPress={() => setTab('members')} />
               <MetricCard Icon={Clock} tone={pendingJoin ? 'warning' : 'success'} value={pendingJoin} label="Pending approvals"
                 onPress={() => router.push('/(admin)/pending-requests')} />

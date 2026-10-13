@@ -8,6 +8,7 @@ import {
 } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
+import { errorMessage } from '@/lib/errors';
 import { db } from '@/lib/untypedDb';
 import { platformAlert } from '@/lib/platformAlert';
 import { communityToday } from '@/lib/communityTime';
@@ -139,7 +140,7 @@ export function AmenityScheduleSheet({ visible, onClose, court, openTime, closeT
           .select('id, user_id, start_time, end_time, status, play_type')
           .eq('court_id', courtId).eq('date', date).in('status', ['confirmed', 'pending']),
         db.from('court_maintenance')
-          .select('id, date, end_date, start_time, end_time, description, blockout_type, resident_message')
+          .select('*')
           .eq('court_id', courtId).lte('date', date)
           .or(`end_date.gte.${date},and(end_date.is.null,date.eq.${date})`),
       ]);
@@ -161,7 +162,7 @@ export function AmenityScheduleSheet({ visible, onClose, court, openTime, closeT
         description: m.description, blockoutType: m.blockout_type, resident_message: (m as { resident_message?: string | null }).resident_message ?? null,
       })));
     } catch (e) {
-      setLoadError(e instanceof Error ? e.message : 'Could not load the schedule.');
+      setLoadError(errorMessage(e, 'Could not load the schedule.'));
     } finally {
       setLoading(false);
     }
@@ -192,7 +193,7 @@ export function AmenityScheduleSheet({ visible, onClose, court, openTime, closeT
   }
 
   function onSlotPress(slot: Slot) {
-    if (slot.state === 'past') return;
+    if (slot.state === 'past' || loadError) return;
     if (slot.state === 'blocked') {
       const b = blockouts.find((x) => x.id === slot.blockouts[0].id) ?? null;
       setDetailBlockout(b);
@@ -383,7 +384,8 @@ export function AmenityScheduleSheet({ visible, onClose, court, openTime, closeT
 
               {loadError ? <Card><Text style={[s.body, { color: A.errorText }]}>{loadError}</Text><View style={{ marginTop: 8 }}><Button label="Try again" variant="secondary" onPress={load} /></View></Card> : null}
 
-              {slots.map((slot) => {
+              {/* Never draw an all-available grid when the data behind it failed to load. */}
+              {loadError ? null : slots.map((slot) => {
                 const st = SLOT_STYLE[slot.state];
                 const isSel = selected.has(slot.startMin);
                 const label = `${formatMinutes(slot.startMin)} to ${formatMinutes(slot.endMin)}, ${SLOT_STATE_LABEL[slot.state]}`;

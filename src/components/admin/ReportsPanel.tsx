@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CheckCircle2, ChevronRight, Flame, MapPin, X } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
+import { errorMessage } from '@/lib/errors';
 import { db } from '@/lib/untypedDb';
 import { platformAlert } from '@/lib/platformAlert';
 import { A } from '@/constants/adminTheme';
@@ -116,7 +117,7 @@ export function useAdminReports(hoaId?: string) {
         };
       }));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load reports.');
+      setError(errorMessage(e, 'Could not load reports.'));
     } finally {
       setLoading(false);
     }
@@ -135,7 +136,8 @@ export function ReportCard({ report, showCommunity, onPress }: { report: AdminRe
         <View style={{ flex: 1 }}>
           <Text style={s.title} numberOfLines={1}>{report.title}</Text>
           <Text style={s.meta} numberOfLines={1}>
-            {categoryLabel(report.category)}{showCommunity ? ` · ${report.community}` : ''}
+            {[report.title === categoryLabel(report.category) ? null : categoryLabel(report.category), showCommunity ? report.community : null]
+              .filter(Boolean).join(' · ') || ' '}
           </Text>
         </View>
         <StatusBadge status={report.status} />
@@ -164,6 +166,7 @@ export function ReportsPanel({
   const [category, setCategory] = useState('all');
   const [priority, setPriority] = useState('all');
   const [community, setCommunity] = useState('all');
+  const [moreFilters, setMoreFilters] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(openReportId ?? null);
 
   useEffect(() => { if (openReportId) setSelectedId(openReportId); }, [openReportId]);
@@ -196,16 +199,27 @@ export function ReportsPanel({
         ))}
       </ChipRow>
       <ChipRow>
-        <Chip label="All categories" selected={category === 'all'} onPress={() => setCategory('all')} />
-        {usedCategories.map((c) => (
-          <Chip key={c} label={categoryLabel(c)} selected={category === c} onPress={() => setCategory(c)} />
-        ))}
+        <Chip testID="more-filters" label={moreFilters ? 'Hide filters' : `Category & priority${category !== 'all' || priority !== 'all' ? ' • on' : ''}`}
+          selected={moreFilters || category !== 'all' || priority !== 'all'} onPress={() => setMoreFilters((v) => !v)} />
+        {(category !== 'all' || priority !== 'all') ? (
+          <Chip label="Clear" onPress={() => { setCategory('all'); setPriority('all'); }} />
+        ) : null}
       </ChipRow>
-      <ChipRow>
-        {PRIORITY_FILTERS.map((f) => (
-          <Chip key={f.value} label={f.label} selected={priority === f.value} onPress={() => setPriority(f.value)} />
-        ))}
-      </ChipRow>
+      {moreFilters ? (
+        <>
+          <ChipRow>
+            <Chip label="All categories" selected={category === 'all'} onPress={() => setCategory('all')} />
+            {usedCategories.map((c) => (
+              <Chip key={c} label={categoryLabel(c)} selected={category === c} onPress={() => setCategory(c)} />
+            ))}
+          </ChipRow>
+          <ChipRow>
+            {PRIORITY_FILTERS.map((f) => (
+              <Chip key={f.value} label={f.label} selected={priority === f.value} onPress={() => setPriority(f.value)} />
+            ))}
+          </ChipRow>
+        </>
+      ) : null}
 
       {error ? <ErrorBlock message={error} onRetry={() => reload()} /> : null}
       {loading ? <LoadingBlock /> : filtered.length === 0 && !error ? (
@@ -320,7 +334,7 @@ export function ReportDetailSheet({
       await onSaved();
       onClose();
     } catch (e) {
-      platformAlert('Could not save', e instanceof Error ? e.message : 'Please try again.');
+      platformAlert('Could not save', errorMessage(e, 'Please try again.'));
     } finally {
       setSaving(false);
     }

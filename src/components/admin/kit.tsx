@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { Children, cloneElement, isValidElement, ReactElement, ReactNode } from 'react';
 import {
   ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView,
   StyleProp, StyleSheet, Text, View, ViewStyle,
@@ -11,7 +11,7 @@ import {
   A, ADMIN_BOTTOM_PAD, ADMIN_MAX_WIDTH, ADMIN_PAGE_PX, AShadow, STATUS_LABEL, STATUS_TONE, TONES, type Tone,
 } from '@/constants/adminTheme';
 import { FontFamily } from '@/constants/design';
-import { TenisXLogo, CommunityLogo } from '@/components/branding/BrandLogos';
+import { TenisXLogo } from '@/components/branding/BrandLogos';
 
 // ─── Header ──────────────────────────────────────────────────────────────────
 // Compact navy band (~56pt + safe area). The white TenisX wordmark is drawn
@@ -42,7 +42,7 @@ export function AdminHeader({
         )}
         <View style={s.headerTitleWrap}>
           {community?.name ? (
-            <CommunityLogo hoaId={community.hoaId} name={community.name} logoUrl={community.logoUrl} height={26} maxWidth={150} />
+            <Text style={s.headerTitle} numberOfLines={1} accessibilityRole="header">{community.name}</Text>
           ) : title ? (
             <Text style={s.headerTitle} numberOfLines={1} accessibilityRole="header">{title}</Text>
           ) : null}
@@ -194,11 +194,12 @@ export function ChipRow({ children }: { children: ReactNode }) {
 }
 
 export function MetricCard({
-  value, label, Icon, onPress, tone = 'info', testID,
-}: { value: number | string; label: string; Icon: LucideIcon; onPress?: () => void; tone?: Tone; testID?: string }) {
+  value, label, Icon, onPress, tone = 'info', testID, columns = 2,
+}: { value: number | string; label: string; Icon: LucideIcon; onPress?: () => void; tone?: Tone; testID?: string; columns?: 2 | 3 }) {
   const t = TONES[tone];
   return (
-    <Card onPress={onPress} testID={testID} accessibilityLabel={`${label}: ${value}`} style={s.metric}>
+    <Card onPress={onPress} testID={testID} accessibilityLabel={`${label}: ${value}`}
+      style={[s.metric, columns === 3 && s.metric3]}>
       <View style={[s.metricIcon, { backgroundColor: t.bg }]}>
         <Icon size={18} color={t.fg} strokeWidth={1.75} />
       </View>
@@ -209,8 +210,36 @@ export function MetricCard({
 }
 
 /** Two-column grid that keeps cards equal width and wraps cleanly under text scaling. */
-export function MetricGrid({ children }: { children: ReactNode }) {
-  return <View style={s.metricGrid}>{children}</View>;
+export function MetricGrid({ children, columns = 2 }: { children: ReactNode; columns?: 2 | 3 }) {
+  return (
+    <View style={s.metricGrid}>
+      {Children.map(children, (c) => (isValidElement(c) ? cloneElement(c as ReactElement<{ columns?: 2 | 3 }>, { columns }) : c))}
+    </View>
+  );
+}
+
+/** Equal-width segmented control: every option stays visible (no horizontal scrolling or clipping). */
+export function Segmented<T extends string>({
+  options, value, onChange,
+}: { options: { value: T; label: string; testID?: string }[]; value: T; onChange: (v: T) => void }) {
+  return (
+    <View style={s.segWrap} accessibilityRole="tablist">
+      {options.map((o) => {
+        const on = o.value === value;
+        return (
+          <Pressable
+            key={o.value}
+            testID={o.testID}
+            onPress={() => onChange(o.value)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: on }}
+            style={[s.segItem, on && s.segItemOn]}>
+            <Text style={[s.segText, on && { color: '#FFFFFF' }]} numberOfLines={1} adjustsFontSizeToFit>{o.label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
 }
 
 export function Button({
@@ -257,6 +286,7 @@ export function Toggle({
       testID={testID}
       onPress={disabled ? undefined : () => onChange(!value)}
       accessibilityRole="switch"
+      aria-checked={value}
       accessibilityLabel={label}
       accessibilityHint={hint}
       accessibilityState={{ checked: value, disabled: !!disabled }}
@@ -360,6 +390,11 @@ const s = StyleSheet.create({
   metricGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   metric: { flexBasis: '47%', flexGrow: 1, minHeight: 112, gap: 6, padding: 14 },
   metricIcon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  metric3: { flexBasis: '30%', minHeight: 104, padding: 12 },
+  segWrap: { flexDirection: 'row', backgroundColor: A.surfaceAlt, borderRadius: 14, padding: 4, gap: 4 },
+  segItem: { flex: 1, minHeight: 44, borderRadius: 11, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  segItemOn: { backgroundColor: A.navy },
+  segText: { fontFamily: FontFamily.manropeBold, fontSize: 14, color: A.textSecondary },
   metricValue: { fontFamily: FontFamily.spaceGroteskBold, fontSize: 30, color: A.text, letterSpacing: -0.5 },
   metricLabel: { fontFamily: FontFamily.manropeSemiBold, fontSize: 13, color: A.textSecondary },
 

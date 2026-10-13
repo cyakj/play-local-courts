@@ -1,1048 +1,452 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+  KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { ChevronLeft, ChevronRight, Plus, X } from 'lucide-react-native';
+import { Ban, CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Gavel, Plus, Users, Wrench, X, type LucideIcon } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
+import { errorMessage } from '@/lib/errors';
 import { platformAlert } from '@/lib/platformAlert';
+import { communityToday } from '@/lib/communityTime';
 import {
-  Colors, FontFamily, FontSize, MaxWidth, Shadow, Spacing,
-} from '@/constants/design';
-import { Header } from '@/components/ui/Header';
+  addDays, addMonths, buildMonthWeeks, communityWallToIso, dedupeEvents, EVENT_TYPE_LABEL, expandBlockout, filterEvents,
+  formatClock, groupByDate, isoToCommunityWall, parseIso, weekOf, type CalendarEvent, type EventType,
+} from '@/lib/adminCalendar';
+import { formatDateFull } from '@/lib/format';
+import { A } from '@/constants/adminTheme';
+import { FontFamily } from '@/constants/design';
+import { lightTheme } from '@/constants/theme-tokens';
+import { CalendarPicker } from '@/components/ui/CalendarPicker';
+import { TimePicker } from '@/components/ui/TimePicker';
+import {
+  AdminHeader, AdminScreen, Button, Card, Chip, ChipRow, EmptyBlock, ErrorBlock, IconButton, Pill, Toggle,
+} from '@/components/admin/kit';
 
-const EVENT_TYPE_CONFIG: Record<string, { color: string; label: string }> = {
-  community_event: { color: Colors.accentCyan, label: 'Community Event' },
-  board_meeting: { color: Colors.navy, label: 'Board Meeting' },
-  maintenance_scheduled: { color: Colors.coral, label: 'Maintenance' },
-  reservation: { color: Colors.blue, label: 'Reservation' },
-  blockout: { color: Colors.volt, label: 'Blockout' },
+interface Hoa { id: string; name: string }
+
+// Type identity never relies on colour alone: every type has its own icon and text label.
+const TYPE_META: Record<EventType, { color: string; Icon: LucideIcon }> = {
+  community_event: { color: '#1A7FBF', Icon: Users },
+  board_meeting: { color: '#0F2A57', Icon: Gavel },
+  maintenance_scheduled: { color: '#B7791F', Icon: Wrench },
+  reservation: { color: '#2D6BFF', Icon: CalendarClock },
+  blockout: { color: '#E5384A', Icon: Ban },
 };
+const ALL_TYPES = Object.keys(TYPE_META) as EventType[];
+const CREATABLE: EventType[] = ['community_event', 'board_meeting', 'maintenance_scheduled'];
+const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-const TYPE_LABELS = ['All', 'Community Events', 'Board Meetings', 'Maintenance', 'Reservations', 'Blockouts'];
-const TYPE_MAP: Record<string, string> = {
-  'Community Events': 'community_event',
-  'Board Meetings': 'board_meeting',
-  Maintenance: 'maintenance_scheduled',
-  Reservations: 'reservation',
-  Blockouts: 'blockout',
-};
-const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const isoToDate = (iso: string) => { const p = parseIso(iso); return new Date(p.y, p.m - 1, p.d); };
+const dateToIso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-interface Hoa { id: string; name: string; }
-interface CalEvent {
-  id: string;
-  hoa_id: string;
-  community: string;
-  title: string;
-  type: string;
-  day: number;
-  month: number;
-  year: number;
-  time: string;
-  location: string;
-  rsvp: number | null;
-}
-
-function buildMonthGrid(year: number, month: number) {
-  const firstDay = new Date(year, month, 1).getDay();
-  const mondayOffset = firstDay === 0 ? 6 : firstDay - 1;
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const prevMonthDays = new Date(year, month, 0).getDate();
-  const grid: { day: number; inMonth: boolean }[] = [];
-  for (let i = mondayOffset - 1; i >= 0; i--) grid.push({ day: prevMonthDays - i, inMonth: false });
-  for (let d = 1; d <= daysInMonth; d++) grid.push({ day: d, inMonth: true });
-  const remaining = 7 - (grid.length % 7);
-  if (remaining < 7) for (let d = 1; d <= remaining; d++) grid.push({ day: d, inMonth: false });
-  return grid;
-}
-
-function getWeekDates(year: number, month: number, day: number) {
-  const base = new Date(year, month, day);
-  const dow = base.getDay();
-  const mondayOffset = dow === 0 ? -6 : 1 - dow;
-  const monday = new Date(base);
-  monday.setDate(base.getDate() + mondayOffset);
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
-    return d;
-  });
-}
-
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const TIME_RE = /^\d{2}:\d{2}$/;
-
-function parseDateTimeISO(date: string, time: string): string | null {
-  if (!DATE_RE.test(date) || !TIME_RE.test(time)) return null;
-  const d = new Date(`${date}T${time}`);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toISOString();
-}
-
-function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <TouchableOpacity
-      activeOpacity={0.8}
-      onPress={() => onChange(!value)}
-      style={[styles.toggle, { backgroundColor: value ? Colors.accentCyan : '#E5E7EB' }]}>
-      <View style={[styles.toggleThumb, { left: value ? 22 : 2 }]} />
-    </TouchableOpacity>
-  );
-}
-
-export default function CMCalendarScreen() {
+export default function CalendarScreen() {
   const insets = useSafeAreaInsets();
-  const now = new Date();
-
-  const [viewMode, setViewMode] = useState<'month' | 'week'>('month');
-  const [currentMonth, setCurrentMonth] = useState(new Date(now.getFullYear(), now.getMonth(), 1));
-  const [selectedDay, setSelectedDay] = useState(now.getDate());
-  const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
-  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
-
-  const [communityFilter, setCommunityFilter] = useState('All');
-  const [typeFilter, setTypeFilter] = useState('All');
-
+  const today = communityToday();
+  const [view, setView] = useState<'month' | 'week'>('month');
+  const [selected, setSelected] = useState(today);
+  const [hoaFilter, setHoaFilter] = useState<string | 'all'>('all');
+  const [typeFilter, setTypeFilter] = useState<Set<EventType>>(new Set());
   const [hoas, setHoas] = useState<Hoa[]>([]);
-  const [events, setEvents] = useState<CalEvent[]>([]);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState('');
-
+  const [detail, setDetail] = useState<CalendarEvent | null>(null);
   const [showAdd, setShowAdd] = useState(false);
-  const [evTitle, setEvTitle] = useState('');
-  const [evType, setEvType] = useState('community_event');
-  const [evDate, setEvDate] = useState(now.toISOString().split('T')[0]);
-  const [evStartTime, setEvStartTime] = useState('10:00');
-  const [evEndTime, setEvEndTime] = useState('');
-  const [evLocation, setEvLocation] = useState('');
-  const [evDescription, setEvDescription] = useState('');
-  const [evRsvp, setEvRsvp] = useState(false);
-  const [evNotify, setEvNotify] = useState(true);
-  const [evCommunityId, setEvCommunityId] = useState('');
-  const [creating, setCreating] = useState(false);
 
-  async function fetchEvents(hoaList: Hoa[]) {
-    if (hoaList.length === 0) { setLoading(false); return; }
-    const hoaIds = hoaList.map((h) => h.id);
-    const hoaMap = new Map(hoaList.map((h) => [h.id, h.name]));
-
-    const windowStart = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    const windowEnd = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-
-    const [hoaEventsRes, courtsRes] = await Promise.all([
-      supabase
-        .from('hoa_events')
-        .select('id, hoa_id, title, event_type, location, starts_at, rsvp_enabled')
-        .in('hoa_id', hoaIds)
-        .eq('status', 'active'),
-      supabase.from('courts').select('id, name, hoa_id').in('hoa_id', hoaIds),
-    ]);
-
-    const hoaEvents = hoaEventsRes.data ?? [];
-    const courtIds = (courtsRes.data ?? []).map((c) => c.id);
-
-    const eventIds = hoaEvents.map((e) => e.id);
-    const rsvpCounts = new Map<string, number>();
-    if (eventIds.length > 0) {
-      const { data: rsvps } = await supabase
-        .from('hoa_event_rsvps')
-        .select('event_id')
-        .in('event_id', eventIds)
-        .eq('response', 'going');
-      if (rsvps) {
-        for (const r of rsvps) rsvpCounts.set(r.event_id, (rsvpCounts.get(r.event_id) || 0) + 1);
-      }
-    }
-
-    const calEvents: CalEvent[] = hoaEvents.map((e) => {
-      const dt = new Date(e.starts_at);
-      return {
-        id: e.id,
-        hoa_id: e.hoa_id,
-        community: hoaMap.get(e.hoa_id) || '',
-        title: e.title,
-        type: e.event_type,
-        day: dt.getDate(),
-        month: dt.getMonth(),
-        year: dt.getFullYear(),
-        time: dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
-        location: e.location || '',
-        rsvp: e.rsvp_enabled ? (rsvpCounts.get(e.id) || 0) : null,
-      };
-    });
-
-    if (courtIds.length > 0) {
-      const [bookingsRes, maintenanceRes] = await Promise.all([
-        supabase
-          .from('bookings')
-          .select('id, date, start_time, court_id, courts(name, hoa_id)')
-          .in('court_id', courtIds)
-          .gte('date', windowStart)
-          .lte('date', windowEnd)
-          .neq('status', 'cancelled'),
-        supabase
-          .from('court_maintenance')
-          .select('id, date, start_time, court_id, description, courts(name, hoa_id)')
-          .in('court_id', courtIds)
-          .gte('date', windowStart)
-          .lte('date', windowEnd),
-      ]);
-
-      for (const b of bookingsRes.data ?? []) {
-        const court = (b as any).courts;
-        if (!court) continue;
-        const dt = new Date(`${b.date}T${b.start_time}`);
-        calEvents.push({
-          id: `reservation-${b.id}`,
-          hoa_id: court.hoa_id,
-          community: hoaMap.get(court.hoa_id) || '',
-          title: `${court.name} Reservation`,
-          type: 'reservation',
-          day: dt.getDate(),
-          month: dt.getMonth(),
-          year: dt.getFullYear(),
-          time: dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
-          location: court.name,
-          rsvp: null,
-        });
-      }
-
-      for (const m of maintenanceRes.data ?? []) {
-        const court = (m as any).courts;
-        if (!court) continue;
-        const dt = new Date(`${m.date}T${m.start_time}`);
-        calEvents.push({
-          id: `blockout-${m.id}`,
-          hoa_id: court.hoa_id,
-          community: hoaMap.get(court.hoa_id) || '',
-          title: m.description ? `${court.name} Blockout: ${m.description}` : `${court.name} Blockout`,
-          type: 'blockout',
-          day: dt.getDate(),
-          month: dt.getMonth(),
-          year: dt.getFullYear(),
-          time: dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
-          location: court.name,
-          rsvp: null,
-        });
-      }
-    }
-
-    setEvents(calEvents);
-    setLoading(false);
-  }
+  const sel = parseIso(selected);
+  const weeks = useMemo(() => buildMonthWeeks(sel.y, sel.m), [sel.y, sel.m]);
+  const weekDates = useMemo(() => weekOf(selected), [selected]);
+  const windowRange = useMemo(() => ({ from: weeks[0][0].date, to: weeks[weeks.length - 1][6].date }), [weeks]);
 
   useEffect(() => {
-    async function load() {
+    (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) setUserId(user.id);
-
-      const { data: hoaData } = await supabase.from('hoas').select('id, name').order('name');
-      const h = hoaData ?? [];
-      setHoas(h);
-      if (h.length > 0) setEvCommunityId(h[0].id);
-      await fetchEvents(h);
-    }
-    load();
+      const { data, error: err } = await supabase.from('hoas').select('id, name').order('name');
+      if (err) setError(err.message); else setHoas(data ?? []);
+    })();
   }, []);
 
-  const communityOptions = ['All', ...hoas.map((h) => h.name)];
-  const monthGrid = useMemo(
-    () => buildMonthGrid(currentMonth.getFullYear(), currentMonth.getMonth()),
-    [currentMonth]
-  );
-  const weekDates = useMemo(
-    () => getWeekDates(selectedYear, selectedMonth, selectedDay),
-    [selectedDay, selectedMonth, selectedYear]
-  );
+  const fetchEvents = useCallback(async () => {
+    if (hoas.length === 0) { setLoading(false); return; }
+    setError(null);
+    try {
+      const hoaIds = hoas.map((h) => h.id);
+      const hoaName = new Map(hoas.map((h) => [h.id, h.name]));
+      const { from, to } = windowRange;
+      const startIso = communityWallToIso(from, '00:00');
+      const endIso = communityWallToIso(addDays(to, 1), '00:00');
 
-  const filtered = useMemo(() => events.filter((e) =>
-    (communityFilter === 'All' || e.community === communityFilter) &&
-    (typeFilter === 'All' || e.type === TYPE_MAP[typeFilter])
-  ), [events, communityFilter, typeFilter]);
+      const [evRes, courtRes] = await Promise.all([
+        supabase.from('hoa_events').select('id, hoa_id, title, event_type, location, starts_at, ends_at, rsvp_enabled, description')
+          .in('hoa_id', hoaIds).eq('status', 'active').gte('starts_at', startIso).lt('starts_at', endIso),
+        supabase.from('courts').select('id, name, hoa_id').in('hoa_id', hoaIds),
+      ]);
+      if (evRes.error) throw evRes.error;
+      if (courtRes.error) throw courtRes.error;
+      const courts = courtRes.data ?? [];
+      const courtById = new Map(courts.map((c) => [c.id, c]));
+      const courtIds = courts.map((c) => c.id);
 
-  const dayEvents = filtered.filter((e) =>
-    e.day === selectedDay && e.month === selectedMonth && e.year === selectedYear
-  );
-
-  function getDotsForDay(year: number, month: number, day: number) {
-    const evts = filtered.filter((e) => e.year === year && e.month === month && e.day === day);
-    return [...new Set(evts.map((e) => EVENT_TYPE_CONFIG[e.type]?.color).filter(Boolean))].slice(0, 3) as string[];
-  }
-
-  function navigateMonth(dir: number) {
-    const m = new Date(currentMonth);
-    m.setMonth(m.getMonth() + dir);
-    setCurrentMonth(m);
-  }
-
-  async function handleCreateEvent() {
-    if (!evTitle.trim() || !evDate || !evStartTime || !evCommunityId || !userId) return;
-
-    const startsAt = parseDateTimeISO(evDate, evStartTime);
-    if (!startsAt) {
-      platformAlert('Invalid Date or Time', 'Please enter the date as YYYY-MM-DD and the start time as HH:MM (24-hour).');
-      return;
-    }
-    let endsAt: string | null = null;
-    if (evEndTime) {
-      endsAt = parseDateTimeISO(evDate, evEndTime);
-      if (!endsAt) {
-        platformAlert('Invalid End Time', 'Please enter the end time as HH:MM (24-hour), or leave it blank.');
-        return;
+      const out: CalendarEvent[] = [];
+      const rsvpCounts = new Map<string, number>();
+      const evIds = (evRes.data ?? []).map((e) => e.id);
+      if (evIds.length) {
+        const { data: rsvps, error: rErr } = await supabase.from('hoa_event_rsvps').select('event_id').in('event_id', evIds).eq('response', 'going');
+        if (rErr) throw rErr;
+        for (const r of rsvps ?? []) rsvpCounts.set(r.event_id, (rsvpCounts.get(r.event_id) ?? 0) + 1);
       }
-    }
-
-    setCreating(true);
-
-    const { error } = await supabase.from('hoa_events').insert({
-      hoa_id: evCommunityId,
-      created_by: userId,
-      title: evTitle.trim(),
-      description: evDescription.trim() || null,
-      event_type: evType,
-      location: evLocation.trim() || null,
-      starts_at: startsAt,
-      ends_at: endsAt,
-      rsvp_enabled: evRsvp,
-      status: 'active',
-    });
-
-    if (error) {
-      setCreating(false);
-      platformAlert('Could Not Create Event', error.message);
-      return;
-    }
-
-    if (evNotify) {
-      const { data: members } = await supabase
-        .from('hoa_memberships')
-        .select('user_id')
-        .eq('hoa_id', evCommunityId)
-        .eq('status', 'approved');
-      if (members) {
-        const notifs = members
-          .filter((m: any) => m.user_id !== userId)
-          .map((m: any) => ({
-            user_id: m.user_id,
-            hoa_id: evCommunityId,
-            type: 'event_created' as const,
-            title: `New event: ${evTitle.trim()}`,
-            body: `${evDate} at ${evStartTime}${evLocation ? ` · ${evLocation}` : ''}`,
-          }));
-        if (notifs.length > 0) await supabase.from('hoa_notifications').insert(notifs);
+      for (const e of evRes.data ?? []) {
+        const start = isoToCommunityWall(e.starts_at);
+        const end = e.ends_at ? isoToCommunityWall(e.ends_at) : null;
+        const type = (ALL_TYPES as string[]).includes(e.event_type) ? (e.event_type as EventType) : 'community_event';
+        out.push({
+          id: e.id, hoaId: e.hoa_id, community: hoaName.get(e.hoa_id) ?? '', type, title: e.title,
+          date: start.date, startTime: start.time, endTime: end && end.date === start.date ? end.time : null,
+          location: e.location ?? '',
+          detail: [e.description, e.rsvp_enabled ? `${rsvpCounts.get(e.id) ?? 0} going` : null].filter(Boolean).join(' · ') || undefined,
+        });
       }
-    }
 
-    setCreating(false);
-    setShowAdd(false);
-    setEvTitle('');
-    setEvDate(now.toISOString().split('T')[0]);
-    setEvStartTime('10:00');
-    setEvEndTime('');
-    setEvLocation('');
-    setEvDescription('');
-    setEvRsvp(false);
-    setEvNotify(true);
-    await fetchEvents(hoas);
+      if (courtIds.length) {
+        const [bk, mt] = await Promise.all([
+          supabase.from('bookings').select('id, court_id, date, start_time, end_time, status')
+            .in('court_id', courtIds).gte('date', from).lte('date', to).in('status', ['confirmed', 'pending']),
+          supabase.from('court_maintenance').select('id, court_id, date, end_date, start_time, end_time, description')
+            .in('court_id', courtIds).lte('date', to).or(`end_date.gte.${from},and(end_date.is.null,date.gte.${from})`),
+        ]);
+        if (bk.error) throw bk.error;
+        if (mt.error) throw mt.error;
+        for (const b of bk.data ?? []) {
+          const c = courtById.get(b.court_id);
+          if (!c) continue;
+          out.push({
+            id: `reservation-${b.id}`, hoaId: c.hoa_id, community: hoaName.get(c.hoa_id) ?? '', type: 'reservation',
+            title: c.name, date: b.date, startTime: b.start_time.slice(0, 5), endTime: b.end_time.slice(0, 5),
+            location: c.name, status: b.status ?? 'confirmed',
+          });
+        }
+        for (const m of mt.data ?? []) {
+          const c = courtById.get(m.court_id);
+          if (!c) continue;
+          out.push(...expandBlockout({
+            id: m.id, hoaId: c.hoa_id, community: hoaName.get(c.hoa_id) ?? '', courtName: c.name, date: m.date,
+            endDate: m.end_date, startTime: m.start_time, endTime: m.end_time, description: m.description,
+          }, windowRange));
+        }
+      }
+      setEvents(dedupeEvents(out));
+    } catch (e) {
+      setError(errorMessage(e, 'Could not load the calendar.'));
+    } finally {
+      setLoading(false);
+    }
+  }, [hoas, windowRange]);
+
+  useEffect(() => { fetchEvents(); }, [fetchEvents]);
+
+  const filtered = useMemo(
+    () => filterEvents(events, { hoaId: hoaFilter, types: typeFilter.size === 0 ? 'all' : typeFilter }),
+    [events, hoaFilter, typeFilter],
+  );
+  const byDate = useMemo(() => groupByDate(filtered), [filtered]);
+
+  const listDates = view === 'week' ? weekDates : [selected];
+  const label = view === 'month'
+    ? `${MONTHS[sel.m - 1]} ${sel.y}`
+    : `${formatDateFull(weekDates[0]).replace(/,? \d{4}$/, '')} – ${formatDateFull(weekDates[6]).replace(/,? \d{4}$/, '')}`;
+
+  function go(dir: -1 | 1) {
+    setSelected(view === 'month' ? addMonths(selected, dir).replace(/-01$/, `-${String(Math.min(sel.d, 28)).padStart(2, '0')}`) : addDays(selected, dir * 7));
   }
 
-  const displayMonth = viewMode === 'month' ? currentMonth : (weekDates[3] || now);
-  const displayMonthLabel = displayMonth.toLocaleString('en-US', { month: 'long', year: 'numeric' });
-  const calNavLabel = viewMode === 'month'
-    ? currentMonth.toLocaleString('en-US', { month: 'long', year: 'numeric' })
-    : `${weekDates[0]?.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${weekDates[6]?.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
-  const selectedDayLabel = `${new Date(selectedYear, selectedMonth).toLocaleString('en-US', { month: 'short' })} ${selectedDay} Events`;
+  function toggleType(t: EventType) {
+    setTypeFilter((prev) => { const next = new Set(prev); if (next.has(t)) next.delete(t); else next.add(t); return next; });
+  }
 
   return (
-    <View style={styles.screen}>
-      <Header variant="admin" title="Calendar" onBell={() => router.push('/notifications')} />
+    <AdminScreen
+      testID="admin-calendar"
+      header={<AdminHeader title="Calendar" right={<IconButton label="Add event" Icon={Plus} dark onPress={() => setShowAdd(true)} />} />}
+      refreshing={false}
+      onRefresh={fetchEvents}>
+      {hoas.length > 1 ? (
+        <ChipRow>
+          <Chip label="All communities" selected={hoaFilter === 'all'} onPress={() => setHoaFilter('all')} />
+          {hoas.map((h) => <Chip key={h.id} label={h.name} selected={hoaFilter === h.id} onPress={() => setHoaFilter(h.id)} />)}
+        </ChipRow>
+      ) : null}
 
-      <View style={styles.header}>
-        <View style={[styles.headerTop, { justifyContent: 'flex-end' }]}>
-          <View style={styles.viewToggle}>
-            {(['week', 'month'] as const).map((mode) => (
-              <TouchableOpacity
-                key={mode}
-                style={[styles.viewToggleBtn, viewMode === mode && styles.viewToggleBtnActive]}
-                onPress={() => setViewMode(mode)}
-                activeOpacity={0.7}>
-                <Text style={[styles.viewToggleBtnLabel, viewMode === mode && styles.viewToggleBtnLabelActive]}>
-                  {mode.charAt(0).toUpperCase() + mode.slice(1)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+      <View style={s.navRow}>
+        <IconButton label={view === 'month' ? 'Previous month' : 'Previous week'} Icon={ChevronLeft} onPress={() => go(-1)} />
+        <Text style={s.navLabel} testID="calendar-label" accessibilityRole="header">{label}</Text>
+        <IconButton label={view === 'month' ? 'Next month' : 'Next week'} Icon={ChevronRight} onPress={() => go(1)} />
+      </View>
+      <View style={s.navRow}>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <Chip testID="view-month" label="Month" selected={view === 'month'} onPress={() => setView('month')} />
+          <Chip testID="view-week" label="Week" selected={view === 'week'} onPress={() => setView('week')} />
         </View>
-        <Text style={styles.headerSub}>{displayMonthLabel}</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.chipScroll}
-          contentContainerStyle={styles.chipContent}>
-          {communityOptions.map((opt) => {
-            const active = communityFilter === opt;
-            return (
-              <TouchableOpacity
-                key={opt}
-                style={[styles.chip, active && styles.chipActive]}
-                onPress={() => setCommunityFilter(opt)}
-                activeOpacity={0.7}>
-                <Text style={[styles.chipLabel, active && styles.chipLabelActive]}>{opt}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+        <Chip testID="today-btn" label="Today" selected={selected === today} onPress={() => setSelected(today)} />
       </View>
 
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}>
-        <View style={{ maxWidth: MaxWidth, width: '100%', alignSelf: 'center' }}>
-
-          {/* Calendar card */}
-          <View style={styles.calCard}>
-            <View style={styles.calNav}>
-              <TouchableOpacity
-                style={styles.navBtn}
-                onPress={() => viewMode === 'month' ? navigateMonth(-1) : undefined}>
-                <ChevronLeft color="#4B5563" size={18} strokeWidth={2} />
-              </TouchableOpacity>
-              <Text style={styles.calNavLabel}>{calNavLabel}</Text>
-              <TouchableOpacity
-                style={styles.navBtn}
-                onPress={() => viewMode === 'month' ? navigateMonth(1) : undefined}>
-                <ChevronRight color="#4B5563" size={18} strokeWidth={2} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.dayHeaders}>
-              {WEEK_DAYS.map((d) => (
-                <Text key={d} style={styles.dayHeader}>{d}</Text>
-              ))}
-            </View>
-
-            {viewMode === 'month' ? (
-              <View style={styles.grid}>
-                {monthGrid.map((cell, idx) => {
-                  const cy = currentMonth.getFullYear();
-                  const cm = currentMonth.getMonth();
-                  const isSel = cell.inMonth && cell.day === selectedDay && cm === selectedMonth && cy === selectedYear;
-                  const isToday = cell.inMonth && cell.day === now.getDate() && cm === now.getMonth() && cy === now.getFullYear();
-                  const dots = cell.inMonth ? getDotsForDay(cy, cm, cell.day) : [];
-                  return (
-                    <TouchableOpacity
-                      key={idx}
-                      style={styles.dayCell}
-                      onPress={() => {
-                        if (!cell.inMonth) return;
-                        setSelectedDay(cell.day);
-                        setSelectedMonth(cm);
-                        setSelectedYear(cy);
-                      }}
-                      activeOpacity={cell.inMonth ? 0.7 : 1}>
-                      <View style={[
-                        styles.dayCellInner,
-                        isSel && styles.dayCellSelected,
-                        isToday && !isSel && styles.dayCellToday,
-                      ]}>
-                        <Text style={[
-                          styles.dayNum,
-                          !cell.inMonth && styles.dayNumOtherMonth,
-                          isSel && styles.dayNumSelected,
-                          isToday && !isSel && styles.dayNumToday,
-                        ]}>
-                          {cell.day}
-                        </Text>
-                      </View>
-                      <View style={styles.dotRow}>
-                        {dots.map((c, j) => <View key={j} style={[styles.dot, { backgroundColor: c }]} />)}
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            ) : (
-              <View style={styles.grid}>
-                {weekDates.map((date, i) => {
-                  const isSel = date.getDate() === selectedDay && date.getMonth() === selectedMonth && date.getFullYear() === selectedYear;
-                  const isToday = date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-                  const dots = getDotsForDay(date.getFullYear(), date.getMonth(), date.getDate());
-                  return (
-                    <TouchableOpacity
-                      key={i}
-                      style={styles.dayCell}
-                      onPress={() => {
-                        setSelectedDay(date.getDate());
-                        setSelectedMonth(date.getMonth());
-                        setSelectedYear(date.getFullYear());
-                      }}
-                      activeOpacity={0.7}>
-                      <View style={[
-                        styles.dayCellInner,
-                        isSel && styles.dayCellSelected,
-                        isToday && !isSel && styles.dayCellToday,
-                      ]}>
-                        <Text style={[
-                          styles.dayNum,
-                          isSel && styles.dayNumSelected,
-                          isToday && !isSel && styles.dayNumToday,
-                        ]}>
-                          {date.getDate()}
-                        </Text>
-                      </View>
-                      <View style={styles.dotRow}>
-                        {dots.map((c, j) => <View key={j} style={[styles.dot, { backgroundColor: c }]} />)}
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            )}
-          </View>
-
-          {/* Event type filter tabs */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.typeContent}>
-            {TYPE_LABELS.map((opt) => {
-              const active = typeFilter === opt;
+      <Card style={{ padding: 8 }}>
+        <View style={s.weekRow}>
+          {WEEKDAYS.map((w, i) => <Text key={i} style={s.weekday} accessibilityElementsHidden>{w}</Text>)}
+        </View>
+        {(view === 'month' ? weeks.map((w) => w.map((c) => ({ date: c.date, day: c.day, inMonth: c.inMonth })))
+          : [weekDates.map((d) => ({ date: d, day: parseIso(d).d, inMonth: true }))]).map((row, ri) => (
+          <View key={ri} style={s.weekRow}>
+            {row.map((cell) => {
+              const dayEvents = byDate.get(cell.date) ?? [];
+              const types = [...new Set(dayEvents.map((e) => e.type))].slice(0, 3);
+              const isSel = cell.date === selected;
+              const isToday = cell.date === today;
               return (
-                <TouchableOpacity
-                  key={opt}
-                  style={[styles.typeChip, active && styles.typeChipActive]}
-                  onPress={() => setTypeFilter(opt)}
-                  activeOpacity={0.7}>
-                  <Text style={[styles.typeChipLabel, active && styles.typeChipLabelActive]}>{opt}</Text>
-                </TouchableOpacity>
+                <Pressable
+                  key={cell.date}
+                  testID={`day-${cell.date}`}
+                  onPress={() => setSelected(cell.date)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${formatDateFull(cell.date)}${dayEvents.length ? `, ${dayEvents.length} events` : ''}${isToday ? ', today' : ''}`}
+                  accessibilityState={{ selected: isSel }}
+                  style={s.cell}>
+                  <View style={[s.dayCircle, isSel && s.dayCircleSel, !isSel && isToday && s.dayCircleToday]}>
+                    <Text style={[s.dayText, !cell.inMonth && { color: A.disabled }, isSel && { color: '#FFFFFF' }]}>{cell.day}</Text>
+                  </View>
+                  <View style={s.dots}>
+                    {types.map((t) => <View key={t} style={[s.dot, { backgroundColor: TYPE_META[t].color }]} />)}
+                  </View>
+                </Pressable>
               );
             })}
-          </ScrollView>
-
-          {/* Legend */}
-          <View style={styles.legend}>
-            {Object.entries(EVENT_TYPE_CONFIG).map(([k, v]) => (
-              <View key={k} style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: v.color }]} />
-                <Text style={styles.legendLabel}>{v.label}</Text>
-              </View>
-            ))}
           </View>
+        ))}
+      </Card>
 
-          {/* Events section header */}
-          <Text style={styles.dayEventsTitle}>{selectedDayLabel.toUpperCase()}</Text>
+      <ChipRow>
+        <Chip label="All types" selected={typeFilter.size === 0} onPress={() => setTypeFilter(new Set())} />
+        {ALL_TYPES.map((t) => (
+          <Chip key={t} testID={`type-${t}`} label={EVENT_TYPE_LABEL[t]} selected={typeFilter.has(t)} onPress={() => toggleType(t)} />
+        ))}
+      </ChipRow>
 
-          {loading ? (
-            <View style={styles.loadingRow}>
-              <View style={styles.loadingSpinner} />
-            </View>
-          ) : dayEvents.length === 0 ? (
-            <Text style={styles.noEvents}>No events on this day</Text>
-          ) : (
-            dayEvents.map((e) => {
-              const cfg = EVENT_TYPE_CONFIG[e.type] || { color: Colors.textMuted, label: '' };
+      {error ? <ErrorBlock message={error} onRetry={fetchEvents} /> : null}
+
+      {listDates.map((date) => {
+        const list = byDate.get(date) ?? [];
+        return (
+          <View key={date} style={{ gap: 8 }}>
+            <Text style={s.dayHeading}>{date === today ? 'Today · ' : ''}{formatDateFull(date)}</Text>
+            {list.length === 0 ? (
+              view === 'month' || date === selected ? (
+                <Card><EmptyBlock Icon={CalendarDays} title="Nothing scheduled" body={loading ? 'Loading…' : 'No events, reservations or blockouts on this day.'} /></Card>
+              ) : null
+            ) : list.map((e) => {
+              const { Icon, color } = TYPE_META[e.type];
               return (
-                <View key={e.id} style={[styles.eventCard, { borderLeftColor: cfg.color }]}>
-                  <View style={styles.eventCardTop}>
-                    <Text style={styles.eventTitle}>{e.title}</Text>
-                    {e.rsvp !== null && (
-                      <View style={styles.rsvpBadge}>
-                        <Text style={styles.rsvpText}>{e.rsvp} Going</Text>
-                      </View>
-                    )}
+                <Card key={e.id} testID={`event-${e.id}`} onPress={() => setDetail(e)} accessibilityLabel={`${EVENT_TYPE_LABEL[e.type]}: ${e.title}`} style={{ padding: 12 }}>
+                  <View style={s.eventRow}>
+                    <View style={[s.eventIcon, { backgroundColor: `${color}1A` }]}><Icon size={18} color={color} /></View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.eventTitle} numberOfLines={1}>{e.title}</Text>
+                      <Text style={s.eventMeta} numberOfLines={1}>
+                        {formatClock(e.startTime)}{e.endTime ? ` – ${formatClock(e.endTime)}` : ''}{e.community ? ` · ${e.community}` : ''}
+                      </Text>
+                    </View>
+                    <Pill tone={e.type === 'blockout' ? 'error' : e.status === 'pending' ? 'warning' : 'neutral'}
+                      label={(e.status === 'pending' ? 'PENDING' : EVENT_TYPE_LABEL[e.type]).toUpperCase()} />
                   </View>
-                  <Text style={styles.eventTime}>{e.time}{e.location ? ` · ${e.location}` : ''}</Text>
-                  <Text style={styles.eventCommunity}>{e.community}</Text>
-                  <View style={[styles.eventTypePill, { backgroundColor: cfg.color + '24' }]}>
-                    <Text style={[styles.eventTypeLabel, { color: cfg.color }]}>{cfg.label}</Text>
-                  </View>
-                </View>
+                </Card>
               );
-            })
-          )}
-        </View>
-      </ScrollView>
+            })}
+          </View>
+        );
+      })}
 
-      {/* Floating Add Event button */}
-      <TouchableOpacity
-        style={[styles.fab, { bottom: Math.max(insets.bottom, 20) + 100 }]}
-        onPress={() => setShowAdd(true)}
-        activeOpacity={0.85}>
-        <Plus color={Colors.white} size={24} strokeWidth={2} />
-      </TouchableOpacity>
-
-      {/* Add Event bottom sheet modal */}
-      <Modal
-        visible={showAdd}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowAdd(false)}>
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowAdd(false)}>
-          <TouchableOpacity
-            activeOpacity={1}
-            style={[styles.bottomSheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-            <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>Add Event</Text>
-              <TouchableOpacity onPress={() => setShowAdd(false)} style={styles.sheetClose}>
-                <X color={Colors.textMuted} size={20} strokeWidth={1.5} />
-              </TouchableOpacity>
+      <Modal visible={!!detail} transparent animationType="slide" onRequestClose={() => setDetail(null)}>
+        <View style={s.backdrop}>
+          <Pressable style={{ flex: 1 }} onPress={() => setDetail(null)} accessibilityLabel="Dismiss" />
+          {detail ? (
+            <View style={[s.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]}>
+              <View style={s.sheetHead}>
+                <Pill tone={detail.type === 'blockout' ? 'error' : 'info'} label={EVENT_TYPE_LABEL[detail.type].toUpperCase()} />
+                <Pressable onPress={() => setDetail(null)} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close"><X size={22} color={A.text} /></Pressable>
+              </View>
+              <Text style={s.sheetTitle}>{detail.title}</Text>
+              <Text style={s.body}>{formatDateFull(detail.date)}</Text>
+              <Text style={s.body}>{formatClock(detail.startTime)}{detail.endTime ? ` – ${formatClock(detail.endTime)}` : ''}</Text>
+              {detail.community ? <Text style={s.body}>{detail.community}</Text> : null}
+              {detail.location ? <Text style={s.body}>{detail.location}</Text> : null}
+              {detail.status ? <Text style={s.body}>Status: {detail.status}</Text> : null}
+              {detail.detail ? <Text style={s.body}>{detail.detail}</Text> : null}
+              {(detail.type === 'reservation' || detail.type === 'blockout') ? (
+                <Button label="Open amenity schedule" variant="secondary"
+                  onPress={() => { setDetail(null); router.push({ pathname: '/(admin)/manage-amenities', params: { hoaId: detail.hoaId } }); }} />
+              ) : null}
             </View>
-
-            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-              <Text style={styles.fieldLabel}>Event Title *</Text>
-              <TextInput
-                style={styles.input}
-                value={evTitle}
-                onChangeText={setEvTitle}
-                placeholder="E.g. Community BBQ"
-                placeholderTextColor={Colors.textPlaceholder}
-              />
-
-              <Text style={[styles.fieldLabel, { marginTop: 16 }]}>Event Type</Text>
-              <View style={styles.typeGrid}>
-                {Object.entries(EVENT_TYPE_CONFIG).map(([key, cfg]) => (
-                  <TouchableOpacity
-                    key={key}
-                    style={[styles.typeOption, {
-                      borderColor: evType === key ? cfg.color : '#E5E7EB',
-                      backgroundColor: evType === key ? cfg.color + '18' : Colors.white,
-                    }]}
-                    onPress={() => setEvType(key)}
-                    activeOpacity={0.7}>
-                    <View style={[styles.typeOptionDot, { backgroundColor: cfg.color }]} />
-                    <Text style={[styles.typeOptionLabel, { color: evType === key ? cfg.color : '#4B5563' }]}>
-                      {cfg.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <Text style={[styles.fieldLabel, { marginTop: 16 }]}>Date *</Text>
-              <TextInput
-                style={styles.input}
-                value={evDate}
-                onChangeText={setEvDate}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={Colors.textPlaceholder}
-              />
-
-              <View style={styles.timeRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.fieldLabel}>Start *</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={evStartTime}
-                    onChangeText={setEvStartTime}
-                    placeholder="HH:MM"
-                    placeholderTextColor={Colors.textPlaceholder}
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.fieldLabel}>End</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={evEndTime}
-                    onChangeText={setEvEndTime}
-                    placeholder="HH:MM"
-                    placeholderTextColor={Colors.textPlaceholder}
-                  />
-                </View>
-              </View>
-
-              <Text style={[styles.fieldLabel, { marginTop: 16 }]}>Location</Text>
-              <TextInput
-                style={styles.input}
-                value={evLocation}
-                onChangeText={setEvLocation}
-                placeholder="E.g. Community Center"
-                placeholderTextColor={Colors.textPlaceholder}
-              />
-
-              <Text style={[styles.fieldLabel, { marginTop: 16 }]}>Description</Text>
-              <TextInput
-                style={[styles.input, styles.inputMultiline]}
-                value={evDescription}
-                onChangeText={setEvDescription}
-                placeholder="Optional details..."
-                placeholderTextColor={Colors.textPlaceholder}
-                multiline
-                numberOfLines={3}
-                textAlignVertical="top"
-              />
-
-              {hoas.length > 1 && (
-                <>
-                  <Text style={[styles.fieldLabel, { marginTop: 16 }]}>Community</Text>
-                  <View style={styles.typeGrid}>
-                    {hoas.map((h) => (
-                      <TouchableOpacity
-                        key={h.id}
-                        style={[styles.typeOption, {
-                          borderColor: evCommunityId === h.id ? Colors.navy : '#E5E7EB',
-                          backgroundColor: evCommunityId === h.id ? Colors.navy + '12' : Colors.white,
-                        }]}
-                        onPress={() => setEvCommunityId(h.id)}
-                        activeOpacity={0.7}>
-                        <Text style={[styles.typeOptionLabel, { color: evCommunityId === h.id ? Colors.navy : '#4B5563' }]}>
-                          {h.name}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </>
-              )}
-
-              {[
-                { label: 'Enable RSVP', value: evRsvp, onChange: setEvRsvp },
-                { label: 'Notify Residents', value: evNotify, onChange: setEvNotify },
-              ].map(({ label, value, onChange }) => (
-                <View key={label} style={styles.toggleRow}>
-                  <Text style={styles.toggleLabel}>{label}</Text>
-                  <Toggle value={value} onChange={onChange} />
-                </View>
-              ))}
-
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowAdd(false)}>
-                <Text style={styles.cancelBtnLabel}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.addBtn, (!evTitle.trim() || creating) && styles.addBtnDisabled]}
-                onPress={handleCreateEvent}
-                disabled={!evTitle.trim() || creating}>
-                <Text style={styles.addBtnLabel}>{creating ? 'Adding Event…' : 'Add Event'}</Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </TouchableOpacity>
-        </TouchableOpacity>
+          ) : null}
+        </View>
       </Modal>
-    </View>
+
+      <AddEventSheet
+        visible={showAdd}
+        onClose={() => setShowAdd(false)}
+        hoas={hoas}
+        userId={userId}
+        defaultDate={selected}
+        defaultHoa={hoaFilter === 'all' ? hoas[0]?.id ?? '' : hoaFilter}
+        onCreated={(date) => { setShowAdd(false); setSelected(date); fetchEvents(); }}
+      />
+    </AdminScreen>
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.pageBg },
+function AddEventSheet({
+  visible, onClose, hoas, userId, defaultDate, defaultHoa, onCreated,
+}: {
+  visible: boolean; onClose: () => void; hoas: Hoa[]; userId: string; defaultDate: string; defaultHoa: string;
+  onCreated: (date: string) => void;
+}) {
+  const insets = useSafeAreaInsets();
+  const [hoaId, setHoaId] = useState(defaultHoa);
+  const [title, setTitle] = useState('');
+  const [type, setType] = useState<EventType>('community_event');
+  const [date, setDate] = useState(defaultDate);
+  const [start, setStart] = useState<string | null>('10:00');
+  const [end, setEnd] = useState<string | null>(null);
+  const [location, setLocation] = useState('');
+  const [description, setDescription] = useState('');
+  const [rsvp, setRsvp] = useState(false);
+  const [notify, setNotify] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
-  header: {
-    backgroundColor: Colors.navy,
-    paddingHorizontal: Spacing.pagePx,
-    paddingTop: 12,
-    paddingBottom: 16,
-  },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  viewToggle: {
-    flexDirection: 'row',
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-  },
-  viewToggleBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    minHeight: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  viewToggleBtnActive: { backgroundColor: 'rgba(0,212,255,0.3)' },
-  viewToggleBtnLabel: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.6)',
-  },
-  viewToggleBtnLabelActive: { color: Colors.white },
-  headerSub: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.75)',
-    marginBottom: 12,
-  },
-  chipScroll: {},
-  chipContent: { gap: 8, paddingBottom: 2 },
-  chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 99,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.4)',
-    backgroundColor: 'transparent',
-    minHeight: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  chipActive: { backgroundColor: Colors.white, borderColor: Colors.white },
-  chipLabel: { fontFamily: FontFamily.interSemiBold, fontSize: 13, color: Colors.white },
-  chipLabelActive: { color: Colors.navy },
+  useEffect(() => {
+    if (!visible) return;
+    setHoaId(defaultHoa); setDate(defaultDate); setTitle(''); setType('community_event'); setStart('10:00'); setEnd(null);
+    setLocation(''); setDescription(''); setRsvp(false); setNotify(true); setErr(null);
+  }, [visible, defaultDate, defaultHoa]);
 
-  content: { padding: Spacing.pagePx, paddingBottom: 180, gap: 12 },
+  const dirty = title.trim() || location.trim() || description.trim();
 
-  calCard: {
-    backgroundColor: Colors.white,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(15,31,61,0.06)',
-    overflow: 'hidden',
-    ...Shadow,
-  },
-  calNav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
-  },
-  navBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: Colors.pageBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  calNavLabel: { fontFamily: FontFamily.manropeBold, fontSize: 14, color: Colors.navy },
-  dayHeaders: { flexDirection: 'row', paddingHorizontal: 12, marginBottom: 4 },
-  dayHeader: {
-    flex: 1,
-    textAlign: 'center',
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: 12,
-    color: Colors.textMuted,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-  },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12, paddingBottom: 16 },
-  dayCell: { width: `${100 / 7}%` as any, alignItems: 'center', paddingVertical: 2 },
-  dayCellInner: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dayCellSelected: {
-    backgroundColor: Colors.navy,
-    borderWidth: 2,
-    borderColor: Colors.accentCyan,
-  },
-  dayCellToday: { backgroundColor: 'rgba(0,212,255,0.1)' },
-  dayNum: { fontFamily: FontFamily.manropeBold, fontSize: 16, color: Colors.textPrimary },
-  dayNumOtherMonth: { color: '#D1D5DB' },
-  dayNumSelected: { color: Colors.white },
-  dayNumToday: { color: Colors.accentCyan },
-  dotRow: { flexDirection: 'row', gap: 2, marginTop: 2, height: 6 },
+  function close() {
+    if (saving) return;
+    if (!dirty) { onClose(); return; }
+    platformAlert('Discard this event?', 'Your entries have not been saved.', [
+      { text: 'Keep editing', style: 'cancel' }, { text: 'Discard', style: 'destructive', onPress: onClose },
+    ]);
+  }
+
+  async function save() {
+    if (saving) return;
+    if (!title.trim()) { setErr('Enter a title.'); return; }
+    if (!hoaId) { setErr('Choose a community.'); return; }
+    if (!start) { setErr('Choose a start time.'); return; }
+    if (end && end <= start) { setErr('End time must be after the start time.'); return; }
+    if (!userId) { setErr('You are signed out.'); return; }
+    setSaving(true);
+    setErr(null);
+    const { error } = await supabase.from('hoa_events').insert({
+      hoa_id: hoaId, created_by: userId, title: title.trim(), description: description.trim() || null,
+      event_type: type, location: location.trim() || null,
+      starts_at: communityWallToIso(date, start), ends_at: end ? communityWallToIso(date, end) : null,
+      rsvp_enabled: rsvp, status: 'active',
+    });
+    if (error) {
+      setSaving(false);
+      setErr(/row-level security|permission/i.test(error.message) ? 'You do not have permission to add events to this community.' : error.message);
+      return;
+    }
+    if (notify) {
+      const { data: members, error: mErr } = await supabase.from('hoa_memberships').select('user_id').eq('hoa_id', hoaId).eq('status', 'approved');
+      if (!mErr && members) {
+        const rows = members.filter((m) => m.user_id !== userId).map((m) => ({
+          user_id: m.user_id, hoa_id: hoaId, type: 'event_created' as const, title: `New event: ${title.trim()}`,
+          body: `${formatDateFull(date)} at ${formatClock(start)}${location.trim() ? ` · ${location.trim()}` : ''}`,
+        }));
+        if (rows.length) {
+          const { error: nErr } = await supabase.from('hoa_notifications').insert(rows);
+          if (nErr) platformAlert('Event created', `The event was saved but residents could not be notified: ${nErr.message}`);
+        }
+      }
+    }
+    setSaving(false);
+    onCreated(date);
+  }
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={close}>
+      <KeyboardAvoidingView style={{ flex: 1, backgroundColor: A.background }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <View style={s.addHeader}>
+          <Text style={s.sheetTitle}>New event</Text>
+          <Pressable onPress={close} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close"><X size={22} color={A.text} /></Pressable>
+        </View>
+        <ScrollView contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 24 }} keyboardShouldPersistTaps="handled">
+          {hoas.length > 1 ? (
+            <ChipRow>{hoas.map((h) => <Chip key={h.id} label={h.name} selected={hoaId === h.id} onPress={() => setHoaId(h.id)} />)}</ChipRow>
+          ) : null}
+          <ChipRow>{CREATABLE.map((t) => <Chip key={t} label={EVENT_TYPE_LABEL[t]} selected={type === t} onPress={() => setType(t)} />)}</ChipRow>
+          <Text style={s.label}>Title</Text>
+          <TextInput testID="event-title" value={title} onChangeText={setTitle} placeholder="Event title" placeholderTextColor={A.textMuted} style={s.input} accessibilityLabel="Title" />
+          <Text style={s.label}>Date</Text>
+          <CalendarPicker selectedDate={isoToDate(date)} onSelect={(d) => setDate(dateToIso(d))}
+            minDate={isoToDate(communityToday())} maxDate={isoToDate(addDays(communityToday(), 730))} theme={lightTheme} />
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <View style={{ flex: 1 }}><TimePicker label="START" value={start} onChange={setStart} theme={lightTheme} /></View>
+            <View style={{ flex: 1 }}><TimePicker label="END (OPTIONAL)" value={end} onChange={setEnd} theme={lightTheme} /></View>
+          </View>
+          <Text style={s.label}>Location (optional)</Text>
+          <TextInput value={location} onChangeText={setLocation} placeholder="Clubhouse" placeholderTextColor={A.textMuted} style={s.input} accessibilityLabel="Location" />
+          <Text style={s.label}>Description (optional)</Text>
+          <TextInput value={description} onChangeText={setDescription} multiline placeholder="Details residents should know" placeholderTextColor={A.textMuted}
+            style={[s.input, { minHeight: 80 }]} accessibilityLabel="Description" />
+          <Toggle label="Enable RSVPs" value={rsvp} onChange={setRsvp} />
+          <Toggle label="Notify residents" hint="Sends an in-app notification to approved members." value={notify} onChange={setNotify} />
+          {err ? <Text style={[s.body, { color: A.errorText }]} accessibilityLiveRegion="polite">{err}</Text> : null}
+        </ScrollView>
+        <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+          <Button testID="save-event" label="Create event" onPress={save} loading={saving} />
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+const s = StyleSheet.create({
+  navRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  navLabel: { flex: 1, textAlign: 'center', fontFamily: FontFamily.spaceGroteskBold, fontSize: 20, color: A.text },
+  weekRow: { flexDirection: 'row' },
+  weekday: { flex: 1, textAlign: 'center', fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: 11, color: A.textMuted, paddingVertical: 6 },
+  cell: { flex: 1, minHeight: 52, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 2 },
+  dayCircle: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  dayCircleSel: { backgroundColor: A.navy },
+  dayCircleToday: { borderWidth: 2, borderColor: A.primary },
+  dayText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 15, color: A.text },
+  dots: { flexDirection: 'row', gap: 3, height: 8, marginTop: 2 },
   dot: { width: 6, height: 6, borderRadius: 3 },
-
-  typeContent: { gap: 8, paddingBottom: 2 },
-  typeChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 99,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.cardBg,
-    minHeight: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  typeChipActive: { backgroundColor: Colors.navy, borderColor: Colors.navy },
-  typeChipLabel: { fontFamily: FontFamily.interSemiBold, fontSize: 13, color: Colors.textMuted },
-  typeChipLabelActive: { color: Colors.white },
-
-  legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  legendDot: { width: 10, height: 10, borderRadius: 5 },
-  legendLabel: { fontFamily: FontFamily.interRegular, fontSize: 13, color: '#4B5563' },
-
-  dayEventsTitle: {
-    fontFamily: FontFamily.manropeBold,
-    fontSize: 13,
-    color: Colors.navy,
-    letterSpacing: 1,
-    marginTop: 4,
-    marginBottom: 8,
-  },
-  loadingRow: { alignItems: 'center', paddingVertical: 32 },
-  loadingSpinner: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: 'rgba(0,212,255,0.2)',
-    borderTopColor: Colors.accentCyan,
-  },
-  noEvents: {
-    textAlign: 'center',
-    fontFamily: FontFamily.interRegular,
-    fontSize: 14,
-    color: '#4B5563',
-    paddingVertical: 32,
-  },
-  eventCard: {
-    backgroundColor: Colors.white,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(15,31,61,0.06)',
-    borderLeftWidth: 3,
-    ...Shadow,
-  },
-  eventCardTop: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 8,
-    marginBottom: 4,
-  },
-  eventTitle: { fontFamily: FontFamily.manropeBold, fontSize: 15, color: Colors.navy, flex: 1 },
-  rsvpBadge: {
-    backgroundColor: '#E0F9FF',
-    borderRadius: 99,
-    borderWidth: 1,
-    borderColor: Colors.accentCyan,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    flexShrink: 0,
-  },
-  rsvpText: { fontFamily: FontFamily.interSemiBold, fontSize: 10, color: Colors.blueMid },
-  eventTime: { fontFamily: FontFamily.interRegular, fontSize: 13, color: '#4B5563', marginBottom: 2 },
-  eventCommunity: { fontFamily: FontFamily.interRegular, fontSize: 12, color: Colors.textMuted, marginBottom: 8 },
-  eventTypePill: { alignSelf: 'flex-start', borderRadius: 99, paddingHorizontal: 12, paddingVertical: 4 },
-  eventTypeLabel: { fontFamily: FontFamily.interSemiBold, fontSize: 11 },
-
-  fab: {
-    position: 'absolute',
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Colors.navy,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: Colors.navy,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  bottomSheet: {
-    backgroundColor: Colors.white,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    maxHeight: '92%',
-  },
-  sheetHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  sheetTitle: { fontFamily: FontFamily.manropeBold, fontSize: 20, color: Colors.navy },
-  sheetClose: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fieldLabel: { fontFamily: FontFamily.interSemiBold, fontSize: 12, color: Colors.navy, marginBottom: 6 },
+  dayHeading: { fontFamily: FontFamily.spaceGroteskBold, fontSize: 17, color: A.text, marginTop: 4 },
+  eventRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  eventIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  eventTitle: { fontFamily: FontFamily.manropeBold, fontSize: 15, color: A.text },
+  eventMeta: { fontFamily: FontFamily.manropeMedium, fontSize: 13, color: A.textMuted },
+  backdrop: { flex: 1, backgroundColor: A.overlay, justifyContent: 'flex-end' },
+  sheet: { backgroundColor: A.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, gap: 8 },
+  sheetHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  sheetTitle: { fontFamily: FontFamily.spaceGroteskBold, fontSize: 22, color: A.text },
+  body: { fontFamily: FontFamily.manropeMedium, fontSize: 15, color: A.text },
+  label: { fontFamily: FontFamily.manropeSemiBold, fontSize: 13, color: A.textSecondary },
   input: {
-    borderWidth: 1,
-    borderColor: 'rgba(15,31,61,0.15)',
-    borderRadius: 8,
-    padding: 12,
-    fontFamily: FontFamily.interRegular,
-    fontSize: 14,
-    color: Colors.textPrimary,
-    backgroundColor: Colors.white,
+    minHeight: 48, borderRadius: 12, borderWidth: 1, borderColor: A.borderStrong, backgroundColor: A.surface,
+    paddingHorizontal: 12, paddingVertical: 10, fontFamily: FontFamily.manropeMedium, fontSize: 16, color: A.text, textAlignVertical: 'top',
   },
-  inputMultiline: { minHeight: 80 },
-  timeRow: { flexDirection: 'row', gap: 12, marginTop: 16 },
-  typeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  typeOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    minHeight: 44,
+  addHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16,
+    backgroundColor: A.surface, borderBottomWidth: 1, borderBottomColor: A.border,
   },
-  typeOptionDot: { width: 12, height: 12, borderRadius: 2 },
-  typeOptionLabel: { fontFamily: FontFamily.interSemiBold, fontSize: 12 },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: Colors.pageBg,
-    borderWidth: 1,
-    borderColor: 'rgba(15,31,61,0.06)',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    marginTop: 12,
-  },
-  toggleLabel: { fontFamily: FontFamily.interRegular, fontSize: 14, color: Colors.textPrimary },
-  toggle: { width: 44, height: 24, borderRadius: 99, position: 'relative' },
-  toggleThumb: {
-    position: 'absolute',
-    top: 2,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: Colors.white,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  cancelBtn: {
-    borderWidth: 1,
-    borderColor: Colors.navy,
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginTop: 24,
-    marginBottom: 12,
-    minHeight: 48,
-  },
-  cancelBtnLabel: { fontFamily: FontFamily.manropeBold, fontSize: 15, color: Colors.navy },
-  addBtn: {
-    backgroundColor: Colors.navy,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    minHeight: 52,
-    marginBottom: 8,
-  },
-  addBtnDisabled: { opacity: 0.5 },
-  addBtnLabel: { fontFamily: FontFamily.manropeBold, fontSize: 16, color: Colors.white },
+  footer: { paddingHorizontal: 16, paddingTop: 12, backgroundColor: A.surface, borderTopWidth: 1, borderTopColor: A.border },
 });

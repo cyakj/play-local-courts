@@ -3,7 +3,6 @@ import {
   Modal,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -477,14 +476,12 @@ export default function ManageAmenitiesScreen() {
                   <Settings color={theme.textMuted} size={18} strokeWidth={1.5} />
                 </TouchableOpacity>
                 <View style={styles.courtFooter}>
-                  <View style={styles.activeRow}>
-                    <Text style={[styles.activeLabel, !court.is_active && styles.activeLabelOff]}>
-                      {court.is_active ? 'Available for booking' : 'Temporarily closed'}
-                    </Text>
-                    <Switch
+                  <View style={{ flex: 1 }}>
+                    <Toggle
+                      testID={`court-active-${court.id}`}
+                      label={court.is_active ? 'Available for booking' : 'Temporarily closed'}
                       value={court.is_active}
-                      onValueChange={() => handleToggleActive(court)}
-                      trackColor={{ false: theme.border, true: theme.cyanOnLight }}
+                      onChange={() => handleToggleActive(court)}
                     />
                   </View>
                   <TouchableOpacity
@@ -581,13 +578,8 @@ export default function ManageAmenitiesScreen() {
                 textAlignVertical="top"
               />
 
-              <View style={[styles.activeRow, { marginTop: 16 }]}>
-                <Text style={styles.activeLabel}>Available for booking</Text>
-                <Switch
-                  value={editActive}
-                  onValueChange={setEditActive}
-                  trackColor={{ false: theme.border, true: theme.cyanOnLight }}
-                />
+              <View style={{ marginTop: 16 }}>
+                <Toggle label="Available for booking" value={editActive} onChange={setEditActive} />
               </View>
 
               <View style={styles.dividerLine} />
@@ -701,7 +693,7 @@ export default function ManageAmenitiesScreen() {
                 </TouchableOpacity>
               ))}
 
-              <View style={{ marginTop: 12 }}>
+              <View testID="open-schedule" style={{ marginTop: 12 }}>
                 <Button variant="primary" label="Open schedule & add blockout" onPress={() => setBlockoutVisible(true)} fullWidth />
               </View>
 
