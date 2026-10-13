@@ -29,6 +29,8 @@ import { InfoTooltip } from '@/components/ui/InfoTooltip';
 import { useTheme } from '@/context/ThemeContext';
 import { useUpcomingMatches } from '@/hooks/useUpcomingMatches';
 import { isCommunityMode } from '@/config/productMode';
+import { MessageSquare } from 'lucide-react-native';
+import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 
 const LESSON_TYPE_SHORT: Record<string, string> = {
@@ -83,6 +85,7 @@ function formatTime12(t: string): string {
 }
 
 export default function MeScreen() {
+  const unreadMessages = useUnreadMessages();
   const { theme } = useTheme();
   const styles = useStyles(theme);
 
@@ -437,6 +440,14 @@ export default function MeScreen() {
               <Text style={[styles.sectionLabel, { marginTop: 20 }]}>ACCOUNT</Text>
               <View style={[styles.navGroup, { borderColor: theme.border }]}>
                 <NavRow
+                  icon={<MessageSquare size={18} color={theme.textMuted} strokeWidth={1.5} />}
+                  label={isCommunityMode ? 'Message my community' : 'Messages'}
+                  badge={unreadMessages}
+                  onPress={() => router.push('/messages' as any)}
+                  theme={theme}
+                />
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <NavRow
                   icon={<Settings size={18} color={theme.textMuted} strokeWidth={1.5} />}
                   label="Settings"
                   onPress={() => router.push('/settings')}
@@ -474,17 +485,20 @@ export default function MeScreen() {
 }
 
 function NavRow({
-  icon, label, onPress, theme,
+  icon, label, onPress, theme, badge,
 }: {
   icon: React.ReactNode;
   label: string;
   onPress: () => void;
   theme: ThemeTokens;
+  badge?: number;
 }) {
   return (
     <TouchableOpacity
       style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 14, minHeight: 52 }}
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={badge ? `${label}, ${badge} unread` : label}
       activeOpacity={0.8}>
       <View style={{ width: 30, height: 30, borderRadius: 8, backgroundColor: 'rgba(154,163,184,0.08)', alignItems: 'center', justifyContent: 'center' }}>
         {icon}
@@ -492,6 +506,11 @@ function NavRow({
       <Text style={{ flex: 1, fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.body, color: theme.textPrimary }}>
         {label}
       </Text>
+      {badge ? (
+        <View style={{ minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6, backgroundColor: '#C62828', alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontFamily: FontFamily.manropeBold, fontSize: 12, color: '#FFFFFF' }}>{badge > 99 ? '99+' : badge}</Text>
+        </View>
+      ) : null}
       <ChevronRight size={14} color={theme.textMuted} strokeWidth={1.5} />
     </TouchableOpacity>
   );

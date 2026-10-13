@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/context/NativeAuthContext';
-import { isCMRoutable, isCoachRoutable } from '@/lib/roleRouting';
+import { isCMRoutable, isCoachRoutable, isPlatformReviewerRoutable } from '@/lib/roleRouting';
 
 export default function RootIndex() {
   const { session, loading } = useSession();
@@ -24,10 +24,12 @@ export default function RootIndex() {
         .eq('user_id', session!.user.id);
 
       const roles = (rolesData ?? []).map((r: { role: string }) => r.role);
+      const isPlatform = isPlatformReviewerRoutable(roles);
       const isCM    = isCMRoutable(roles);
       const isCoach = isCoachRoutable(roles);
 
-      if (isCM)         router.replace('/(cm)');
+      if (isPlatform)   router.replace('/(platform)' as never);
+      else if (isCM)    router.replace('/(cm)');
       else if (isCoach) router.replace('/(coach)');
       else              router.replace('/(resident)');
     }

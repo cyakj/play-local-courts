@@ -38,8 +38,20 @@ export function BottomNav(props: BottomTabBarProps) {
             onPress={() => {
               if (!isFocused) navigation.navigate(route.name);
             }}
+            accessibilityLabel={
+              typeof options.tabBarBadge === 'number' && options.tabBarBadge > 0
+                ? `${label}, ${options.tabBarBadge} unread`
+                : undefined
+            }
             activeOpacity={0.7}>
-            {icon}
+            <View>
+              {icon}
+              {typeof options.tabBarBadge === 'number' && options.tabBarBadge > 0 ? (
+                <View style={styles.badge} pointerEvents="none">
+                  <Text style={styles.badgeText}>{options.tabBarBadge > 9 ? '9+' : options.tabBarBadge}</Text>
+                </View>
+              ) : null}
+            </View>
             {label !== 'VS' && (
               <Text style={[styles.label, { color: isFocused ? activeColor : theme.textMuted }]}>
                 {label.toUpperCase()}
@@ -71,6 +83,23 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.jetbrainsMonoSemiBold,
     fontSize: 11, // DESIGN.md Bottom Navigation: JetBrains Mono 11px
     letterSpacing: 0.5,
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -10,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    backgroundColor: '#C62828',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: {
+    fontFamily: FontFamily.manropeBold,
+    fontSize: 11,
+    color: '#FFFFFF',
   },
   dot: {
     width: 4,

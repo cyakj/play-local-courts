@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Building2, CheckCircle, Clock } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
@@ -35,6 +35,8 @@ interface ExistingApplication {
 }
 
 export default function HOAApplicationScreen() {
+  // ?new=1 (from Portfolio > Add community) starts a fresh application instead of showing an earlier one's status.
+  const { new: startNew } = useLocalSearchParams<{ new?: string }>();
   const { theme } = useTheme();
   const styles = useStyles(theme);
 
@@ -65,7 +67,7 @@ export default function HOAApplicationScreen() {
         .single();
       if (profile?.full_name) setFullName(profile.full_name);
 
-      const { data: app } = await supabase
+      const { data: app } = startNew === '1' ? { data: null } : await supabase
         .from('hoa_applications')
         .select('id, hoa_name, community_location, estimated_residents, claimed_role, claimed_role_other, status, submitted_at')
         .eq('applicant_id', user.id)
@@ -106,15 +108,27 @@ export default function HOAApplicationScreen() {
     try {
       await supabase.from('profiles').update({ full_name: fullName.trim() }).eq('id', userId);
 
-      const { error } = await supabase.from('hoa_applications').insert({
-        applicant_id: userId,
+      const fields = {
         hoa_name: hoaName.trim(),
         community_location: communityLocation.trim(),
         estimated_residents: parseInt(estimatedResidents || '0', 10),
         claimed_role: claimedRole,
         claimed_role_other: claimedRole === 'other' ? claimedRoleOther.trim() : null,
-        verification_documents: [],
-      });
+      };
+
+      // A returned (needs_more_info) or rejected application is resubmitted by moving the SAME row back to
+      // 'pending' (the only update RLS allows the applicant); inserting a new row would orphan the review history.
+      const resubmitting =
+        existingApplication && ['needs_more_info', 'rejected'].includes(existingApplication.status);
+      const { error } = resubmitting
+        ? await supabase.from('hoa_applications')
+            .update({ ...fields, status: 'pending' })
+            .eq('id', existingApplication!.id)
+        : await supabase.from('hoa_applications').insert({
+            applicant_id: userId,
+            ...fields,
+            verification_documents: [],
+          });
 
       if (error) throw error;
 

@@ -1,19 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import {
-  AlertTriangle, Building2, CalendarCheck, ChevronRight, Clock, Plus, UserCheck, Users, X,
+  AlertTriangle, Building2, CalendarCheck, ChevronRight, Clock, Plus, UserCheck, Users,
 } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import { errorMessage } from '@/lib/errors';
-import { platformAlert } from '@/lib/platformAlert';
 import { communityToday } from '@/lib/communityTime';
-import { A, AShadow } from '@/constants/adminTheme';
+import { A } from '@/constants/adminTheme';
 import { FontFamily } from '@/constants/design';
 import {
-  AdminHeader, AdminScreen, Button, Card, EmptyBlock, ErrorBlock, LoadingBlock, MetricCard,
+  AdminHeader, AdminScreen, Card, EmptyBlock, ErrorBlock, LoadingBlock, MetricCard,
   MetricGrid, Pill, SectionTitle,
 } from '@/components/admin/kit';
 import { CommunityLogo } from '@/components/branding/BrandLogos';
@@ -32,18 +30,12 @@ interface CommunityStats {
 
 
 export default function PortfolioScreen() {
-  const insets = useSafeAreaInsets();
   const [communities, setCommunities] = useState<CommunityStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [firstName, setFirstName] = useState('');
   const [unread, setUnread] = useState(0);
-
-  const [addVisible, setAddVisible] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [newAddress, setNewAddress] = useState('');
-  const [addSaving, setAddSaving] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -117,33 +109,11 @@ export default function PortfolioScreen() {
   const sum = (f: (c: CommunityStats) => number) => communities.reduce((n, c) => n + f(c), 0);
   const totalPending = sum((c) => c.pendingJoin + c.pendingBookings);
 
-  async function addCommunity() {
-    if (!newName.trim() || addSaving) return;
-    setAddSaving(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('You are signed out.');
-      const { data: hoa, error: hoaErr } = await supabase
-        .from('hoas')
-        .insert({ name: newName.trim(), address: newAddress.trim() || null, admin_id: user.id })
-        .select('id')
-        .single();
-      if (hoaErr || !hoa) throw new Error(hoaErr?.message ?? 'Community was not created.');
-      const { error: mErr } = await supabase.from('hoa_memberships').insert({
-        user_id: user.id, hoa_id: hoa.id, role: 'admin', status: 'approved', is_primary: false,
-      });
-      if (mErr) {
-        platformAlert('Community created, membership failed', `You were not added as its admin: ${mErr.message}`);
-      }
-      setAddVisible(false);
-      setNewName('');
-      setNewAddress('');
-      load();
-    } catch (e) {
-      platformAlert('Could not create community', errorMessage(e, 'Please try again.'));
-    } finally {
-      setAddSaving(false);
-    }
+  // Communities are never created directly: a new one is a registration application that a TenisX
+  // platform administrator reviews (hoa_applications -> approve_hoa_application). new=1 starts a
+  // fresh application even if an earlier one exists.
+  function addCommunity() {
+    router.push('/hoa-application?new=1' as never);
   }
 
   const hour = new Date().getHours();
@@ -174,12 +144,12 @@ export default function PortfolioScreen() {
       <SectionTitle
         action={
           <Pressable
-            onPress={() => setAddVisible(true)}
+            onPress={addCommunity}
             accessibilityRole="button"
-            accessibilityLabel="Add community"
+            accessibilityLabel="Register a community"
             style={s.addBtn}>
             <Plus size={16} color={A.primary} strokeWidth={2.25} />
-            <Text style={s.addText}>Add</Text>
+            <Text style={s.addText}>Register</Text>
           </Pressable>
         }>
         My communities
@@ -221,28 +191,6 @@ export default function PortfolioScreen() {
         );
       })}
 
-      <Modal visible={addVisible} transparent animationType="slide" onRequestClose={() => setAddVisible(false)}>
-        <View style={s.backdrop}>
-          <Pressable style={{ flex: 1 }} onPress={() => setAddVisible(false)} accessibilityLabel="Dismiss" />
-          <View style={[s.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]}>
-            <View style={s.sheetHead}>
-              <Text style={s.sheetTitle}>Add community</Text>
-              <Pressable onPress={() => setAddVisible(false)} accessibilityLabel="Close" hitSlop={10}>
-                <X size={22} color={A.text} />
-              </Pressable>
-            </View>
-            <Text style={s.label}>Community name</Text>
-            <TextInput
-              value={newName} onChangeText={setNewName} placeholder="e.g. The Greens"
-              placeholderTextColor={A.textMuted} style={s.input} accessibilityLabel="Community name" />
-            <Text style={s.label}>Address (optional)</Text>
-            <TextInput
-              value={newAddress} onChangeText={setNewAddress} placeholder="Street, city"
-              placeholderTextColor={A.textMuted} style={s.input} accessibilityLabel="Address" />
-            <Button label="Create community" onPress={addCommunity} loading={addSaving} disabled={!newName.trim()} />
-          </View>
-        </View>
-      </Modal>
     </AdminScreen>
   );
 }
@@ -270,13 +218,4 @@ const s = StyleSheet.create({
   statLabel: { fontFamily: FontFamily.manropeSemiBold, fontSize: 12, color: A.textSecondary },
   manageRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 2 },
   manageText: { fontFamily: FontFamily.manropeBold, fontSize: 14, color: A.link },
-  backdrop: { flex: 1, backgroundColor: A.overlay, justifyContent: 'flex-end' },
-  sheet: { backgroundColor: A.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, gap: 8, ...AShadow.sheet },
-  sheetHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  sheetTitle: { fontFamily: FontFamily.spaceGroteskBold, fontSize: 22, color: A.text },
-  label: { fontFamily: FontFamily.manropeSemiBold, fontSize: 14, color: A.textSecondary, marginTop: 8 },
-  input: {
-    minHeight: 48, borderRadius: 12, borderWidth: 1, borderColor: A.borderStrong, backgroundColor: A.surface,
-    paddingHorizontal: 14, fontFamily: FontFamily.manropeMedium, fontSize: 16, color: A.text, marginBottom: 8,
-  },
 });

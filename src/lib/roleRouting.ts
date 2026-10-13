@@ -14,3 +14,10 @@ export function isCMRoutable(roles: string[]): boolean {
 export function isCoachRoutable(roles: string[]): boolean {
   return roles.includes('coach') && !isCommunityMode;
 }
+
+// TenisX staff who review community registrations (user_roles.platform_reviewer). The role can only be
+// granted by TenisX staff in the database (guard_platform_reviewer_role trigger), never from the app.
+// Checked FIRST: a platform reviewer lands in the (platform) shell, not a community shell.
+export function isPlatformReviewerRoutable(roles: string[]): boolean {
+  return roles.includes('platform_reviewer');
+}

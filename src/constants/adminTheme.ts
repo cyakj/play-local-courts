@@ -97,6 +97,7 @@ export const STATUS_TONE: Record<string, Tone> = {
   canceled: 'error',
   removed: 'neutral',
   blocked: 'error',
+  needs_more_info: 'info',
 };
 
 export const STATUS_LABEL: Record<string, string> = {
@@ -112,4 +113,5 @@ export const STATUS_LABEL: Record<string, string> = {
   canceled: 'Cancelled',
   removed: 'Deactivated',
   blocked: 'Blocked',
+  needs_more_info: 'Needs Information',
 };

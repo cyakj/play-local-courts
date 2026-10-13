@@ -161,6 +161,7 @@ export default function RootLayout() {
           <Stack.Screen name="reset-password/confirm" />
           <Stack.Screen name="(cm)" />
           <Stack.Screen name="(admin)" />
+          <Stack.Screen name="(platform)" />
           <Stack.Screen name="(resident)" />
           <Stack.Screen name="(coach)" />
           <Stack.Screen name="notifications" />

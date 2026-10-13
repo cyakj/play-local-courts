@@ -20,6 +20,8 @@ import { Colors, FontFamily, FontSize, MaxWidth, Spacing } from '@/constants/des
 import { CardSkeleton } from '@/components/ui/Skeleton';
 import { useTheme } from '@/context/ThemeContext';
 import type { ThemeTokens } from '@/constants/theme-tokens';
+import { isCommunityMode } from '@/config/productMode';
+import CommunityMessagesRoute from '@/components/messaging/CommunityMessagesRoute';
 
 const LESSON_TYPE_LABELS: Record<string, string> = {
   private_lesson:      'Private Lesson',
@@ -149,7 +151,8 @@ function formatMessageTime(iso: string): string {
   return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
-export default function MessagesScreen() {
+// Tennis product: coach/player and match-invite conversations (unchanged).
+function TennisMessagesScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const styles = useStyles(theme);
@@ -726,4 +729,10 @@ function useStyles(theme: ThemeTokens) {
       letterSpacing: 0.18,
     },
   }), [theme]);
+}
+
+// Community mode (HOA launches) uses the shared resident <-> administrator messaging experience;
+// the tennis product keeps its original screen. Same route, chosen by the product-mode flag.
+export default function MessagesRoute() {
+  return isCommunityMode ? <CommunityMessagesRoute /> : <TennisMessagesScreen />;
 }

@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Tabs, Redirect } from 'expo-router';
-import { LayoutDashboard, AlertCircle, Calendar, Bell } from 'lucide-react-native';
+import { LayoutDashboard, AlertCircle, Calendar, Bell, MessageSquare } from 'lucide-react-native';
 import { BottomNav } from '@/components/ui/BottomNav';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/context/NativeAuthContext';
 import { isCMRoutable } from '@/lib/roleRouting';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { A } from '@/constants/adminTheme';
+import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 
 // This group renders the Condo Manager shell. Unlike the tab-hiding in
 // (resident)/_layout.tsx, which is cosmetic only, this check is the sole
@@ -17,6 +18,7 @@ import { A } from '@/constants/adminTheme';
 export default function CMLayout() {
   const { session, loading } = useSession();
   const [authorized, setAuthorized] = useState<boolean | null>(null);
+  const unreadMessages = useUnreadMessages();
 
   useEffect(() => {
     if (!session) { setAuthorized(null); return; }
@@ -73,7 +75,11 @@ export default function CMLayout() {
       />
       <Tabs.Screen
         name="messages"
-        options={{ href: null }}
+        options={{
+          title: 'Messages',
+          tabBarBadge: unreadMessages > 0 ? unreadMessages : undefined,
+          tabBarIcon: ({ color, size }) => <MessageSquare color={color} size={size} strokeWidth={1.5} />,
+        }}
       />
     </Tabs>
     </ThemeProvider>
