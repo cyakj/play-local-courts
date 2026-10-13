@@ -4,6 +4,8 @@ dotenv.config();
 
 export default defineConfig({
   testDir: './tests',
+  // Admin UI specs sign in as the admin themselves and run via playwright.admin.config.ts.
+  testIgnore: /admin-.*.ui.spec.ts/,
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
