@@ -1,9 +1,9 @@
 /**
  * Edit Profile → home location: search "Dorado", pick a result, save, reopen.
  *
- * Mapbox is URL-restricted (HTTP 403 without an allowed Referer), so in the browser this
- * exercises the real provider-failure path → bundled Puerto Rico fallback. Either source
- * must produce a selectable "Dorado". The test restores the previous (empty) location.
+ * The Mapbox token is unrestricted, so this hits the live provider. If it ever fails,
+ * the bundled Puerto Rico fallback must still yield a selectable "Dorado".
+ * The test restores the previous (empty) location.
  */
 import { test, expect, type Page } from '@playwright/test';
 

@@ -12,12 +12,12 @@ export default defineConfig({
   timeout: 120000,
   webServer: {
     command: 'npm run dev',
-    url: 'http://localhost:8081',
+    url: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:8081',
     reuseExistingServer: true,
     timeout: 120000,
   },
   use: {
-    baseURL: 'http://localhost:8081',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:8081',
     trace: 'on-first-retry',
   },
   projects: [

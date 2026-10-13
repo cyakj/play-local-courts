@@ -100,8 +100,13 @@ test.describe('Theme Mode — Light/Dark Toggle', () => {
     const navBg = await page.locator('[data-testid="bottom-nav"]').evaluate(
       (el) => window.getComputedStyle(el).backgroundColor
     );
-    // Light mode nav is white rgb(255,255,255)
-    expect(navBg).toBe('rgb(255, 255, 255)');
+    // Light-mode nav is the intentional frosted-material white: theme-tokens.ts navBg
+    // 'rgba(255,255,255,0.94)' (the dark theme's counterpart is rgba(12,15,24,0.92)).
+    // Assert pure white at high opacity — not a dark or grey surface.
+    const m = navBg.match(/^rgba?\((\d+), (\d+), (\d+)(?:, ([\d.]+))?\)$/);
+    expect(m, `unexpected nav background: ${navBg}`).not.toBeNull();
+    expect([Number(m![1]), Number(m![2]), Number(m![3])]).toEqual([255, 255, 255]);
+    expect(m![4] === undefined ? 1 : Number(m![4])).toBeGreaterThanOrEqual(0.9);
   });
 
   test('Theme persists after page refresh', async ({ page }) => {

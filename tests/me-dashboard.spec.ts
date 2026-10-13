@@ -1,7 +1,11 @@
 import { test, expect } from '@playwright/test';
+import { isCommunityMode, isTennisMode } from './helpers/productMode';
 
 /**
  * QA spec for the resident "Me" dashboard screen.
+ *
+ * NTRP, lesson preview, match preview and the Messages header icon are tennis-only; in
+ * Community mode they must be ABSENT (src/app/(resident)/me.tsx, Header.tsx).
  */
 
 const ME = '/(resident)/me';
@@ -19,7 +23,8 @@ test.describe('Me screen — dashboard', () => {
 
   test('header shows logo, messages, bell, and avatar icons', async ({ page }) => {
     await expect(page.locator('[data-testid="tenisx-logo"]').first()).toBeVisible();
-    await expect(page.locator('[data-testid="messages-icon"]')).toBeVisible();
+    // Messages is match-invite content: tennis-only.
+    await expect(page.locator('[data-testid="messages-icon"]')).toHaveCount(isTennisMode ? 1 : 0);
     await expect(page.locator('[data-testid="bell-icon"]')).toBeVisible();
     await expect(page.locator('[data-testid="avatar-icon"]')).toBeVisible();
   });
@@ -34,8 +39,17 @@ test.describe('Me screen — dashboard', () => {
     await expect(page.getByText('Notifications', { exact: true })).toHaveCount(0);
   });
 
-  test('NTRP stat is visible', async ({ page }) => {
+  test('NTRP stat is visible (tennis mode only)', async ({ page }) => {
+    test.skip(!isTennisMode, 'NTRP is tennis-only; asserted absent in the Community test below');
     await expect(page.getByText('NTRP', { exact: true })).toBeVisible({ timeout: 20000 });
+  });
+
+  test('NTRP stat is NOT shown in Community mode', async ({ page }) => {
+    test.skip(!isCommunityMode, 'tennis build shows NTRP');
+    // wait for the stats grid to render before asserting absence
+    await expect(page.getByText('COMMUNITY', { exact: true })).toBeVisible({ timeout: 20000 });
+    await expect(page.getByText('NTRP', { exact: true })).toHaveCount(0);
+    await expect(page.locator('[aria-label="NTRP info"]')).toHaveCount(0);
   });
 
   test('COMMUNITY stat is visible', async ({ page }) => {
@@ -54,10 +68,11 @@ test.describe('Me screen — dashboard', () => {
   });
 
   test('UPCOMING section is visible', async ({ page }) => {
-    await expect(page.getByText('UPCOMING')).toBeVisible({ timeout: 20000 });
+    await expect(page.getByText('UPCOMING', { exact: true })).toBeVisible({ timeout: 20000 });
   });
 
-  test('lesson preview or empty state is visible', async ({ page }) => {
+  test('lesson preview or empty state is visible (tennis mode only)', async ({ page }) => {
+    test.skip(!isTennisMode, 'lessons are tennis-only; asserted absent in the Community test below');
     await page.waitForTimeout(2000);
     await expect(
       page.getByText(/upcoming lessons — find a coach/i)
@@ -73,7 +88,17 @@ test.describe('Me screen — dashboard', () => {
     ).toBeVisible({ timeout: 15000 });
   });
 
-  test('match preview or empty state is visible', async ({ page }) => {
+  test('lesson and match previews are NOT shown in Community mode', async ({ page }) => {
+    test.skip(!isCommunityMode, 'tennis build shows lesson/match previews');
+    await expect(page.getByText('UPCOMING', { exact: true })).toBeVisible({ timeout: 20000 });
+    await page.waitForTimeout(2000);
+    await expect(page.getByText(/upcoming lessons — find a coach/i)).toHaveCount(0);
+    await expect(page.getByText(/no upcoming matches — find an opponent/i)).toHaveCount(0);
+    await expect(page.locator('text=/Private|Semi-Private|Group Clinic/')).toHaveCount(0);
+  });
+
+  test('match preview or empty state is visible (tennis mode only)', async ({ page }) => {
+    test.skip(!isTennisMode, 'matches are tennis-only; asserted absent in the Community test above');
     await page.waitForTimeout(2000);
     await expect(
       page.getByText(/no upcoming matches — find an opponent/i)
@@ -101,7 +126,8 @@ test.describe('Me screen — dashboard', () => {
     await expect(page.getByText('Sign Out')).toBeVisible({ timeout: 20000 });
   });
 
-  test('NTRP info tooltip opens and closes', async ({ page }) => {
+  test('NTRP info tooltip opens and closes (tennis mode only)', async ({ page }) => {
+    test.skip(!isTennisMode, 'NTRP is tennis-only');
     await page.waitForTimeout(1000);
     const label = page.getByText('NTRP', { exact: true });
     await expect(label).toBeVisible({ timeout: 20000 });

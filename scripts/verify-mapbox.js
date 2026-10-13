@@ -25,7 +25,7 @@ if (!token.startsWith('pk.')) {
 
 const BASE = 'https://api.mapbox.com/search/searchbox/v1';
 const session = crypto.randomUUID();
-const queries = ['Dorado', 'San Juan', '1600 Pennsylvania Ave NW Washington', 'Calle Fortaleza San Juan'];
+const queries = ['Dorado', 'San Juan', '1600 Pennsylvania Ave NW Washington', '1000 Avenida Ashford San Juan'];
 let failed = 0;
 
 (async () => {
