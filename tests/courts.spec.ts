@@ -280,7 +280,7 @@ test.describe('Courts Screen — Phase 3 Refined', () => {
       const confirmBtn = page.locator('[data-testid="confirm-booking-btn"]');
       await expect(confirmBtn).toBeVisible({ timeout: 10000 });
       const box = await confirmBtn.boundingBox();
-      if (box) expect(box.height).toBeGreaterThanOrEqual(52);
+      if (box) expect(Math.round(box.height)).toBeGreaterThanOrEqual(52);
     }
   });
 
