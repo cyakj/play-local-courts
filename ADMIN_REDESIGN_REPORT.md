@@ -62,6 +62,10 @@ In-app records are real. **Push is not implemented**: the repo has no `expo-noti
 3. Edge function (service role) that, for a new `hoa_notifications` row, sends to the user's tokens via the Expo Push API and records receipts; trigger it with a database webhook on INSERT (the `dedupe_key` unique index already prevents duplicate rows, so one row = one push). Honour `notification preferences`.
 4. Apple: APNs key uploaded to EAS credentials; a **development/production build** is required to test on a physical iPhone (Expo Go cannot receive production push).
 
+## Checkpoint note
+
+Development is paused. See `NEXT_SESSION_HANDOFF.md` for the resume guide, the Platform Admin / community-approval investigation, the admin-notes cleanup plan, and prioritised next steps. Read-only check: 0 of 81 live reports have `admin_notes`; 77 of 81 look like disposable test reports (not deleted).
+
 ## Decisions I need from you
 
 1. **Who may create communities?** The `hoas` INSERT policy is `auth.uid() = admin_id`, so *any* signed-in user (including a resident) can create a community they administer. A previous migration deliberately allowed self-service creation, so I did not change it. If only portfolio managers (`condo_manager` / `platform_reviewer` in `user_roles`) should, say so and I'll add the policy and hide the button.
