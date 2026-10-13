@@ -15,7 +15,8 @@ import { supabase } from '@/lib/supabase';
 import {
   Colors, FontFamily, FontSize, Radius, Spacing, MaxWidth,
 } from '@/constants/design';
-import { Header } from '@/components/ui/Header';
+import { A } from '@/constants/adminTheme';
+import { AdminHeader } from '@/components/admin/kit';
 import { useTheme } from '@/context/ThemeContext';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 import type { Database } from '@/lib/types';
@@ -91,7 +92,7 @@ export default function ManageCourtsScreen() {
 
   const slotColors = useMemo<Record<SlotStatus, { bg: string; border: string; text: string }>>(() => ({
     available: { bg: 'rgba(154,163,184,0.08)', border: 'rgba(154,163,184,0.20)', text: theme.textSecondary },
-    booked: { bg: 'rgba(255,92,107,0.12)', border: 'rgba(255,92,107,0.40)', text: Colors.negative },
+    booked: { bg: 'rgba(255,92,107,0.12)', border: 'rgba(255,92,107,0.40)', text: A.errorText },
     maintenance: { bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.40)', text: '#F59E0B' },
   }), [theme]);
 
@@ -181,16 +182,7 @@ export default function ManageCourtsScreen() {
 
   return (
     <View style={styles.screen}>
-      <Header variant="inner" brand="platform" title="Manage Amenities" onBack={() => router.back()} />
-
-      {/* Hero section */}
-      <View style={styles.hero}>
-        <Text style={styles.heroTag}>ADMIN</Text>
-        <Text style={styles.heroTitle}>Manage Amenities</Text>
-        <Text style={styles.heroSub}>
-          Add, remove, and schedule maintenance for your community amenities.
-        </Text>
-      </View>
+      <AdminHeader title="Manage amenities" subtitle="Add, remove and schedule maintenance" onBack={() => router.back()} showBell={false} />
 
       <ScrollView
         style={styles.scroll}
@@ -204,7 +196,7 @@ export default function ManageCourtsScreen() {
               style={styles.addDashedCard}
               onPress={() => setShowAddForm(true)}
               activeOpacity={0.8}>
-              <Plus color={Colors.accentCyan} size={20} strokeWidth={1.5} />
+              <Plus color={A.accent} size={20} strokeWidth={1.5} />
               <Text style={styles.addDashedLabel}>Add New Amenity</Text>
             </TouchableOpacity>
           ) : (
@@ -305,7 +297,7 @@ export default function ManageCourtsScreen() {
                           style={styles.deleteBtn}
                           onPress={() => confirmDelete(court)}
                           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                          <Trash2 color={Colors.negative} size={16} strokeWidth={1.5} />
+                          <Trash2 color={A.errorText} size={16} strokeWidth={1.5} />
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -388,7 +380,7 @@ function useStyles(theme: ThemeTokens) {
     heroTag: {
       fontFamily: FontFamily.jetbrainsMonoSemiBold,
       fontSize: FontSize.metadata,
-      color: Colors.accentCyan,
+      color: A.accent,
       letterSpacing: 2,
       marginBottom: 6,
     },
@@ -475,7 +467,7 @@ function useStyles(theme: ThemeTokens) {
       backgroundColor: 'transparent',
     },
     typePillActive: {
-      borderColor: Colors.accentCyan,
+      borderColor: A.accent,
       backgroundColor: 'rgba(45,224,255,0.08)',
     },
     typePillLabel: {
@@ -484,7 +476,7 @@ function useStyles(theme: ThemeTokens) {
       color: theme.textMuted,
     },
     typePillLabelActive: {
-      color: Colors.accentCyan,
+      color: A.accent,
     },
     formActions: {
       flexDirection: 'row',

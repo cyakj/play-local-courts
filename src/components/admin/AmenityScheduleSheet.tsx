@@ -638,7 +638,7 @@ const s = StyleSheet.create({
   dateBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, backgroundColor: A.surface, borderBottomWidth: 1, borderBottomColor: A.border },
   dateText: { fontFamily: FontFamily.manropeBold, fontSize: 16, color: A.text },
   todayLabel: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: 11, color: A.accent, letterSpacing: 0.5 },
-  todayLink: { fontFamily: FontFamily.manropeBold, fontSize: 13, color: A.primary, minHeight: 24 },
+  todayLink: { fontFamily: FontFamily.manropeBold, fontSize: 13, color: A.link, minHeight: 24 },
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingVertical: 4 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   swatch: { width: 18, height: 18, borderRadius: 5, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },

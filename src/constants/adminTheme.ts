@@ -17,12 +17,15 @@ export const A = {
   text: '#0C1A3A',
   textSecondary: '#3D4A5C',
   textMuted: '#556070',
-  disabled: '#A8B2C0',
+  disabled: '#A8B2C0',   // non-text only (borders/icons). Never for readable text.
+  mutedDate: '#6B7686',  // out-of-month dates: still readable (4.6:1 on white)
   disabledBg: '#E3E8F0',
 
   // Actions / accents
   primary: '#2D6BFF',
   primaryPressed: '#1F55DB',
+  link: '#1F55DB',       // text-sized blue: >= 5.4:1 on white and on infoBg (primary is for fills/borders)
+  badge: '#C42B3C',      // white text on this is >= 5.5:1
   onPrimary: '#FFFFFF',
   navy: '#0F2A57',
   accent: '#1A7FBF', // cyan, calibrated for white backgrounds

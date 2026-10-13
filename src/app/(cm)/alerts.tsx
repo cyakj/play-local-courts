@@ -236,7 +236,7 @@ const s = StyleSheet.create({
   meta: { fontFamily: FontFamily.manropeMedium, fontSize: 13, color: A.textMuted },
   summary: { fontFamily: FontFamily.manropeMedium, fontSize: 14, color: A.textSecondary },
   actionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 2, minHeight: 28 },
-  action: { fontFamily: FontFamily.manropeBold, fontSize: 14, color: A.primary },
+  action: { fontFamily: FontFamily.manropeBold, fontSize: 14, color: A.link },
   markAll: { alignSelf: 'flex-end', minHeight: 44, justifyContent: 'center' },
-  markAllText: { fontFamily: FontFamily.manropeBold, fontSize: 14, color: A.primary },
+  markAllText: { fontFamily: FontFamily.manropeBold, fontSize: 14, color: A.link },
 });

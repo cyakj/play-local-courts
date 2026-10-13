@@ -216,7 +216,7 @@ export default function CalendarScreen() {
                   accessibilityState={{ selected: isSel }}
                   style={s.cell}>
                   <View style={[s.dayCircle, isSel && s.dayCircleSel, !isSel && isToday && s.dayCircleToday]}>
-                    <Text style={[s.dayText, !cell.inMonth && { color: A.disabled }, isSel && { color: '#FFFFFF' }]}>{cell.day}</Text>
+                    <Text style={[s.dayText, !cell.inMonth && { color: A.mutedDate }, isSel && { color: '#FFFFFF' }]}>{cell.day}</Text>
                   </View>
                   <View style={s.dots}>
                     {types.map((t) => <View key={t} style={[s.dot, { backgroundColor: TYPE_META[t].color }]} />)}

@@ -25,6 +25,8 @@ interface Booking {
   courtName: string;
   courtId: string;
   minCancellationHours: number;
+  cancellationReason: string | null;
+  cancelledBy: string | null;
 }
 
 const DEFAULT_MIN_CANCELLATION_HOURS = 2;
@@ -55,7 +57,7 @@ export default function MyReservationsScreen() {
     // Scoped to the active community (courts.hoa_id), newest first.
     let query = supabase
       .from('bookings')
-      .select('id, date, start_time, end_time, status, court_id, courts!inner(name, hoa_id)')
+      .select('id, date, start_time, end_time, status, cancellation_reason, cancelled_by, court_id, courts!inner(name, hoa_id)')
       .eq('user_id', user.id)
       .order('date', { ascending: false })
       .order('start_time', { ascending: false });
@@ -83,6 +85,8 @@ export default function MyReservationsScreen() {
       courtName: b.courts?.name ?? 'Amenity',
       courtId: b.court_id,
       minCancellationHours: rulesByCourtId.get(b.court_id) ?? DEFAULT_MIN_CANCELLATION_HOURS,
+      cancellationReason: b.cancellation_reason ?? null,
+      cancelledBy: b.cancelled_by ?? null,
     })));
     setLoading(false);
   }, [hoaId]);
@@ -163,6 +167,11 @@ export default function MyReservationsScreen() {
               {formatShortDate(b.date)} · {formatTime12(b.start_time)}–{formatTime12(b.end_time)}
             </Text>
             <ReservationStatusPill status={b.status} />
+            {(b.status === 'cancelled' || b.status === 'rejected') && b.cancellationReason ? (
+              <Text testID="cancellation-reason" style={styles.cardReason}>
+                {b.status === 'rejected' ? 'Declined' : b.cancelledBy === 'admin' ? 'Cancelled by an administrator' : 'Cancelled'}: {b.cancellationReason}
+              </Text>
+            ) : null}
           </View>
           <ChevronRight color={theme.textMuted} size={18} strokeWidth={1.75} />
         </View>
@@ -239,6 +248,12 @@ function useStyles(theme: ThemeTokens) {
     screen:  { flex: 1, backgroundColor: theme.pageBg },
     content: { padding: Spacing.pagePx, paddingBottom: 60 },
 
+    cardReason: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.label,
+      color: theme.textSecondary,
+      marginTop: 8,
+    },
     sectionTitle: {
       fontFamily: FontFamily.spaceGroteskBold,
       fontSize: FontSize.sectionTitle,

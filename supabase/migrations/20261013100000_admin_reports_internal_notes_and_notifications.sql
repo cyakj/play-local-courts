@@ -109,8 +109,11 @@ CREATE TRIGGER trg_notify_report_status
   AFTER UPDATE ON public.maintenance_reports
   FOR EACH ROW EXECUTE FUNCTION public.notify_reporter_on_status_change();
 
--- 5. Resident-visible note -> notify the reporter (folded into a status notification if the
---    admin changed status in the same action, so one action never yields two notifications) ----
+-- 5. Resident-visible note -> notify the reporter ----------------------------------------------------
+-- If the admin changed the status in the same action (within 30s), the status notification already
+-- tells the resident to look at the report, and the note is shown in the report's activity timeline,
+-- so no second notification is sent (one action never yields two). Notifications are never UPDATEd
+-- here: prevent_notification_content_changes() forbids editing a notification's content.
 CREATE OR REPLACE FUNCTION public.notify_reporter_on_public_note()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -118,9 +121,7 @@ SECURITY DEFINER
 SET search_path TO 'public'
 AS $function$
 DECLARE
-  rpt          public.maintenance_reports%ROWTYPE;
-  recent_hist  uuid;
-  snippet      text;
+  rpt public.maintenance_reports%ROWTYPE;
 BEGIN
   IF NEW.is_internal THEN
     RETURN NEW;
@@ -131,25 +132,18 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  snippet := left(NEW.body, 200);
-
-  SELECT id INTO recent_hist
-  FROM public.maintenance_report_status_history
-  WHERE report_id = NEW.report_id
-    AND changed_by IS NOT DISTINCT FROM NEW.author_id
-    AND created_at > now() - interval '30 seconds'
-  ORDER BY created_at DESC LIMIT 1;
-
-  IF recent_hist IS NOT NULL THEN
-    UPDATE public.hoa_notifications
-    SET body = body || ' ' || snippet
-    WHERE user_id = rpt.reporter_id AND dedupe_key = 'report_status:' || recent_hist::text;
+  IF EXISTS (
+    SELECT 1 FROM public.maintenance_report_status_history h
+    WHERE h.report_id = NEW.report_id
+      AND h.changed_by IS NOT DISTINCT FROM NEW.author_id
+      AND h.created_at > now() - interval '30 seconds'
+  ) THEN
     RETURN NEW;
   END IF;
 
   INSERT INTO public.hoa_notifications (user_id, hoa_id, type, title, body, metadata, dedupe_key)
   VALUES (
-    rpt.reporter_id, rpt.hoa_id, 'report_update', 'New update on your report', snippet,
+    rpt.reporter_id, rpt.hoa_id, 'report_update', 'New update on your report', left(NEW.body, 200),
     jsonb_build_object('report_id', rpt.id, 'route', '/report-detail/' || rpt.id::text),
     'report_note:' || NEW.id::text
   )

@@ -25,6 +25,8 @@ interface Detail {
   communityName: string | null;
   minCancellationHours: number | null;
   requiresApproval: boolean;
+  cancellationReason: string | null;
+  cancelledBy: string | null;
 }
 
 export default function ReservationDetailScreen() {
@@ -44,7 +46,7 @@ export default function ReservationDetailScreen() {
     // RLS limits this to the resident's own booking (or an admin of the community).
     const { data: b } = await supabase
       .from('bookings')
-      .select('id, date, start_time, end_time, status, created_at, court_id, courts(name, court_type, hoa_id, hoas(name))')
+      .select('id, date, start_time, end_time, status, created_at, cancellation_reason, cancelled_by, court_id, courts(name, court_type, hoa_id, hoas(name))')
       .eq('id', id)
       .maybeSingle();
     if (!b) { setNotFound(true); setLoading(false); return; }
@@ -68,6 +70,8 @@ export default function ReservationDetailScreen() {
       communityName: court?.hoas?.name ?? null,
       minCancellationHours: rule?.min_cancellation_hours ?? null,
       requiresApproval: !!rule?.requires_admin_approval,
+      cancellationReason: (b as any).cancellation_reason ?? null,
+      cancelledBy: (b as any).cancelled_by ?? null,
     });
     setLoading(false);
   }, [id]);
@@ -142,6 +146,11 @@ export default function ReservationDetailScreen() {
                 <Text testID="reservation-status-description" style={[styles.body, { marginTop: 12 }]}>
                   {display.description}
                 </Text>
+                {(detail.status === 'cancelled' || detail.status === 'rejected') && detail.cancellationReason ? (
+                  <Text testID="cancellation-reason" style={[styles.body, { marginTop: 8, fontFamily: FontFamily.manropeSemiBold }]}>
+                    {detail.status === 'rejected' ? 'Reason' : detail.cancelledBy === 'admin' ? 'Cancelled by an administrator' : 'Reason'}: {detail.cancellationReason}
+                  </Text>
+                ) : null}
               </View>
 
               <View style={styles.card}>

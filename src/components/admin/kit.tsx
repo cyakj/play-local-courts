@@ -255,7 +255,7 @@ export function Button({
     : variant === 'secondary' ? A.surface : 'transparent';
   const fg = off ? A.textMuted
     : variant === 'primary' || variant === 'danger' ? A.onPrimary
-    : variant === 'secondary' ? A.primary : A.primary;
+    : variant === 'secondary' ? A.link : A.link;
   return (
     <Pressable
       testID={testID}
@@ -361,7 +361,7 @@ const s = StyleSheet.create({
   iconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   badge: {
     position: 'absolute', top: 4, right: 2, minWidth: 18, height: 18, borderRadius: 9,
-    backgroundColor: A.error, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4,
+    backgroundColor: A.badge, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4,
   },
   badgeText: { fontFamily: FontFamily.manropeBold, fontSize: 11, color: '#FFFFFF' },
 
