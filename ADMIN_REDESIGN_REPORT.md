@@ -107,3 +107,16 @@ npx expo start --port 8082          # press w for web, or scan the QR code in Ex
 3. Re-run `tests/blockout-enforcement.spec.ts` and the resident booking specs against the migrated DB.
 4. Push notification build (section above).
 5. Optional: member role-change UI, recurring blockouts, legacy `(cm)/messages.tsx` (hidden tab) still uses the old dark styling.
+
+
+---
+
+## Session 2 addendum (2026-10-13)
+
+- **Applied to TENISX REAL (approved):** booking approval workflow, report notes and notifications, blockouts and reservation workflow. A backup snapshot `backup_20261013` was taken first (same database; not a disaster-recovery backup). The SQL verification scripts now pass against the migrated database; fixture fixes are committed.
+- **Functional verification (rolled-back SQL):** approval ON gives pending, OFF gives confirmed; admin approve/decline records the reviewer; the atomic blockout RPC cancels explicitly chosen reservations, keeps history, and sends one deduplicated resident notification with reason and deep link; booking into another community is denied by RLS (42501); internal report notes are unreadable by residents while resident-visible notes are readable by the reporter only; the last-admin guard holds.
+- **Pending approval:** `20261013120000_platform_approval_and_secure_messaging.sql` (Platform Admin approval enforcement and secure messaging). Dry run: 38/38 PASS.
+- **New in the app:** Platform Admin shell `(platform)`, application resubmission fix, shared community messaging (V1) with realtime, unread badges and a resident entry point.
+- **Earlier open decisions are resolved:** community creation is restricted to the application/approval path (pending migration); validation was a rolled-back dry run plus applying to the test project; the legacy `admin_notes` scrub is skipped.
+- See `NEXT_SESSION_HANDOFF.md` (Session 2 update) for blockers, hard rules and next steps.
+

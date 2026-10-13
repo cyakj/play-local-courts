@@ -121,3 +121,45 @@ Sign in for manual checks with the admin test account in `.env` (`TEST_ADMIN_EMA
 - `prevent_notification_content_changes` forbids UPDATE of a notification's content; only INSERT notifications.
 - Generated types (`src/lib/types.ts`) lag the live schema and the unapplied migrations; that is why `untypedDb` exists.
 - Expo Go shows its own floating developer-tools button; it is not part of the app.
+
+
+---
+
+# SESSION 2 UPDATE (2026-10-13) â€” supersedes the "NOT APPLIED" statements above
+
+## Database (TENISX REAL, hqqlrliakttqsbalvuyz â€” confirmed the test project)
+- **Backup:** in-database snapshot schema `backup_20261013` (all 70 public tables, row counts verified equal; plus functions, policies, triggers, constraints, indexes, enums as text). Closed to anon/authenticated. **Limits:** same database (not disaster recovery), no auth/storage schemas, no sequences. Drop it when no longer needed: `drop schema backup_20261013 cascade`.
+- **APPLIED (approved):** `greens_v1_booking_approval_workflow`, `admin_reports_internal_notes_and_notifications`, `admin_blockouts_and_reservation_workflow` (in that order). The pre-apply diff of live functions vs. migrations was clean. Migration 4 (admin_notes scrub) was deliberately NOT applied (0 of 81 reports have admin_notes).
+- **Verified (rolled-back SQL):** `supabase/tests/booking_approval.sql` 11/11 PASS; `supabase/tests/admin_blockouts.sql` all PASS after fixing fixtures (the test admin is now also admin of DBE, so cross-community checks use The Fairways). Live row counts unchanged after tests.
+- **NOT APPLIED, awaiting approval:** `20261013120000_platform_approval_and_secure_messaging.sql`. Dry run in a rolled-back transaction: 38 PASS, 0 FAIL, 1 SKIP (`supabase/tests/platform_approval_and_messaging.sql`). Until it is applied, the bypasses below are still open in the live database and the messaging restrictions are unverified.
+
+## Security findings (open until the new migration is applied)
+1. `create_community()` RPC is callable by any signed-in user; it instantly creates a community and grants the global `admin` role.
+2. `hoas` INSERT policy is `auth.uid() = admin_id`.
+3. `user_roles` INSERT policy lets any `admin` role holder insert ANY role, including `platform_reviewer`.
+4. `grant_admin_role()` is callable by any `admin`.
+5. `messages` INSERT only checks `sender_id`: anyone can message anyone; senders/recipients can edit content; participants can delete history.
+
+## Built this session (local commits on `admin-redesign`, nothing pushed)
+- **Platform Admin:** `src/app/(platform)/` (role-gated layout, review queue with realtime, application review: approve / request info / reject via the existing `approve_hoa_application` and `update_hoa_application_status` RPCs; signed-URL document viewer). `platform_reviewer` is routed first at login and on the root redirect. Reuses `hoa_applications`, `hoa_application_notes`, `application_notifications`; no second system. A reviewer account already exists in `user_roles`; no password reset or role grant was performed.
+- **Community registration:** Portfolio "Register" opens `/hoa-application?new=1` (no direct `hoas` insert). Fixed a defect: resubmitting a returned application used to insert a duplicate row; it now updates the same row to `pending`.
+- **Messaging (V1, not Stage 2):** `components/messaging/CommunityMessages.tsx`, shared by admin and resident: threads, day/time stamps, read receipts, realtime INSERT/UPDATE, unread hook plus bottom-nav badge, error/empty/loading states, contact picker (`my_message_contacts()` RPC with a pre-migration fallback). The admin Messages tab is un-hidden. Resident entry: Me > "Message my community" with badge. Root `/messages` switches by product mode; the tennis screen (match invites, lesson context) is untouched.
+- **Tests:** 128 Node logic tests pass (114 existing + 14 new in `platform-messaging-logic.spec.ts`). Browser smoke: resident `/messages` renders the new screen at 390px in light theme. NOT yet browser-tested: admin Messages tab, send/receive round trip, Platform Admin screens (need reviewer sign-in), iPhone.
+
+## Why messaging was hidden
+It was not lost. `(cm)/messages.tsx` was built in the web-to-native migration and rewritten several times, then its tab was set to `href: null` as part of the product-mode launch scoping for The Greens. `/messages` stayed reachable only from tennis flows. The table, RLS, realtime publication and unread logic all existed. What was missing: a Community-mode entry point, community-aware authorisation, and realtime in the admin screen. Messaging is a V1 requirement.
+
+## Hard rules for the next session
+- **Do NOT run booking UI specs or anything that creates bookings through the app.** `DataContext.tsx` and `lib/emailNotifications.ts` invoke `send-booking-email` (real email to test accounts that may use real addresses). `SetMaintenanceSheet` also invokes it. The tennis `messages.tsx` invokes `send-message-notification`. No email, SMS or push was sent this session (SQL tests only; community messaging never calls the email functions).
+- Never print `.env` test credentials. `.playwright/storageState.json` holds a live session token: do not commit it.
+
+## Remaining V1 blockers and next steps (priority order)
+1. **Approval needed:** apply `20261013120000_...` after review. Then re-run `platform_approval_and_messaging.sql` (without pasting the migration) and resolve the one SKIP with a fresh outsider user.
+2. Regenerate `src/lib/types.ts`; replace `@/lib/untypedDb` in `AmenityScheduleSheet.tsx` and `ReportsPanel.tsx`; delete `untypedDb.ts`.
+3. Browser/iPhone verification: admin Messages tab and send/receive/unread/realtime between the two test accounts (writes test rows, no email); Platform Admin queue and decision flow (needs the reviewer sign-in); resident cancellation and notification screens.
+4. Applicant UI: document upload to the `hoa-verification-documents` bucket (the form currently submits `verification_documents: []`) and in-app display of `application_notifications`.
+5. Duplicate URL: `(cm)/messages.tsx` and root `messages.tsx` both map to `/messages` on web. It works today because both are role-aware, but consider a distinct route name.
+6. Push notifications are unchanged and NOT operational: needs `expo-notifications`, a `device_push_tokens` table with RLS, an edge function on `hoa_notifications` INSERT, EAS projectId, APNs key, and a physical-device build.
+7. Member role-change UI, recurring blockouts.
+8. Test-data cleanup (77 of 81 reports) still needs explicit approval.
+
