@@ -248,6 +248,30 @@ export function Button({
   );
 }
 
+/** Accessible on/off switch: whole row is the tap target (>= 48pt), announces as a switch. */
+export function Toggle({
+  value, onChange, label, hint, disabled, testID,
+}: { value: boolean; onChange: (next: boolean) => void; label: string; hint?: string; disabled?: boolean; testID?: string }) {
+  return (
+    <Pressable
+      testID={testID}
+      onPress={disabled ? undefined : () => onChange(!value)}
+      accessibilityRole="switch"
+      accessibilityLabel={label}
+      accessibilityHint={hint}
+      accessibilityState={{ checked: value, disabled: !!disabled }}
+      style={[s.toggleRow, disabled && { opacity: 0.6 }]}>
+      <View style={{ flex: 1 }}>
+        <Text style={s.toggleLabel}>{label}</Text>
+        {hint ? <Text style={s.toggleHint}>{hint}</Text> : null}
+      </View>
+      <View style={[s.toggleTrack, { backgroundColor: value ? A.primary : A.borderStrong }]}>
+        <View style={[s.toggleThumb, value ? { right: 3 } : { left: 3 }]} />
+      </View>
+    </Pressable>
+  );
+}
+
 export function EmptyBlock({ Icon, title, body }: { Icon: LucideIcon; title: string; body?: string }) {
   return (
     <View style={s.empty}>
@@ -344,6 +368,12 @@ const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
   },
   buttonText: { fontFamily: FontFamily.manropeBold, fontSize: 15 },
+
+  toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingVertical: 6 },
+  toggleLabel: { fontFamily: FontFamily.manropeBold, fontSize: 16, color: A.text },
+  toggleHint: { fontFamily: FontFamily.manropeMedium, fontSize: 13, color: A.textSecondary, marginTop: 2 },
+  toggleTrack: { width: 52, height: 32, borderRadius: 16, justifyContent: 'center' },
+  toggleThumb: { position: 'absolute', top: 3, width: 26, height: 26, borderRadius: 13, backgroundColor: '#FFFFFF', ...AShadow.card },
 
   empty: { alignItems: 'center', paddingVertical: 32, paddingHorizontal: 24, gap: 8 },
   emptyIcon: {

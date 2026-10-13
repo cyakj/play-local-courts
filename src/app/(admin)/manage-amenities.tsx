@@ -17,6 +17,7 @@ import {
 
 import { supabase } from '@/lib/supabase';
 import { platformAlert } from '@/lib/platformAlert';
+import { A } from '@/constants/adminTheme';
 import {
   Colors,
   FontFamily,
@@ -28,12 +29,12 @@ import {
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { Header } from '@/components/ui/Header';
+import { AdminHeader, Toggle } from '@/components/admin/kit';
 import { TimePicker } from '@/components/ui/TimePicker';
 import { Stepper } from '@/components/ui/Stepper';
 import { RulesSummary } from '@/components/ui/RulesSummary';
 import { AddAmenityWizard } from '@/components/admin/AddAmenityWizard';
-import { BlockoutSheet } from '@/components/admin/BlockoutSheet';
+import { AmenityScheduleSheet } from '@/components/admin/AmenityScheduleSheet';
 import { useTheme } from '@/context/ThemeContext';
 import { formatDateFull, formatTime12h } from '@/lib/format';
 import type { ThemeTokens } from '@/constants/theme-tokens';
@@ -71,16 +72,16 @@ function getTypeIcon(courtType: string) {
     case 'tennis':
     case 'pickleball':
     case 'gym':
-      return <Dumbbell color={Colors.accentCyan} size={20} strokeWidth={1.5} />;
+      return <Dumbbell color={A.accent} size={20} strokeWidth={1.5} />;
     case 'pool':
     case 'jacuzzi':
-      return <Waves color={Colors.accentCyan} size={20} strokeWidth={1.5} />;
+      return <Waves color={A.accent} size={20} strokeWidth={1.5} />;
     case 'clubhouse':
-      return <Building2 color={Colors.accentCyan} size={20} strokeWidth={1.5} />;
+      return <Building2 color={A.accent} size={20} strokeWidth={1.5} />;
     case 'barbecue':
-      return <Flame color={Colors.accentCyan} size={20} strokeWidth={1.5} />;
+      return <Flame color={A.accent} size={20} strokeWidth={1.5} />;
     default:
-      return <Dumbbell color={Colors.accentCyan} size={20} strokeWidth={1.5} />;
+      return <Dumbbell color={A.accent} size={20} strokeWidth={1.5} />;
   }
 }
 
@@ -115,6 +116,7 @@ export default function ManageAmenitiesScreen() {
   const [utilization30d, setUtilization30d] = useState(0);
   const [detailSaving, setDetailSaving] = useState(false);
   const [reviewing, setReviewing] = useState<string | null>(null);
+  const [approvalSaving, setApprovalSaving] = useState(false);
 
   // Blockout sheet
   const [blockoutVisible, setBlockoutVisible] = useState(false);
@@ -306,18 +308,8 @@ export default function ManageAmenitiesScreen() {
       return;
     }
 
-    const when = `${formatDateFull(b.date)} at ${formatTime12h(b.start_time)}–${formatTime12h(b.end_time)}`;
-    await supabase.from('hoa_notifications').insert({
-      user_id: data[0].user_id,
-      hoa_id: detailCourt.hoa_id,
-      title: decision === 'confirmed' ? 'Reservation Approved' : 'Reservation Declined',
-      body: decision === 'confirmed'
-        ? `Your request for ${detailCourt.name} on ${when} was approved.`
-        : `Your request for ${detailCourt.name} on ${when} was declined.`,
-      type: decision === 'confirmed' ? 'booking_confirmed' : 'booking_rejected',
-      read: false,
-    });
-
+    // The resident's in-app notification is created by the database (trg_notify_booking_status),
+    // once per status change — never from the client, so it cannot be duplicated or skipped.
     await openDetail(detailCourt);
     loadCourts();
   }
@@ -408,30 +400,35 @@ export default function ManageAmenitiesScreen() {
     loadCourts();
   }
 
-  function confirmDeleteBlockout(id: string) {
-    platformAlert(
-      'Remove Blockout',
-      'Residents will be able to book this amenity during this window again. Continue?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Remove', style: 'destructive', onPress: () => deleteBlockout(id) },
-      ],
-    );
-  }
-
-  async function deleteBlockout(id: string) {
-    const { error } = await supabase.from('court_maintenance').delete().eq('id', id);
-    if (error) {
-      platformAlert('Delete Failed', error.message);
+  // The approval rule is enforced by the database on every new booking (enforce_amenity_booking_rules),
+  // so this only has to persist the flag. It saves immediately and confirms from the server's row —
+  // the switch never shows a state the database does not have.
+  async function setApproval(next: boolean) {
+    if (!detailCourt || approvalSaving) return;
+    const previous = rules.requires_admin_approval ?? false;
+    setApprovalSaving(true);
+    setRules((r) => ({ ...r, requires_admin_approval: next }));
+    const res = rules.id
+      ? await supabase.from('amenity_rules').update({ requires_admin_approval: next }).eq('id', rules.id).select('*').maybeSingle()
+      : await supabase.from('amenity_rules')
+          .insert({ hoa_id: detailCourt.hoa_id, amenity_id: detailCourt.id, requires_admin_approval: next })
+          .select('*').maybeSingle();
+    setApprovalSaving(false);
+    if (res.error || !res.data) {
+      setRules((r) => ({ ...r, requires_admin_approval: previous }));
+      platformAlert('Approval setting not saved', res.error?.message ?? 'You do not have permission to change this amenity.');
       return;
     }
-    setMaintenance((prev) => prev.filter((m) => m.id !== id));
+    setRules(res.data);
   }
 
   const plusButton = (
     <TouchableOpacity
+      testID="add-amenity-btn"
       onPress={() => setWizardVisible(true)}
       style={styles.plusBtn}
+      accessibilityRole="button"
+      accessibilityLabel="Add amenity"
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
       <Plus color="#FFFFFF" size={22} strokeWidth={1.5} />
     </TouchableOpacity>
@@ -439,21 +436,7 @@ export default function ManageAmenitiesScreen() {
 
   return (
     <View style={styles.screen}>
-      <Header
-        variant="inner"
-        brand="platform"
-        title="Manage Amenities"
-        onBack={() => router.back()}
-        rightIcon={plusButton}
-      />
-
-      <View style={styles.hero}>
-        <Text style={styles.heroTag}>ADMIN</Text>
-        <Text style={styles.heroTitle}>Manage Amenities</Text>
-        <Text style={styles.heroSub}>
-          Add amenities and configure hours, booking rules, blockouts, and capacity.
-        </Text>
-      </View>
+      <AdminHeader title="Manage amenities" onBack={() => router.back()} showBell={false} right={plusButton} />
 
       <ScrollView
         style={styles.scroll}
@@ -501,14 +484,14 @@ export default function ManageAmenitiesScreen() {
                     <Switch
                       value={court.is_active}
                       onValueChange={() => handleToggleActive(court)}
-                      trackColor={{ false: theme.border, true: Colors.accentCyan }}
+                      trackColor={{ false: theme.border, true: theme.cyanOnLight }}
                     />
                   </View>
                   <TouchableOpacity
                     onPress={() => confirmDelete(court)}
                     style={styles.deleteBtn}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <Trash2 color={Colors.negative} size={18} strokeWidth={1.5} />
+                    <Trash2 color={A.errorText} size={18} strokeWidth={1.5} />
                   </TouchableOpacity>
                 </View>
               </Card>
@@ -547,7 +530,7 @@ export default function ManageAmenitiesScreen() {
 
               {/* Utilization */}
               <View style={styles.utilBanner}>
-                <TrendingUp color={Colors.accentCyan} size={18} strokeWidth={1.5} />
+                <TrendingUp color={theme.cyanOnLight} size={18} strokeWidth={1.5} />
                 <Text style={styles.utilBannerText}>
                   {utilization30d} booking{utilization30d === 1 ? '' : 's'} in the last 30 days
                 </Text>
@@ -603,7 +586,7 @@ export default function ManageAmenitiesScreen() {
                 <Switch
                   value={editActive}
                   onValueChange={setEditActive}
-                  trackColor={{ false: theme.border, true: Colors.accentCyan }}
+                  trackColor={{ false: theme.border, true: theme.cyanOnLight }}
                 />
               </View>
 
@@ -674,20 +657,16 @@ export default function ManageAmenitiesScreen() {
                 />
               </View>
 
-              <View style={[styles.activeRow, { marginTop: 20 }]}>
-                <View style={{ flex: 1, paddingRight: 12 }}>
-                  <Text style={styles.activeLabel}>Requires admin approval</Text>
-                  <Text style={styles.approvalHint}>
-                    {(rules.requires_admin_approval ?? false)
-                      ? 'New reservations stay pending until you approve them.'
-                      : 'New reservations are confirmed automatically.'}
-                  </Text>
-                </View>
-                <Switch
+              <View style={{ marginTop: 20 }}>
+                <Toggle
                   testID="requires-approval-switch"
+                  label="Requires admin approval"
+                  hint={(rules.requires_admin_approval ?? false)
+                    ? 'New reservations stay pending until you approve them. Saved as soon as you change it; existing reservations are not affected.'
+                    : 'New reservations are confirmed automatically. Saved as soon as you change it; existing reservations are not affected.'}
                   value={rules.requires_admin_approval ?? false}
-                  onValueChange={(v) => setRules((r) => ({ ...r, requires_admin_approval: v }))}
-                  trackColor={{ false: theme.border, true: Colors.accentCyan }}
+                  disabled={approvalSaving}
+                  onChange={setApproval}
                 />
               </View>
 
@@ -702,28 +681,28 @@ export default function ManageAmenitiesScreen() {
               </View>
 
               <View style={styles.dividerLine} />
-              <Text style={styles.sectionTitle}>Maintenance / Blockouts</Text>
+              <Text style={styles.sectionTitle}>Schedule &amp; Blockouts</Text>
 
               {maintenance.length === 0 ? (
                 <Text style={styles.emptyInlineText}>No upcoming blockouts.</Text>
               ) : maintenance.map((m) => (
-                <View key={m.id} style={styles.blockoutRow}>
+                <TouchableOpacity
+                  key={m.id}
+                  style={styles.blockoutRow}
+                  onPress={() => setBlockoutVisible(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Open schedule to view this blockout">
                   <View style={{ flex: 1 }}>
                     <Text style={styles.blockoutDate}>
                       {formatDateFull(m.date)}{m.end_date ? ` → ${formatDateFull(m.end_date)}` : ''} · {formatTime12h(m.start_time)}–{formatTime12h(m.end_time)}
                     </Text>
                     {m.description ? <Text style={styles.blockoutDesc}>{m.description}</Text> : null}
                   </View>
-                  <TouchableOpacity
-                    onPress={() => confirmDeleteBlockout(m.id)}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <Trash2 color={Colors.negative} size={16} strokeWidth={1.5} />
-                  </TouchableOpacity>
-                </View>
+                </TouchableOpacity>
               ))}
 
               <View style={{ marginTop: 12 }}>
-                <Button variant="ghost" label="Add Blockout" onPress={() => setBlockoutVisible(true)} fullWidth />
+                <Button variant="primary" label="Open schedule & add blockout" onPress={() => setBlockoutVisible(true)} fullWidth />
               </View>
 
               <View style={styles.dividerLine} />
@@ -769,18 +748,13 @@ export default function ManageAmenitiesScreen() {
       </Modal>
 
       {detailCourt && (
-        <BlockoutSheet
+        <AmenityScheduleSheet
           visible={blockoutVisible}
           onClose={() => setBlockoutVisible(false)}
-          courtId={detailCourt.id}
-          courtName={detailCourt.name}
-          hoaId={detailCourt.hoa_id}
-          rules={rules}
-          theme={theme}
-          onSaved={() => {
-            setBlockoutVisible(false);
-            handleBlockoutSaved();
-          }}
+          court={{ id: detailCourt.id, name: detailCourt.name, hoa_id: detailCourt.hoa_id }}
+          openTime={rules.booking_start_time}
+          closeTime={rules.booking_end_time}
+          onChanged={handleBlockoutSaved}
         />
       )}
     </View>
@@ -801,7 +775,7 @@ function useStyles(theme: ThemeTokens) {
     heroTag: {
       fontFamily: FontFamily.jetbrainsMonoSemiBold,
       fontSize: FontSize.metadata,
-      color: Colors.accentCyan,
+      color: theme.cyanOnLight,
       letterSpacing: 2,
       marginBottom: 6,
     },
@@ -821,9 +795,9 @@ function useStyles(theme: ThemeTokens) {
     },
 
     plusBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 10,
+      width: 44,
+      height: 44,
+      borderRadius: 12,
       backgroundColor: 'rgba(255,255,255,0.12)',
       alignItems: 'center',
       justifyContent: 'center',
@@ -858,7 +832,7 @@ function useStyles(theme: ThemeTokens) {
     nextBlockoutText: {
       fontFamily: FontFamily.manropeMedium,
       fontSize: FontSize.metadata,
-      color: Colors.negative,
+      color: A.errorText,
       marginTop: 4,
     },
     courtFooter: {
@@ -1018,9 +992,9 @@ function useStyles(theme: ThemeTokens) {
       borderWidth: 1,
     },
     approveBtn: { backgroundColor: 'rgba(47,217,139,0.12)', borderColor: 'rgba(47,217,139,0.45)' },
-    approveText: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label, color: Colors.positive },
+    approveText: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label, color: A.successText },
     declineBtn: { backgroundColor: 'rgba(255,92,107,0.10)', borderColor: 'rgba(255,92,107,0.40)' },
-    declineText: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label, color: Colors.negative },
+    declineText: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label, color: A.errorText },
     reservationCard: {
       paddingVertical: 12,
       borderBottomWidth: 1,

@@ -70,7 +70,6 @@ interface ReportDetail {
   priority: string | null;
   photo_url: string | null;
   resolution_notes: string | null;
-  admin_notes: string | null;
   location_text: string | null;
   report_type: string;
   is_urgent: boolean;
@@ -105,7 +104,7 @@ export default function ReportDetailScreen() {
     try {
       const { data, error: err } = await supabase
         .from('maintenance_reports')
-        .select('id, category, description, status, priority, photo_url, resolution_notes, admin_notes, location_text, report_type, is_urgent, created_at, updated_at, amenity_id')
+        .select('id, category, description, status, priority, photo_url, resolution_notes, location_text, report_type, is_urgent, created_at, updated_at, amenity_id')
         .eq('id', id)
         .single();
 
@@ -262,13 +261,8 @@ export default function ReportDetailScreen() {
               </View>
             ) : null}
 
-            {/* Admin notes */}
-            {report.admin_notes ? (
-              <View style={styles.adminCard} testID="detail-admin-notes">
-                <Text style={styles.fieldLabel}>ADMIN UPDATE</Text>
-                <Text style={styles.bodyText}>{report.admin_notes}</Text>
-              </View>
-            ) : null}
+            {/* admin_notes is deprecated and never shown to residents; resident-visible updates are
+                non-internal report_notes, rendered in the activity timeline below. */}
 
             {/* Status timeline from report_notes */}
             {notes.length > 0 && (

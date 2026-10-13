@@ -3,7 +3,6 @@ import {
   Modal,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -16,6 +15,8 @@ import { supabase } from '@/lib/supabase';
 import { platformAlert } from '@/lib/platformAlert';
 import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/design';
 import { Button } from '@/components/ui/Button';
+import { Toggle } from '@/components/admin/kit';
+import { A } from '@/constants/adminTheme';
 import { Stepper } from '@/components/ui/Stepper';
 import { TimePicker } from '@/components/ui/TimePicker';
 import { RulesSummary } from '@/components/ui/RulesSummary';
@@ -139,8 +140,30 @@ export function AddAmenityWizard({ visible, onClose, hoaId, theme, onCreated }: 
   };
 
   async function handleCreate() {
+    if (saving) return; // double-tap guard: never create the amenity twice
     if (!name.trim() || !openTime || !closeTime || closeTime <= openTime) return;
+    if (!hoaId) {
+      platformAlert('Choose a community', 'Open Manage Amenities from a community so the amenity is added to the right one.');
+      return;
+    }
     setSaving(true);
+
+    const { data: sameName, error: dupError } = await supabase
+      .from('courts')
+      .select('id')
+      .eq('hoa_id', hoaId)
+      .ilike('name', name.trim())
+      .limit(1);
+    if (dupError) {
+      setSaving(false);
+      platformAlert('Could Not Check Existing Amenities', dupError.message);
+      return;
+    }
+    if ((sameName ?? []).length > 0) {
+      setSaving(false);
+      platformAlert('Amenity Already Exists', `"${name.trim()}" already exists in this community. Choose a different name.`);
+      return;
+    }
 
     const { data: court, error: courtError } = await supabase
       .from('courts')
@@ -173,12 +196,21 @@ export function AddAmenityWizard({ visible, onClose, hoaId, theme, onCreated }: 
       requires_admin_approval: requiresApproval,
     });
 
-    setSaving(false);
-
     if (rulesError) {
-      platformAlert('Booking Rules Not Saved', `${rulesError.message} (amenity was created — finish setup from Manage Amenities)`);
+      // Roll the new amenity back (it has no bookings yet) so a retry cannot create a duplicate,
+      // and keep everything the admin typed.
+      const { error: rollbackError } = await supabase.from('courts').delete().eq('id', court.id);
+      setSaving(false);
+      platformAlert(
+        'Amenity Not Created',
+        rollbackError
+          ? `${rulesError.message}. The amenity "${name.trim()}" was created without rules; finish setup from Manage Amenities.`
+          : `${rulesError.message}. Nothing was saved — your entries are kept, so you can try again.`,
+      );
+      if (rollbackError) { onCreated(); resetState(); onClose(); }
       return;
     }
+    setSaving(false);
 
     onCreated();
     resetState();
@@ -272,12 +304,13 @@ export function AddAmenityWizard({ visible, onClose, hoaId, theme, onCreated }: 
                 placeholderTextColor={theme.textMuted}
               />
 
-              <View style={[styles.switchRow, { marginTop: 20 }]}>
-                <Text style={styles.switchLabel}>Available for booking</Text>
-                <Switch
+              <View style={{ marginTop: 20 }}>
+                <Toggle
+                  testID="wizard-available"
+                  label="Available for booking"
+                  hint={active ? 'Residents can book this amenity right away.' : 'Hidden from residents until you turn this on.'}
                   value={active}
-                  onValueChange={setActive}
-                  trackColor={{ false: theme.border, true: Colors.accentCyan }}
+                  onChange={setActive}
                 />
               </View>
             </View>
@@ -342,14 +375,15 @@ export function AddAmenityWizard({ visible, onClose, hoaId, theme, onCreated }: 
                 step={1}
                 theme={theme}
               />
-              <View style={styles.switchRow}>
-                <Text style={styles.switchLabel}>Requires admin approval</Text>
-                <Switch
-                  value={requiresApproval}
-                  onValueChange={setRequiresApproval}
-                  trackColor={{ false: theme.border, true: Colors.accentCyan }}
-                />
-              </View>
+              <Toggle
+                testID="wizard-requires-approval"
+                label="Requires admin approval"
+                hint={requiresApproval
+                  ? 'New reservations stay pending until an administrator approves them.'
+                  : 'New reservations are confirmed automatically.'}
+                value={requiresApproval}
+                onChange={setRequiresApproval}
+              />
             </View>
           )}
 
@@ -547,7 +581,7 @@ function useStyles(theme: ThemeTokens) {
     errorText: {
       fontFamily: FontFamily.manropeSemiBold,
       fontSize: FontSize.label,
-      color: Colors.negative,
+      color: A.errorText,
       marginTop: 12,
     },
 

@@ -23,7 +23,6 @@ interface UserReport {
   category: string;
   description: string;
   status: string;
-  admin_notes: string | null;
   created_at: string;
   updated_at: string;
   amenity_id: string | null;
@@ -87,7 +86,7 @@ export default function MyReportsScreen() {
 
     const { data } = await supabase
       .from('maintenance_reports')
-      .select('id, category, description, status, admin_notes, created_at, updated_at, amenity_id, report_type, location_text, hoa_id')
+      .select('id, category, description, status, created_at, updated_at, amenity_id, report_type, location_text, hoa_id')
       .eq('reporter_id', user.id)
       .order('created_at', { ascending: false });
 
@@ -220,14 +219,6 @@ export default function MyReportsScreen() {
                         <Calendar color={theme.textMuted} size={12} strokeWidth={2} />
                         <Text style={styles.dateText}>{fmtDate(r.created_at)}</Text>
                       </View>
-                      {r.admin_notes && (
-                        <View style={styles.adminNotes}>
-                          <Text style={styles.adminNotesText}>
-                            <Text style={styles.adminNotesBold}>Admin: </Text>
-                            {r.admin_notes}
-                          </Text>
-                        </View>
-                      )}
                     </View>
                     <ChevronRight color={theme.textMuted} size={16} strokeWidth={2} />
                   </View>
