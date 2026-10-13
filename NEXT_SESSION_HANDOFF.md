@@ -225,3 +225,18 @@ Before-state saved in `backup_20261013.yas_before_*`: profile `hoa_id NULL, hoa_
 - **Recommended (safest): do not change anything automatically.** When you want it fixed: Option A â€” after confirming with the Greens board that Ron Glickman is the rightful owner, a platform admin sets `hoas.admin_id` for The Greens to his user id with one reviewed `UPDATE` (reversible by setting it back to NULL; effect limited to The Greens: lets him edit the community row and add/remove other administrators). Option B (systemic, later) â€” change the `hoas` UPDATE policy to `check_hoa_admin(auth.uid(), id)` and treat any approved admin as owner for communities whose `admin_id IS NULL`; broader policy change, so only if more owner-less communities can appear (they cannot after this migration: communities are created only through approval, which always sets `admin_id`).
 - Decision needed from the owner of The Greens relationship; no change made.
 
+
+
+---
+
+# SESSION 5 UPDATE (2026-10-13) — anon-revoke migration review
+
+## `20261013130000_revoke_anon_execute_on_admin_rpcs.sql` (NOT applied)
+- **Exact effect:** three `REVOKE EXECUTE ... FROM anon` statements: `admin_blockout_conflicts(uuid,date,date,time,time)`, `admin_create_blockout(uuid,date,date,time,time,text,text,text,text,uuid[],text)`, `hoa_is_approved(uuid)`. No table, policy, data or other grant is touched.
+- **Authenticated access (static review):** `authenticated` keeps EXECUTE: the two blockout RPCs via explicit GRANT in `20261013110000` (lines 509-510), `hoa_is_approved` via GRANT in `20261013120000` (line 55). The only app callers are signed-in admin screens (`AmenityScheduleSheet.tsx`).
+- **RLS safety:** `hoa_is_approved` appears only in two `hoa_memberships` INSERT policies, both `TO authenticated`, so anon never evaluates them and revoking anon cannot cause permission errors in policy checks.
+- **Rollback:** `GRANT EXECUTE ON FUNCTION <same signatures> TO anon;`
+- **Dry run:** script written, `supabase/tests/revoke_anon_execute_dry_run.sql` (always ends in an exception = rollback; the message is the report). NOT YET RUN: the Supabase MCP timed out this session and there is no psql/CLI/DB password locally. Run it through `execute_sql` once the MCP reconnects.
+
+## Reviewer login (you run this; no password or token is shared)
+`node scripts/capture-session.cjs reviewer` is needed once, immediately before the Platform Admin E2E (`community-approval.e2e`). It writes `.playwright/reviewer.json` (git-ignored). The community-approval spec skips itself if that file or the resident file is missing.
