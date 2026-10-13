@@ -1,557 +1,287 @@
-import { useEffect, useState } from 'react';
-import {
-  Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useCallback, useEffect, useState } from 'react';
+import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import {
-  AlertTriangle, Building2, Calendar, Clock, Plus, TrendingUp, X,
+  AlertTriangle, Building2, CalendarCheck, ChevronRight, Clock, Plus, UserCheck, Users, X,
 } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import { platformAlert } from '@/lib/platformAlert';
+import { A, AShadow } from '@/constants/adminTheme';
+import { FontFamily } from '@/constants/design';
 import {
-  Colors, FontFamily, FontSize, Spacing, getHealthColor, getHealthAccent, MaxWidth, Shadow,
-} from '@/constants/design';
-import { Header } from '@/components/ui/Header';
-import { StatusPill } from '@/components/ui/StatusPill';
-import { HealthBar } from '@/components/ui/HealthBar';
-import { CardSkeleton } from '@/components/ui/Skeleton';
-import { EmptyState } from '@/components/ui/EmptyState';
-import type { Database } from '@/lib/types';
+  AdminHeader, AdminScreen, Button, Card, EmptyBlock, ErrorBlock, LoadingBlock, MetricCard,
+  MetricGrid, Pill, SectionTitle,
+} from '@/components/admin/kit';
+import { CommunityLogo } from '@/components/branding/BrandLogos';
 
-type Hoa = Database['public']['Tables']['hoas']['Row'];
-
-interface CommunityWithStats extends Hoa {
-  memberCount: number;
+interface CommunityStats {
+  id: string;
+  name: string;
+  logoUrl: string | null;
+  members: number;
+  amenities: number;
   openIssues: number;
+  pendingJoin: number;
+  pendingBookings: number;
   todayBookings: number;
-  courtCount: number;
-  pendingApprovals: number;
-  healthScore: number;
 }
 
-export default function AdminHubScreen() {
-  const [communities, setCommunities] = useState<CommunityWithStats[]>([]);
+// Local calendar date (not UTC) so "today" matches the resident's wall clock.
+function localToday(): string {
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+export default function PortfolioScreen() {
+  const insets = useSafeAreaInsets();
+  const [communities, setCommunities] = useState<CommunityStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [userName, setUserName] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [firstName, setFirstName] = useState('');
+  const [unread, setUnread] = useState(0);
+
   const [addVisible, setAddVisible] = useState(false);
   const [newName, setNewName] = useState('');
   const [newAddress, setNewAddress] = useState('');
   const [addSaving, setAddSaving] = useState(false);
 
-  const todayIso = new Date().toISOString().split('T')[0];
-
-  async function load() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data: profile } = await supabase
-        .from('profiles').select('full_name').eq('id', user.id).single();
-      if (profile) setUserName(profile.full_name?.trim() ?? '');
-    }
-
-    const { data: hoas } = await supabase.from('hoas').select('*');
-    if (!hoas) { setLoading(false); return; }
-
-    const enriched: CommunityWithStats[] = await Promise.all(
-      hoas.map(async (hoa) => {
-        const [membersRes, issuesRes, courtsRes, pendingRes] = await Promise.all([
-          supabase.from('hoa_memberships').select('id', { count: 'exact' }).eq('hoa_id', hoa.id).eq('status', 'approved'),
-          supabase.from('maintenance_reports').select('id', { count: 'exact' }).eq('hoa_id', hoa.id).eq('status', 'open'),
-          supabase.from('courts').select('id').eq('hoa_id', hoa.id),
-          supabase.from('community_join_requests').select('id', { count: 'exact' }).eq('hoa_id', hoa.id).eq('status', 'pending'),
+  const load = useCallback(async () => {
+    setError(null);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const [{ data: profile }, notif] = await Promise.all([
+          supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
+          supabase.from('hoa_notifications').select('id', { count: 'exact', head: true })
+            .eq('user_id', user.id).eq('read', false),
         ]);
+        setFirstName(profile?.full_name?.trim().split(' ')[0] ?? '');
+        setUnread(notif.count ?? 0);
+      }
 
-        const memberCount = membersRes.count ?? 0;
-        const openIssues = issuesRes.count ?? 0;
-        const courtIds = (courtsRes.data ?? []).map((c) => c.id);
-        const courtCount = courtIds.length;
-        const pendingApprovals = pendingRes.count ?? 0;
+      const { data: hoas, error: hoaErr } = await supabase.from('hoas').select('id, name, logo_url').order('name');
+      if (hoaErr) throw hoaErr;
 
+      const today = localToday();
+      const stats = await Promise.all((hoas ?? []).map(async (hoa): Promise<CommunityStats> => {
+        const [members, issues, courts, joins] = await Promise.all([
+          supabase.from('hoa_memberships').select('id', { count: 'exact', head: true })
+            .eq('hoa_id', hoa.id).eq('status', 'approved'),
+          supabase.from('maintenance_reports').select('id', { count: 'exact', head: true })
+            .eq('hoa_id', hoa.id).in('status', ['open', 'in_progress']),
+          supabase.from('courts').select('id').eq('hoa_id', hoa.id).eq('is_active', true),
+          supabase.from('community_join_requests').select('id', { count: 'exact', head: true })
+            .eq('hoa_id', hoa.id).eq('status', 'pending'),
+        ]);
+        const firstFailure = [members, issues, courts, joins].find((r) => r.error);
+        if (firstFailure?.error) throw firstFailure.error;
+
+        const courtIds = (courts.data ?? []).map((c) => c.id);
         let todayBookings = 0;
+        let pendingBookings = 0;
         if (courtIds.length > 0) {
-          const bookingsRes = await supabase
-            .from('bookings')
-            .select('id', { count: 'exact' })
-            .in('court_id', courtIds)
-            .eq('date', todayIso);
-          todayBookings = bookingsRes.count ?? 0;
+          const [t, p] = await Promise.all([
+            supabase.from('bookings').select('id', { count: 'exact', head: true })
+              .in('court_id', courtIds).eq('date', today).in('status', ['confirmed', 'pending']),
+            supabase.from('bookings').select('id', { count: 'exact', head: true })
+              .in('court_id', courtIds).eq('status', 'pending').gte('date', today),
+          ]);
+          if (t.error) throw t.error;
+          if (p.error) throw p.error;
+          todayBookings = t.count ?? 0;
+          pendingBookings = p.count ?? 0;
         }
+        return {
+          id: hoa.id,
+          name: hoa.name,
+          logoUrl: (hoa as { logo_url?: string | null }).logo_url ?? null,
+          members: members.count ?? 0,
+          amenities: courtIds.length,
+          openIssues: issues.count ?? 0,
+          pendingJoin: joins.count ?? 0,
+          pendingBookings,
+          todayBookings,
+        };
+      }));
+      setCommunities(stats);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not load your communities.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
 
-        const healthScore = Math.max(0, Math.min(100, 100 - openIssues * 5));
-        return { ...hoa, memberCount, openIssues, todayBookings, courtCount, pendingApprovals, healthScore };
-      })
-    );
+  useEffect(() => { load(); }, [load]);
 
-    setCommunities(enriched);
-    setLoading(false);
-  }
-
-  useEffect(() => { load(); }, []);
-
-  async function onRefresh() {
-    setRefreshing(true);
-    await load();
-    setRefreshing(false);
-  }
+  const sum = (f: (c: CommunityStats) => number) => communities.reduce((n, c) => n + f(c), 0);
+  const totalPending = sum((c) => c.pendingJoin + c.pendingBookings);
 
   async function addCommunity() {
-    if (!newName.trim()) return;
+    if (!newName.trim() || addSaving) return;
     setAddSaving(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setAddSaving(false); return; }
-
-    const { data: hoa, error } = await supabase
-      .from('hoas')
-      .insert({ name: newName.trim(), address: newAddress.trim() || null, admin_id: user.id })
-      .select('id')
-      .single();
-
-    if (error || !hoa) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('You are signed out.');
+      const { data: hoa, error: hoaErr } = await supabase
+        .from('hoas')
+        .insert({ name: newName.trim(), address: newAddress.trim() || null, admin_id: user.id })
+        .select('id')
+        .single();
+      if (hoaErr || !hoa) throw new Error(hoaErr?.message ?? 'Community was not created.');
+      const { error: mErr } = await supabase.from('hoa_memberships').insert({
+        user_id: user.id, hoa_id: hoa.id, role: 'admin', status: 'approved', is_primary: false,
+      });
+      if (mErr) {
+        platformAlert('Community created, membership failed', `You were not added as its admin: ${mErr.message}`);
+      }
+      setAddVisible(false);
+      setNewName('');
+      setNewAddress('');
+      load();
+    } catch (e) {
+      platformAlert('Could not create community', e instanceof Error ? e.message : 'Please try again.');
+    } finally {
       setAddSaving(false);
-      platformAlert('Could Not Create Community', error?.message ?? 'Please try again.');
-      return;
     }
-
-    const { error: membershipError } = await supabase.from('hoa_memberships').insert({
-      user_id: user.id,
-      hoa_id: hoa.id,
-      role: 'admin',
-      status: 'approved',
-      is_primary: false,
-    });
-
-    setAddSaving(false);
-
-    if (membershipError) {
-      platformAlert(
-        'Community Created, But Membership Failed',
-        `${hoa ? 'The community was created' : 'Something went wrong'}, but you weren't added as its admin: ${membershipError.message}`,
-      );
-      return;
-    }
-
-    setAddVisible(false);
-    setNewName('');
-    setNewAddress('');
-    load();
   }
 
-  const totalOpenIssues = communities.reduce((s, c) => s + c.openIssues, 0);
-  const totalTodayBookings = communities.reduce((s, c) => s + c.todayBookings, 0);
-  const totalMembers = communities.reduce((s, c) => s + c.memberCount, 0);
-  const totalPending = communities.reduce((s, c) => s + c.pendingApprovals, 0);
-  const avgHealth = communities.length
-    ? Math.round(communities.reduce((s, c) => s + c.healthScore, 0) / communities.length)
-    : 0;
-  const needsAttention = communities.find((c) => c.healthScore < 70);
-
-  const firstName = userName ? userName.split(' ')[0] : '';
   const hour = new Date().getHours();
-  const timeGreeting = hour < 12 ? 'Good morning,' : hour < 18 ? 'Good afternoon,' : 'Good evening,';
-
-  const statCards = [
-    { Icon: AlertTriangle, value: totalOpenIssues, label: 'Open Issues', onPress: undefined },
-    { Icon: Calendar, value: totalTodayBookings, label: "Today's Bookings", onPress: undefined },
-    { Icon: Building2, value: totalMembers, label: 'Members', onPress: undefined },
-    { Icon: Clock, value: totalPending, label: 'Pending', onPress: () => router.push('/(admin)/pending-requests') },
-  ] as const;
+  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
   return (
-    <View style={styles.screen}>
-      <Header
-        variant="cm-portfolio"
-        greeting={firstName ? `${timeGreeting}\n${firstName}` : timeGreeting}
-        subCopy="Your portfolio is being monitored for performance and occupancy efficiency."
-        onBell={() => router.push('/notifications')}
-        onMenu={() => router.push('/settings')}
-      />
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accentCyan} />}
-        showsVerticalScrollIndicator={false}>
-        <View style={{ maxWidth: MaxWidth, width: '100%', alignSelf: 'center' }}>
+    <AdminScreen
+      testID="admin-portfolio"
+      header={<AdminHeader title="Portfolio" unread={unread} showMenu subtitle={`${greeting}${firstName ? `, ${firstName}` : ''}`} />}
+      refreshing={refreshing}
+      onRefresh={() => { setRefreshing(true); load(); }}>
+      {error ? <ErrorBlock message={error} onRetry={load} /> : null}
 
-          {/* 2×2 stats grid */}
-          <View style={styles.statsGrid}>
-            {statCards.map(({ Icon, value, label, onPress }) => (
-              <TouchableOpacity
-                key={label}
-                style={styles.statCard}
-                onPress={onPress}
-                disabled={!onPress}
-                activeOpacity={onPress ? 0.8 : 1}>
-                <Icon color={Colors.accentCyan} size={20} strokeWidth={1.5} />
-                <View style={styles.statBottom}>
-                  <Text style={styles.statValue}>{value}</Text>
-                  <Text style={styles.statLabel}>{label.toUpperCase()}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
+      <SectionTitle>Portfolio summary</SectionTitle>
+      {loading ? <LoadingBlock rows={2} /> : (
+        <MetricGrid>
+          <MetricCard testID="metric-open-issues" Icon={AlertTriangle} tone="warning" value={sum((c) => c.openIssues)}
+            label="Open issues" onPress={() => router.push('/(cm)/maintenance')} />
+          <MetricCard testID="metric-today" Icon={CalendarCheck} tone="info" value={sum((c) => c.todayBookings)}
+            label="Today's bookings" onPress={() => router.push('/(cm)/calendar')} />
+          <MetricCard testID="metric-members" Icon={Users} tone="accent" value={sum((c) => c.members)}
+            label="Active members" />
+          <MetricCard testID="metric-pending" Icon={Clock} tone={totalPending ? 'warning' : 'success'} value={totalPending}
+            label="Pending approvals" onPress={() => router.push('/(admin)/pending-requests')} />
+        </MetricGrid>
+      )}
 
-          {/* Portfolio Health Card */}
-          <View style={styles.healthCard}>
-            <View style={styles.healthCardTop}>
-              <View>
-                <Text style={styles.healthCardLabel}>Portfolio Health</Text>
-                <View style={styles.healthScoreRow}>
-                  <Text style={[styles.healthScoreNum, { color: getHealthColor(avgHealth) }]}>{avgHealth}</Text>
-                  <Text style={styles.healthScoreDenom}>/100</Text>
-                </View>
+      <SectionTitle
+        action={
+          <Pressable
+            onPress={() => setAddVisible(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Add community"
+            style={s.addBtn}>
+            <Plus size={16} color={A.primary} strokeWidth={2.25} />
+            <Text style={s.addText}>Add</Text>
+          </Pressable>
+        }>
+        My communities
+      </SectionTitle>
+
+      {loading ? <LoadingBlock /> : communities.length === 0 && !error ? (
+        <Card><EmptyBlock Icon={Building2} title="No communities yet" body="Add a community to start managing amenities, members and reports." /></Card>
+      ) : communities.map((c) => {
+        const pending = c.pendingJoin + c.pendingBookings;
+        return (
+          <Card
+            key={c.id}
+            testID={`community-${c.id}`}
+            onPress={() => router.push(`/(cm)/community/${c.id}` as never)}
+            accessibilityLabel={`Manage ${c.name}`}
+            style={{ gap: 12 }}>
+            <View style={s.cardTop}>
+              <View style={{ flex: 1, minHeight: 28, justifyContent: 'center' }}>
+                {c.logoUrl ? (
+                  <CommunityLogo hoaId={c.id} name={c.name} logoUrl={c.logoUrl} height={26} maxWidth={160} />
+                ) : null}
+                <Text style={s.cardName} numberOfLines={1}>{c.name}</Text>
               </View>
-              <View style={styles.trendingIcon}>
-                <TrendingUp color={Colors.textMuted} size={16} strokeWidth={1.5} />
-              </View>
+              {pending > 0 ? <Pill tone="warning" label={`${pending} pending`} Icon={UserCheck} />
+                : c.openIssues > 0 ? <Pill tone="info" label={`${c.openIssues} open`} />
+                : <Pill tone="success" label="All clear" />}
             </View>
-            <View style={styles.healthBarBg}>
-              <View style={[styles.healthBarFill, { width: `${avgHealth}%`, backgroundColor: getHealthColor(avgHealth) }]} />
+            <View style={s.statsRow}>
+              <Stat value={c.members} label="Members" />
+              <Stat value={c.amenities} label="Amenities" />
+              <Stat value={c.openIssues} label="Issues" />
+              <Stat value={pending} label="Pending" />
             </View>
-            {needsAttention && (
-              <View style={styles.needsAttentionRow}>
-                <View style={[styles.attentionDot, { backgroundColor: Colors.coral }]} />
-                <Text style={styles.attentionText}>Needs attention at {needsAttention.name}</Text>
-              </View>
-            )}
+            <View style={s.manageRow}>
+              <Text style={s.manageText}>Manage</Text>
+              <ChevronRight size={18} color={A.primary} />
+            </View>
+          </Card>
+        );
+      })}
+
+      <Modal visible={addVisible} transparent animationType="slide" onRequestClose={() => setAddVisible(false)}>
+        <View style={s.backdrop}>
+          <Pressable style={{ flex: 1 }} onPress={() => setAddVisible(false)} accessibilityLabel="Dismiss" />
+          <View style={[s.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]}>
+            <View style={s.sheetHead}>
+              <Text style={s.sheetTitle}>Add community</Text>
+              <Pressable onPress={() => setAddVisible(false)} accessibilityLabel="Close" hitSlop={10}>
+                <X size={22} color={A.text} />
+              </Pressable>
+            </View>
+            <Text style={s.label}>Community name</Text>
+            <TextInput
+              value={newName} onChangeText={setNewName} placeholder="e.g. The Greens"
+              placeholderTextColor={A.textMuted} style={s.input} accessibilityLabel="Community name" />
+            <Text style={s.label}>Address (optional)</Text>
+            <TextInput
+              value={newAddress} onChangeText={setNewAddress} placeholder="Street, city"
+              placeholderTextColor={A.textMuted} style={s.input} accessibilityLabel="Address" />
+            <Button label="Create community" onPress={addCommunity} loading={addSaving} disabled={!newName.trim()} />
           </View>
-
-          {/* My Communities */}
-          <Text style={styles.sectionTitle}>My Communities</Text>
-
-          {loading && [0, 1, 2].map((i) => <CardSkeleton key={i} />)}
-
-          {!loading && communities.length === 0 && (
-            <EmptyState
-              icon={<Building2 color={Colors.textMuted} size={48} strokeWidth={1.5} />}
-              title="No communities yet"
-              subtitle="Communities you manage will appear here."
-            />
-          )}
-
-          {!loading && communities.map((c) => {
-            const alerts = c.openIssues + c.pendingApprovals;
-            return (
-              <TouchableOpacity
-                key={c.id}
-                style={styles.communityCard}
-                onPress={() => router.push({ pathname: '/(cm)/community/[hoaId]', params: { hoaId: c.id } } as any)}
-                activeOpacity={0.85}>
-
-                {/* Name + Status pill */}
-                <View style={styles.communityHeader}>
-                  <Text style={styles.communityName} numberOfLines={1}>{c.name}</Text>
-                  <StatusPill status={c.healthScore >= 70 ? 'optimal' : c.healthScore >= 40 ? 'needs-attention' : 'critical'} />
-                </View>
-
-                {/* Health Score */}
-                <View style={styles.healthRow}>
-                  <Text style={styles.healthRowLabel}>HEALTH SCORE</Text>
-                  <Text style={[styles.healthRowValue, { color: getHealthColor(c.healthScore) }]}>
-                    {c.healthScore}/100
-                  </Text>
-                </View>
-                <View style={styles.healthBarBg}>
-                  <View style={[styles.healthBarFill, { width: `${c.healthScore}%`, backgroundColor: getHealthColor(c.healthScore) }]} />
-                </View>
-
-                {/* 4-column stats */}
-                <View style={styles.communityStats}>
-                  {[
-                    { value: c.courtCount, label: 'Amenities' },
-                    { value: c.memberCount, label: 'Members' },
-                    { value: c.openIssues, label: 'Issues' },
-                    { value: alerts, label: 'Alerts' },
-                  ].map(({ value, label }) => (
-                    <View key={label} style={styles.statCol}>
-                      <Text style={styles.statColValue}>{value}</Text>
-                      <Text style={styles.statColLabel}>{label.toUpperCase()}</Text>
-                    </View>
-                  ))}
-                </View>
-
-                <View style={styles.divider} />
-                <View style={styles.manageRow}>
-                  <Text style={styles.manageLink}>Manage →</Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-
-          {/* Add Community dashed card */}
-          {!loading && (
-            <TouchableOpacity
-              style={styles.addCommunityCard}
-              onPress={() => setAddVisible(true)}
-              activeOpacity={0.8}>
-              <View style={styles.addCommunityInner}>
-                <Plus color={Colors.textMuted} size={20} strokeWidth={1.5} />
-              </View>
-              <Text style={styles.addCommunityLabel}>ADD COMMUNITY</Text>
-            </TouchableOpacity>
-          )}
         </View>
-      </ScrollView>
-
-      <Modal
-        visible={addVisible}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setAddVisible(false)}>
-        <SafeAreaView style={styles.addModal}>
-          <View style={styles.addModalHeader}>
-            <Text style={styles.addModalTitle}>Add Community</Text>
-            <TouchableOpacity onPress={() => setAddVisible(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <X color={Colors.textMuted} size={22} strokeWidth={1.5} />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.addModalContent}>
-            <Text style={styles.addFieldLabel}>NAME</Text>
-            <TextInput
-              style={styles.addTextInput}
-              value={newName}
-              onChangeText={setNewName}
-              placeholder="e.g. The Greens at Riverside"
-              placeholderTextColor={Colors.textMuted}
-              autoFocus
-            />
-            <Text style={[styles.addFieldLabel, { marginTop: 16 }]}>ADDRESS (OPTIONAL)</Text>
-            <TextInput
-              style={styles.addTextInput}
-              value={newAddress}
-              onChangeText={setNewAddress}
-              placeholder="123 Main St"
-              placeholderTextColor={Colors.textMuted}
-            />
-            <TouchableOpacity
-              style={[styles.addSubmitBtn, (!newName.trim() || addSaving) && { opacity: 0.5 }]}
-              onPress={addCommunity}
-              disabled={!newName.trim() || addSaving}>
-              <Text style={styles.addSubmitLabel}>{addSaving ? 'Creating…' : 'Create Community'}</Text>
-            </TouchableOpacity>
-          </View>
-        </SafeAreaView>
       </Modal>
+    </AdminScreen>
+  );
+}
+
+function Stat({ value, label }: { value: number; label: string }) {
+  return (
+    <View style={s.stat}>
+      <Text style={s.statValue}>{value}</Text>
+      <Text style={s.statLabel} numberOfLines={1}>{label}</Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.pageBg },
-  scroll: { flex: 1 },
-  content: { padding: Spacing.pagePx, gap: Spacing.cardGap, paddingBottom: 100 },
-
-  // 2×2 stats
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  statCard: {
-    backgroundColor: Colors.cardBg,
-    borderRadius: 16,
-    padding: 20,
-    width: '47%',
-    height: 112,
-    flexDirection: 'column',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: Colors.border,
-    ...Shadow,
+const s = StyleSheet.create({
+  addBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 40, paddingHorizontal: 12,
+    borderRadius: 12, backgroundColor: A.infoBg,
   },
-  statBottom: {},
-  statValue: {
-    fontFamily: FontFamily.manropeBold,
-    fontSize: 24,
-    color: Colors.navy,
-    lineHeight: 28,
-  },
-  statLabel: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: FontSize.metadata,
-    color: Colors.textSubtle,
-    letterSpacing: 0.8,
-    marginTop: 4,
-  },
-
-  // Portfolio health card
-  healthCard: {
-    backgroundColor: Colors.cardBg,
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    ...Shadow,
-  },
-  healthCardTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  healthCardLabel: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: FontSize.metadata,
-    color: Colors.textSubtle,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    marginBottom: 6,
-  },
-  healthScoreRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 2 },
-  healthScoreNum: {
-    fontFamily: FontFamily.manropeBlack,
-    fontSize: 40,
-    lineHeight: 44,
-  },
-  healthScoreDenom: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: 18,
-    color: Colors.textSubtle,
-    marginBottom: 4,
-  },
-  trendingIcon: {
-    width: 40, height: 40,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  healthBarBg: {
-    height: 4,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 99,
-    overflow: 'hidden',
-    marginBottom: 12,
-  },
-  healthBarFill: { height: '100%', borderRadius: 99 },
-  needsAttentionRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  attentionDot: { width: 6, height: 6, borderRadius: 3 },
-  attentionText: {
-    fontFamily: FontFamily.interRegular,
-    fontSize: 13,
-    color: Colors.textSubtle,
-  },
-
-  // Community cards
-  sectionTitle: {
-    fontFamily: FontFamily.manropeBold,
-    fontSize: FontSize.sectionTitle,
-    color: Colors.navy,
-    marginTop: 4,
-    marginBottom: 4,
-  },
-  communityCard: {
-    backgroundColor: Colors.cardBg,
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    ...Shadow,
-    gap: 10,
-  },
-  communityHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  communityName: {
-    fontFamily: FontFamily.manropeExtraBold,
-    fontSize: FontSize.sectionTitle,
-    color: Colors.textPrimary,
-    flex: 1,
-    marginRight: 8,
-  },
-  healthRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  healthRowLabel: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: FontSize.metadata,
-    color: Colors.textSubtle,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-  },
-  healthRowValue: { fontFamily: FontFamily.manropeExtraBold, fontSize: 14 },
-  communityStats: { flexDirection: 'row', marginTop: 4 },
-  statCol: { flex: 1, alignItems: 'center' },
-  statColValue: {
-    fontFamily: FontFamily.manropeExtraBold,
-    fontSize: 20,
-    color: Colors.navy,
-    lineHeight: 24,
-  },
-  statColLabel: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: FontSize.metadata,
-    color: Colors.textSubtle,
-    letterSpacing: 0.8,
-    marginTop: 4,
-  },
-  divider: { height: 1, backgroundColor: Colors.border },
-  manageRow: { alignItems: 'flex-end', paddingTop: 4 },
-  manageLink: {
-    fontFamily: FontFamily.manropeExtraBold,
-    fontSize: 14,
-    color: Colors.accentCyan,
-  },
-
-  // Add Community dashed card
-  addCommunityCard: {
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    borderColor: '#E5E7EB',
-    borderRadius: 16,
-    paddingVertical: 32,
-    alignItems: 'center',
-    gap: 8,
-  },
-  addCommunityInner: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addCommunityLabel: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: FontSize.metadata,
-    color: Colors.textSubtle,
-    letterSpacing: 1.2,
-  },
-
-  addModal: { flex: 1, backgroundColor: Colors.white },
-  addModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: Spacing.pagePx,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  addModalTitle: {
-    fontFamily: FontFamily.manropeBold,
-    fontSize: FontSize.sectionTitle,
-    color: Colors.navy,
-  },
-  addModalContent: { padding: Spacing.pagePx },
-  addFieldLabel: {
-    fontFamily: FontFamily.interSemiBold,
-    fontSize: FontSize.metadata,
-    color: Colors.textMuted,
-    letterSpacing: 1.2,
-    marginBottom: 8,
-  },
-  addTextInput: {
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    padding: 14,
-    fontFamily: FontFamily.interRegular,
-    fontSize: FontSize.body,
-    color: Colors.navy,
-  },
-  addSubmitBtn: {
-    marginTop: 28,
-    backgroundColor: Colors.navy,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  addSubmitLabel: {
-    fontFamily: FontFamily.manropeExtraBold,
-    fontSize: FontSize.body,
-    color: Colors.white,
+  addText: { fontFamily: FontFamily.manropeBold, fontSize: 14, color: A.primary },
+  cardTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  cardName: { fontFamily: FontFamily.spaceGroteskBold, fontSize: 19, color: A.text, letterSpacing: -0.2 },
+  statsRow: { flexDirection: 'row', backgroundColor: A.surfaceAlt, borderRadius: 12, paddingVertical: 10 },
+  stat: { flex: 1, alignItems: 'center' },
+  statValue: { fontFamily: FontFamily.spaceGroteskBold, fontSize: 20, color: A.text },
+  statLabel: { fontFamily: FontFamily.manropeSemiBold, fontSize: 12, color: A.textSecondary },
+  manageRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 2 },
+  manageText: { fontFamily: FontFamily.manropeBold, fontSize: 14, color: A.primary },
+  backdrop: { flex: 1, backgroundColor: A.overlay, justifyContent: 'flex-end' },
+  sheet: { backgroundColor: A.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, gap: 8, ...AShadow.sheet },
+  sheetHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  sheetTitle: { fontFamily: FontFamily.spaceGroteskBold, fontSize: 22, color: A.text },
+  label: { fontFamily: FontFamily.manropeSemiBold, fontSize: 14, color: A.textSecondary, marginTop: 8 },
+  input: {
+    minHeight: 48, borderRadius: 12, borderWidth: 1, borderColor: A.borderStrong, backgroundColor: A.surface,
+    paddingHorizontal: 14, fontFamily: FontFamily.manropeMedium, fontSize: 16, color: A.text, marginBottom: 8,
   },
 });

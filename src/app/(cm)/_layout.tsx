@@ -5,6 +5,8 @@ import { BottomNav } from '@/components/ui/BottomNav';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/context/NativeAuthContext';
 import { isCMRoutable } from '@/lib/roleRouting';
+import { ThemeProvider } from '@/context/ThemeContext';
+import { A } from '@/constants/adminTheme';
 
 // This group renders the Condo Manager shell. Unlike the tab-hiding in
 // (resident)/_layout.tsx, which is cosmetic only, this check is the sole
@@ -35,10 +37,12 @@ export default function CMLayout() {
   if (authorized === null) return null;
   if (!authorized) return <Redirect href="/(resident)" />;
 
+  // Admin is always light, regardless of the device or resident theme preference.
   return (
+    <ThemeProvider initialMode="light">
     <Tabs
       tabBar={(props) => <BottomNav {...(props as any)} />}
-      screenOptions={{ headerShown: false }}>
+      screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: A.background } }}>
       <Tabs.Screen
         name="index"
         options={{
@@ -72,5 +76,6 @@ export default function CMLayout() {
         options={{ href: null }}
       />
     </Tabs>
+    </ThemeProvider>
   );
 }

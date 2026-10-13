@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Stack, Redirect } from 'expo-router';
-import { Colors } from '@/constants/design';
+import { A } from '@/constants/adminTheme';
+import { ThemeProvider } from '@/context/ThemeContext';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/context/NativeAuthContext';
 import { isCMRoutable } from '@/lib/roleRouting';
@@ -33,11 +34,13 @@ export default function AdminLayout() {
   if (!authorized) return <Redirect href="/(resident)" />;
 
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: Colors.pageBg },
-      }}
-    />
+    <ThemeProvider initialMode="light">
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: A.background },
+        }}
+      />
+    </ThemeProvider>
   );
 }
