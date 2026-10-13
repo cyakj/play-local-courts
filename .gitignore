@@ -49,3 +49,7 @@ example
 # Root-level development screenshots
 /*.png
 /Reference UI/
+
+# Local auth/session artifacts: contain live Supabase tokens. Never commit.
+.playwright/*.json
+test-results/

@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
+  ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Building2, CheckCircle, Clock } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
+import { platformAlert } from '@/lib/platformAlert';
 import {
   Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing,
 } from '@/constants/design';
@@ -99,10 +100,10 @@ export default function HOAApplicationScreen() {
   }, []);
 
   async function handleSubmit() {
-    if (!fullName.trim()) { Alert.alert('Required', 'Please enter your full name.'); return; }
-    if (!hoaName.trim()) { Alert.alert('Required', 'Please enter your HOA name.'); return; }
-    if (!communityLocation.trim()) { Alert.alert('Required', 'Please enter the community location.'); return; }
-    if (!claimedRole) { Alert.alert('Required', 'Please select your role.'); return; }
+    if (!fullName.trim()) { platformAlert('Required', 'Please enter your full name.'); return; }
+    if (!hoaName.trim()) { platformAlert('Required', 'Please enter your HOA name.'); return; }
+    if (!communityLocation.trim()) { platformAlert('Required', 'Please enter the community location.'); return; }
+    if (!claimedRole) { platformAlert('Required', 'Please select your role.'); return; }
 
     setIsSubmitting(true);
     try {
@@ -132,11 +133,11 @@ export default function HOAApplicationScreen() {
 
       if (error) throw error;
 
-      Alert.alert('Application Submitted', 'Your HOA application has been submitted for review.', [
+      platformAlert('Application Submitted', 'Your HOA application has been submitted for review.', [
         { text: 'OK', onPress: () => router.back() },
       ]);
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to submit application. Please try again.');
+      platformAlert('Error', err.message || 'Failed to submit application. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

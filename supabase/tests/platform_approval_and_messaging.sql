@@ -183,9 +183,12 @@ DO $$
 DECLARE
   c t_ctx;
   coach uuid := '010b0152-f3f2-4213-a08a-1dca6f19f96e';
+  outsider uuid := '06f2ef86-a885-4878-a6a1-33b883ccd35b';   -- no community, no roles, no thread/lesson with the resident
+  ramon uuid := '7b0ff73f-0c7a-4514-ab20-ab4f94871d0e';       -- admin of The Fairways
+  fairways uuid := (SELECT id FROM public.hoas WHERE name = 'The Fairways');
   t2 uuid;
   mid uuid; mid2 uuid; n int; got text; rows int; txt text;
-  coach_free boolean; lesson_link boolean;
+  coach_free boolean;
 BEGIN
   SELECT * INTO c FROM t_ctx;
 
@@ -209,25 +212,25 @@ BEGIN
   INSERT INTO t_results (name, ok, detail) VALUES ('a user cannot send a message as someone else', got = '42501', got);
 
   -- 4. outsider (no community) <-> community member
-  SELECT NOT EXISTS (SELECT 1 FROM public.hoa_memberships WHERE user_id = coach AND status = 'approved') INTO coach_free;
-  SELECT EXISTS (SELECT 1 FROM public.lesson_requests lr WHERE (lr.player_id = c.resident AND lr.coach_id = coach) OR (lr.player_id = coach AND lr.coach_id = c.resident)) INTO lesson_link;
-  IF coach_free AND NOT lesson_link AND NOT EXISTS (SELECT 1 FROM public.messages WHERE sender_id = coach AND receiver_id = c.resident) THEN
-    got := 'no error'; PERFORM pg_temp.as_user(coach);
-    BEGIN INSERT INTO public.messages (sender_id, receiver_id, content) VALUES (coach, c.resident, 'cold outreach'); EXCEPTION WHEN OTHERS THEN got := SQLSTATE; END;
+  IF NOT EXISTS (SELECT 1 FROM public.hoa_memberships WHERE user_id = outsider AND status = 'approved')
+     AND NOT EXISTS (SELECT 1 FROM public.lesson_requests lr WHERE lr.player_id IN (outsider, c.resident) AND lr.coach_id IN (outsider, c.resident))
+     AND NOT EXISTS (SELECT 1 FROM public.messages WHERE (sender_id = outsider AND receiver_id = c.resident) OR (sender_id = c.resident AND receiver_id = outsider)) THEN
+    got := 'no error'; PERFORM pg_temp.as_user(outsider);
+    BEGIN INSERT INTO public.messages (sender_id, receiver_id, content) VALUES (outsider, c.resident, 'cold outreach'); EXCEPTION WHEN OTHERS THEN got := SQLSTATE; END;
     PERFORM pg_temp.as_owner();
     INSERT INTO t_results (name, ok, detail) VALUES ('an outsider cannot cold-message a community member', got = '42501', got);
     got := 'no error'; PERFORM pg_temp.as_user(c.resident);
-    BEGIN INSERT INTO public.messages (sender_id, receiver_id, content) VALUES (c.resident, coach, 'to outsider'); EXCEPTION WHEN OTHERS THEN got := SQLSTATE; END;
+    BEGIN INSERT INTO public.messages (sender_id, receiver_id, content) VALUES (c.resident, outsider, 'to outsider'); EXCEPTION WHEN OTHERS THEN got := SQLSTATE; END;
     PERFORM pg_temp.as_owner();
     INSERT INTO t_results (name, ok, detail) VALUES ('a community member cannot cold-message an outsider', got = '42501', got);
     -- legacy/earlier thread: replies keep working
-    INSERT INTO public.messages (sender_id, receiver_id, content) VALUES (coach, c.resident, 'earlier thread');
+    INSERT INTO public.messages (sender_id, receiver_id, content) VALUES (outsider, c.resident, 'earlier thread');
     got := 'no error'; PERFORM pg_temp.as_user(c.resident);
-    BEGIN INSERT INTO public.messages (sender_id, receiver_id, content) VALUES (c.resident, coach, 'reply'); EXCEPTION WHEN OTHERS THEN got := SQLSTATE; END;
+    BEGIN INSERT INTO public.messages (sender_id, receiver_id, content) VALUES (c.resident, outsider, 'reply'); EXCEPTION WHEN OTHERS THEN got := SQLSTATE; END;
     PERFORM pg_temp.as_owner();
     INSERT INTO t_results (name, ok, detail) VALUES ('replying inside an existing thread is allowed', got = 'no error', got);
   ELSE
-    INSERT INTO t_results (name, ok, detail) VALUES ('outsider checks (SKIPPED: fixture has a membership, lesson link or prior thread)', true, 'SKIP');
+    INSERT INTO t_results (name, ok, detail) VALUES ('outsider fixture is still valid (no community, lesson or thread with the resident)', false, 'fixture drifted');
   END IF;
 
   -- 5. resident <-> resident inside a community is not a V1 workflow
@@ -311,6 +314,27 @@ BEGIN
   SELECT count(*) INTO n FROM public.my_message_contacts() WHERE hoa_id <> c.greens;
   PERFORM pg_temp.as_owner();
   INSERT INTO t_results (name, ok, detail) VALUES ('contact list never leaks another community', n = 0, n::text);
+
+  -- 11. Existing administrator access is preserved for every community's admin (not just The Greens)
+  got := 'no error'; PERFORM pg_temp.as_user(ramon);
+  BEGIN INSERT INTO public.messages (sender_id, receiver_id, content) VALUES (ramon, c.admin, 'fairways admin to member'); EXCEPTION WHEN OTHERS THEN got := SQLSTATE || ' ' || SQLERRM; END;
+  SELECT count(*) INTO n FROM public.my_message_contacts() WHERE hoa_id = fairways AND user_id = c.admin;
+  PERFORM pg_temp.as_owner();
+  INSERT INTO t_results (name, ok, detail) VALUES ('The Fairways admin can message and list a Fairways member', got = 'no error' AND n = 1, got || ' / contacts ' || n::text);
+
+  SELECT count(*) INTO n FROM public.hoas h
+  WHERE NOT EXISTS (SELECT 1 FROM public.hoa_memberships m WHERE m.hoa_id = h.id AND m.role = 'admin' AND m.status = 'approved');
+  INSERT INTO t_results (name, ok, detail) VALUES ('every pre-existing community still has an approved administrator', n = 0, n::text || ' without');
+
+  SELECT count(*) INTO n FROM public.hoa_memberships m WHERE m.role = 'admin' AND m.status = 'approved' AND NOT public.check_hoa_admin(m.user_id, m.hoa_id);
+  INSERT INTO t_results (name, ok, detail) VALUES ('check_hoa_admin still recognises every existing administrator', n = 0, n::text);
+
+  -- 12. Every conversation direction that already exists in the data can still be sent (tennis + community history)
+  SELECT count(*) INTO n FROM (
+    SELECT DISTINCT sender_id s, receiver_id r, lesson_request_id lr, related_listing_id li
+    FROM public.messages WHERE created_at < transaction_timestamp()
+  ) h WHERE NOT public.can_send_message(h.s, h.r, h.lr, h.li);
+  INSERT INTO t_results (name, ok, detail) VALUES ('all historical conversation directions remain sendable', n = 0, n::text || ' blocked');
 END $$;
 
 DO $$

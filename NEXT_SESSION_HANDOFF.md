@@ -163,3 +163,34 @@ It was not lost. `(cm)/messages.tsx` was built in the web-to-native migration an
 7. Member role-change UI, recurring blockouts.
 8. Test-data cleanup (77 of 81 reports) still needs explicit approval.
 
+
+
+---
+
+# SESSION 3 UPDATE (2026-10-13) â€” pre-apply verification of the security migration
+
+## Verdict for `20261013120000_platform_approval_and_secure_messaging.sql`: GO (recommended), pending your approval
+- **No drift:** live policies/functions touched by the migration are identical to the pre-migration snapshot (`backup_20261013`); live migrations end with the three applied in session 2. The only functions that write to the affected tables are `approve_hoa_application` (replaced) and `assign_coach_role` (inserts `coach`, unaffected by the guard).
+- **Dry run (rolled back): 43 PASS, 0 FAIL, 0 SKIP.** The previously skipped outsider test now uses a real outsider (`06f2ef86â€¦`, no community/roles/thread). Fixture drift now FAILS loudly instead of skipping.
+- **Existing administrator access preserved:** every community keeps its approved admin (Greens/DBE: Ron Glickman, Fairways: Ramon Dominguez); `check_hoa_admin` still true for all; Fairways admin can message and list members.
+- **Tennis/community messaging preserved:** all 7 distinct historical sender/receiver/type directions (3 match invites, 4 text) remain sendable. Tennis marketplace (no-community users) still works.
+- **Rollback proven:** `supabase/rollbacks/20261013120000_rollback_platform_approval_and_secure_messaging.sql` â€” applied after the forward migration in a rolled-back transaction, policies equal the snapshot exactly, grants restored, no leftover triggers. (It restores the insecure behaviour by design; it is not a migration.)
+- **Known behavioural changes (all intended):** legacy web code (`src/pages/*`, `supabaseService.createCommunity`, `CommunityCreationForm`) calls `create_community` and will fail â€” those pages are not routed by Expo Router. Resident-to-resident chat inside a community is no longer possible (V1 is resident <-> HOA admin). Only `pending` applications can be approved (UI already only offers that). The Greens has `hoas.admin_id = NULL` (pre-existing; its "Admins can update their HOA" policy therefore matches nobody): not changed here.
+
+## Platform Admin sign-in (no password exposure)
+- Role-based routing is built and unit-tested: `platform_reviewer` -> `/(platform)` at login and on the root redirect; a resident is bounced; DB enforces everything again.
+- **To test with the existing "Cyrus Josephs" reviewer account WITHOUT sharing or resetting its password:** run `node scripts/capture-session.cjs reviewer` yourself. It opens a visible browser window; you type the credentials there; it saves a git-ignored session file `.playwright/reviewer.json` and prints only the landing path and the first 8 chars of the user id. Delete the file when done (or sign the user out in Supabase).
+- Security hygiene fix: `.playwright/storageState.json` (a live resident test-session token) and `test-results/` were TRACKED in git. They are now untracked and git-ignored (files left on disk). The token is still in earlier history of local branches: sign the test accounts out everywhere (Supabase > Authentication > Users > Sign out) before any push.
+
+## End-to-end tests (written, discovered, harness validated; not yet run end to end)
+`playwright.e2e.config.ts` + `tests/e2e/`: `messaging.e2e` (resident <-> HOA admin in two live sessions: badge, unread, realtime, read receipt, persistence), `authorization.e2e` (PostgREST with real JWTs: no community creation, no role grants, no outsider messaging, no edit/delete), `community-approval.e2e` (apply -> pending -> request info -> same-row resubmit -> reject; optional approve of a seeded application via `E2E_APPROVE_APPLICATION_ID`). Run: `npx playwright test -c playwright.e2e.config.ts` (starts the app in community mode on :8082). They never create bookings or call edge functions (no email/SMS/push). They tag rows `e2e-`; remove them afterwards with SQL (`content like 'e2e-%'`, `hoa_name like 'e2e-%'`).
+- Pre-migration limitation: a resident cannot START a conversation until the migration is applied (fallback finds no admin because The Greens has `admin_id = NULL`; `my_message_contacts()` fixes this).
+
+## Order of operations for the next session
+1. You approve the migration (and the e2e data plan below) -> apply with `apply_migration` using the file's exact contents.
+2. Re-run `supabase/tests/platform_approval_and_messaging.sql` (migration already applied: drop the paste step) -> expect 43 PASS.
+3. You run `node scripts/capture-session.cjs reviewer`.
+4. Run `npx playwright test -c playwright.e2e.config.ts`; then delete `e2e-` rows.
+5. Optional approval-activation UI test: seed one pending application for the throwaway account Yasameen (`b33c8142`), run with `E2E_APPROVE_APPLICATION_ID`, then revert (delete the created community + membership, remove the added `admin` role row, restore her profile `hoa_id/hoa_status/hoa_role` recorded before). Needs your explicit OK.
+6. Regenerate `src/lib/types.ts`, remove `untypedDb`, iPhone verification, push-notification work (unchanged from session 2).
+
