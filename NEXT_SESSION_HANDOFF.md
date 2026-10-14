@@ -240,3 +240,61 @@ Before-state saved in `backup_20261013.yas_before_*`: profile `hoa_id NULL, hoa_
 
 ## Reviewer login (you run this; no password or token is shared)
 `node scripts/capture-session.cjs reviewer` is needed once, immediately before the Platform Admin E2E (`community-approval.e2e`). It writes `.playwright/reviewer.json` (git-ignored). The community-approval spec skips itself if that file or the resident file is missing.
+
+
+
+---
+
+# SESSION 5 CHECKPOINT (2026-10-13) — READ THIS FIRST
+
+## 0. HIGH-PRIORITY SECURITY TASK — do before normal development
+A GitHub personal access token was printed in plain text by `claude mcp list` (the `github` MCP server is configured with the token as a command-line argument). It is in a session transcript. The token value is deliberately NOT recorded here or anywhere in Git.
+1. **Revoke/rotate it** in GitHub (Settings > Developer settings > Personal access tokens). Treat the old one as compromised.
+2. **Reconfigure the GitHub MCP** so no token is in command arguments or logs: supply it through an environment variable (the server reads `GITHUB_PERSONAL_ACCESS_TOKEN`) set at user level, or use the `env` field of the MCP config; remove the `--access-token` argument. Use a fine-grained token with minimal scopes.
+3. **Do not run `claude mcp list`** (or anything that echoes MCP command lines) until step 2 is done. Also check `~/.claude.json` and `.claude/settings.local.json` (shows as modified in the main checkout) for the same argument; do not commit either.
+
+## 1. Repo state at checkpoint
+- Worktree `C:\Users\info\tenisx-admin`, branch `admin-redesign`, previous commit `feb4ed2` plus the checkpoint commit containing this note. Working tree clean. Nothing pushed, merged, or deployed. No unsaved work.
+- Main checkout (`C:\Users\info\tenisx-native`, branch `greens-iphone-v1-fixes`) has pre-existing uncommitted `.claude/settings.local.json`, `.playwright/storageState.json`, `test-results/.last-run.json`: machine-specific or secret-bearing, left alone.
+
+## 2. Completed this session
+- Verified Git state; re-read handoff and report.
+- Reviewed `20261013130000_revoke_anon_execute_on_admin_rpcs.sql`: 3 `REVOKE EXECUTE ... FROM anon` (`admin_blockout_conflicts`, `admin_create_blockout`, `hoa_is_approved`). `authenticated` keeps EXECUTE by explicit grants in `20261013110000` and `20261013120000`; `hoa_is_approved` is only used in `TO authenticated` INSERT policies; only signed-in admin UI calls the RPCs. Static verdict: safe.
+- Wrote the rolled-back dry run `supabase/tests/revoke_anon_execute_dry_run.sql` (always ends in an exception = rollback; the message is the report). **NOT YET RUN.**
+- Confirmed `capture-session.cjs` / E2E skip behaviour (section 6).
+
+## 3. Supabase state (TENISX REAL, `hqqlrliakttqsbalvuyz`) — unchanged this session
+Applied: booking approval workflow; admin reports internal notes + notifications; admin blockouts + reservation workflow; platform approval + secure messaging (44/44 SQL, 9/9 authorization E2E, 2/2 messaging E2E). Not applied: `20261013100100_..._scrub_legacy_admin_notes` (deliberately skipped, 0 rows affected) and `20261013130000_revoke_anon_execute_on_admin_rpcs`. Snapshot schema `backup_20261013` exists (includes `yas_before_*`).
+
+## 4. Pending: `20261013130000_revoke_anon_execute_on_admin_rpcs.sql`
+Needs (a) a successful dry run, (b) your explicit approval, then `apply_migration` with the file's exact contents. Do not apply before both.
+
+## 5. Supabase MCP timeout
+This session the `supabase` MCP timed out at startup (CONNECT_TIMEOUT); the server itself was healthy. Reconnect with `/mcp` in the prompt (reconnect `supabase`) or start a fresh Claude session. Without it there is no DB access (no psql, no CLI, no DB password locally). Verify with a harmless `list_migrations` before anything else.
+
+## 6. Platform Admin reviewer login and pending E2E
+- You run `node scripts/capture-session.cjs reviewer` yourself (visible browser; you type credentials; writes git-ignored `.playwright/reviewer.json`; prints only landing path + first 8 chars of user id; expect `/(platform)`). Needed once, right before `community-approval.e2e`. The spec skips itself if the resident or reviewer file is missing. Delete the file afterwards / sign the user out.
+- Then: `npx playwright test -c playwright.e2e.config.ts tests/e2e/community-approval.e2e.spec.ts`; afterwards delete `e2e-` rows (`hoa_name like 'e2e-%'`, `content like 'e2e-%'`).
+
+## 7. Pending: Yasameen application activation test (needs your explicit OK)
+Throwaway account `b33c8142…`. Before-state in `backup_20261013.yas_before_*` (profile `hoa_id NULL, hoa_status 'pending', hoa_role 'resident'`; roles `{resident}`; 0 memberships; 0 applications; 3 communities). Steps: seed ONE pending application (`hoa_name 'e2e-Activation Test HOA'`) via SQL; run with `E2E_APPROVE_APPLICATION_ID=<id>`; verify community/membership/`admin` role/notification; restore exactly (delete created community, her memberships, her `admin` user_roles row only, application, its `application_notifications` and `hoa_application_notes`; reset profile); verify counts equal the snapshot. No session as Yasameen is used.
+
+## 8. The Greens missing `admin_id`
+`hoas.admin_id` is NULL for The Greens (only owner-less community). It blocks only: updating the `hoas` row itself, and granting/removing another administrator. Nothing shipped is broken. Recommended: after confirming with the Greens board that Ron Glickman is the owner, one reviewed, reversible `UPDATE hoas SET admin_id = <his user id> WHERE name = 'The Greens'`. No change made; needs your approval.
+
+## 9. Remaining V1 work (phase mapping is approximate; Phases 3-6 are not defined in the repo docs, adjust as needed)
+- **Phase 1 (security / Platform Admin):** token rotation (section 0); dry run + apply anon revoke; reviewer E2E; Yasameen test; Greens owner decision; regenerate `src/lib/types.ts` and remove `untypedDb` (`AmenityScheduleSheet.tsx`, `ReportsPanel.tsx`); applicant document upload to `hoa-verification-documents` and in-app `application_notifications` display.
+- **Phase 2 (messaging + notifications):** browser/iPhone verification of admin Messages tab and unread/realtime; distinct route for `(cm)/messages.tsx` vs root `messages.tsx`; push notifications (`expo-notifications`, `device_push_tokens` + RLS, edge function on `hoa_notifications` INSERT, EAS projectId, APNs key, physical-device build).
+- **Phase 3 (Resident fixes):** resident cancellation/notification screens verified on device; Notifications/Settings theming for admin-reached shared screens.
+- **Phase 4 (early branch integration):** merge `admin-redesign` toward `greens-iphone-v1-fixes`; re-run the full suite (`npx playwright test`, ~9 min) and `blockout-enforcement`. Needs your go-ahead; nothing merged.
+- **Phase 5 (admin completeness):** member role-change UI, recurring blockouts, retire/restyle hidden `(cm)/messages.tsx`, "1 days" pluralisation.
+- **Phase 6 (launch readiness):** iPhone checklist in `ADMIN_REDESIGN_REPORT.md`, test-data cleanup (77 of 81 reports, needs approval), sign test accounts out everywhere before any push (a session token exists in earlier local history), TestFlight/App Store build.
+
+## 10. Hard rules (unchanged)
+No booking UI specs or flows (they invoke `send-booking-email`); no edge functions that email/SMS/push; never print `.env` credentials; never commit `.playwright/*.json` or `test-results/`; add files to git explicitly (no `git add -A`); no push/merge/deploy/paid resources without approval.
+
+## 11. Resuming, exactly
+1. Fresh session (or `/mcp` reconnect). Do section 0 first (you, in GitHub).
+2. `cd C:\Users\info\tenisx-admin; git status; git log --oneline -3` (expect `admin-redesign`, clean).
+3. Tell Claude "supabase MCP is connected"; Claude runs `list_migrations`, then the dry run `supabase/tests/revoke_anon_execute_dry_run.sql`, reports, and asks for approval.
+4. You run the reviewer capture when asked; then sections 6, 7, 8 in that order, each with your explicit OK where marked.
