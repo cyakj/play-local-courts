@@ -51,5 +51,5 @@ example
 /Reference UI/
 
 # Local auth/session artifacts: contain live Supabase tokens. Never commit.
-.playwright/*.json
+.playwright/
 test-results/
