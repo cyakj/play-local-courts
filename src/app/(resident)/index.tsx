@@ -22,6 +22,7 @@ import { Header } from '@/components/ui/Header';
 import { useTheme } from '@/context/ThemeContext';
 import { useUpcomingMatches } from '@/hooks/useUpcomingMatches';
 import { useCommunityName } from '@/hooks/useCommunityName';
+import { CommunityJoinBanner } from '@/components/community/CommunityJoinBanner';
 import { isCommunityMode, isTennisMode } from '@/config/productMode';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 
@@ -496,6 +497,8 @@ export default function HomeScreen() {
                 </TouchableOpacity>
               </View>
             ))}
+
+          <CommunityJoinBanner />
 
           {/* ── Quick Actions ───────────────────────────────────────────── */}
           <View testID="quick-actions" style={styles.quickActionsRow}>

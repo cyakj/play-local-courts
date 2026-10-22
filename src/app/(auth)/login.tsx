@@ -308,7 +308,7 @@ export default function LoginScreen() {
 
             <TouchableOpacity
               style={[styles.centeredLink, { marginTop: 20 }]}
-              onPress={() => router.push('/hoa-application')}
+              onPress={() => router.push('/(auth)/signup' as never)}
               activeOpacity={0.7}>
               <Text style={styles.signUpRow}>
                 Don't have an account?{' '}
