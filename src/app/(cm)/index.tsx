@@ -133,7 +133,7 @@ export default function PortfolioScreen() {
           <MetricCard testID="metric-open-issues" Icon={AlertTriangle} tone="warning" value={sum((c) => c.openIssues)}
             label="Open issues" onPress={() => router.push('/(cm)/maintenance')} />
           <MetricCard testID="metric-today" Icon={CalendarCheck} tone="info" value={sum((c) => c.todayBookings)}
-            label="Today's bookings" onPress={() => router.push('/(cm)/calendar')} />
+            label="Today's bookings" onPress={() => router.push('/(admin)/manage-amenities')} />
           <MetricCard testID="metric-members" Icon={Users} tone="accent" value={sum((c) => c.members)}
             label="Active members" />
           <MetricCard testID="metric-pending" Icon={Clock} tone={totalPending ? 'warning' : 'success'} value={totalPending}

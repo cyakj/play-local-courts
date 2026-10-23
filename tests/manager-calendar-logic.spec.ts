@@ -18,3 +18,18 @@ test('manager calendar offers no Reservation type filter and builds no reservati
   expect(all![1]).toContain('blockout');
   expect(src).not.toMatch(/type: 'reservation'/);
 });
+
+test('reservation shortcuts open amenity management, not the calendar', () => {
+  const community = readFileSync('src/app/(cm)/community/[hoaId].tsx', 'utf8');
+  const portfolio = readFileSync('src/app/(cm)/index.tsx', 'utf8');
+  expect(community).not.toContain("router.push('/(cm)/calendar')");
+  expect(community).toContain('onPress={openAmenitySchedule}');
+  const todayCard = portfolio.split('\n').find((l) => l.includes("Today's bookings")) ?? '';
+  expect(todayCard).toContain('/(admin)/manage-amenities');
+  expect(todayCard).not.toContain('/(cm)/calendar');
+});
+
+test('community recent-activity lists only reservations awaiting approval', () => {
+  const community = readFileSync('src/app/(cm)/community/[hoaId].tsx', 'utf8');
+  expect(community).toMatch(/\.eq\('status', 'pending'\)\.order\('created_at'/);
+});

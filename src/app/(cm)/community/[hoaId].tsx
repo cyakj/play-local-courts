@@ -96,7 +96,8 @@ export default function CommunityDetailScreen() {
           : { data: [], error: null },
         courtIds.length
           ? supabase.from('bookings').select('id, user_id, court_id, date, start_time, status, created_at')
-              .in('court_id', courtIds).order('created_at', { ascending: false }).limit(6)
+              // Only requests that need a decision. Routine confirmed bookings live in each amenity's schedule.
+              .in('court_id', courtIds).eq('status', 'pending').order('created_at', { ascending: false }).limit(6)
           : { data: [], error: null },
         courtIds.length
           ? supabase.from('bookings').select('id', { count: 'exact', head: true })
@@ -133,7 +134,7 @@ export default function CommunityDetailScreen() {
           status: 'pending', time: j.created_at,
         })),
         ...bookings.map((b): ActivityItem => ({
-          id: `booking-${b.id}`, kind: 'booking', title: 'Reservation',
+          id: `booking-${b.id}`, kind: 'booking', title: 'Reservation awaiting approval',
           detail: `${nameOf(b.user_id)} · ${courtName.get(b.court_id) ?? 'Amenity'} · ${b.date}`,
           status: b.status ?? 'confirmed', time: b.created_at ?? `${b.date}T00:00:00`,
         })),
@@ -147,6 +148,9 @@ export default function CommunityDetailScreen() {
   }, [hoaId]);
 
   useEffect(() => { load(); }, [load]);
+
+  const openAmenitySchedule = () =>
+    router.push({ pathname: '/(admin)/manage-amenities', params: { hoaId: hoaId ?? '' } });
 
   const reportActivity: ActivityItem[] = reportsData.reports.slice(0, 6).map((r) => ({
     id: `report-${r.id}`, kind: 'report', title: r.title, detail: `${r.reporterName} · ${categoryLabel(r.category)}`,
@@ -235,12 +239,12 @@ export default function CommunityDetailScreen() {
                 onPress={() => router.push('/(admin)/pending-requests')} />
               <MetricCard Icon={AlertTriangle} tone="warning" value={openIssues} label="Open issues" onPress={() => openReports('open')} />
               <MetricCard Icon={FileText} tone="info" value={amenities.length} label="Amenities" onPress={() => setTab('amenities')} />
-              <MetricCard Icon={CalendarCheck} tone="info" value={upcoming} label="Upcoming reservations" onPress={() => router.push('/(cm)/calendar')} />
+              <MetricCard Icon={CalendarCheck} tone="info" value={upcoming} label="Upcoming reservations" onPress={openAmenitySchedule} />
             </MetricGrid>
           )}
           <SectionTitle>Recent activity</SectionTitle>
           {loading ? <LoadingBlock rows={2} /> : recent.length === 0 ? (
-            <Card><EmptyBlock Icon={CalendarClock} title="No recent activity" body="New requests, reservations and reports will show up here." /></Card>
+            <Card><EmptyBlock Icon={CalendarClock} title="No recent activity" body="Join requests, reservations awaiting approval and reports will show up here." /></Card>
           ) : (
             <Card style={{ padding: 4 }}>
               {recent.map((a, i) => {
@@ -248,7 +252,7 @@ export default function CommunityDetailScreen() {
                 const go = () => {
                   if (a.kind === 'report') openReports('all', a.reportId);
                   else if (a.kind === 'join') router.push('/(admin)/pending-requests');
-                  else router.push('/(cm)/calendar');
+                  else openAmenitySchedule();
                 };
                 return (
                   <Pressable key={a.id} onPress={go} accessibilityRole="button" accessibilityLabel={`${a.title}. ${a.detail}`}
