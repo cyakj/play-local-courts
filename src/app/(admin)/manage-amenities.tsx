@@ -329,6 +329,7 @@ export default function ManageAmenitiesScreen() {
   }
 
   function closeDetail() {
+    setBlockoutVisible(false);
     setDetailCourt(null);
   }
 
@@ -735,20 +736,21 @@ export default function ManageAmenitiesScreen() {
                 </View>
               ))}
             </ScrollView>
+
+            {/* Must live INSIDE this Modal: on iOS a second Modal rendered as a sibling cannot present
+                while this one is up (UIKit refuses; the tap silently does nothing). */}
+            <AmenityScheduleSheet
+              visible={blockoutVisible}
+              onClose={() => setBlockoutVisible(false)}
+              court={{ id: detailCourt.id, name: detailCourt.name, hoa_id: detailCourt.hoa_id }}
+              openTime={rules.booking_start_time}
+              closeTime={rules.booking_end_time}
+              onChanged={handleBlockoutSaved}
+            />
           </SafeAreaView>
         )}
       </Modal>
 
-      {detailCourt && (
-        <AmenityScheduleSheet
-          visible={blockoutVisible}
-          onClose={() => setBlockoutVisible(false)}
-          court={{ id: detailCourt.id, name: detailCourt.name, hoa_id: detailCourt.hoa_id }}
-          openTime={rules.booking_start_time}
-          closeTime={rules.booking_end_time}
-          onChanged={handleBlockoutSaved}
-        />
-      )}
     </View>
   );
 }

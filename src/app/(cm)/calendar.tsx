@@ -34,7 +34,11 @@ const TYPE_META: Record<EventType, { color: string; Icon: LucideIcon }> = {
   reservation: { color: '#2D6BFF', Icon: CalendarClock },
   blockout: { color: '#E5384A', Icon: Ban },
 };
-const ALL_TYPES = Object.keys(TYPE_META) as EventType[];
+// The manager calendar is for community events, management activity, scheduled maintenance and blockouts.
+// Routine resident reservations are deliberately NOT part of it (they would drown the calendar); managers
+// inspect them per amenity in Manage Amenities → Schedule. 'reservation' stays in TYPE_META only because
+// the shared EventType union (src/lib/adminCalendar.ts) still includes it.
+const ALL_TYPES: EventType[] = ['community_event', 'board_meeting', 'maintenance_scheduled', 'blockout'];
 const CREATABLE: EventType[] = ['community_event', 'board_meeting', 'maintenance_scheduled'];
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -113,23 +117,11 @@ export default function CalendarScreen() {
       }
 
       if (courtIds.length) {
-        const [bk, mt] = await Promise.all([
-          supabase.from('bookings').select('id, court_id, date, start_time, end_time, status')
-            .in('court_id', courtIds).gte('date', from).lte('date', to).in('status', ['confirmed', 'pending']),
+        const [mt] = await Promise.all([
           supabase.from('court_maintenance').select('id, court_id, date, end_date, start_time, end_time, description')
             .in('court_id', courtIds).lte('date', to).or(`end_date.gte.${from},and(end_date.is.null,date.gte.${from})`),
         ]);
-        if (bk.error) throw bk.error;
         if (mt.error) throw mt.error;
-        for (const b of bk.data ?? []) {
-          const c = courtById.get(b.court_id);
-          if (!c) continue;
-          out.push({
-            id: `reservation-${b.id}`, hoaId: c.hoa_id, community: hoaName.get(c.hoa_id) ?? '', type: 'reservation',
-            title: c.name, date: b.date, startTime: b.start_time.slice(0, 5), endTime: b.end_time.slice(0, 5),
-            location: c.name, status: b.status ?? 'confirmed',
-          });
-        }
         for (const m of mt.data ?? []) {
           const c = courtById.get(m.court_id);
           if (!c) continue;
@@ -244,7 +236,7 @@ export default function CalendarScreen() {
             <Text style={s.dayHeading}>{date === today ? 'Today · ' : ''}{formatDateFull(date)}</Text>
             {list.length === 0 ? (
               view === 'month' || date === selected ? (
-                <Card><EmptyBlock Icon={CalendarDays} title="Nothing scheduled" body={loading ? 'Loading…' : 'No events, reservations or blockouts on this day.'} /></Card>
+                <Card><EmptyBlock Icon={CalendarDays} title="Nothing scheduled" body={loading ? 'Loading…' : 'No events, meetings, maintenance or blockouts on this day.'} /></Card>
               ) : null
             ) : list.map((e) => {
               const { Icon, color } = TYPE_META[e.type];
@@ -284,8 +276,8 @@ export default function CalendarScreen() {
               {detail.location ? <Text style={s.body}>{detail.location}</Text> : null}
               {detail.status ? <Text style={s.body}>Status: {detail.status}</Text> : null}
               {detail.detail ? <Text style={s.body}>{detail.detail}</Text> : null}
-              {(detail.type === 'reservation' || detail.type === 'blockout') ? (
-                <Button label="Open amenity schedule" variant="secondary"
+              {detail.type === 'blockout' ? (
+                <Button label="Open amenity management" variant="secondary"
                   onPress={() => { setDetail(null); router.push({ pathname: '/(admin)/manage-amenities', params: { hoaId: detail.hoaId } }); }} />
               ) : null}
             </View>
