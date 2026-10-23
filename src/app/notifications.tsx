@@ -30,6 +30,7 @@ const SAFE_ROUTE = new RegExp(
   '^/(reservation-detail/[0-9a-fA-F-]{36}|report-detail/[0-9a-fA-F-]{36}|my-reservations|my-reports|announcements)$',
 );
 const FALLBACK_ROUTE: Record<string, string> = {
+  booking_review_needed: '/(admin)/manage-amenities',
   booking_pending: '/my-reservations', booking_confirmed: '/my-reservations', booking_cancelled: '/my-reservations',
   booking_rejected: '/my-reservations', booking_reminder: '/my-reservations',
   report_status_changed: '/my-reports', report_update: '/my-reports', report_unresolved: '/my-reports',
