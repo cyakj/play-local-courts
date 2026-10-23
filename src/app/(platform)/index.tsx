@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Building2, ChevronRight, LogOut, MapPin, Users } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
+import { db } from '@/lib/untypedDb';
 import { errorMessage } from '@/lib/errors';
 import { roleText, type HoaApplicationRow } from '@/lib/platformApplications';
 import { A } from '@/constants/adminTheme';
@@ -31,6 +32,20 @@ export default function PlatformDashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [interestCount, setInterestCount] = useState<number | undefined>();
+
+  useFocusEffect(useCallback(() => {
+    let cancelled = false;
+    async function loadInterestCount() {
+      try {
+        const { count, error: countError } = await db.from('community_interest_requests')
+          .select('id', { count: 'exact', head: true }).eq('status', 'new');
+        if (!cancelled) setInterestCount(countError ? undefined : count ?? undefined);
+      } catch { if (!cancelled) setInterestCount(undefined); }
+    }
+    void loadInterestCount();
+    return () => { cancelled = true; };
+  }, []));
 
   const load = useCallback(async () => {
     setError(null);
@@ -88,6 +103,9 @@ export default function PlatformDashboard() {
       {error ? <ErrorBlock message={error} onRetry={load} /> : null}
 
       <SectionTitle>Review queue</SectionTitle>
+      <ChipRow>
+        <Chip label="Community interest" count={interestCount} onPress={() => router.push('/(platform)/interest' as never)} />
+      </ChipRow>
       {loading ? <LoadingBlock rows={2} /> : (
         <MetricGrid columns={2}>
           <MetricCard testID="metric-pending" Icon={Building2} tone={counts.pending ? 'warning' : 'success'}
