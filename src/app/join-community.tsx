@@ -203,6 +203,7 @@ export default function JoinCommunityScreen() {
           ) : results.length === 0 ? (
             <View testID="community-search-empty" style={styles.card}>
               <Text style={styles.cardTitle}>No communities found</Text>
+              <Button variant="ghost" label="Tell us about your community" onPress={() => router.push('/community-interest' as never)} fullWidth />
               <Text style={styles.muted}>
                 Only communities already approved on TenisX appear here. Check the spelling, or ask your HOA to register with TenisX.
               </Text>
@@ -234,6 +235,7 @@ export default function JoinCommunityScreen() {
               );
             })
           )}
+          <Button variant="ghost" label="Can't find your community?" onPress={() => router.push('/community-interest' as never)} fullWidth />
         </View>
       </ScrollView>
     </View>
