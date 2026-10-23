@@ -2,6 +2,9 @@
 
 Offline migration replay only. These findings are CANDIDATES, not verdicts or proof of cross-community access. No database was contacted.
 
+## Hosted-project note (2026-10-23)
+A read-only look at the hosted project confirmed RLS is enabled on every public table (the five 'unknown' baseline tables below are resolved) and found anon-callable definer functions beyond this list; see OVERNIGHT-HANDOFF.md section 21. This file is generated; the note was added by hand.
+
 ## How to use this report
 
 Every row is a candidate or audit observation from migrations only. Migration history is NOT the source of truth for the hosted database: tables and policies may have been created, changed or dropped outside it. Example to verify first: the policy profiles_select_authenticated (USING (auth.role() = authenticated), created in 20260109213852) is never dropped in the migration history, while 20260518184411 later adds the scoped "Members can view profiles in same HOA". If both exist on the hosted database, every signed-in user can read every profile. GREENS_V1_LAUNCH_MATRIX.md names a different policy as the root cause of the platform-wide profile exposure it found, which suggests profiles_select_authenticated may already have been removed out-of-band, but that is unverified. Verify the real state before drawing conclusions or changing access.
