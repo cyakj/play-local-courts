@@ -31,5 +31,6 @@ test('reservation shortcuts open amenity management, not the calendar', () => {
 
 test('community recent-activity lists only reservations awaiting approval', () => {
   const community = readFileSync('src/app/(cm)/community/[hoaId].tsx', 'utf8');
-  expect(community).toMatch(/\.eq\('status', 'pending'\)\.order\('created_at'/);
+  // Anchored to the recent-bookings query (limit 6), not the join-request query that also filters on pending.
+  expect(community).toMatch(/from\('bookings'\)\.select\('id, user_id, court_id, date, start_time, status, created_at'\)[^;]*?\.eq\('status', 'pending'\)[^;]*?\.limit\(6\)/s);
 });

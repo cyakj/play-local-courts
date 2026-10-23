@@ -1,12 +1,17 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Building2, CheckCircle, Clock } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { Building2, CheckCircle, Clock, Paperclip, X } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import { platformAlert } from '@/lib/platformAlert';
+import {
+  MAX_APPLICATION_DOCUMENTS, MAX_DOCUMENT_BYTES, base64ToBytes, documentPath, parseResidents, sniffDocumentMime, validateApplicationInput,
+  validateDocument, withExtension,
+} from '@/lib/hoaApplication';
 import {
   Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing,
 } from '@/constants/design';
@@ -33,7 +38,11 @@ interface ExistingApplication {
   claimed_role_other: string | null;
   status: string;
   submitted_at: string;
+  verification_documents: (string | null)[] | null;
+  updated_at: string;
 }
+
+interface PickedDocument { uri: string; name: string; mime: string; size: number | null; base64: string }
 
 export default function HOAApplicationScreen() {
   // ?new=1 (from Portfolio > Add community) starts a fresh application instead of showing an earlier one's status.
@@ -54,6 +63,10 @@ export default function HOAApplicationScreen() {
   const [forceResubmit, setForceResubmit] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState('');
+  const [documents, setDocuments] = useState<PickedDocument[]>([]);
+  // picked-file uri -> storage path, so a retry after a failed save reuses what already uploaded instead of
+  // creating duplicates the applicant cannot delete (the bucket allows INSERT/SELECT only, by design).
+  const uploadedPaths = useRef<Record<string, string>>({});
 
   useEffect(() => {
     async function init() {
@@ -70,7 +83,7 @@ export default function HOAApplicationScreen() {
 
       const { data: app } = startNew === '1' ? { data: null } : await supabase
         .from('hoa_applications')
-        .select('id, hoa_name, community_location, estimated_residents, claimed_role, claimed_role_other, status, submitted_at')
+        .select('id, hoa_name, community_location, estimated_residents, claimed_role, claimed_role_other, status, submitted_at, verification_documents, updated_at')
         .eq('applicant_id', user.id)
         .order('submitted_at', { ascending: false })
         .limit(1)
@@ -99,11 +112,62 @@ export default function HOAApplicationScreen() {
     init();
   }, []);
 
+  // Documents already on the application being resubmitted: kept, new ones are appended.
+  const resubmittingDocs: string[] =
+    existingApplication && ['needs_more_info', 'rejected'].includes(existingApplication.status)
+      ? (existingApplication.verification_documents ?? []).filter((d): d is string => typeof d === 'string' && d.length > 0)
+      : [];
+
+  async function pickDocuments() {
+    const room = MAX_APPLICATION_DOCUMENTS - documents.length - resubmittingDocs.length;
+    if (room <= 0) { platformAlert('Limit reached', `You can attach up to ${MAX_APPLICATION_DOCUMENTS} files.`); return; }
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) { platformAlert('Permission needed', 'Allow photo access to attach verification documents.'); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'], allowsMultipleSelection: true, selectionLimit: room, quality: 0.8, base64: true,
+    });
+    if (result.canceled) return;
+    const accepted: PickedDocument[] = [];
+    for (const a of result.assets.slice(0, room)) {
+      const mime = a.mimeType ?? 'image/jpeg';
+      const problem = validateDocument(mime, a.fileSize ?? null);
+      if (problem) { platformAlert('File not added', `${a.fileName ?? 'This file'}: ${problem}`); continue; }
+      if (!a.base64) { platformAlert('File not added', `${a.fileName ?? 'This file'} could not be read. Try another photo.`); continue; }
+      accepted.push({ uri: a.uri, name: a.fileName ?? `document-${Date.now()}.jpg`, mime, size: a.fileSize ?? null, base64: a.base64 });
+    }
+    if (accepted.length) setDocuments((prev) => [...prev, ...accepted]);
+  }
+
+  async function uploadDocuments(): Promise<string[]> {
+    const paths: string[] = [];
+    for (const doc of documents) {
+      const already = uploadedPaths.current[doc.uri];
+      if (already) { paths.push(already); continue; }
+      const bytes = base64ToBytes(doc.base64);
+      if (!bytes || bytes.byteLength === 0) throw new Error(`${doc.name} could not be read. Remove it and try another photo.`);
+      if (bytes.byteLength > MAX_DOCUMENT_BYTES) throw new Error(`${doc.name} is larger than 10 MB. Remove it and try a smaller photo.`);
+      // Label the upload with what the bytes really are (the picker's base64 may be re-encoded JPEG).
+      const contentType = sniffDocumentMime(bytes);
+      const typeProblem = validateDocument(contentType, bytes.byteLength);
+      if (!contentType || typeProblem) throw new Error(`${doc.name}: ${typeProblem ?? 'unsupported file type.'}`);
+      const path = documentPath(userId, withExtension(doc.name, contentType), Date.now() + paths.length);
+      // ArrayBuffer body: a Blob/File body does not work through supabase-js on React Native.
+      const { error } = await supabase.storage
+        .from('hoa-verification-documents')
+        .upload(path, bytes.buffer as ArrayBuffer, { contentType, upsert: false });
+      if (error) throw new Error(`Upload failed for ${doc.name}: ${error.message}`);
+      uploadedPaths.current[doc.uri] = path;
+      paths.push(path);
+    }
+    return paths;
+  }
+
   async function handleSubmit() {
     if (!fullName.trim()) { platformAlert('Required', 'Please enter your full name.'); return; }
-    if (!hoaName.trim()) { platformAlert('Required', 'Please enter your HOA name.'); return; }
-    if (!communityLocation.trim()) { platformAlert('Required', 'Please enter the community location.'); return; }
-    if (!claimedRole) { platformAlert('Required', 'Please select your role.'); return; }
+    const problem = validateApplicationInput({
+      hoaName, communityLocation, estimatedResidents, claimedRole, claimedRoleOther,
+    });
+    if (problem) { platformAlert('Required', problem); return; }
 
     setIsSubmitting(true);
     try {
@@ -112,32 +176,48 @@ export default function HOAApplicationScreen() {
       const fields = {
         hoa_name: hoaName.trim(),
         community_location: communityLocation.trim(),
-        estimated_residents: parseInt(estimatedResidents || '0', 10),
+        estimated_residents: parseResidents(estimatedResidents) as number,
         claimed_role: claimedRole,
         claimed_role_other: claimedRole === 'other' ? claimedRoleOther.trim() : null,
       };
+
+      const uploaded = await uploadDocuments();
 
       // A returned (needs_more_info) or rejected application is resubmitted by moving the SAME row back to
       // 'pending' (the only update RLS allows the applicant); inserting a new row would orphan the review history.
       const resubmitting =
         existingApplication && ['needs_more_info', 'rejected'].includes(existingApplication.status);
-      const { error } = resubmitting
+      const { error, data: saved } = resubmitting
         ? await supabase.from('hoa_applications')
-            .update({ ...fields, status: 'pending' })
+            .update({ ...fields, status: 'pending', verification_documents: [...resubmittingDocs, ...uploaded] })
             .eq('id', existingApplication!.id)
+            // Optimistic concurrency: only overwrite the version this form was opened from. Another session or a
+            // reviewer's return/approval in between changes updated_at, which turns this into a zero-row update.
+            .eq('updated_at', existingApplication!.updated_at)
+            .select('id')
         : await supabase.from('hoa_applications').insert({
             applicant_id: userId,
             ...fields,
-            verification_documents: [],
-          });
+            verification_documents: uploaded,
+          }).select('id');
 
       if (error) throw error;
+      // RLS filters the row out (no error, zero rows) if a reviewer changed its status while this form was open.
+      if (!saved || saved.length !== 1) {
+        throw new Error('This application changed while you were editing it (it may already be under review). Go back and reopen it to see its current status.');
+      }
 
       platformAlert('Application Submitted', 'Your HOA application has been submitted for review.', [
         { text: 'OK', onPress: () => router.back() },
       ]);
     } catch (err: any) {
-      platformAlert('Error', err.message || 'Failed to submit application. Please try again.');
+      const duplicate = err?.code === '23505';
+      platformAlert(
+        'Error',
+        duplicate
+          ? 'You already have an open application for this community. Check its status from your dashboard.'
+          : err.message || 'Failed to submit application. Please try again.',
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -341,6 +421,31 @@ export default function HOAApplicationScreen() {
             </>
           )}
 
+          <Text style={[styles.fieldLabel, { marginTop: 20 }]}>VERIFICATION DOCUMENTS (OPTIONAL)</Text>
+          <Text style={styles.docHint}>
+            Photos of a board resolution, management agreement or similar. Stored privately; only TenisX reviewers can open them.
+          </Text>
+          {resubmittingDocs.length > 0 && (
+            <Text style={styles.docHint}>{resubmittingDocs.length} file{resubmittingDocs.length === 1 ? '' : 's'} already attached.</Text>
+          )}
+          {documents.map((d, i) => (
+            <View key={`${d.uri}-${i}`} style={styles.docRow}>
+              <Paperclip color={theme.textMuted} size={16} strokeWidth={1.5} />
+              <Text style={styles.docName} numberOfLines={1}>{d.name}</Text>
+              <TouchableOpacity
+                // Locked while submitting: the upload loop works from the list captured at submit time.
+                disabled={isSubmitting}
+                onPress={() => { if (!isSubmitting) setDocuments((prev) => prev.filter((_, j) => j !== i)); }}
+                accessibilityRole="button" accessibilityLabel={`Remove ${d.name}`} accessibilityState={{ disabled: isSubmitting }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <X color={theme.textMuted} size={18} strokeWidth={1.5} />
+              </TouchableOpacity>
+            </View>
+          ))}
+          <View style={{ marginTop: 8 }}>
+            <Button variant="ghost" label="Attach photo" onPress={pickDocuments} disabled={isSubmitting} fullWidth />
+          </View>
+
           <View style={styles.infoNotice}>
             <Text style={styles.infoNoticeText}>
               <Text style={styles.infoNoticeBold}>Important: </Text>
@@ -375,6 +480,19 @@ function useStyles(theme: ThemeTokens) {
       lineHeight: 22,
       marginBottom: 24,
     },
+    docHint: {
+      fontFamily: FontFamily.manropeMedium,
+      fontSize: FontSize.metadata,
+      color: theme.textSecondary,
+      lineHeight: 18,
+      marginBottom: 8,
+    },
+    docRow: {
+      flexDirection: 'row', alignItems: 'center', gap: 10,
+      borderWidth: 1, borderColor: theme.border, borderRadius: Radius.input,
+      paddingVertical: 10, paddingHorizontal: 12, marginBottom: 6,
+    },
+    docName: { flex: 1, fontFamily: FontFamily.manropeMedium, fontSize: FontSize.body, color: theme.textPrimary },
     fieldLabel: {
       fontFamily: FontFamily.manropeSemiBold,
       fontSize: FontSize.metadata,

@@ -65,7 +65,7 @@ test.describe('community creation goes through approval', () => {
 
   test('resubmitting a returned application updates the same row to pending (no duplicate insert)', () => {
     const src = read('src/app/hoa-application.tsx');
-    expect(src).toMatch(/\.update\(\{ \.\.\.fields, status: 'pending' \}\)/);
+    expect(src).toMatch(/\.update\(\{ \.\.\.fields, status: 'pending'(, verification_documents: \[[^\]]*\])? \}\)/);
     expect(src).toContain("['needs_more_info', 'rejected']");
   });
 
