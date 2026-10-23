@@ -161,3 +161,18 @@ test.describe('hardening migration (static)', () => {
     expect(sql).not.toMatch(/admin_creator|_admin"|check_hoa_admin/);
   });
 });
+
+test.describe('legacy request_join_community guards decided memberships (review R10)', () => {
+  const sql = readFileSync(join(__dirname, '../supabase/migrations/20261022120000_resident_join_flow_hardening.sql'), 'utf8');
+  const fn = sql.slice(sql.indexOf('CREATE OR REPLACE FUNCTION public.request_join_community'), sql.indexOf('CREATE OR REPLACE FUNCTION public.withdraw_membership_request'));
+  test('rejects an existing non-pending membership before creating any join request row', () => {
+    const guard = fn.search(/FROM public\.hoa_memberships\s+WHERE user_id = auth\.uid\(\) AND hoa_id = target_hoa_id AND status <> 'pending'/);
+    const insertRequest = fn.indexOf('INSERT INTO public.community_join_requests');
+    expect(guard).toBeGreaterThan(-1);
+    expect(insertRequest).toBeGreaterThan(guard);
+  });
+  test('native request_hoa_membership still rejects ANY existing membership', () => {
+    const native = sql.slice(sql.indexOf('CREATE OR REPLACE FUNCTION public.request_hoa_membership'), sql.indexOf('CREATE OR REPLACE FUNCTION public.request_join_community'));
+    expect(native).toMatch(/FROM public\.hoa_memberships\s+WHERE user_id = auth\.uid\(\) AND hoa_id = target_hoa_id\s+\) THEN\s+RAISE EXCEPTION 'Membership already exists/);
+  });
+});

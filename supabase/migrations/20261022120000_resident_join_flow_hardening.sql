@@ -111,6 +111,15 @@ BEGIN
     RAISE EXCEPTION 'Membership already exists for this HOA (previous request already reviewed)';
   END IF;
 
+  -- A decided (approved / rejected) membership must not be re-opened through a fresh join request: the admin queue
+  -- finds no PENDING membership for it and would only flip the request, leaving the resident stuck (review R10).
+  IF EXISTS (
+    SELECT 1 FROM public.hoa_memberships
+    WHERE user_id = auth.uid() AND hoa_id = target_hoa_id AND status <> 'pending'
+  ) THEN
+    RAISE EXCEPTION 'Membership already exists for this HOA';
+  END IF;
+
   SELECT id INTO request_id FROM public.community_join_requests
   WHERE user_id = auth.uid() AND hoa_id = target_hoa_id AND status = 'pending'
   LIMIT 1;
