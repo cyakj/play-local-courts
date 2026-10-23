@@ -32,6 +32,16 @@
       "env": {
         "EXPO_PUBLIC_TENNIS_FEATURES_ENABLED": "false"
       }
+    },
+    "development-device": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "simulator": false
+      },
+      "env": {
+        "EXPO_PUBLIC_TENNIS_FEATURES_ENABLED": "false"
+      }
     }
   },
   "submit": {

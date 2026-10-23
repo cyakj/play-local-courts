@@ -71,3 +71,18 @@ test.describe('iOS usage descriptions', () => {
     expect(nativeSource).toContain("from 'expo-contacts/legacy'");
   });
 });
+
+test.describe('EAS device build profile', () => {
+  const eas = JSON.parse(readFileSync('eas.json', 'utf8')) as {
+    build: Record<string, { developmentClient?: boolean; distribution?: string; ios?: { simulator?: boolean }; env?: Record<string, string> }>;
+  };
+  test('development-device is an internal dev client for a real iPhone and never embeds the production project', () => {
+    const p = eas.build['development-device'];
+    expect(p).toBeDefined();
+    expect(p.developmentClient).toBe(true);
+    expect(p.distribution).toBe('internal');
+    expect(p.ios?.simulator).toBe(false);
+    // Production ref: a device build must point at a non-production project supplied through EAS env, never hardcoded here.
+    expect(JSON.stringify(p)).not.toContain('hqqlrliakttqsbalvuyz');
+  });
+});
