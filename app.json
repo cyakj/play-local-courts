@@ -31,6 +31,20 @@
       "expo-router",
       "./plugins/withPrivacyManifest",
       [
+        "expo-contacts",
+        {
+          "contactsPermission": "TenisX compares the emails and phone numbers in your contacts with TenisX members so you can invite people you know to a match."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "TenisX needs access to your photos so you can attach a picture to a maintenance report or to your community registration documents.",
+          "cameraPermission": "TenisX needs the camera so you can take a photo to attach to a maintenance report.",
+          "microphonePermission": false
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#0C0F18",
