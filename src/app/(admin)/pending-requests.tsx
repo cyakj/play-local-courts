@@ -119,6 +119,11 @@ export default function ApprovalsScreen() {
         ]);
         if (memRes.error || jrRes.error) finalError = memRes.error?.message ?? jrRes.error?.message ?? 'Unknown error';
       }
+    } else if (action === 'approved') {
+      // A join request with no pending membership behind it (legacy data) carries no access. Marking it
+      // 'approved' would tell the admin it worked while the resident still cannot enter the community.
+      // (Declining does not unblock a retry: the join RPCs refuse a new request once an earlier one was decided.)
+      finalError = 'This request has no matching membership record, so approving it would not give the resident access. Contact TenisX support to repair it instead of approving.';
     } else {
       const { error: jrErr } = await supabase
         .from('community_join_requests').update({ status: action, updated_at: new Date().toISOString() }).eq('id', req.id);

@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import { base64ToBytes, sniffDocumentMime } from '@/lib/imageBytes';
 import {
   Plus, Droplet, Zap, Building2, Wrench, AlertTriangle,
   HelpCircle, ChevronRight, X, Camera, ImageIcon, ArrowLeft,
@@ -19,6 +20,7 @@ import {
 } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
+import { db } from '@/lib/untypedDb';
 import {
   Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing,
 } from '@/constants/design';
@@ -161,9 +163,12 @@ export default function ReportScreen() {
   const [description, setDescription] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const photoBase64 = useRef<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // The report itself saved but its photo did not: shown on the success screen (submitError is not visible there).
+  const [photoWarning, setPhotoWarning] = useState<string | null>(null);
 
   // Web file input ref
   const fileInputRef = useRef<any>(null);
@@ -251,8 +256,12 @@ export default function ReportScreen() {
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: true,
         quality: 0.8,
+        base64: true,
       });
-      if (!result.canceled && result.assets[0]) setPhotoUri(result.assets[0].uri);
+      if (!result.canceled && result.assets[0]) {
+        setPhotoUri(result.assets[0].uri);
+        photoBase64.current = result.assets[0].base64 ?? null;
+      }
       return;
     }
 
@@ -265,8 +274,12 @@ export default function ReportScreen() {
       mediaTypes: ['images'],
       allowsEditing: true,
       quality: 0.8,
+      base64: true,
     });
-    if (!result.canceled && result.assets[0]) setPhotoUri(result.assets[0].uri);
+    if (!result.canceled && result.assets[0]) {
+      setPhotoUri(result.assets[0].uri);
+      photoBase64.current = result.assets[0].base64 ?? null;
+    }
   }
 
   function handleWebFileChange(e: any) {
@@ -294,11 +307,16 @@ export default function ReportScreen() {
           .upload(path, file, { upsert: true, contentType: file.type });
         if (error) { setSubmitError('Photo upload failed: ' + error.message); return null; }
       } else {
-        const resp = await fetch(photoUri);
-        const blob = await resp.blob();
+        // ArrayBuffer body: a Blob body does not work through supabase-js on React Native.
+        const bytes = photoBase64.current ? base64ToBytes(photoBase64.current) : null;
+        const contentType = bytes ? sniffDocumentMime(bytes) : null;
+        if (!bytes || !contentType || !contentType.startsWith('image/')) {
+          setSubmitError('Photo upload failed: the selected photo could not be read.');
+          return null;
+        }
         const { error } = await supabase.storage
           .from('report-photos')
-          .upload(path, blob, { upsert: true, contentType: 'image/jpeg' });
+          .upload(path, bytes.buffer as ArrayBuffer, { upsert: true, contentType });
         if (error) { setSubmitError('Photo upload failed: ' + error.message); return null; }
       }
 
@@ -343,10 +361,14 @@ export default function ReportScreen() {
     // Upload photo if selected, then update record
     if (photoUri) {
       const photoUrl = await uploadPhoto(inserted.id);
-      if (photoUrl) {
-        await supabase.from('maintenance_reports')
-          .update({ photo_url: photoUrl })
-          .eq('id', inserted.id);
+      // Not a direct UPDATE: residents have no UPDATE policy on maintenance_reports, so that silently matched zero
+      // rows. attach_report_photo is a reporter-only, set-once RPC (migration 20261023130000).
+      const attached = photoUrl
+        ? await db.rpc('attach_report_photo', { p_report_id: inserted.id, p_object_path: `${userId}/${inserted.id}.jpg` })
+        : null;
+      if (!(photoUrl && !attached?.error && attached?.data === true)) {
+        setPhotoWarning('Your report was submitted, but the photo could not be attached.');
+        setSubmitError(null);
       }
     }
 
@@ -357,6 +379,7 @@ export default function ReportScreen() {
   }
 
   function resetForm() {
+    setPhotoWarning(null);
     setStep(1);
     setCategory(isCourtReport ? facilityCategories[0].key : 'plumbing');
     setSeverity('medium');
@@ -442,6 +465,7 @@ export default function ReportScreen() {
           <View testID="submit-success" style={styles.successBox}>
             <Text style={styles.successText}>✓ Report submitted!</Text>
             <Text style={styles.successSub}>Your issue has been reported.</Text>
+            {photoWarning ? <Text testID="photo-warning" style={styles.errorText}>{photoWarning}</Text> : null}
             <SubmitActions />
           </View>
         ) : step === 1 ? (
@@ -723,6 +747,7 @@ export default function ReportScreen() {
               <View testID="submit-success" style={styles.successBox}>
                 <Text style={styles.successText}>✓ Report submitted!</Text>
                 <Text style={styles.successSub}>{isCourtReport ? 'Your issue has been reported.' : 'Your HOA admin has been notified.'}</Text>
+                {photoWarning ? <Text testID="photo-warning" style={styles.errorText}>{photoWarning}</Text> : null}
                 <SubmitActions />
               </View>
             ) : step === 1 ? (
