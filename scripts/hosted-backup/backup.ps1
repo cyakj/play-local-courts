@@ -12,7 +12,9 @@ environment variable only and is cleared when the script ends.
 [CmdletBinding()]
 param(
     # Only needed if neither default pooler host works; must be a Supabase session-pooler host name.
-    [string]$PoolerHost = ''
+    [string]$PoolerHost = '',
+    # Take the backup only; verify later with verify-restore.ps1.
+    [switch]$SkipVerify
 )
 
 Set-StrictMode -Version Latest
@@ -60,8 +62,22 @@ try {
     $summary | ForEach-Object { Write-Host $_ }
     Write-Host ''
     Write-Host "Backup folder: $dir" -ForegroundColor Green
+
+    if (-not $SkipVerify) {
+        # The restore test needs no password and never contacts Supabase: drop every connection setting first.
+        Clear-PgEnv
+        Write-Host ''
+        Write-Host 'Now proving the backup can be restored (local scratch server, no Supabase connection)...'
+        $ok = $false
+        try { $ok = Invoke-RestoreVerify -BackupDir $dir }
+        catch { Write-Host ("Restore test stopped: " + $_.Exception.Message) -ForegroundColor Red }
+        Write-Host ''
+        if ($ok) { Write-Host 'RESTORE VERIFIED - the backup is recoverable. You can close this window.' -ForegroundColor Green }
+        else { Write-Host "RESTORE NOT VERIFIED - tell Claude. Details: $dir\restore-test.report.txt" -ForegroundColor Red; exit 2 }
+    }
 }
 finally {
+    $plain = $null
     [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
     Clear-PgEnv
 }
