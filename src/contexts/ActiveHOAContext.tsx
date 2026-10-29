@@ -224,13 +224,21 @@ export function ActiveHOAProvider({ children }: { children: React.ReactNode }) {
 
   const cancelJoinRequest = async (membershipId: string) => {
     try {
-      const { error } = await supabase
-        .from('hoa_memberships')
-        .delete()
-        .eq('id', membershipId)
-        .eq('status', 'pending');
+      const pending = pendingMemberships.find(m => m.id === membershipId);
+      if (!pending) throw new Error('Pending request not found');
+
+      // Residents can no longer DELETE hoa_memberships directly (migration 20261022120000); the RPC withdraws the
+      // caller's own pending request in both tables. withdraw_membership_request is not in the generated types yet.
+      const rpc = supabase.rpc as unknown as (
+        fn: string,
+        args: Record<string, unknown>,
+      ) => Promise<{ data: boolean | null; error: Error | null }>;
+      const { data: withdrawn, error } = await rpc.call(supabase, 'withdraw_membership_request', {
+        target_hoa_id: pending.hoaId,
+      });
 
       if (error) throw error;
+      if (withdrawn !== true) throw new Error('Nothing pending to withdraw');
 
       toast.success('Join request cancelled');
       await fetchMemberships();

@@ -29,5 +29,11 @@ Prerequisites (section 9 lists all versions from 20261012 on). The four repo fil
 
 After each file, re-run section 1: the `auth.users`, `auth.identities`, credentials, profiles, hoas, applications, messages and reports fingerprints must equal the baseline. Memberships and notifications may grow after file 2 only: it adds a pending or rejected membership row for legacy join requests that have none (count shown by section 1b beforehand), and that can make the existing trigger add admin notifications. Compare the 1a per-row list BY ID: every baseline membership, booking and notification id must still exist with the same hash, and the number of new membership rows must equal the 1b count. Only then accept a new baseline. None of these files is written to delete accounts or tables (they add or replace functions, policies, grants and columns), but they have never been executed against Postgres, which is why the backup comes first.
 
+## 3a. Changes made 2026-10-28 that affect how you apply (see MIGRATION-RISK-REVIEW.md "RESOLUTION UPDATE")
+- File 2 now also creates `request_hoa_membership_via_invite(text,text)` and a stricter `withdraw_membership_request`.
+- File 4 no longer touches `storage.buckets`, so no bucket export/approval is needed for it (the optional MIME restriction lives in `OPTIONAL-verification-bucket-mime.sql`). It now **fails and rolls back** if two open applications by the same applicant share a name: run the duplicate check first (section 4-style query: `SELECT applicant_id, lower(btrim(hoa_name)), count(*) FROM hoa_applications WHERE status IN ('pending','needs_more_info') GROUP BY 1,2 HAVING count(*)>1`) and decide yourself which to keep. A failure means nothing was changed.
+- File 7 only re-grants `authenticated` where it already had EXECUTE. Review `update_email_preference` (section 6) before applying.
+- Wrap each file as `BEGIN; SET LOCAL lock_timeout='5s'; <file>; <its verification query>; COMMIT;` and ROLLBACK on any surprise.
+
 ## 4. Letting the assistant do steps 2-3
 That requires you to enable those tools yourself (check the current Claude Code permissions and tool availability first); the assistant will not change its own safeguards. Otherwise paste the read-only results back and apply the files in the SQL editor yourself.

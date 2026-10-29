@@ -13,6 +13,7 @@
 -- update_email_preference(uuid, text, boolean) exists on the hosted database but in no migration file, so its body cannot
 -- be reviewed or replaced here. Only anon is revoked; whether it checks the caller is a PENDING item (see RLS-AUDIT.md).
 --
+-- Authenticated access is PRESERVED per function (re-granted only where it existed before; never expanded).
 -- Behaviour change: none for signed-in users acting on their own data. Anonymous API calls to these functions fail 42501.
 -- Rollback: GRANT EXECUTE ON FUNCTION <name> TO anon; (and re-create the two email functions from 20260115024246).
 
@@ -112,8 +113,8 @@ $$;
 DO $revoke$
 DECLARE
   fn record;
-  names text[] := ARRAY[
-    'admin_blockout_conflicts', 'admin_create_blockout', 'approve_hoa_membership', 'approve_match_participant',
+  had_authenticated boolean;
+  names text[] := ARRAY['admin_blockout_conflicts', 'admin_create_blockout', 'approve_hoa_membership', 'approve_match_participant',
     'assign_coach_role', 'check_competition_create_permission', 'create_competition_ladder',
     'create_default_email_preferences', 'create_maintenance_report', 'create_match_listing',
     'deprecate_report_admin_notes', 'enforce_amenity_booking_rules', 'enforce_booking_cancellation_window',
@@ -127,13 +128,19 @@ DECLARE
     'request_join_community', 'set_active_hoa', 'update_email_preference'];
 BEGIN
   FOR fn IN
-    SELECT p.oid::regprocedure AS sig, p.proname
+    SELECT p.oid, p.oid::regprocedure AS sig, p.proname
       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
      WHERE n.nspname = 'public' AND p.prokind = 'f' AND p.proname = ANY (names)
   LOOP
+    -- Captured BEFORE the revoke: includes access inherited through PUBLIC. Authenticated is only re-granted where it
+    -- already had EXECUTE, so a function an earlier migration deliberately closed to signed-in users stays closed.
+    had_authenticated := has_function_privilege('authenticated', fn.oid, 'EXECUTE');
     EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC, anon', fn.sig);
-    -- Revoking PUBLIC must not cost signed-in users or trusted server code the access they had through it.
-    EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO authenticated, %I', fn.sig, 'service' || '_role');
+    IF had_authenticated AND fn.proname <> 'migrate_existing_hoa_memberships' THEN
+      EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO authenticated', fn.sig);
+    END IF;
+    -- Trusted server code keeps the access it had through PUBLIC.
+    EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO %I', fn.sig, 'service' || '_role');
     -- One-time backfill: nobody should be able to re-run it through the API (handled here so a missing function is skipped).
     IF fn.proname = 'migrate_existing_hoa_memberships' THEN
       EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM authenticated', fn.sig);

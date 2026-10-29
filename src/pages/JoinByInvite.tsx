@@ -89,17 +89,23 @@ const JoinByInvite = () => {
       return;
     }
 
-    const { error: insertErr } = await supabase.from('hoa_memberships').insert({
-      user_id: currentUser.id,
-      hoa_id: community.id,
-      role: 'resident',
-      status: 'pending',
-      joined_via_invite: true,
-      invite_code_used: inviteCode,
+    // Residents can no longer INSERT hoa_memberships directly (migration 20261022120000). The invite RPC re-checks the
+    // code server-side, writes the membership + join request together and keeps the invite attribution.
+    // request_hoa_membership_via_invite is not in the generated types yet.
+    const rpc = supabase.rpc as unknown as (
+      fn: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ error: { message?: string } | null }>;
+    const { error: insertErr } = await rpc.call(supabase, 'request_hoa_membership_via_invite', {
+      invite_code_input: inviteCode,
     });
 
     if (insertErr) {
-      toast.error('Failed to send join request');
+      toast.error(
+        insertErr.message?.includes('Verify your email')
+          ? 'Verify your email before requesting to join'
+          : 'Failed to send join request',
+      );
     } else {
       setJoined(true);
     }

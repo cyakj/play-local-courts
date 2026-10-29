@@ -126,12 +126,11 @@ test.describe('hardening migration (static)', () => {
     expect(sql).toContain("doc NOT LIKE auth.uid()::text || '/%'");
     expect(sql).toContain("doc LIKE '%..%'");
   });
-  test('duplicate guard is partial, skippable, and bucket is restricted to images and PDF', () => {
+  test('duplicate guard is partial and fails loudly; the bucket allowlist is left untouched', () => {
     expect(sql).toMatch(/CREATE UNIQUE INDEX IF NOT EXISTS hoa_applications_one_open_per_name/);
     expect(sql).toMatch(/WHERE status IN \('pending', 'needs_more_info'\)/);
-    expect(sql).toMatch(/RAISE NOTICE 'hoa_applications_one_open_per_name NOT created/);
-    expect(sql).toContain("UPDATE storage.buckets");
-    expect(sql).toContain("'application/pdf'");
+    expect(sql).toMatch(/RAISE EXCEPTION 'hoa_applications_one_open_per_name cannot be created/);
+    expect(sql).not.toMatch(/^\s*UPDATE storage\.buckets/m);
   });
   test('evidence is append-only for the applicant and capped at five', () => {
     expect(sql).toMatch(/array_remove\(array_remove\(COALESCE\(OLD\.verification_documents[^;]*?<@ COALESCE\(NEW\.verification_documents/s);

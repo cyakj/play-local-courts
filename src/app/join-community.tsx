@@ -14,7 +14,7 @@ import {
   fetchMyMemberships, requestToJoin, searchCommunities, withdrawRequest, type MyMembershipRow,
 } from '@/lib/communityJoin';
 import {
-  SEARCH_MIN_CHARS, canRequestToJoin, classifyJoinError, joinErrorMessage, membershipDisplay, sanitizeSearchTerm,
+  SEARCH_MIN_CHARS, canRequestToJoin, classifyJoinError, joinErrorMessage, membershipDisplay, sanitizeSearchTerm, withdrawOutcomeMessage,
   type CommunityResult, type StatusTone,
 } from '@/lib/communityJoinLogic';
 import { errorMessage } from '@/lib/errors';
@@ -103,7 +103,7 @@ export default function JoinCommunityScreen() {
     setBusyHoa(m.hoaId);
     setActionError('');
     try {
-      await withdrawRequest(m.hoaId);
+      setActionError(withdrawOutcomeMessage(await withdrawRequest(m.hoaId)));
     } catch (e) {
       setActionError(errorMessage(e, 'Could not withdraw the request.'));
     } finally {

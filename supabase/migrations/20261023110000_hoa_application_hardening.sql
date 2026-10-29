@@ -8,7 +8,7 @@
 --
 -- 1. BEFORE INSERT/UPDATE guard: non-reviewers may only create 'pending' rows and may only edit applicant fields.
 -- 2. Duplicate protection: one open (pending / needs_more_info) application per applicant per community name.
--- 3. Private bucket accepts only images and PDFs (size limit already 10 MB).
+-- 3. (Removed) The bucket MIME allowlist is NOT changed here; see the NOTE at the end of this file.
 -- Platform reviewers and the service role (auth.uid() IS NULL) are unaffected; the review RPCs run as the reviewer.
 
 CREATE OR REPLACE FUNCTION public.guard_hoa_application_write()
@@ -77,7 +77,9 @@ CREATE TRIGGER guard_hoa_application_write_trigger
   BEFORE INSERT OR UPDATE ON public.hoa_applications
   FOR EACH ROW EXECUTE FUNCTION public.guard_hoa_application_write();
 
--- Skipped (with a NOTICE) rather than failing the whole migration if duplicates already exist.
+-- Fails the migration (rolling the whole file back) if duplicate open applications already exist, so a successful
+-- run always means the duplicate protection is installed. No rows are changed: an operator must decide which
+-- duplicate to keep (list them with HOSTED-VERIFY-READONLY.sql), then re-run this file.
 DO $do$
 BEGIN
   IF EXISTS (
@@ -86,7 +88,8 @@ BEGIN
     GROUP BY applicant_id, lower(btrim(hoa_name))
     HAVING count(*) > 1
   ) THEN
-    RAISE NOTICE 'hoa_applications_one_open_per_name NOT created: duplicate open applications exist. Resolve them, then re-run this statement.';
+    RAISE EXCEPTION 'hoa_applications_one_open_per_name cannot be created: duplicate open applications exist. Resolve them (no data was changed), then re-run this migration.'
+      USING ERRCODE = '23505';
   ELSE
     CREATE UNIQUE INDEX IF NOT EXISTS hoa_applications_one_open_per_name
       ON public.hoa_applications (applicant_id, lower(btrim(hoa_name)))
@@ -95,6 +98,6 @@ BEGIN
 END
 $do$;
 
-UPDATE storage.buckets
-SET allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf']
-WHERE id = 'hoa-verification-documents';
+-- NOTE: this migration deliberately does NOT touch storage.buckets. The bucket 'hoa-verification-documents' was
+-- created without an allowed_mime_types list (any type accepted) and the legacy web form also accepts .doc/.docx.
+-- Narrowing uploads is a separate, explicitly approved change: see docs/onboarding/OPTIONAL-verification-bucket-mime.sql.

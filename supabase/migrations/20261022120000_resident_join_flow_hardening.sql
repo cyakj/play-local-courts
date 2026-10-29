@@ -146,6 +146,63 @@ $function$;
 REVOKE ALL ON FUNCTION public.request_join_community(uuid, text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.request_join_community(uuid, text) TO authenticated;
 
+-- 4b. Invite-link entry point (legacy web /join/:code). Same guards as request_hoa_membership, plus the invite must
+--     be enabled and unexpired; keeps the joined_via_invite / invite_code_used attribution the old direct INSERT wrote.
+--     The invite code only identifies the community; approval is still required (status stays 'pending').
+CREATE OR REPLACE FUNCTION public.request_hoa_membership_via_invite(invite_code_input text, join_message text DEFAULT NULL)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  target_hoa UUID;
+  new_membership_id UUID;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated' USING ERRCODE = '42501';
+  END IF;
+  IF NOT public.user_email_verified() THEN
+    RAISE EXCEPTION 'Verify your email before requesting to join a community' USING ERRCODE = '42501';
+  END IF;
+
+  SELECT h.id INTO target_hoa
+  FROM public.hoas h
+  WHERE h.invite_code = invite_code_input
+    AND h.invite_enabled IS TRUE
+    AND (h.invite_expires_at IS NULL OR h.invite_expires_at > now())
+  LIMIT 1;
+  IF target_hoa IS NULL OR NOT public.hoa_is_approved(target_hoa) THEN
+    RAISE EXCEPTION 'Invite link is not valid' USING ERRCODE = '42501';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.hoa_memberships
+    WHERE user_id = auth.uid() AND hoa_id = target_hoa
+  ) THEN
+    RAISE EXCEPTION 'Membership already exists for this HOA';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.community_join_requests
+    WHERE user_id = auth.uid() AND hoa_id = target_hoa AND status <> 'pending'
+  ) THEN
+    RAISE EXCEPTION 'Membership already exists for this HOA (previous request already reviewed)';
+  END IF;
+
+  INSERT INTO public.hoa_memberships (user_id, hoa_id, role, status, joined_via_invite, invite_code_used)
+  VALUES (auth.uid(), target_hoa, 'resident', 'pending', true, invite_code_input)
+  RETURNING id INTO new_membership_id;
+
+  INSERT INTO public.community_join_requests (user_id, hoa_id, message, status)
+  VALUES (auth.uid(), target_hoa, left(join_message, 500), 'pending')
+  ON CONFLICT DO NOTHING;
+
+  RETURN new_membership_id;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.request_hoa_membership_via_invite(text, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.request_hoa_membership_via_invite(text, text) TO authenticated;
+
 -- 5. Withdraw: only the caller's OWN *pending* request, in BOTH tables (no stale admin-queue row).
 CREATE OR REPLACE FUNCTION public.withdraw_membership_request(target_hoa_id UUID)
 RETURNS boolean
@@ -155,19 +212,29 @@ SET search_path TO 'public'
 AS $$
 DECLARE
   removed integer;
+  removed_requests integer;
 BEGIN
   IF auth.uid() IS NULL THEN
     RAISE EXCEPTION 'Not authenticated' USING ERRCODE = '42501';
   END IF;
 
+  -- Same effect as the "Users can cancel their own pending requests" DELETE policy this migration retires: only a
+  -- never-approved, resident-role pending row can go. Approved / rejected / removed history is never deleted.
   DELETE FROM public.hoa_memberships
   WHERE user_id = auth.uid() AND hoa_id = target_hoa_id AND status = 'pending' AND role = 'resident';
   GET DIAGNOSTICS removed = ROW_COUNT;
 
-  DELETE FROM public.community_join_requests
-  WHERE user_id = auth.uid() AND hoa_id = target_hoa_id AND status = 'pending';
+  -- Drop the matching pending request only when no decided membership exists for the pair, so a withdraw call can
+  -- never strip the request row of an approved / rejected member.
+  DELETE FROM public.community_join_requests r
+  WHERE r.user_id = auth.uid() AND r.hoa_id = target_hoa_id AND r.status = 'pending'
+    AND NOT EXISTS (
+      SELECT 1 FROM public.hoa_memberships m
+      WHERE m.user_id = r.user_id AND m.hoa_id = r.hoa_id
+    );
+  GET DIAGNOSTICS removed_requests = ROW_COUNT;
 
-  RETURN removed > 0;
+  RETURN (removed + removed_requests) > 0;
 END;
 $$;
 REVOKE ALL ON FUNCTION public.withdraw_membership_request(uuid) FROM PUBLIC, anon;

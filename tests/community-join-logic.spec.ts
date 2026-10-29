@@ -8,7 +8,7 @@ import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  buildJoinRpcArgs, buildSignupOptions, canRequestToJoin, classifyJoinError, joinErrorMessage,
+  buildJoinRpcArgs, buildSignupOptions, canRequestToJoin, classifyJoinError, joinErrorMessage, withdrawOutcomeMessage,
   membershipDisplay, sanitizeSearchTerm, toCommunityResults, validateSignup,
 } from '../src/lib/communityJoinLogic';
 
@@ -175,4 +175,9 @@ test.describe('legacy request_join_community guards decided memberships (review 
     const native = sql.slice(sql.indexOf('CREATE OR REPLACE FUNCTION public.request_hoa_membership'), sql.indexOf('CREATE OR REPLACE FUNCTION public.request_join_community'));
     expect(native).toMatch(/FROM public\.hoa_memberships\s+WHERE user_id = auth\.uid\(\) AND hoa_id = target_hoa_id\s+\) THEN\s+RAISE EXCEPTION 'Membership already exists/);
   });
+});
+
+test('withdraw outcome: silent when removed, explains when nothing pending was left', () => {
+  expect(withdrawOutcomeMessage(true)).toBe('');
+  expect(withdrawOutcomeMessage(false)).toContain('no pending request');
 });

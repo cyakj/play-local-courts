@@ -85,6 +85,11 @@ export function joinErrorMessage(kind: JoinErrorKind): string {
   }
 }
 
+/** `withdraw_membership_request` returns false when no pending request was left (already decided, removed or never made). */
+export function withdrawOutcomeMessage(removed: boolean): string {
+  return removed ? '' : 'There was no pending request to withdraw. It may already have been decided or removed.';
+}
+
 export interface DirectoryRow { id: string | null; name: string | null; community_type: string | null }
 export interface MyMembership { hoaId: string; status: MembershipStatus | string }
 
