@@ -132,7 +132,8 @@ export default function ResidentCalendarScreen() {
   const [activeCommunity, setActiveCommunity] = useState('all');
   // The chip row can still show 'All', but it starts on, and follows, the shared active community (header menu).
   const { community: sharedCommunity } = useActiveCommunity();
-  useEffect(() => { if (sharedCommunity?.hoaId) setActiveCommunity(sharedCommunity.hoaId); }, [sharedCommunity?.hoaId]);
+  // Community mode only: Tennis-mode matches and lessons carry no community id and would be filtered out.
+  useEffect(() => { if (isCommunityMode && sharedCommunity?.hoaId) setActiveCommunity(sharedCommunity.hoaId); }, [sharedCommunity?.hoaId]);
   const [activeEventType, setActiveEventType] = useState('All');
   const [events, setEvents]                   = useState<ScheduleEvent[]>([]);
   const [loading, setLoading]                 = useState(true);

@@ -227,3 +227,17 @@ test.describe('fresh-inspection follow-ups (D)', () => {
     expect(m).toMatch(/auth\.uid\(\) = reporter_id/);
   });
 });
+
+test.describe('follow-up inspection (RESF)', () => {
+  test('RESF-002: Retry re-runs the administrator lookup', () => {
+    const m = src('components/messaging/CommunityMessages.tsx');
+    expect(m).toMatch(/\[loadConversations, role, contactsAttempt\]/);
+    expect(m).toMatch(/onRetry=\{\(\) => \{ setContactsAttempt\(\(n\) => n \+ 1\); \}\}/);
+  });
+  test('RESF-003: the Schedule chip sync is Community-mode only', () => {
+    expect(src('app/(resident)/calendar.tsx')).toMatch(/if \(isCommunityMode && sharedCommunity\?\.hoaId\) setActiveCommunity/);
+  });
+  test('RESF-001: the migration documents the SECURITY DEFINER RPC that bypasses the policy', () => {
+    expect(readFileSync('supabase/migrations/20261030130000_report_insert_requires_membership.sql', 'utf8')).toMatch(/create_maintenance_report\(\)/);
+  });
+});
