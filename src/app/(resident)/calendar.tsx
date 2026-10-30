@@ -385,14 +385,16 @@ export default function ResidentCalendarScreen() {
     <View style={styles.screen}>
       <Header variant="resident" communityName={communityName} />
 
-      {/* ── Hero ──────────────────────────────────────────────────────────── */}
-      <View style={styles.hero}>
-        <Text testID="schedule-heading" style={styles.heroTitle}>Schedule</Text>
-        <Text testID="month-label" style={styles.heroSub}>{displayMonthLabel}</Text>
-      </View>
-
+      {/* The header and bottom nav stay fixed; the title and month subtitle scroll away with the content so the calendar
+          gets the full height while browsing (V1-004). */}
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={{ maxWidth: MaxWidth, width: '100%', alignSelf: 'center' }}>
+
+          {/* ── Hero (scrolls with the page) ───────────────────────────────── */}
+          <View testID="schedule-hero" style={styles.heroInScroll}>
+            <Text testID="schedule-heading" style={styles.heroTitle}>Schedule</Text>
+            <Text testID="month-label" style={styles.heroSub}>{displayMonthLabel}</Text>
+          </View>
 
           {/* Community chips + week/month toggle row */}
           <View style={styles.topRow}>
@@ -681,11 +683,8 @@ function useStyles(theme: ReturnType<typeof useTheme>['theme']) {
   return useMemo(() => StyleSheet.create({
     screen: { flex: 1, backgroundColor: theme.pageBg },
 
-    hero: {
-      paddingHorizontal: Spacing.pagePx,
-      paddingTop: 24,
-      paddingBottom: 20,
-    },
+    // Same type as before; horizontal padding comes from the scroll content, so none here.
+    heroInScroll: { paddingTop: 12, paddingBottom: 8 },
     heroTitle: {
       fontFamily: FontFamily.spaceGroteskBold,
       fontSize: FontSize.display,
