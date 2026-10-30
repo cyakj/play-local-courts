@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -31,6 +31,10 @@ import { useUpcomingMatches } from '@/hooks/useUpcomingMatches';
 import { isCommunityMode } from '@/config/productMode';
 import { MessageSquare } from 'lucide-react-native';
 import { useUnreadMessages } from '@/hooks/useUnreadMessages';
+import { useActiveCommunity } from '@/hooks/useActiveCommunity';
+import { createLatestGuard } from '@/lib/latestGuard';
+import { ProfileAvatar } from '@/components/ui/ProfileAvatar';
+import { useProfileIdentity } from '@/hooks/useProfileIdentity';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 
 const LESSON_TYPE_SHORT: Record<string, string> = {
@@ -85,6 +89,9 @@ function formatTime12(t: string): string {
 }
 
 export default function MeScreen() {
+  const identity = useProfileIdentity();
+  const { community: activeCommunity, loading: communityLoading } = useActiveCommunity();
+  const activeHoaId = activeCommunity?.hoaId ?? null;
   const unreadMessages = useUnreadMessages();
   const { theme } = useTheme();
   const styles = useStyles(theme);
@@ -100,9 +107,14 @@ export default function MeScreen() {
   const { upcoming: openMatches, invitations: matchInvites } = useUpcomingMatches(userId);
   const nextOpenMatch = openMatches[0] ?? null;
 
+  const loadGuard = useRef(createLatestGuard()).current;
+
   async function load() {
+    if (communityLoading) return;
+    const isStale = loadGuard.begin();
     setError('');
     const { data: { user } } = await supabase.auth.getUser();
+    if (isStale()) return;
     if (!user) { setLoading(false); return; }
     setUserId(user.id);
 
@@ -110,7 +122,7 @@ export default function MeScreen() {
 
     const [profileRes, membershipRes, lessonRes, reservationRes, matchRes] = await Promise.all([
       supabase.from('profiles').select('full_name, ntrp_rating, location').eq('id', user.id).single(),
-      supabase.from('hoa_memberships').select('hoa_id').eq('user_id', user.id).eq('status', 'approved').limit(1).maybeSingle(),
+      Promise.resolve({ data: activeHoaId ? { hoa_id: activeHoaId } : null }), // the ACTIVE community, not the first membership
       supabase
         .from('lesson_requests')
         .select('id, preferred_date, confirmed_date, preferred_time_start, lesson_type, coach_id')
@@ -120,16 +132,18 @@ export default function MeScreen() {
         .order('preferred_date', { ascending: true })
         .limit(1)
         .maybeSingle(),
-      supabase
+      // scoped to the ACTIVE community through the court's HOA
+      activeHoaId ? supabase
         .from('bookings')
-        .select('id, date, start_time, end_time, courts(name)')
+        .select('id, date, start_time, end_time, courts!inner(name, hoa_id)')
         .eq('user_id', user.id)
-        .neq('status', 'cancelled')
+        .eq('courts.hoa_id', activeHoaId)
+        .in('status', ['confirmed', 'pending'])
         .gte('date', today)
         .order('date', { ascending: true })
         .order('start_time', { ascending: true })
         .limit(1)
-        .maybeSingle(),
+        .maybeSingle() : Promise.resolve({ data: null }),
       supabase
         .from('match_requests')
         .select('id, date, time_start, challenger_id, opponent_id')
@@ -142,6 +156,8 @@ export default function MeScreen() {
         .maybeSingle(),
     ]);
 
+    if (isStale()) return;
+
     if (profileRes.error && !profileRes.data) {
       setError('Could not load profile.');
       setLoading(false);
@@ -152,6 +168,7 @@ export default function MeScreen() {
     let communityId: string | null = null;
     if (membershipRes.data?.hoa_id) {
       const { data: hoa } = await supabase.from('hoas').select('name').eq('id', membershipRes.data.hoa_id).single();
+      if (isStale()) return;
       communityName = hoa?.name ?? null;
       communityId = membershipRes.data.hoa_id;
     }
@@ -170,6 +187,7 @@ export default function MeScreen() {
       let coachName: string | null = null;
       if (lr.coach_id) {
         const { data: cp } = await supabase.from('profiles').select('full_name').eq('id', lr.coach_id).single();
+        if (isStale()) return;
         coachName = cp?.full_name ?? null;
       }
       setNextLesson({
@@ -204,6 +222,7 @@ export default function MeScreen() {
       let opponentName: string | null = null;
       if (opponentId) {
         const { data: op } = await supabase.from('profiles').select('full_name').eq('id', opponentId).single();
+        if (isStale()) return;
         opponentName = op?.full_name ?? null;
       }
       setNextMatch({
@@ -216,11 +235,14 @@ export default function MeScreen() {
       setNextMatch(null);
     }
 
-    setLoading(false);
+    if (!isStale()) setLoading(false);
   }
 
-  useEffect(() => { load(); }, []);
-  useFocusEffect(useCallback(() => { load(); }, []));
+  const loadRef = useRef(load);
+  loadRef.current = load;
+  // The community-bound preview is cleared immediately so the previous community's reservation never lingers.
+  useEffect(() => { setNextReservation(null); loadRef.current(); }, [activeHoaId, communityLoading]);
+  useFocusEffect(useCallback(() => { loadRef.current(); }, []));
 
   function handleSignOut() {
     setSignOutError('');
@@ -258,13 +280,7 @@ export default function MeScreen() {
             <>
               {/* ── Identity card ──────────────────────────────────── */}
               <View style={styles.identityCard}>
-                <View style={styles.avatarCircle}>
-                  {profile.fullName ? (
-                    <Text style={styles.avatarInitials}>{getInitials(profile.fullName)}</Text>
-                  ) : (
-                    <UserCircle size={36} color={Colors.cyan} strokeWidth={1.5} />
-                  )}
-                </View>
+                <ProfileAvatar photoUrl={identity.photoUrl} initials={getInitials(profile.fullName)} size={64} testID="me-avatar" />
                 <Text style={styles.nameText}>{profile.fullName}</Text>
               </View>
 

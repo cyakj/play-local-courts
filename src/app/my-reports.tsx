@@ -13,6 +13,7 @@ import {
 } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
+import { useActiveCommunity } from '@/hooks/useActiveCommunity';
 import { Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing } from '@/constants/design';
 import { Header } from '@/components/ui/Header';
 import { useTheme } from '@/context/ThemeContext';
@@ -78,24 +79,38 @@ export default function MyReportsScreen() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterVal>('active');
 
-  useEffect(() => { load(); }, []);
+  const { community, loading: communityLoading } = useActiveCommunity();
+  const hoaId = community?.hoaId;
+  useEffect(() => {
+    let cancelled = false;
+    setReports([]);
+    setLoading(true);
+    if (communityLoading) return;
+    if (!hoaId) { setLoading(false); return; }
+    load(hoaId, () => cancelled);
+    return () => { cancelled = true; };
+  }, [hoaId, communityLoading]);
 
-  async function load() {
+  async function load(activeHoa: string, isCancelled: () => boolean) {
     const { data: { user } } = await supabase.auth.getUser();
+    if (isCancelled()) return; // superseded: only the current request may touch state
     if (!user) { setLoading(false); return; }
 
     const { data } = await supabase
       .from('maintenance_reports')
       .select('id, category, description, status, created_at, updated_at, amenity_id, report_type, location_text, hoa_id')
       .eq('reporter_id', user.id)
+      .eq('hoa_id', activeHoa)
       .order('created_at', { ascending: false });
 
+    if (isCancelled()) return;
     if (!data) { setLoading(false); return; }
 
     const amenityIds = [...new Set(data.filter((r) => r.amenity_id).map((r) => r.amenity_id!))];
     const amenityMap: Record<string, string> = {};
     if (amenityIds.length > 0) {
       const { data: courts } = await supabase.from('courts').select('id, name').in('id', amenityIds);
+      if (isCancelled()) return;
       (courts ?? []).forEach((c) => { amenityMap[c.id] = c.name; });
     }
 

@@ -1,10 +1,11 @@
-import { Children, cloneElement, isValidElement, ReactElement, ReactNode } from 'react';
+import { Children, cloneElement, isValidElement, ReactElement, ReactNode, useState } from 'react';
 import {
   ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView,
   StyleProp, StyleSheet, Text, View, ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { AccountMenu } from '@/components/ui/AccountMenu';
 import { ArrowLeft, Bell, Menu, type LucideIcon } from 'lucide-react-native';
 
 import {
@@ -32,6 +33,9 @@ export function AdminHeader({
   title, subtitle, onBack, showBell = true, showMenu = false, unread = 0, community, right,
 }: AdminHeaderProps) {
   const insets = useSafeAreaInsets();
+  // The same account menu as the resident header: lets a multi-role account switch shells (including back to Resident)
+  // from every shell it can enter, plus Account Settings and Sign Out.
+  const [menuOpen, setMenuOpen] = useState(false);
   return (
     <View style={[s.header, { paddingTop: insets.top + 6 }]}>
       <View style={s.headerRow}>
@@ -58,7 +62,8 @@ export function AdminHeader({
             )}
           </View>
         )}
-        {showMenu && <IconButton label="Menu" onPress={() => router.push('/settings')} Icon={Menu} dark />}
+        {showMenu && <IconButton label="Account menu" onPress={() => setMenuOpen(true)} Icon={Menu} dark />}
+        {showMenu && <AccountMenu visible={menuOpen} onClose={() => setMenuOpen(false)} />}
       </View>
       {subtitle ? <Text style={s.headerSub} numberOfLines={1}>{subtitle}</Text> : null}
     </View>

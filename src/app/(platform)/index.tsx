@@ -95,6 +95,7 @@ export default function PlatformDashboard() {
           title="Platform Admin"
           subtitle="Community registrations"
           showBell={false}
+          showMenu
           right={<IconButton label="Sign out" onPress={signOut} Icon={LogOut} dark />}
         />
       }

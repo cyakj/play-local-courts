@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { CalendarDays, ChevronRight, Info } from 'lucide-react-native';
@@ -13,6 +13,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ReservationStatusPill } from '@/components/ui/ReservationStatusPill';
 import { useTheme } from '@/context/ThemeContext';
 import { useActiveCommunity } from '@/hooks/useActiveCommunity';
+import { createLatestGuard } from '@/lib/latestGuard';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 import { cancellationState, formatTime12, isUpcoming } from '@/lib/reservations';
 
@@ -40,7 +41,7 @@ function formatShortDate(iso: string): string {
 export default function MyReservationsScreen() {
   const { theme } = useTheme();
   const styles = useStyles(theme);
-  const { community } = useActiveCommunity();
+  const { community, loading: communityLoading } = useActiveCommunity();
   const hoaId = community?.hoaId;
 
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -49,20 +50,29 @@ export default function MyReservationsScreen() {
   const [userId, setUserId] = useState('');
   const [historyShown, setHistoryShown] = useState(HISTORY_PAGE);
 
+  // A slow load for a previous community/account must never publish over the current one.
+  const loadGuard = useRef(createLatestGuard()).current;
+
   const load = useCallback(async () => {
+    // Wait for the active community; with none, show an empty state - never every community's reservations.
+    if (communityLoading) return;
+    if (!hoaId) { loadGuard.invalidate(); setBookings([]); setLoading(false); return; }
+    const isStale = loadGuard.begin();
     const { data: { user } } = await supabase.auth.getUser();
+    if (isStale()) return;
     if (!user) { setLoading(false); return; }
     setUserId(user.id);
 
     // Scoped to the active community (courts.hoa_id), newest first.
-    let query = supabase
+    const query = supabase
       .from('bookings')
       .select('id, date, start_time, end_time, status, cancellation_reason, cancelled_by, court_id, courts!inner(name, hoa_id)')
       .eq('user_id', user.id)
       .order('date', { ascending: false })
+      .eq('courts.hoa_id', hoaId)
       .order('start_time', { ascending: false });
-    if (hoaId) query = query.eq('courts.hoa_id', hoaId);
     const { data } = await query;
+    if (isStale()) return;
 
     const courtIds = [...new Set((data ?? []).map((b: any) => b.court_id).filter(Boolean))];
     const rulesByCourtId = new Map<string, number>();
@@ -71,6 +81,7 @@ export default function MyReservationsScreen() {
         .from('amenity_rules')
         .select('amenity_id, min_cancellation_hours')
         .in('amenity_id', courtIds);
+      if (isStale()) return;
       for (const r of rules ?? []) {
         if (r.min_cancellation_hours != null) rulesByCourtId.set(r.amenity_id, r.min_cancellation_hours);
       }
@@ -89,9 +100,9 @@ export default function MyReservationsScreen() {
       cancelledBy: b.cancelled_by ?? null,
     })));
     setLoading(false);
-  }, [hoaId]);
+  }, [hoaId, communityLoading]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { setBookings([]); setLoading(true); load(); return () => { loadGuard.invalidate(); }; }, [load]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const { upcoming, history } = useMemo(() => {

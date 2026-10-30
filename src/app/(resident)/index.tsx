@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   RefreshControl,
   ScrollView,
@@ -8,6 +8,8 @@ import {
   View,
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
+import { useActiveCommunity } from '@/hooks/useActiveCommunity';
+import { createLatestGuard } from '@/lib/latestGuard';
 import {
   AlertTriangle, X, MapPin, Swords, GraduationCap, Calendar,
   ChevronRight, Sun, Cloud, CloudRain, CloudSnow, Zap, Wrench,
@@ -218,9 +220,17 @@ export default function HomeScreen() {
     loadWeather();
   }, []);
 
+  // Latest-load guard: a slow load for the previous community/account must never publish over the current one.
+  const loadGuard = useRef(createLatestGuard()).current;
+  const { community: activeCommunity, loading: communityLoading } = useActiveCommunity();
+  const activeHoaId = activeCommunity?.hoaId ?? null;
+
   async function load() {
+    if (communityLoading) return;
+    const isStale = loadGuard.begin();
     try {
       const { data: { session } } = await supabase.auth.getSession();
+      if (isStale()) return;
       const user = session?.user ?? null;
       if (!user) { setLoading(false); return; }
 
@@ -228,25 +238,27 @@ export default function HomeScreen() {
       setUserId(userId);
       const today = new Date().toISOString().split('T')[0];
 
-      const [profileRes, membershipRes] = await Promise.all([
-        supabase.from('profiles').select('full_name').eq('id', userId).single(),
-        supabase.from('hoa_memberships').select('hoa_id').eq('user_id', userId).eq('status', 'approved').limit(1).single(),
-      ]);
+      const profileRes = await supabase.from('profiles').select('full_name').eq('id', userId).single();
+      if (isStale()) return;
 
       setName(firstName(profileRes.data?.full_name ?? 'there'));
 
-      const hId = membershipRes.data?.hoa_id ?? '';
+      // The ACTIVE community only (no first-membership fallback); switching community reloads everything below.
+      const hId = activeHoaId ?? '';
 
       const [bookingsRes, announcementsRes, cancelledRes, challengeRes, upcomingRes, resultRes, eventsRes, courtsRes] = await Promise.all([
-        supabase
+        // Bookings are scoped to the ACTIVE community through the court's HOA (a resident of A and B must not see A's
+        // booking under B's identity).
+        hId ? supabase
           .from('bookings')
-          .select('id, date, start_time, end_time, courts(name)')
+          .select('id, date, start_time, end_time, courts!inner(name, hoa_id)')
           .eq('user_id', userId)
+          .eq('courts.hoa_id', hId)
           .gte('date', today)
-          .neq('status', 'cancelled')
+          .in('status', ['confirmed', 'pending'])
           .order('date', { ascending: true })
           .order('start_time', { ascending: true })
-          .limit(1),
+          .limit(1) : Promise.resolve({ data: [] }),
 
         hId ? supabase
           .from('hoa_announcements')
@@ -255,13 +267,14 @@ export default function HomeScreen() {
           .order('created_at', { ascending: false })
           .limit(2) : Promise.resolve({ data: [] }),
 
-        supabase
+        hId ? supabase
           .from('bookings')
-          .select('id, date, start_time, courts(name)')
+          .select('id, date, start_time, courts!inner(name, hoa_id)')
           .eq('user_id', userId)
+          .eq('courts.hoa_id', hId)
           .eq('status', 'cancelled')
           .eq('cancelled_by', 'admin')
-          .gte('updated_at', new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()),
+          .gte('updated_at', new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()) : Promise.resolve({ data: [] }),
 
         isTennisMode ? supabase
           .from('match_requests')
@@ -303,6 +316,8 @@ export default function HomeScreen() {
           .eq('hoa_id', hId) : Promise.resolve({ data: [] }),
       ]);
 
+      if (isStale()) return; // community/account changed while these were loading
+
       const firstBooking = (bookingsRes.data ?? [])[0];
       setNextBooking(firstBooking ? {
         id: firstBooking.id,
@@ -333,6 +348,7 @@ export default function HomeScreen() {
           .gte('date', today)
           .order('date', { ascending: true })
           .limit(3);
+        if (isStale()) return;
         setUpcomingMaintenance(
           (maintenanceData ?? []).map((m: any) => ({
             id: m.id,
@@ -361,6 +377,7 @@ export default function HomeScreen() {
           .select('full_name')
           .eq('id', challengeRow.challenger_id)
           .single();
+        if (isStale()) return;
         setPendingChallenge({
           id: challengeRow.id,
           challengerName: firstName(challengerProfile?.full_name ?? 'Player'),
@@ -384,6 +401,7 @@ export default function HomeScreen() {
           .from('profiles')
           .select('id, full_name')
           .in('id', opponentIds);
+        if (isStale()) return;
         const nameMap: Record<string, string> = {};
         (opponentProfiles ?? []).forEach((p: any) => { nameMap[p.id] = p.full_name ?? 'Player'; });
 
@@ -406,6 +424,7 @@ export default function HomeScreen() {
           .select('full_name')
           .eq('id', opponentId)
           .single();
+        if (isStale()) return;
         setRecentResult({
           id: resultRow.id,
           opponentName: firstName(oppProfile?.full_name ?? 'Player'),
@@ -420,12 +439,14 @@ export default function HomeScreen() {
     } catch {
       // silently fail — show empty states
     } finally {
-      setLoading(false);
+      if (!isStale()) setLoading(false);
     }
   }
 
-  useEffect(() => { load(); }, []);
-  useFocusEffect(useCallback(() => { load(); }, []));
+  const loadRef = useRef(load);
+  loadRef.current = load;
+  useEffect(() => { setLoading(true); loadRef.current(); }, [activeHoaId, communityLoading]);
+  useFocusEffect(useCallback(() => { loadRef.current(); }, []));
 
   async function onRefresh() {
     setRefreshing(true);

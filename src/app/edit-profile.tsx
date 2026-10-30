@@ -23,6 +23,10 @@ import { isTennisMode } from '@/config/productMode';
 import { Header } from '@/components/ui/Header';
 import { HeaderSaveButton } from '@/components/ui/HeaderSaveButton';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
+import { ProfileAvatar } from '@/components/ui/ProfileAvatar';
+import { useProfileIdentity } from '@/hooks/useProfileIdentity';
+import { chooseAndUploadProfilePhoto, removeProfilePhoto } from '@/lib/profilePhotoActions';
+import { refreshProfileIdentity } from '@/hooks/useProfileIdentity';
 
 const NTRP_OPTIONS = [1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0];
 const HAND_OPTIONS = ['Right', 'Left', 'Two-handed'] as const;
@@ -65,6 +69,37 @@ const EMPTY_ORIG: OrigState = {
 
 export default function EditProfileScreen() {
   const { theme } = useTheme();
+  const identity = useProfileIdentity();
+  const [photoBusy, setPhotoBusy] = useState<'upload' | 'remove' | null>(null);
+  const [photoMsg, setPhotoMsg] = useState('');
+
+  async function onChoosePhoto() {
+    if (!identity.userId || photoBusy) return;
+    setPhotoMsg('');
+    setPhotoBusy('upload');
+    try {
+      const r = await chooseAndUploadProfilePhoto(identity.userId);
+      if (r.status === 'error') setPhotoMsg(r.message);
+    } catch (e) {
+      setPhotoMsg(e instanceof Error ? e.message : 'Photo upload failed. Please try again.');
+    } finally {
+      setPhotoBusy(null);
+    }
+  }
+
+  async function onRemovePhoto() {
+    if (!identity.userId || photoBusy) return;
+    setPhotoMsg('');
+    setPhotoBusy('remove');
+    try {
+      const r = await removeProfilePhoto(identity.userId);
+      if (r.status === 'error') setPhotoMsg(r.message);
+    } catch (e) {
+      setPhotoMsg(e instanceof Error ? e.message : 'Could not remove the photo. Please try again.');
+    } finally {
+      setPhotoBusy(null);
+    }
+  }
   const styles = useStyles(theme);
 
   const [fullName, setFullName]             = useState('');
@@ -193,6 +228,7 @@ export default function EditProfileScreen() {
       fullName: trimmed, ntrp, dominantHand, backhand, playingStyle, favoriteSurface,
       tennisGoals, yearsPlaying, bio, location, visibility,
     });
+    void refreshProfileIdentity(); // header initials / account menu name follow the saved name (also the unsaved-changes save path)
     return true;
   }
 
@@ -245,12 +281,37 @@ export default function EditProfileScreen() {
         showsVerticalScrollIndicator={false}>
         <View style={{ maxWidth: MaxWidth, width: '100%', alignSelf: 'center' }}>
 
-          {/* Avatar (initials only until storage is configured) */}
-          <View style={styles.avatarRow}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{loading ? '?' : initials}</Text>
+          {/* Profile photo: add / replace / remove. Photos are private to the account (owner-only storage). */}
+          <View style={styles.avatarRow} testID="profile-photo-section">
+            <ProfileAvatar photoUrl={identity.photoUrl} initials={loading ? '' : (identity.initials || initials)} size={88} testID="profile-photo" />
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <TouchableOpacity
+                testID="profile-photo-change"
+                style={styles.photoBtn}
+                onPress={onChoosePhoto}
+                disabled={photoBusy !== null || !identity.userId}
+                accessibilityRole="button"
+                activeOpacity={0.8}>
+                <Text style={styles.photoBtnText}>
+                  {photoBusy === 'upload' ? 'Uploading…' : identity.photoUrl ? 'Replace photo' : 'Add photo'}
+                </Text>
+              </TouchableOpacity>
+              {identity.photoUrl ? (
+                <TouchableOpacity
+                  testID="profile-photo-remove"
+                  style={styles.photoBtn}
+                  onPress={onRemovePhoto}
+                  disabled={photoBusy !== null}
+                  accessibilityRole="button"
+                  activeOpacity={0.8}>
+                  <Text style={[styles.photoBtnText, { color: Colors.negative }]}>
+                    {photoBusy === 'remove' ? 'Removing…' : 'Remove'}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
-            <Text style={styles.avatarHint}>Profile photo coming soon</Text>
+            {photoMsg ? <Text testID="profile-photo-message" style={[styles.avatarHint, { color: Colors.negative }]}>{photoMsg}</Text>
+              : <Text style={styles.avatarHint}>JPEG, PNG or WebP · up to 5 MB</Text>}
           </View>
 
           {/* Full Name */}
@@ -508,7 +569,9 @@ function useStyles(theme: ThemeTokens) {
       alignItems: 'center', justifyContent: 'center',
     },
     avatarText:  { fontFamily: FontFamily.spaceGroteskBold, fontSize: 26, color: Colors.blue },
-    avatarHint:  { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label, color: theme.textMuted },
+    avatarHint:  { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label, color: theme.textMuted, textAlign: 'center' },
+    photoBtn:    { minHeight: 44, paddingHorizontal: 16, borderRadius: Radius.sm, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.cardBg, alignItems: 'center', justifyContent: 'center' },
+    photoBtnText: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label, color: theme.textPrimary },
 
     label: {
       fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: FontSize.eyebrow,

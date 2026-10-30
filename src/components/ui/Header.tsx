@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,6 +9,9 @@ import { useTheme } from '@/context/ThemeContext';
 import { supabase } from '@/lib/supabase';
 import { isCommunityMode, isTennisMode } from '@/config/productMode';
 import { CommunityLogo, TenisXLogo } from '@/components/branding/BrandLogos';
+import { ProfileAvatar } from '@/components/ui/ProfileAvatar';
+import { AccountMenu } from '@/components/ui/AccountMenu';
+import { useProfileIdentity } from '@/hooks/useProfileIdentity';
 import { useActiveCommunity } from '@/hooks/useActiveCommunity';
 
 interface CMPortfolioHeaderProps {
@@ -81,31 +84,12 @@ type HeaderProps =
   | CoachHeaderProps
   | AdminHeaderProps;
 
-function useProfileInitials(): string {
-  const [initials, setInitials] = useState('');
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return;
-      supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', user.id)
-        .single()
-        .then(({ data }) => {
-          if (!data?.full_name) return;
-          const parts = (data.full_name as string).trim().split(' ').filter(Boolean);
-          setInitials((parts[0][0] + (parts[1]?.[0] ?? '')).toUpperCase());
-        });
-    });
-  }, []);
-  return initials;
-}
-
 export function Header(props: HeaderProps) {
   const insets = useSafeAreaInsets();
   const topPad = Math.max(insets.top, 24);
   const { theme } = useTheme();
-  const profileInitials = useProfileInitials();
+  const profile = useProfileIdentity();
+  const [menuOpen, setMenuOpen] = useState(false);
   const { community } = useActiveCommunity();
 
   // A screen may pass its own `communityName`. Only reuse the active community's
@@ -127,7 +111,7 @@ export function Header(props: HeaderProps) {
       : ((props as ResidentHeaderProps).onMessages ?? (() => router.push('/messages' as any)));
     const onAvatar = isCoach
       ? (() => router.push('/(coach)/me' as any))
-      : ((props as ResidentHeaderProps).onAvatar ?? (() => router.push('/(resident)/me' as any)));
+      : ((props as ResidentHeaderProps).onAvatar ?? (() => setMenuOpen(true)));
     return (
       <View style={[styles.base, styles.residentBase, { paddingTop: topPad + 8, backgroundColor: theme.headerBg, borderBottomColor: theme.headerBorder }]}>
         <View style={[styles.topBar, styles.residentTopBar]}>
@@ -144,7 +128,7 @@ export function Header(props: HeaderProps) {
               </TouchableOpacity>
             )}
             {isCommunityMode ? (
-              <TenisXLogo height={30} testID="tenisx-logo" />
+              <TenisXLogo height={38} testID="tenisx-logo" />
             ) : (
               <View testID="tenisx-logo" style={[styles.residentLogoWrap, { flexShrink: 1 }]}>
                 <Image
@@ -183,12 +167,11 @@ export function Header(props: HeaderProps) {
               style={styles.iconBtn}
               onPress={onAvatar}
               hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
-              <View style={styles.avatarCircle}>
-                <Text style={styles.avatarCircleText}>{profileInitials || '?'}</Text>
-              </View>
+              <ProfileAvatar photoUrl={profile.photoUrl} initials={profile.initials} size={30} onLoadError={profile.refresh} />
             </TouchableOpacity>
           </View>
         </View>
+        {!isCoach && <AccountMenu visible={menuOpen} onClose={() => setMenuOpen(false)} />}
         {isCommunityMode && (
           // Second tier: the community's own identity, drawn directly on the header.
           <View testID="community-wordmark" style={styles.communityRow}>
@@ -196,8 +179,8 @@ export function Header(props: HeaderProps) {
               hoaId={identity.hoaId}
               logoUrl={identity.logoUrl}
               name={identity.name}
-              height={36}
-              maxWidth={240}
+              height={40}
+              maxWidth={260}
             />
           </View>
         )}
@@ -385,7 +368,7 @@ const styles = StyleSheet.create({
   communityRow: {
     marginTop: 6,
     paddingBottom: 4,
-    minHeight: 36,
+    minHeight: 40,
     justifyContent: 'center',
   },
   brandStrip: {
