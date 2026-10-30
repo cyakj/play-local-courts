@@ -1,6 +1,30 @@
-# SDK UPDATE (2026-10-30)
+# FINAL SAVE — 2026-10-30 (SDK 58 session)
 
-App is now on **Expo SDK 58.0.21** (was 57). Start with `npx expo start --go` and scan the QR in Expo Go (SDK 58). Install deps with `npm install --legacy-peer-deps`. Details: see the SDK 58 section of `GREENS_V1_CHECKPOINT.md`. The notes below are older.
+**Branch:** v1/overnight-integration · **Code commit:** d716afd (SDK 58 upgrade). Nothing pushed. Only uncommitted file: `.claude/settings.local.json` (left untouched on purpose).
+
+## SDK 58 upgrade (committed)
+- Expo SDK 58.0.21, React Native 0.88.1, React 19.3.0, expo-router 58.0.28.
+- `npx expo install --check` passed; `npx expo-doctor` 20/20; `expo export -p ios` succeeded.
+- Fixed: bottom nav (`navigateToTab`), unsaved-changes guard (`usePreventRemove`), RN ref types (`ScrollViewInstance`/`TextInputInstance`).
+- Codex: round 1 CHANGES REQUIRED (2 P1), round 2 APPROVED.
+- Install needs `npm install --legacy-peer-deps` (expo-symbols peer ERESOLVE).
+- Remaining: legacy TypeScript errors (old web files); `expo lint` blocked by ESLint version; **physical iPhone testing NOT yet done**.
+
+## Database / backup status (nothing applied; TENISX REAL untouched)
+- Real backup at `C:\Users\info\tenisx-backups\20261029-235117-04c5d3`: RESTORE VERIFIED (2744 objects cross-checked, 0 diffs). Preserve it; contents not recorded here.
+- All 7 pending migrations were rehearsed on a restore of that backup: assertions passed, mutation checks caught. **None applied to hosted.** Hosted bucket `report-photos` is missing (decision pending, runbook 3b).
+- Before applying anything: take a fresh backup, then get the user's explicit approval.
+- A leftover scratch copy of restored real data (contains account data) is in the Claude scratchpad `srv/` folder; delete it when convenient.
+
+## Restart Expo Go next time
+```
+cd C:\Users\info\tenisx-native
+npx expo start --go --lan
+```
+Phone and PC on the same Wi-Fi; in Expo Go (SDK 58) enter `exp://<PC LAN IP>:8081` (the QR does not print in non-interactive shells). The Metro server from this session was stopped.
+
+## COPY-PASTE RESTART PROMPT
+> Resume TenisX in C:\Users\info\tenisx-native (branch v1/overnight-integration). Run `git log --oneline -5` and `git status`; the SDK 58 upgrade (d716afd) is committed locally, nothing is pushed. Read RESTART.md and C:\Users\info\tenisx-overnight\CHECKPOINT.md. Priorities: (A) start Expo Go with SDK 58 (`npx expo start --go --lan`; install deps with `npm install --legacy-peer-deps` if needed); (B) get TenisX running on my physical iPhone and give me the QR / exp:// URL; (C) test the Resident, HOA Manager and TenisX Platform Management experiences with me; (D) fix bugs found on the device, with Codex review before committing; (E) database security work (7 pending migrations, report-photos bucket) stays SEPARATE — do not apply migrations or touch TENISX REAL without my explicit approval and a fresh backup. Never push to GitHub, never change permission safeguards, no emoji icons, Stage 1 screens only.
 
 ---
 
