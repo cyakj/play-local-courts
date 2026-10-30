@@ -1,8 +1,9 @@
 import { test, expect, Page } from '@playwright/test';
 import path from 'path';
 import fs from 'fs';
+import { blockHostedWrites } from './helpers/hostedWriteGuard';
 
-const REPORTS = '/(resident)/report';
+const REPORTS = '/report';
 
 const EXPECTED_CATEGORY_LABELS = [
   'Water & Plumbing',
@@ -62,6 +63,7 @@ async function submitReport(page: Page, opts: {
 
 test.describe('Resident Reports Screen', () => {
   test.beforeEach(async ({ page }) => {
+    await blockHostedWrites(page); // hosted TENISX REAL is read-only for tests
     await page.goto(REPORTS);
     await page.waitForLoadState('domcontentloaded');
     // Header.tsx only renders testID="tenisx-logo" in Tennis mode — Community
@@ -292,7 +294,8 @@ test.describe('Resident Reports Screen', () => {
     await expect(page.locator('[data-testid="submit-success"]')).toBeVisible({ timeout: 5000 });
   });
 
-  test('submitted report appears in the All list', async ({ page }) => {
+  // Needs a real insert to appear in the list; hosted writes are blocked, so this belongs on a local Supabase.
+  test.skip('submitted report appears in the All list', async ({ page }) => {
     await page.locator('[data-testid="filter-all"]').click();
     const before = await page.locator('[data-testid="report-card"]').count();
 
@@ -322,13 +325,8 @@ test.describe('Resident Reports Screen', () => {
     ).toBeVisible({ timeout: 30000 });
 
     const cards = page.locator('[data-testid="report-card"]');
-    if (await cards.count() === 0) {
-      // Submit one first then navigate
-      await submitReport(page, { categoryIndex: 3 });
-      await expect(page.locator('[data-testid="submit-success"]')).toBeVisible({ timeout: 15000 });
-      await expect(page.locator('[data-testid="report-form"]')).not.toBeVisible({ timeout: 10000 });
-      await page.locator('[data-testid="filter-all"]').click();
-    }
+    // Hosted writes are blocked, so a mocked insert never becomes a card: this test needs pre-existing reports.
+    test.skip(await cards.count() === 0, 'no existing reports to open');
 
     await page.locator('[data-testid="report-card"]').first().click();
     await expect(page.locator('[data-testid="report-detail-screen"]')).toBeVisible({ timeout: 15000 });
@@ -341,12 +339,8 @@ test.describe('Resident Reports Screen', () => {
         .or(page.locator('[data-testid="report-card"]').first())
     ).toBeVisible({ timeout: 30000 });
 
-    if (await page.locator('[data-testid="report-card"]').count() === 0) {
-      await submitReport(page, { categoryIndex: 3, description: 'Detail screen test' });
-      await expect(page.locator('[data-testid="submit-success"]')).toBeVisible({ timeout: 15000 });
-      await expect(page.locator('[data-testid="report-form"]')).not.toBeVisible({ timeout: 10000 });
-      await page.locator('[data-testid="filter-all"]').click();
-    }
+    // Hosted writes are blocked, so a mocked insert never becomes a card: this test needs pre-existing reports.
+    test.skip(await page.locator('[data-testid="report-card"]').count() === 0, 'no existing reports to open');
 
     await page.locator('[data-testid="report-card"]').first().click();
     await expect(page.locator('[data-testid="report-detail-screen"]')).toBeVisible({ timeout: 15000 });
@@ -366,12 +360,8 @@ test.describe('Resident Reports Screen', () => {
         .or(page.locator('[data-testid="report-card"]').first())
     ).toBeVisible({ timeout: 30000 });
 
-    if (await page.locator('[data-testid="report-card"]').count() === 0) {
-      await submitReport(page, { categoryIndex: 3 });
-      await expect(page.locator('[data-testid="submit-success"]')).toBeVisible({ timeout: 15000 });
-      await expect(page.locator('[data-testid="report-form"]')).not.toBeVisible({ timeout: 10000 });
-      await page.locator('[data-testid="filter-all"]').click();
-    }
+    // Hosted writes are blocked, so a mocked insert never becomes a card: this test needs pre-existing reports.
+    test.skip(await page.locator('[data-testid="report-card"]').count() === 0, 'no existing reports to open');
 
     await page.locator('[data-testid="report-card"]').first().click();
     await expect(page.locator('[data-testid="report-detail-screen"]')).toBeVisible({ timeout: 15000 });
@@ -453,15 +443,9 @@ test.describe('Resident Reports Screen', () => {
     await expect(page.locator('[data-testid="filter-active"]')).toBeVisible({ timeout: 10000 });
     await expect(page.locator('[data-testid="filter-all"]')).toBeVisible();
     await expect(page.locator('[data-testid="filter-resolved"]')).toBeVisible();
-    // Bottom nav bar visible
-    await expect(page.locator('[data-testid="bottom-nav"]')).toBeVisible({ timeout: 5000 });
-    // All 5 Community-mode tab labels present (Home/Reserve/Community/Schedule/Me —
-    // (resident)/_layout.tsx; report/book/docs are legacy href:null routes, never
-    // tab items, so the old HOME/BOOK/REPORTS/CALENDAR/DOCS label set here was stale)
-    const nav = page.locator('[data-testid="bottom-nav"]');
-    for (const label of ['HOME', 'RESERVE', 'COMMUNITY', 'SCHEDULE', 'ME']) {
-      await expect(nav.getByText(label, { exact: true })).toBeVisible({ timeout: 5000 });
-    }
+    // /report is a root Stack screen (Expo Router 58 redirects hidden tabs to Home): no bottom nav, a back arrow instead.
+    await expect(page.locator('[data-testid="bottom-nav"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="header-back"]')).toBeVisible({ timeout: 5000 });
   });
 
   test('screenshot: report list screen visual snapshot', async ({ page }) => {
@@ -490,7 +474,16 @@ test.describe('Resident Reports Screen', () => {
   // facility form opens only after the resident taps the facility CTA.
 
   async function openFacilityForm(page: any, query: string) {
-    await page.goto('/(resident)/report?' + query);
+    // The screen proves the amenity belongs to the active community by id; answer that lookup from the URL's own
+    // fixture values (hosted data has no 'test-id' court).
+    const q = new URLSearchParams(query);
+    await page.route(/\/rest\/v1\/courts\?/, (route: any) => {
+      const court = { id: q.get('courtId'), name: q.get('courtName'), court_type: q.get('facilityType') };
+      // maybeSingle() (the amenity lookup) asks for one object; the location picker asks for a list.
+      const single = (route.request().headers()['accept'] ?? '').includes('vnd.pgrst.object');
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(single ? court : [court]) });
+    });
+    await page.goto('/report?' + query);
     await page.waitForLoadState('domcontentloaded');
     // Overview first: heading + list, NOT the form.
     await expect(page.locator('[data-testid="facility-report-cta"]')).toBeVisible({ timeout: 30000 });

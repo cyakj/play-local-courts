@@ -28,6 +28,7 @@ import { TimeSlotWheel } from '@/components/ui/TimeSlotWheel';
 import { CalendarPicker, formatDateLabel } from '@/components/ui/CalendarPicker';
 import { useTheme } from '@/context/ThemeContext';
 import { useCommunityName } from '@/hooks/useCommunityName';
+import { useActiveCommunity } from '@/hooks/useActiveCommunity';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 import { isCommunityMode, isTennisMode } from '@/config/productMode';
 
@@ -264,6 +265,7 @@ export default function CourtsScreen() {
 
   // ── Core state ──────────────────────────────────────────────────────────────
   const [userId, setUserId] = useState('');
+  const { community: activeCommunity } = useActiveCommunity();
   const [courts, setCourts] = useState<Court[]>([]);
   const [bookingsByDate, setBookingsByDate] = useState<Record<string, TodayBooking[]>>({});
   const [userBookings, setUserBookings] = useState<UserBooking[]>([]);
@@ -290,6 +292,14 @@ export default function CourtsScreen() {
 
   // ── Schedule sheet state ──────────────────────────────────────────────────────
   const [scheduleSheet, setScheduleSheet] = useState<{ courtId: string; courtName: string; courtType: string } | null>(null);
+  // Sheets are bound to the community they were opened in.
+  const sheetGen = useRef(0);
+  useEffect(() => {
+    sheetGen.current += 1;
+    setBookingSheet(null);
+    setScheduleSheet(null);
+    setSheetSelectedSlot(null);
+  }, [activeCommunity?.hoaId]);
   const [scheduleDate, setScheduleDate] = useState<Date>(new Date());
   const [maintenanceBlocks, setMaintenanceBlocks] = useState<MaintenanceBlock[]>([]);
   const [scheduleLoading, setScheduleLoading] = useState(false);
@@ -355,17 +365,21 @@ export default function CourtsScreen() {
   }
 
   // ── Booking sheet open ──────────────────────────────────────────────────────
-  async function fetchMaintenanceForSheet(courtId: string) {
+  async function fetchMaintenanceForSheet(courtId: string, isStale: () => boolean = () => false) {
     try {
       // Not date-filtered server-side — a blockout row can span a date
       // range (end_date), so every candidate row is fetched once and
       // range-checked per-date client-side via isMaintenanceActiveOnDate.
       const { data } = await supabase.from('court_maintenance').select('date, end_date, start_time, end_time, description').eq('court_id', courtId);
+      if (isStale()) return;
       setSheetMaintenanceAll((data ?? []) as MaintenanceBlock[]);
-    } catch { setSheetMaintenanceAll([]); }
+    } catch { if (!isStale()) setSheetMaintenanceAll([]); }
   }
 
   async function openBookingSheet(court: Court, preselectedSlot?: string) {
+    // Opening another sheet, closing, or switching community supersedes every outstanding sheet load.
+    const myGen = ++sheetGen.current;
+    const isStale = () => sheetGen.current !== myGen;
     const today = new Date();
     setSheetDate(today);
     setBookingSheet({ courtId: court.id, courtName: court.name, courtType: court.court_type });
@@ -384,12 +398,12 @@ export default function CourtsScreen() {
       (async () => {
         try {
           const { data } = await supabase.from('amenity_rules').select('booking_start_time, booking_end_time, singles_duration_minutes, doubles_duration_minutes, advance_booking_days, min_cancellation_hours').eq('amenity_id', court.id).maybeSingle();
-          setSheetRules(data ?? null);
-        } catch { setSheetRules(null); }
+          if (!isStale()) setSheetRules(data ?? null);
+        } catch { if (!isStale()) setSheetRules(null); }
       })(),
-      fetchMaintenanceForSheet(court.id),
+      fetchMaintenanceForSheet(court.id, isStale),
     ]);
-    setSheetRulesLoading(false);
+    if (!isStale()) setSheetRulesLoading(false);
   }
 
   async function onSheetDateChange(date: Date) {
@@ -403,6 +417,8 @@ export default function CourtsScreen() {
 
   // ── Open schedule sheet ─────────────────────────────────────────────────────
   async function openScheduleSheet(court: Court) {
+    const myGen = ++sheetGen.current;
+    const isStale = () => sheetGen.current !== myGen;
     const today = new Date();
     setScheduleDate(today);
     setScheduleSheet({ courtId: court.id, courtName: court.name, courtType: court.court_type });
@@ -420,15 +436,17 @@ export default function CourtsScreen() {
         .from('court_maintenance')
         .select('date, end_date, start_time, end_time, description')
         .eq('court_id', court.id);
+      if (isStale()) return;
       setMaintenanceBlocks((maintRes.data ?? []) as MaintenanceBlock[]);
       const rulesRes = await supabase
         .from('amenity_rules')
         .select('booking_start_time, booking_end_time, singles_duration_minutes, doubles_duration_minutes, advance_booking_days, min_cancellation_hours')
         .eq('amenity_id', court.id)
         .maybeSingle();
+      if (isStale()) return;
       setScheduleRules(rulesRes.data ?? null);
     } catch { /* silently fail */ }
-    finally { setScheduleLoading(false); }
+    finally { if (!isStale()) setScheduleLoading(false); }
   }
 
   async function onScheduleDateChange(date: Date) {
@@ -524,6 +542,15 @@ export default function CourtsScreen() {
   // ── Confirm booking ─────────────────────────────────────────────────────────
   async function handleConfirm() {
     if (!userId || !bookingSheet || !sheetSelectedSlot) return;
+    // The amenity must still belong to the active community (it may have changed while the sheet was open).
+    if (!scopedCourts.some(c => c.id === bookingSheet.courtId)) {
+      setBookingError('This amenity is not part of your active community. Close this sheet and try again.');
+      return;
+    }
+    // Capture the sheet generation: if the community changes (or another sheet opens) while this request is in flight,
+    // its outcome must not touch the newer sheet.
+    const myGen = sheetGen.current;
+    const isStale = () => sheetGen.current !== myGen;
     setConfirming(true);
     setBookingError(null);
     const dateStr = sheetDate.toISOString().split('T')[0];
@@ -534,6 +561,7 @@ export default function CourtsScreen() {
       play_type: sheetPlayType, status: 'confirmed',
     }).select('status').single();
     setConfirming(false);
+    if (isStale()) return; // the booking itself was submitted; only the UI feedback is dropped
     if (!error) {
       // A DB trigger forces status to 'pending' when the amenity is
       // configured with requires_admin_approval — the client always
@@ -554,7 +582,7 @@ export default function CourtsScreen() {
       }
       await fetchBookingsForDate(dateStr);
       await loadCourts();
-      setTimeout(() => { setBookingSheet(null); setBookingSuccess(false); setBookingPending(false); setBookingError(null); }, 1400);
+      setTimeout(() => { if (isStale()) return; setBookingSheet(null); setBookingSuccess(false); setBookingPending(false); setBookingError(null); }, 1400);
     } else if (error.code === '23P01') {
       setBookingError('That time slot was just taken — please pick another.');
       await fetchBookingsForDate(dateStr);
@@ -567,16 +595,21 @@ export default function CourtsScreen() {
       setBookingError('This time is unavailable because the amenity is blocked for maintenance.');
       await fetchBookingsForDate(dateStr);
       await loadCourts();
-      await fetchMaintenanceForSheet(bookingSheet.courtId);
+      await fetchMaintenanceForSheet(bookingSheet.courtId, isStale);
     } else {
       setBookingError(error.message ?? 'Booking failed. Please try again.');
     }
   }
 
   // ── Filtered courts by active tab ───────────────────────────────────────────
-  const tennisCourts = useMemo(() => courts.filter(c => TENNIS_TYPES.has(c.court_type)), [courts]);
-  const amenityCourts = useMemo(() => courts.filter(c => !TENNIS_TYPES.has(c.court_type)), [courts]);
-  const visibleCourts = isCommunityMode ? courts : (activeTab === 'tennis' ? tennisCourts : amenityCourts);
+  // loadCourts fetches every approved community; only the ACTIVE community's amenities are shown or actionable.
+  const scopedCourts = useMemo(
+    () => (activeCommunity ? courts.filter(c => c.hoa_id === activeCommunity.hoaId) : []), // nothing actionable until resolved
+    [courts, activeCommunity],
+  );
+  const tennisCourts = useMemo(() => scopedCourts.filter(c => TENNIS_TYPES.has(c.court_type)), [scopedCourts]);
+  const amenityCourts = useMemo(() => scopedCourts.filter(c => !TENNIS_TYPES.has(c.court_type)), [scopedCourts]);
+  const visibleCourts = isCommunityMode ? scopedCourts : (activeTab === 'tennis' ? tennisCourts : amenityCourts);
 
   const courtStatuses = useMemo(() => {
     const map: Record<string, CourtStatus> = {};
@@ -733,7 +766,7 @@ export default function CourtsScreen() {
                       isMyBooking={todayUserBooking?.court_id === court.id ? todayUserBooking : null}
                       onBook={() => openBookingSheet(court)}
                       onSchedule={() => openScheduleSheet(court)}
-                      onReport={() => router.push({ pathname: '/(resident)/report', params: { courtId: court.id, courtName: court.name, facilityType: court.court_type, returnTo: '/(resident)/courts' } } as any)} />
+                      onReport={() => router.push({ pathname: '/report', params: { courtId: court.id, courtName: court.name, facilityType: court.court_type, returnTo: '/(resident)/courts' } } as any)} />
                   ))}
                 </>
               ) : (
@@ -742,7 +775,7 @@ export default function CourtsScreen() {
                     isMyBooking={todayUserBooking?.court_id === court.id ? todayUserBooking : null}
                     onBook={() => openBookingSheet(court)}
                     onSchedule={() => openScheduleSheet(court)}
-                    onReport={() => router.push({ pathname: '/(resident)/report', params: { courtId: court.id, courtName: court.name, facilityType: court.court_type, returnTo: '/(resident)/courts' } } as any)} />
+                    onReport={() => router.push({ pathname: '/report', params: { courtId: court.id, courtName: court.name, facilityType: court.court_type, returnTo: '/(resident)/courts' } } as any)} />
                 ))
               )}
 
@@ -787,7 +820,7 @@ export default function CourtsScreen() {
           pending={bookingPending}
           bookingError={bookingError}
           onConfirm={handleConfirm}
-          onClose={() => { setBookingSheet(null); setBookingError(null); }}
+          onClose={() => { sheetGen.current += 1; setBookingSheet(null); setBookingError(null); }}
           insets={insets}
         />
       )}

@@ -3,9 +3,9 @@ import { test, expect } from '@playwright/test';
 const RESIDENT_ROUTES = [
   '/(resident)/',
   '/(resident)/book',
-  '/(resident)/report',
+  '/report',
   '/(resident)/calendar',
-  '/(resident)/docs',
+  '/docs',
 ];
 
 test.describe('Global Header — every resident screen', () => {

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import * as fs from 'fs';
 
-const DOCS = '/(resident)/docs';
+const DOCS = '/docs';
 
 test.describe('Resident Docs Screen', () => {
   test.beforeEach(async ({ page }) => {

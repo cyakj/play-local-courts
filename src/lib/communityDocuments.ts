@@ -157,6 +157,32 @@ export const DOCUMENT_CATEGORIES = [
   { key: 'forms_applications', label: 'Forms & Applications' },
 ] as const;
 
+// Resident-facing groups. The persisted `hoa_documents.category` keys above are unchanged (the table has a CHECK
+// constraint); this is a display mapping only. The schema cannot tell "Governing Documents" from "Community Rules"
+// (both are rules_bylaws), so they share one group until a migration splits them.
+export const RESIDENT_DOCUMENT_GROUPS = [
+  { key: 'governing', label: 'Governing Documents & Rules' },
+  { key: 'minutes', label: 'Meeting Minutes' },
+  { key: 'financial', label: 'Financial Documents' },
+  { key: 'other', label: 'Other Resources' },
+] as const;
+
+export type ResidentDocumentGroupKey = (typeof RESIDENT_DOCUMENT_GROUPS)[number]['key'];
+
+export function residentGroupFor(category: string): ResidentDocumentGroupKey {
+  switch (category) {
+    case 'rules_bylaws': return 'governing';
+    case 'meeting_minutes': return 'minutes';
+    case 'financial_statements': return 'financial';
+    default: return 'other'; // maintenance_records, forms_applications, anything unknown
+  }
+}
+
+export function residentGroupLabel(category: string): string {
+  const key = residentGroupFor(category);
+  return RESIDENT_DOCUMENT_GROUPS.find((g) => g.key === key)!.label;
+}
+
 export function categoryLabel(key: string): string {
   return DOCUMENT_CATEGORIES.find((c) => c.key === key)?.label
     ?? key.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());

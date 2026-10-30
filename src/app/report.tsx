@@ -27,7 +27,8 @@ import {
 import { Header } from '@/components/ui/Header';
 import { useTheme } from '@/context/ThemeContext';
 import { useActiveCommunity } from '@/hooks/useActiveCommunity';
-import { useCommunityName } from '@/hooks/useCommunityName';
+import { createLatestGuard } from '@/lib/latestGuard';
+import { describeReport, isReportReady, resolveReportContext, toPersistedCategory } from '@/lib/reportContext';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 
 // ─── Category config ──────────────────────────────────────────────────────────
@@ -134,20 +135,40 @@ interface Report {
 export default function ReportScreen() {
   const { theme } = useTheme();
   const styles = useStyles(theme);
-  const communityName = useCommunityName();
-  const { community: activeCommunity } = useActiveCommunity();
+  const { community: activeCommunity, loading: communityStoreLoading } = useActiveCommunity();
   // Facility pre-fill params (when navigated from court/amenity card)
   const params = useLocalSearchParams<{ courtId?: string; courtName?: string; facilityType?: string; returnTo?: string }>();
   const returnTo = params.returnTo ?? null;
-  const prefilledCourtId = params.courtId ?? null;
-  const prefilledCourtName = params.courtName ?? null;
-  const prefilledFacilityType = params.facilityType ?? null;
+  // Amenity context from the route is only valid inside the community it was opened under.
+  const [contextHoaId, setContextHoaId] = useState<string | null>(activeCommunity?.hoaId ?? null);
+  useEffect(() => {
+    if (!contextHoaId && activeCommunity?.hoaId) setContextHoaId(activeCommunity.hoaId);
+  }, [activeCommunity?.hoaId, contextHoaId]);
+  const routeContext = resolveReportContext(
+    { courtId: params.courtId ?? null, courtName: params.courtName ?? null, facilityType: params.facilityType ?? null },
+    contextHoaId,
+    activeCommunity?.hoaId ?? null,
+  );
+  // The amenity must be proven to belong to the ACTIVE community (looked up by id inside it) before it is used;
+  // name/type then come from that record, not from the URL.
+  const [verifiedCourt, setVerifiedCourt] = useState<{ key: string; id: string; name: string; type: string | null } | null>(null);
+  const courtKey = routeContext.courtId ? `${activeCommunity?.hoaId ?? ''}:${routeContext.courtId}` : '';
+  const courtVerified = !!routeContext.courtId && verifiedCourt?.key === courtKey && verifiedCourt.id !== '';
+  const prefilledCourtId = courtVerified ? verifiedCourt!.id : null;
+  const prefilledCourtName = courtVerified ? verifiedCourt!.name : null;
+  const prefilledFacilityType = courtVerified ? verifiedCourt!.type : null;
+  // 'pending' while the lookup for this community+amenity has not finished
+  const courtCheckPending = !!routeContext.courtId && verifiedCourt?.key !== courtKey;
+  const courtMismatch = !!routeContext.courtId && !courtCheckPending && !courtVerified;
   const isCourtReport = !!prefilledCourtId;
   const facilityCategories = getCategoriesForFacilityType(prefilledFacilityType);
 
   const [userId, setUserId] = useState('');
   const [hoaId, setHoaId] = useState('');
   const [reports, setReports] = useState<Report[]>([]);
+  // Locations (amenities) of the ACTIVE community, for reports that do not start from an amenity card.
+  const [locations, setLocations] = useState<{ id: string; name: string }[]>([]);
+  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'active' | 'all' | 'resolved'>('active');
 
@@ -173,27 +194,43 @@ export default function ReportScreen() {
   // Web file input ref
   const fileInputRef = useRef<any>(null);
 
-  async function load() {
+  // A slow load for a previous community/account must never publish after a newer one started.
+  const loadGuard = useRef(createLatestGuard()).current;
+
+  const load = useCallback(async () => {
+    const isStale = loadGuard.begin();
     try {
       const { data: { session } } = await supabase.auth.getSession();
+      if (isStale()) return;
       const user = session?.user ?? null;
       if (!user) { setLoading(false); return; }
       setUserId(user.id);
 
-      // Reports are scoped to the active community; fall back to the first approved
-      // membership only if the active-community store has not resolved yet.
-      let hId = activeCommunity?.hoaId ?? '';
-      if (!hId) {
-        const { data: membership } = await supabase
-          .from('hoa_memberships')
-          .select('hoa_id')
-          .eq('user_id', user.id)
-          .eq('status', 'approved')
-          .limit(1)
-          .single();
-        hId = membership?.hoa_id ?? '';
+      // Reports are scoped to the ACTIVE community only. There is deliberately no "first membership" fallback: until the
+      // store resolves the form stays disabled rather than risking a report filed under the wrong community.
+      const hId = activeCommunity?.hoaId ?? '';
+      if (!hId) { setHoaId(''); setLoading(communityStoreLoading); return; }
+      if (routeContext.courtId && hId) {
+        const { data: court } = await supabase
+          .from('courts')
+          .select('id, name, court_type')
+          .eq('id', routeContext.courtId)
+          .eq('hoa_id', hId)
+          .maybeSingle();
+        if (isStale()) return;
+        setVerifiedCourt({
+          key: `${hId}:${routeContext.courtId}`,
+          id: court?.id ?? '',
+          name: court?.name ?? '',
+          type: court?.court_type ?? null,
+        });
       }
+      const { data: locs } = await supabase.from('courts').select('id, name').eq('hoa_id', hId).order('name');
+      if (isStale()) return;
+      setLocations((locs ?? []) as { id: string; name: string }[]);
+      setSelectedLocationId(null);
       setHoaId(hId);
+      setReports([]);
 
       if (hId) {
         const { data } = await supabase
@@ -202,15 +239,33 @@ export default function ReportScreen() {
           .eq('reporter_id', user.id)
           .eq('hoa_id', hId)
           .order('created_at', { ascending: false });
+        if (isStale()) return;
         setReports(data ?? []);
       }
       setLoading(false);
     } catch {
-      setLoading(false);
+      if (!isStale()) setLoading(false);
     }
-  }
+  }, [activeCommunity?.hoaId, communityStoreLoading, routeContext.courtId]);
 
-  useEffect(() => { load(); }, [activeCommunity?.hoaId]);
+  useEffect(() => {
+    // Switching community while a form is open discards community-bound state.
+    generation.current += 1;
+    setLocations([]);
+    setSelectedLocationId(null);
+    setSubmitting(false);
+    setLoading(true);
+    setHoaId('');
+    setShowForm(false);
+    setFacilityFormOpen(false);
+    load();
+  }, [activeCommunity?.hoaId, communityStoreLoading, routeContext.courtId, load]);
+  const selectedLocation = locations.find(l => l.id === selectedLocationId) ?? null;
+  const ready = isReportReady(hoaId, activeCommunity?.hoaId, loading) && !courtCheckPending;
+  // Bumped on every community change; an in-flight submission from an earlier generation must not touch the UI.
+  const generation = useRef(0);
+  const loadRef = useRef(load);
+  loadRef.current = load;
   useFocusEffect(useCallback(() => {
     load();
     if (prefilledCourtId) {
@@ -231,7 +286,7 @@ export default function ReportScreen() {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefilledCourtId, prefilledFacilityType]));
+  }, [load, prefilledCourtId, prefilledFacilityType]));
 
   const activeReports = reports.filter((r) => ['open', 'in_progress', 'accepted', 'reopened'].includes(r.status));
   const resolvedReports = reports.filter((r) => ['resolved', 'completed', 'closed'].includes(r.status));
@@ -291,8 +346,10 @@ export default function ReportScreen() {
     (fileInputRef.current as any).__file = file;
   }
 
-  async function uploadPhoto(reportId: string): Promise<string | null> {
+  async function uploadPhoto(reportId: string, superseded: () => boolean): Promise<string | null> {
     if (!photoUri) return null;
+    // Every state write below is skipped once the community changed: the form on screen belongs to someone else's context.
+    const fail = (msg: string) => { if (!superseded()) setSubmitError(msg); };
     setUploading(true);
     try {
       const ext = 'jpg';
@@ -305,42 +362,44 @@ export default function ReportScreen() {
         const { error } = await supabase.storage
           .from('report-photos')
           .upload(path, file, { upsert: true, contentType: file.type });
-        if (error) { setSubmitError('Photo upload failed: ' + error.message); return null; }
+        if (error) { fail('Photo upload failed: ' + error.message); return null; }
       } else {
         // ArrayBuffer body: a Blob body does not work through supabase-js on React Native.
         const bytes = photoBase64.current ? base64ToBytes(photoBase64.current) : null;
         const contentType = bytes ? sniffDocumentMime(bytes) : null;
         if (!bytes || !contentType || !contentType.startsWith('image/')) {
-          setSubmitError('Photo upload failed: the selected photo could not be read.');
+          fail('Photo upload failed: the selected photo could not be read.');
           return null;
         }
         const { error } = await supabase.storage
           .from('report-photos')
           .upload(path, bytes.buffer as ArrayBuffer, { upsert: true, contentType });
-        if (error) { setSubmitError('Photo upload failed: ' + error.message); return null; }
+        if (error) { fail('Photo upload failed: ' + error.message); return null; }
       }
 
       const { data } = supabase.storage.from('report-photos').getPublicUrl(path);
       return data.publicUrl;
     } catch (e: any) {
-      setSubmitError('Photo upload failed: ' + (e?.message ?? 'Unknown error'));
+      fail('Photo upload failed: ' + (e?.message ?? 'Unknown error'));
       return null;
     } finally {
-      setUploading(false);
+      if (!superseded()) setUploading(false);
     }
   }
 
   // ─── Submit ─────────────────────────────────────────────────────────────────
 
   async function handleSubmit() {
-    if (!description.trim() || !userId || !hoaId) return;
+    if (!description.trim() || !userId || !hoaId || !ready || submitting) return;
+    const myGeneration = generation.current;
+    const superseded = () => generation.current !== myGeneration; // community switched mid-submit
     setSubmitting(true);
     setSubmitError(null);
 
     // Insert report first to get the ID
     const { data: inserted, error } = await supabase.from('maintenance_reports').insert({
-      category,
-      description: description.trim(),
+      category: toPersistedCategory(category),
+      description: describeReport(category, (isCourtReport ? facilityCategories : CATEGORIES).find(c => c.key === category)?.label, description),
       hoa_id: hoaId,
       reporter_id: userId,
       status: 'open',
@@ -350,8 +409,11 @@ export default function ReportScreen() {
       // Pre-fill court context when reported from a court card
       ...(prefilledCourtId ? { amenity_id: prefilledCourtId } : {}),
       ...(prefilledCourtName ? { location_text: prefilledCourtName } : {}),
+      // Chosen on the generic form (Home / Community entry); only locations of the active community are offered.
+      ...(!prefilledCourtId && selectedLocation ? { amenity_id: selectedLocation.id, location_text: selectedLocation.name } : {}),
     }).select('id').single();
 
+    if (superseded()) return;
     if (error || !inserted) {
       setSubmitError(error?.message ?? 'Submission failed.');
       setSubmitting(false);
@@ -360,21 +422,24 @@ export default function ReportScreen() {
 
     // Upload photo if selected, then update record
     if (photoUri) {
-      const photoUrl = await uploadPhoto(inserted.id);
+      const photoUrl = await uploadPhoto(inserted.id, superseded);
       // Not a direct UPDATE: residents have no UPDATE policy on maintenance_reports, so that silently matched zero
       // rows. attach_report_photo is a reporter-only, set-once RPC (migration 20261023130000).
+      if (superseded()) return;
       const attached = photoUrl
         ? await db.rpc('attach_report_photo', { p_report_id: inserted.id, p_object_path: `${userId}/${inserted.id}.jpg` })
         : null;
+      if (superseded()) return;
       if (!(photoUrl && !attached?.error && attached?.data === true)) {
         setPhotoWarning('Your report was submitted, but the photo could not be attached.');
         setSubmitError(null);
       }
     }
 
+    if (superseded()) return;
     setSubmittedId(inserted.id);
     setSubmitSuccess(true);
-    await load();
+    await loadRef.current();
     // The confirmation stays up until the resident opens the report or returns to the list.
   }
 
@@ -402,12 +467,12 @@ export default function ReportScreen() {
   }
 
   function goBack() {
-    if (returnTo) {
-      router.replace(returnTo as any);
-    } else if (router.canGoBack()) {
+    if (router.canGoBack()) {
       router.back();
+    } else if (returnTo && returnTo.startsWith('/(resident)')) {
+      router.replace(returnTo as any);
     } else {
-      router.replace('/(resident)/courts');
+      router.replace('/(resident)' as any);
     }
   }
 
@@ -602,7 +667,7 @@ export default function ReportScreen() {
                 testID="submit-btn"
                 style={[styles.submitBtn, (!description.trim() || submitting || uploading) && styles.primaryBtnDisabled]}
                 onPress={handleSubmit}
-                disabled={submitting || uploading || !description.trim()}
+                disabled={submitting || uploading || !ready || !description.trim()}
                 activeOpacity={0.85}>
                 <Text style={styles.primaryBtnLabel}>
                   {uploading ? 'Uploading…' : submitting ? 'Submitting…' : 'Submit Report'}
@@ -617,7 +682,7 @@ export default function ReportScreen() {
 
   return (
     <View style={styles.screen}>
-      <Header variant="resident" communityName={communityName} />
+      <Header variant="resident" onBack={goBack} />
 
       {/* ── Hero ── */}
       <View style={styles.hero}>
@@ -631,6 +696,15 @@ export default function ReportScreen() {
           <Plus color={Colors.navy} size={22} strokeWidth={2.5} />
         </TouchableOpacity>
       </View>
+
+      {courtMismatch && (
+        <View testID="amenity-mismatch" style={[styles.errorBox, { marginHorizontal: Spacing.pagePx, marginBottom: 12 }]}>
+          <Text style={styles.errorText}>
+            That amenity is not part of {activeCommunity?.name ?? 'your active community'}. Your report will be filed
+            for {activeCommunity?.name ?? 'the active community'} without it. Switch community to report on it.
+          </Text>
+        </View>
+      )}
 
       {/* ── Filter tabs ── */}
       <View testID="filter-tabs" style={styles.filterRow}>
@@ -799,6 +873,28 @@ export default function ReportScreen() {
             ) : (
               /* ── Step 2: description + photo ── */
               <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.formBody} keyboardShouldPersistTaps="handled">
+                {locations.length > 0 && !isCourtReport && (
+                  <View testID="location-picker" style={{ marginBottom: 20 }}>
+                    <Text style={styles.formSectionLabel}>LOCATION (OPTIONAL)</Text>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                      {locations.map((l) => {
+                        const active = selectedLocationId === l.id;
+                        return (
+                          <TouchableOpacity
+                            key={l.id}
+                            testID={`location-chip-${l.id}`}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: active }}
+                            onPress={() => setSelectedLocationId(active ? null : l.id)}
+                            style={[styles.locationChip, active && styles.locationChipActive]}
+                            activeOpacity={0.8}>
+                            <Text style={[styles.locationChipText, active && styles.locationChipTextActive]}>{l.name}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+                )}
                 <Text style={styles.formSectionLabel}>DESCRIPTION</Text>
                 <TextInput
                   testID="description-input"
@@ -885,7 +981,7 @@ export default function ReportScreen() {
                     testID="submit-btn"
                     style={[styles.submitBtn, (!description.trim() || submitting || uploading) && styles.primaryBtnDisabled]}
                     onPress={handleSubmit}
-                    disabled={submitting || uploading || !description.trim()}
+                    disabled={submitting || uploading || !ready || !description.trim()}
                     activeOpacity={0.85}>
                     <Text style={styles.primaryBtnLabel}>
                       {uploading ? 'Uploading…' : submitting ? 'Submitting…' : 'Submit Report'}
@@ -1296,6 +1392,13 @@ function useStyles(t: ThemeTokens) {
     color: t.textMuted,
   },
 
+  locationChip: {
+    paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999,
+    borderWidth: 1, borderColor: t.border, backgroundColor: t.cardBg, minHeight: 44, justifyContent: 'center',
+  },
+  locationChipActive: { backgroundColor: Colors.blue, borderColor: Colors.blue },
+  locationChipText: { fontFamily: FontFamily.manropeSemiBold, fontSize: FontSize.label, color: t.textPrimary },
+  locationChipTextActive: { color: Colors.white },
   errorBox: {
     marginTop: 12,
     backgroundColor: 'rgba(255,92,107,0.10)',

@@ -74,8 +74,6 @@ export default function ResidentLayout() {
       />
       {/* Legacy routes — routable but not tab items */}
       <Tabs.Screen name="book"     options={{ href: null }} />
-      <Tabs.Screen name="report"   options={{ href: null }} />
-      <Tabs.Screen name="docs"     options={{ href: null }} />
     </Tabs>
   );
 }

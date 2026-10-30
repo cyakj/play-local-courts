@@ -140,7 +140,7 @@ export default function MyReportsScreen() {
         onBack={() => router.back()}
         rightIcon={
           <TouchableOpacity
-            onPress={() => router.push('/(resident)/report')}
+            onPress={() => router.push('/report')}
             hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
             <Plus color={Colors.accentCyan} size={22} strokeWidth={2} />
           </TouchableOpacity>

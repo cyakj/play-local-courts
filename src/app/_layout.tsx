@@ -170,6 +170,8 @@ export default function RootLayout() {
           <Stack.Screen name="my-reservations" />
           <Stack.Screen name="reservation-detail/[id]" />
           <Stack.Screen name="my-reports" />
+          <Stack.Screen name="report" />
+          <Stack.Screen name="docs" />
           <Stack.Screen name="hoa-application" />
           <Stack.Screen name="join-community" />
           <Stack.Screen name="amenity-book" />

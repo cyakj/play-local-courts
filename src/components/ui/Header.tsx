@@ -46,6 +46,8 @@ interface ResidentHeaderProps {
   onMessages?: () => void;
   onAvatar?: () => void;
   communityName?: string;
+  /** Root-stack screens (no bottom nav): renders a back arrow before the logo. */
+  onBack?: () => void;
 }
 
 interface CoachHeaderProps {
@@ -129,17 +131,30 @@ export function Header(props: HeaderProps) {
     return (
       <View style={[styles.base, styles.residentBase, { paddingTop: topPad + 8, backgroundColor: theme.headerBg, borderBottomColor: theme.headerBorder }]}>
         <View style={[styles.topBar, styles.residentTopBar]}>
-          {isCommunityMode ? (
-            <TenisXLogo height={30} testID="tenisx-logo" />
-          ) : (
-            <View testID="tenisx-logo" style={styles.residentLogoWrap}>
-              <Image
-                source={require('@/assets/images/TenisX_logo-removebg-preview.png')}
-                style={styles.residentLogo}
-                resizeMode="contain"
-              />
-            </View>
-          )}
+          <View style={styles.topBarLeft}>
+            {props.variant === 'resident' && (props as ResidentHeaderProps).onBack && (
+              <TouchableOpacity
+                testID="header-back"
+                onPress={(props as ResidentHeaderProps).onBack}
+                style={styles.iconBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Back"
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+                <ArrowLeft color="#FFFFFF" size={22} strokeWidth={1.5} />
+              </TouchableOpacity>
+            )}
+            {isCommunityMode ? (
+              <TenisXLogo height={30} testID="tenisx-logo" />
+            ) : (
+              <View testID="tenisx-logo" style={[styles.residentLogoWrap, { flexShrink: 1 }]}>
+                <Image
+                  source={require('@/assets/images/TenisX_logo-removebg-preview.png')}
+                  style={[styles.residentLogo, (props as ResidentHeaderProps).onBack ? { width: 80, height: 35 } : null]}
+                  resizeMode="contain"
+                />
+              </View>
+            )}
+          </View>
           <View style={styles.topBarRight}>
             {/* Messages — tennis-only: /messages is match-invite content with no
                 Community-mode equivalent (see Header.tsx Finding 4, community-mode-ia fix wave). */}

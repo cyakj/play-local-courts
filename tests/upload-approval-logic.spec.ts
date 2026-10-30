@@ -8,7 +8,7 @@ import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { base64ToBytes, sniffDocumentMime } from '../src/lib/imageBytes';
 
-const report = readFileSync('src/app/(resident)/report.tsx', 'utf8');
+const report = readFileSync('src/app/report.tsx', 'utf8');
 const approvals = readFileSync('src/app/(admin)/pending-requests.tsx', 'utf8');
 
 test.describe('report photo upload (React Native)', () => {

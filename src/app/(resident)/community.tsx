@@ -19,6 +19,7 @@ import {
 } from '@/constants/design';
 import { Header } from '@/components/ui/Header';
 import { useTheme } from '@/context/ThemeContext';
+import { useActiveCommunity } from '@/hooks/useActiveCommunity';
 
 interface Announcement { id: string; title: string; body: string; created_at: string | null; }
 interface HoaInfo {
@@ -48,36 +49,33 @@ export default function CommunityScreen() {
   const [docCount, setDocCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
+  const { community, loading: communityLoading } = useActiveCommunity();
+  const hoaId = community?.hoaId;
+
+  // Loads for the ACTIVE community only (the same one /docs and /report use); a response for a previous community
+  // is discarded and the previous community's data is cleared immediately.
   useEffect(() => {
-    async function load() {
-      const { data: { session } } = await supabase.auth.getSession();
-      const user = session?.user ?? null;
-      if (!user) { setLoading(false); return; }
-
-      const { data: membership } = await supabase
-        .from('hoa_memberships')
-        .select('hoa_id')
-        .eq('user_id', user.id)
-        .eq('status', 'approved')
-        .limit(1)
-        .single();
-
-      const hoaId = membership?.hoa_id;
-      if (!hoaId) { setLoading(false); return; }
-
+    let cancelled = false;
+    setHoa(null);
+    setAnnouncements([]);
+    setDocCount(0);
+    if (communityLoading) { setLoading(true); return; }
+    if (!hoaId) { setLoading(false); return; }
+    setLoading(true);
+    (async () => {
       const [hoaRes, annRes, docRes] = await Promise.all([
         supabase.from('hoas').select('name, address, phone, email, description').eq('id', hoaId).single(),
         supabase.from('hoa_announcements').select('id, title, body, created_at').eq('hoa_id', hoaId).order('created_at', { ascending: false }).limit(5),
         supabase.from('hoa_documents').select('id', { count: 'exact', head: true }).eq('hoa_id', hoaId).eq('visibility', 'all_residents'),
       ]);
-
+      if (cancelled) return;
       setHoa(hoaRes.data ?? null);
       setAnnouncements(annRes.data ?? []);
       setDocCount(docRes.count ?? 0);
       setLoading(false);
-    }
-    load();
-  }, []);
+    })().catch(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [hoaId, communityLoading]);
 
   const contactRows = useMemo(() => {
     if (!hoa) return [];
@@ -128,7 +126,7 @@ export default function CommunityScreen() {
                 <FileText color={theme.textMuted} size={16} strokeWidth={1.5} />
                 <Text style={styles.sectionTitle}>Documents & Rules</Text>
               </View>
-              <TouchableOpacity style={styles.card} onPress={() => router.push('/(resident)/docs' as any)} activeOpacity={0.8}>
+              <TouchableOpacity style={styles.card} onPress={() => router.push('/docs' as any)} activeOpacity={0.8}>
                 <Text style={styles.cardTitle}>{docCount} document{docCount === 1 ? '' : 's'} available</Text>
                 <Text style={styles.cardBody}>Bylaws, meeting minutes, financial statements, and more.</Text>
               </TouchableOpacity>
@@ -157,7 +155,7 @@ export default function CommunityScreen() {
 
               <TouchableOpacity
                 style={[styles.reportCard, { marginTop: 24 }]}
-                onPress={() => router.push('/(resident)/report')}
+                onPress={() => router.push({ pathname: '/report', params: { returnTo: '/(resident)/community' } } as any)}
                 activeOpacity={0.85}>
                 <View style={styles.reportIcon}>
                   <AlertTriangle color={Colors.negative} size={18} strokeWidth={1.5} />

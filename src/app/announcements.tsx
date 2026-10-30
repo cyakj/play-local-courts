@@ -16,6 +16,7 @@ import {
 } from '@/constants/design';
 import { Header } from '@/components/ui/Header';
 import { useTheme } from '@/context/ThemeContext';
+import { useActiveCommunity } from '@/hooks/useActiveCommunity';
 
 interface AnnouncementItem {
   id: string;
@@ -45,23 +46,19 @@ export default function AnnouncementsScreen() {
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  const { community, loading: communityLoading } = useActiveCommunity();
+  const hoaId = community?.hoaId;
+
+  // Always the ACTIVE community (same as the Community screen that links here); stale responses are discarded.
   useEffect(() => {
+    let cancelled = false;
+    setItems([]);
+    setExpandedId(null);
     async function load() {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const user = session?.user ?? null;
-        if (!user) { setLoading(false); return; }
-
-        const { data: membership } = await supabase
-          .from('hoa_memberships')
-          .select('hoa_id')
-          .eq('user_id', user.id)
-          .eq('status', 'approved')
-          .limit(1)
-          .single();
-
-        const hoaId = membership?.hoa_id;
+        if (communityLoading) { setLoading(true); return; }
         if (!hoaId) { setLoading(false); return; }
+        setLoading(true);
 
         const [announcementsRes, surveysRes] = await Promise.all([
           supabase
@@ -77,6 +74,7 @@ export default function AnnouncementsScreen() {
             .eq('results_visibility', 'community')
             .order('closes_at', { ascending: false }),
         ]);
+        if (cancelled) return;
 
         const announcements: AnnouncementItem[] = (announcementsRes.data ?? []).map((a: any) => ({
           id: a.id,
@@ -100,11 +98,12 @@ export default function AnnouncementsScreen() {
         setItems(merged);
         setLoading(false);
       } catch {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
     load();
-  }, []);
+    return () => { cancelled = true; };
+  }, [hoaId, communityLoading]);
 
   return (
     <View style={styles.screen}>

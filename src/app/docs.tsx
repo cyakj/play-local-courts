@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -13,6 +13,8 @@ import {
   FileText, FolderOpen, RefreshCw, Search, X,
 } from 'lucide-react-native';
 
+import { router } from 'expo-router';
+import { createLatestGuard } from '@/lib/latestGuard';
 import { supabase } from '@/lib/supabase';
 import {
   Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing,
@@ -22,8 +24,9 @@ import { useActiveCommunity } from '@/hooks/useActiveCommunity';
 import { useTheme } from '@/context/ThemeContext';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 import {
-  DOCUMENT_CATEGORIES,
-  categoryLabel,
+  RESIDENT_DOCUMENT_GROUPS,
+  residentGroupFor,
+  residentGroupLabel,
   failureMessage,
   fileKind,
   formatBytes,
@@ -75,8 +78,13 @@ export default function DocsScreen() {
   const [busy, setBusy] = useState<Busy>(null);
   const [notice, setNotice] = useState<Notice>(null);
 
+  const loadGuard = useRef(createLatestGuard()).current;
+
   const load = useCallback(async () => {
     if (!hoaId) return;
+    const isStale = loadGuard.begin();
+    setDocs([]);
+    setCategory(null);
     setLoading(true);
     setLoadError(false);
     // Scoped to the active community; RLS additionally limits residents to
@@ -87,6 +95,7 @@ export default function DocsScreen() {
       .eq('hoa_id', hoaId)
       .eq('visibility', 'all_residents')
       .order('created_at', { ascending: false });
+    if (isStale()) return; // community switched mid-load
     if (error) {
       setLoadError(true);
       setDocs([]);
@@ -97,9 +106,16 @@ export default function DocsScreen() {
   }, [hoaId]);
 
   useEffect(() => {
+    // Every community/account transition (including to none) supersedes outstanding loads and clears what was shown.
+    loadGuard.invalidate();
+    setDocs([]);
+    setCategory(null);
+    setBusy(null);
+    setNotice(null);
     if (communityLoading) return;
     if (!hoaId) { setLoading(false); return; }
     load();
+    return () => { loadGuard.invalidate(); };
   }, [communityLoading, hoaId, load]);
 
   async function run(doc: HoaDocument, action: 'view' | 'download') {
@@ -121,34 +137,31 @@ export default function DocsScreen() {
   }
 
   const presentCategories = useMemo(
-    () => DOCUMENT_CATEGORIES.filter((c) => docs.some((d) => d.category === c.key)),
+    () => RESIDENT_DOCUMENT_GROUPS.filter((g) => docs.some((d) => residentGroupFor(d.category) === g.key)),
     [docs],
   );
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return docs.filter((d) => {
-      if (category && d.category !== category) return false;
+      if (category && residentGroupFor(d.category) !== category) return false;
       if (!q) return true;
       return d.title.toLowerCase().includes(q)
         || (d.file_name ?? '').toLowerCase().includes(q)
-        || categoryLabel(d.category).toLowerCase().includes(q);
+        || residentGroupLabel(d.category).toLowerCase().includes(q);
     });
   }, [docs, search, category]);
 
-  const grouped = useMemo(() => {
-    const keys = [...new Set(filtered.map((d) => d.category))];
-    keys.sort((a, b) => {
-      const ia = DOCUMENT_CATEGORIES.findIndex((c) => c.key === a);
-      const ib = DOCUMENT_CATEGORIES.findIndex((c) => c.key === b);
-      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
-    });
-    return keys.map((key) => ({ key, label: categoryLabel(key), docs: filtered.filter((d) => d.category === key) }));
-  }, [filtered]);
+  const grouped = useMemo(
+    () => RESIDENT_DOCUMENT_GROUPS
+      .map((g) => ({ key: g.key, label: g.label, docs: filtered.filter((d) => residentGroupFor(d.category) === g.key) }))
+      .filter((g) => g.docs.length > 0),
+    [filtered],
+  );
 
   return (
     <View style={styles.screen}>
-      <Header variant="resident" />
+      <Header variant="resident" onBack={() => { if (router.canGoBack()) router.back(); else router.replace('/(resident)/community' as any); }} />
 
       <View style={styles.hero}>
         <Text style={styles.heroLabel}>DOCUMENTS</Text>

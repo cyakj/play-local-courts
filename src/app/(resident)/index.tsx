@@ -514,7 +514,7 @@ export default function HomeScreen() {
               <TouchableOpacity
                 testID="quick-report-issue"
                 style={styles.quickAction}
-                onPress={() => router.push('/(resident)/report')}
+                onPress={() => router.push({ pathname: '/report', params: { returnTo: '/(resident)' } } as any)}
                 activeOpacity={0.75}>
                 <Wrench color={theme.cyanOnLight} size={26} strokeWidth={1.5} />
                 <Text style={styles.quickActionLabel}>Report Issue</Text>
