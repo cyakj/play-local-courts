@@ -14,6 +14,8 @@ Do steps 1-3 while nobody uses the test app (the only users are test accounts, b
 - Limits: the dumps above do not include the `storage` schema (bucket configuration, storage policies, object metadata) or the actual files in buckets (report photos, documents); migration 20261023110000 changes bucket settings, so before applying it export the bucket list and policies (dashboard -> Storage) and download any files you want to keep; there is no automatic restore for these. They also exclude Auth dashboard settings and edge-function secrets. Restoring `auth` data from a dump is a manual procedure; a dashboard restore point is easier.
 - Before applying anything, run sections 0, 1, 1a and 1b of `HOSTED-VERIFY-READONLY.sql` and save the output (1a is the per-row baseline needed later to prove existing rows are unchanged).
 
+> **Update 2026-10-30:** a real backup (`C:\Users\info\tenisx-backups\20261029-235117-04c5d3`) exists and is RESTORE VERIFIED (see `BACKUP-VERIFICATION-REPORT.md` for exactly what that proves). All seven files were applied without error to a disposable restore of it and the assertions passed (`LOCAL-REHEARSAL-RESULTS.md`, 2026-10-30 section). Take a NEW backup (same one-command workflow) right before the real apply if anyone used the app since 2026-10-29 23:51. Still nothing has been applied to any hosted database.
+
 ## 2. Verify first (read-only)
 Run sections 2-9 (1, 1a and 1b were already run in step 1) of `HOSTED-VERIFY-READONLY.sql` and give the results to the assistant. They settle C1, C2, C3, C4 and C6. For `backup_20261013` they are partial evidence: also check Project Settings -> API -> Exposed schemas in the dashboard.
 
@@ -34,6 +36,9 @@ After each file, re-run section 1: the `auth.users`, `auth.identities`, credenti
 - File 4 no longer touches `storage.buckets`, so no bucket export/approval is needed for it (the optional MIME restriction lives in `OPTIONAL-verification-bucket-mime.sql`). It now **fails and rolls back** if two open applications by the same applicant share a name: run the duplicate check first (section 4-style query: `SELECT applicant_id, lower(btrim(hoa_name)), count(*) FROM hoa_applications WHERE status IN ('pending','needs_more_info') GROUP BY 1,2 HAVING count(*)>1`) and decide yourself which to keep. A failure means nothing was changed.
 - File 7 only re-grants `authenticated` where it already had EXECUTE. Review `update_email_preference` (section 6) before applying.
 - Wrap each file as `BEGIN; SET LOCAL lock_timeout='5s'; <file>; <its verification query>; COMMIT;` and ROLLBACK on any surprise.
+
+## 3b. Decision needed before step 6 (found 2026-10-30 in the real backup)
+The `report-photos` Storage bucket and its policies are **not present** on the hosted project (`20260529120441_report_photos_bucket.sql` is not in its migration history). Without it report photos cannot upload at all, and file 6 (`attach_report_photo`) has nothing to attach. Decide whether to apply that older migration first (it lets any signed-in user upload to any folder and has no UPDATE policy although the app uploads with `upsert: true`; a tighter own-folder version would be a new migration, not yet written). The rest of the sequence does not depend on it.
 
 ## 4. Letting the assistant do steps 2-3
 That requires you to enable those tools yourself (check the current Claude Code permissions and tool availability first); the assistant will not change its own safeguards. Otherwise paste the read-only results back and apply the files in the SQL editor yourself.

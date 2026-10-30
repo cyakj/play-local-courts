@@ -17,6 +17,8 @@ The sections below are the historical review as written on 2026-10-26. The six d
 
 What the rehearsal actually was (and was not): see `docs/onboarding/LOCAL-REHEARSAL-RESULTS.md`. It ran on a disposable local PostgreSQL with a RECONSTRUCTED fixture, only for M2, M4 and M7, and does not replace a restore of the real backup.
 
+## 2026-10-30: all seven files were rehearsed on a restore of the real backup - see LOCAL-REHEARSAL-RESULTS.md (still NOTHING applied; new finding: report-photos bucket missing on the hosted project)
+
 ## Bottom line
 **Do not apply the seven files unchanged.** The reviewer's verdict is NEEDS CHANGES. None of the seven files deletes, truncates or rewrites account or booking rows when applied (the `DELETE`s in migration 2 are inside a function body that only runs when a user taps "withdraw"), but these items need a decision first:
 

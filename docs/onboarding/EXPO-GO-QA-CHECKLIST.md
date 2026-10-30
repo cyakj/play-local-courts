@@ -1,13 +1,13 @@
 # Expo Go manual QA checklist (prioritized)
 
-Status 2026-10-28: **nothing below has been run on a phone.** Every box is a to-verify. Written for a quick Expo Go pass; the longer dev-client list is `IPHONE-QA-CHECKLIST.md`.
+Status 2026-10-30: **nothing below has been run on a phone.** (Backup is RESTORE VERIFIED and the 7 migrations were rehearsed on a restore of it, but none is applied; the project is Expo SDK 57 per `package.json`; `expo export --platform ios` succeeds.) Every box is a to-verify. Written for a quick Expo Go pass; the longer dev-client list is `IPHONE-QA-CHECKLIST.md`.
 
 ## 0. Gates - read before scanning the QR code
 - [ ] **Which database?** `.env` currently has `EXPO_PUBLIC_SUPABASE_URL` = project `hqqlrliakttqsbalvuyz` - this is TENISX REAL (older docs call it "test-only"; treat it as real). Anything you create in Expo Go is written there. Use ONLY your test accounts, create no real residents, and do not press destructive actions on real data. Prefer a separate non-production project: put its URL/anon key in a local `.env` override.
 - [ ] **Migrations are NOT applied** (7 pending; backup not taken). So these features are expected to misbehave on the current hosted DB - do not log them as regressions:
   - Resident **Withdraw request** (needs `withdraw_membership_request`, migration 2) -> error toast.
   - Email-verification gate on joining, approved-only community search (migration 2).
-  - **Report photo** attach after submit (migration 6) -> report saves, photo not attached.
+  - **Report photo** attach after submit (migration 6) -> report saves, photo not attached. Also: the `report-photos` bucket does not exist on the hosted project at all (verified from the real backup), so the upload itself fails until the decision in `HOSTED-APPLY-RUNBOOK.md` 3b is made.
   - **Community interest** screen (migration 5) -> errors/empty.
   - Admin "reservation needs approval" notification (migration 3).
   - Applicant document guard / duplicate-application block (migration 4).

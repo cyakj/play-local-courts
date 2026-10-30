@@ -29,3 +29,26 @@ Applied `20261022120000` (M2), `20261023110000` (M4), `20261023140000` (M7), eac
 - Physical-device (Expo Go / iPhone) behaviour: not tested.
 
 Conclusion: M2, M4 and M7 behave as designed on a plausible schema. The seven files are **not yet proven safe for TENISX REAL**; the next gate is a real backup followed by a rehearsal on a restore of it.
+
+---
+# Update 2026-10-30: all seven migrations on a restore of the REAL backup (still NOTHING applied to any hosted database)
+
+Run: `bash scripts/local-pg-rehearsal/rehearse-real-restore.sh <port> restore_test rehearsal_real2` (the restored backup lives on a scratch server on 127.0.0.1; the rehearsal copy is `CREATE DATABASE ... TEMPLATE`). Scratch server is **PostgreSQL 17.11; the live project is 15.8**, so PG15-specific behaviour is not proven. No Supabase API layer (PostgREST/GoTrue/Storage API): roles and JWT claims are simulated with `SET LOCAL ROLE` + `request.jwt.claims`, request headers with `request.headers`.
+
+Executed (each file in its own transaction, in runbook order): `20261013130000`, `20261022120000`, `20261023100000`, `20261023110000`, `20261023120000`, `20261023130000`, `20261023140000` - all applied with no error on the real data. Then `assert-real-restore.sql`:
+- **Preservation:** 189 pre-existing tables compared by per-row hash before/after: 0 changed (auth users 8, identities 8, profiles 7, memberships 5, bookings 47, hoas 3, reports 81, applications 1, notifications 183, messages 32, ...). Only the two M5 tables were added. The M2 backfill added 0 membership rows (no legacy request-only users exist in the real data; read-only section 1b of `HOSTED-VERIFY-READONLY.sql` was empty). The M3 notification type CHECK accepted all 183 existing notifications.
+- **M1:** anon lost the three RPCs, authenticated kept them (also verified alone on a fresh copy).
+- **M3:** pending booking notifies the community's admin exactly once and not the booker; a confirmed booking notifies nobody (rolled back).
+- **M5:** RLS on, anon closed, submit works, duplicate refused, requester sees only their own, another account sees none, non-reviewer cannot update (rolled back).
+- **M6:** missing API headers refused (specific reason), other user's folder refused (specific reason), a stranger cannot attach to someone else's report, owner attach writes the https URL, second attach is a no-op (rolled back).
+- **M7:** anon and PUBLIC closed on the four functions; own preferences readable; another account refused on get/create/update. SECURITY DEFINER functions in `public` executable by anon: **58 before, 18 after** (the 18 are mostly RLS helper predicates plus the intentionally public invite/survey lookups; see "Still open").
+- **M2/M4:** structure only (resident write policies gone, exact RPC signatures, trigger enabled on the right table, partial unique index with intended predicate). Behaviour of M2/M4 is covered by `rehearse.sh` on the fixture.
+- **Mutation checks (assertions are not vacuous):** omitting each migration in turn is caught for M2, M3, M4, M5, M6, M7 and for "none applied". Omitting M1 alone is not observable at the end state because M7 revokes anon on the same three functions; that is expected, M1 is state-redundant once M7 is applied.
+
+## New findings from the real data (verified offline, not on the hosted dashboard)
+1. **The `report-photos` Storage bucket and its policies do not exist on TENISX REAL** (`storage.buckets` has avatars, branding, hoa-documents, hoa-verification-documents, score-photos; no report-photo policies). The repo migration `20260529120441_report_photos_bucket.sql` is not in the hosted migration history. Today report photo upload fails, and M6 (`attach_report_photo`) cannot work without the bucket. **Decision needed before M6:** apply that older migration (note it lets any signed-in user upload to any folder and has no UPDATE policy although the app uploads with `upsert: true`; tighten to the user's own folder if you want M6's folder rule to be the only path).
+2. The hosted body of `update_email_preference` is now known: it already refuses other users ("Access denied") and has no fixed `search_path`. M7 does not rewrite it; it only revokes anon/PUBLIC.
+3. `package.json` is Expo SDK 57 / React Native 0.86 (CLAUDE.md still says 56 / 0.85).
+
+## Still open / not proven
+Hosted PG15 behaviour; real PostgREST/GoTrue/Storage API; performance and locking on the hosted instance; the 18 remaining anon-executable definer functions and the Supabase advisor items listed in `MIGRATION-RISK-REVIEW.md` (not fixed by these migrations); migration-history reconciliation (the hosted history uses apply-time versions and many repo files, e.g. `report_photos_bucket`, are not recorded).

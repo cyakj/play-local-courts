@@ -4,7 +4,9 @@
 set -euo pipefail
 
 PG_BIN="${PG_BIN:-/c/Users/info/tenisx-tools/pgbin17-11/pgsql/bin}"
-export PGOPTIONS="-c search_path=public,extensions"
+# Drop every inherited libpq routing/credential override (PGHOSTADDR, PGSERVICE, PGPASSFILE, PGSSLMODE ...); PG_BIN is not one.
+for _v in $(env | grep -oE '^PG[A-Z0-9]+' || true); do unset "$_v"; done
+export PGHOSTADDR=127.0.0.1 PGOPTIONS="-c search_path=public,extensions"
 
 validate_args() {
   PORT="${1:-}"; DB="${2:-}"
@@ -13,4 +15,6 @@ validate_args() {
 }
 
 # psql against the scratch server. Always -h 127.0.0.1; the database is passed as a plain validated name.
-pq() { "$PG_BIN/psql.exe" -h 127.0.0.1 -p "$PORT" -U postgres -v ON_ERROR_STOP=1 -q "$@"; }
+# -X: never read a psql startup file. The only non-rehearsal database ever opened is the maintenance database "postgres",
+# solely to CREATE/DROP the validated rehearsal database (and to CREATE ... TEMPLATE from a scratch restore).
+pq() { "$PG_BIN/psql.exe" -X -h 127.0.0.1 -p "$PORT" -U postgres -v ON_ERROR_STOP=1 -q "$@"; }
