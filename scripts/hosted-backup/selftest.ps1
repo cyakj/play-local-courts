@@ -153,6 +153,66 @@ try {
     [IO.File]::WriteAllText((Join-Path $bad4 'MANIFEST.sha256'), '')
     $null = Throws { Invoke-RestoreVerify -BackupDir $bad4 }
     Check 'a read-only stale success marker is removed even when verification fails' (-not (Test-Path (Join-Path $bad4 'RESTORE-VERIFIED.txt')))
+
+    Write-Host 'Security structure must be checked, not just row counts'
+    function Add-ForgedBackup([string]$Name, [scriptblock]$Edit) {
+        $dir = Join-Path $root $Name
+        Copy-Item -LiteralPath $bk -Destination $dir -Recurse
+        foreach ($stale in 'RESTORE-VERIFIED.txt', 'restore-test.report.txt') { Remove-Item -LiteralPath (Join-Path $dir $stale) -Force -ErrorAction SilentlyContinue }
+        & $Edit $dir
+        # A forger who also repairs the manifest and its recorded hash: only the structure cross-check can catch this.
+        $names = [IO.File]::ReadAllLines((Join-Path $bk 'MANIFEST.sha256')) | ForEach-Object { ($_ -split '  ', 2)[1] }
+        $lines = $names | Sort-Object | ForEach-Object { '{0}  {1}' -f (Get-FileHash -LiteralPath (Join-Path $dir $_) -Algorithm SHA256).Hash, $_ }
+        [IO.File]::WriteAllLines((Join-Path $dir 'MANIFEST.sha256'), [string[]]$lines)
+        $c = [IO.File]::ReadAllText((Join-Path $dir 'BACKUP-COMPLETE.txt')) -replace 'manifest-sha256: [0-9A-F]{64}', ('manifest-sha256: ' + (Get-FileHash -LiteralPath (Join-Path $dir 'MANIFEST.sha256') -Algorithm SHA256).Hash)
+        [IO.File]::WriteAllText((Join-Path $dir 'BACKUP-COMPLETE.txt'), $c)
+        return $dir
+    }
+    $noPolicy = Add-ForgedBackup 'backup-policy-missing' {
+        param($d) $f = Join-Path $d 'schema-only.sql'
+        $t = [IO.File]::ReadAllText($f); $t2 = $t -replace '(?m)^CREATE POLICY own ON public\.profiles[^\r\n]*\r?\n', ''
+        if ($t -eq $t2) { throw 'self-test could not find the mock policy to remove' }
+        [IO.File]::WriteAllText($f, $t2)
+    }
+    Clear-PgEnv
+    Check 'a schema dump missing a row level security policy is NOT verified' ((Invoke-RestoreVerify -BackupDir $noPolicy) -eq $false)
+    $noGrant = Add-ForgedBackup 'backup-grant-missing' {
+        param($d) $f = Join-Path $d 'schema-only.sql'
+        $t = [IO.File]::ReadAllText($f); $t2 = $t -replace '(?m)^GRANT SELECT ON TABLE public\.profiles TO authenticated;\r?\n', ''
+        if ($t -eq $t2) { throw 'self-test could not find the mock grant to remove' }
+        [IO.File]::WriteAllText($f, $t2)
+    }
+    Clear-PgEnv
+    Check 'a schema dump missing a grant to an API role is NOT verified' ((Invoke-RestoreVerify -BackupDir $noGrant) -eq $false)
+    $weakPolicy = Add-ForgedBackup 'backup-policy-altered' {
+        param($d) $f = Join-Path $d 'schema-only.sql'
+        $t = [IO.File]::ReadAllText($f); $t2 = $t -replace '(?m)(^CREATE POLICY own ON public\.profiles FOR SELECT TO authenticated USING \().*(\);\r?$)', '${1}true${2}'
+        if ($t -eq $t2) { throw 'self-test could not find the mock policy to alter' }
+        [IO.File]::WriteAllText($f, $t2)
+    }
+    Clear-PgEnv
+    Check 'a policy whose condition was weakened is NOT verified' ((Invoke-RestoreVerify -BackupDir $weakPolicy) -eq $false)
+
+    $noEntry = Add-ForgedBackup 'backup-schema-not-in-manifest' { param($d) }
+    $lines = [IO.File]::ReadAllLines((Join-Path $noEntry 'MANIFEST.sha256')) | Where-Object { $_ -notmatch '  schema-only\.sql$' }
+    [IO.File]::WriteAllLines((Join-Path $noEntry 'MANIFEST.sha256'), [string[]]$lines)
+    $c = [IO.File]::ReadAllText((Join-Path $noEntry 'BACKUP-COMPLETE.txt')) -replace 'manifest-sha256: [0-9A-F]{64}', ('manifest-sha256: ' + (Get-FileHash -LiteralPath (Join-Path $noEntry 'MANIFEST.sha256') -Algorithm SHA256).Hash)
+    [IO.File]::WriteAllText((Join-Path $noEntry 'BACKUP-COMPLETE.txt'), $c)
+    Clear-PgEnv
+    Check 'a manifest that does not cover schema-only.sql is rejected' (Throws { Invoke-RestoreVerify -BackupDir $noEntry })
+    Check 'version-independent shape rows are recorded' (Select-String -Path (Join-Path $bk 'fingerprint-before.txt') -Pattern 'I\|policy-shape\|1\|' -Quiet)
+
+    Write-Host 'Version-dependent text masking keeps counts strict'
+    $fa = Join-Path $root 'fa.txt'; $fb = Join-Path $root 'fb.txt'; $fc = Join-Path $root 'fc.txt'
+    [IO.File]::WriteAllLines($fa, [string[]]@('T|public.x|1|aaa', 'I|policies|2|1111', 'I|views|1|2222'))
+    [IO.File]::WriteAllLines($fb, [string[]]@('T|public.x|1|aaa', 'I|policies|2|9999', 'I|views|1|8888'))
+    [IO.File]::WriteAllLines($fc, [string[]]@('T|public.x|1|aaa', 'I|policies|1|9999', 'I|views|1|8888'))
+    Check 'different text hash alone is strict by default' (-not (Compare-Fingerprints $fa $fb).Match)
+    Check 'different text hash is tolerated for version-dependent rows' ((Compare-Fingerprints $fa $fb -VersionDependent @('policies', 'views')).Match)
+    Check 'a missing policy (count differs) still fails for version-dependent rows' (-not (Compare-Fingerprints $fa $fc -VersionDependent @('policies', 'views')).Match)
+    $fd = Join-Path $root 'fd.txt'
+    [IO.File]::WriteAllLines($fd, [string[]]@('T|public.x|1|bbb', 'I|policies|2|1111', 'I|views|1|2222'))
+    Check 'row data differences are never masked' (-not (Compare-Fingerprints $fa $fd -VersionDependent @('policies', 'views')).Match)
     $script:completed = $true
 }
 finally {

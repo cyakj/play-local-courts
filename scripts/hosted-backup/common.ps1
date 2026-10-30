@@ -16,7 +16,7 @@ $script:OutRoot = Join-Path $env:USERPROFILE 'tenisx-backups'
 $script:DumpSchemas = @('public', 'auth', 'storage', 'supabase_migrations', 'backup_20261013')
 # Rows in these auth tables change whenever any device refreshes a login token; they are dumped but not fingerprinted.
 $script:VolatileTables = @('sessions', 'refresh_tokens', 'audit_log_entries', 'flow_state', 'one_time_tokens', 'mfa_amr_claims')
-$script:RequiredFiles = @('full.dump', 'fingerprint-before.txt', 'fingerprint-after.txt', 'volatile-before.txt', 'volatile-after.txt', 'volatile-stable.txt', 'roles.txt', 'extensions.txt')
+$script:RequiredFiles = @('full.dump', 'fingerprint-before.txt', 'schema-only.sql', 'fingerprint-after.txt', 'volatile-before.txt', 'volatile-after.txt', 'volatile-stable.txt', 'roles.txt', 'extensions.txt')
 # pg_restore error lines that are known to be harmless. Empty on purpose: any restore error fails verification until a
 # specific message has been examined and added here with a reason.
 $script:BenignRestoreErrors = @()
@@ -127,6 +127,10 @@ select '$tag|' || n.nspname || '.' || c.relname || '|' || (xpath('/row/c/text()'
     $parts += New-InventoryRow 'indexes' "select schemaname || '.' || indexdef as def from pg_indexes where schemaname in ($sl)"
     $parts += New-InventoryRow 'constraints' "select n.nspname || '.' || c.relname || '.' || con.conname || ':' || pg_get_constraintdef(con.oid) as def from pg_constraint con join pg_class c on c.oid = con.conrelid join pg_namespace n on n.oid = c.relnamespace where n.nspname in ($sl)"
     $parts += New-InventoryRow 'views' "select n.nspname || '.' || c.relname || ':' || pg_get_viewdef(c.oid) as def from pg_class c join pg_namespace n on n.oid = c.relnamespace where c.relkind in ('v','m') and n.nspname in ($sl)"
+    # Version-independent shapes (no expression text): identical on any PostgreSQL major version, so they stay strict across versions.
+    $parts += New-InventoryRow 'policy-shape' "select schemaname || '.' || tablename || '.' || policyname || ':' || cmd || ':' || permissive || ':' || roles::text as def from pg_policies where schemaname in ($sl)"
+    $parts += New-InventoryRow 'constraint-shape' "select n.nspname || '.' || c.relname || '.' || con.conname || ':' || con.contype::text || ':' || con.convalidated::text as def from pg_constraint con join pg_class c on c.oid = con.conrelid join pg_namespace n on n.oid = c.relnamespace where n.nspname in ($sl)"
+    $parts += New-InventoryRow 'view-shape' "select n.nspname || '.' || c.relname || ':' || c.relkind::text as def from pg_class c join pg_namespace n on n.oid = c.relnamespace where c.relkind in ('v','m') and n.nspname in ($sl)"
     $parts += New-InventoryRow 'enums' "select n.nspname || '.' || t.typname || ':' || e.enumlabel || ':' || (row_number() over (partition by e.enumtypid order by e.enumsortorder))::text as def from pg_enum e join pg_type t on t.oid = e.enumtypid join pg_namespace n on n.oid = t.typnamespace where n.nspname in ($sl)"
     $parts += New-InventoryRow 'sequences' "select schemaname || '.' || sequencename || ':' || data_type::text || ':' || start_value::text || ':' || increment_by::text || ':' || min_value::text || ':' || max_value::text || ':' || cache_size::text || ':' || cycle::text || ':last=' || coalesce(last_value::text, 'null') as def from pg_sequences where schemaname in ($sl)"
     # Privileges depend on which role owns the objects (the restore runs as a different owner), so they are informational.
@@ -160,9 +164,17 @@ function Read-SortedLines {
 
 # Compares two fingerprint files. Returns @{ Match; Differences; Informational } (G| rows never cause a mismatch).
 function Compare-Fingerprints {
-    param([string]$ExpectedPath, [string]$ActualPath, [switch]$AllInformational)
+    param([string]$ExpectedPath, [string]$ActualPath, [switch]$AllInformational, [string[]]$VersionDependent = @())
     $e = Read-SortedLines $ExpectedPath
     $a = Read-SortedLines $ActualPath
+    # Inventory rows whose definition TEXT is printed differently by different PostgreSQL major versions (see
+    # Invoke-StructureCrossCheck): the object count (3rd field) stays strict, the text hash is replaced by a marker.
+    if ($VersionDependent.Count -gt 0) {
+        $mask = { param($l) foreach ($n in $VersionDependent) { if ($l -match ('^I\|' + [regex]::Escape($n) + '\|(\d+)\|')) { return ('I|{0}|{1}|version-dependent-text' -f $n, $Matches[1]) } }; return $l }
+        $e = [string[]]@($e | ForEach-Object { & $mask $_ })
+        $a = [string[]]@($a | ForEach-Object { & $mask $_ })
+        [Array]::Sort($e, [StringComparer]::Ordinal); [Array]::Sort($a, [StringComparer]::Ordinal)
+    }
     if ($AllInformational) {
         $info = @(Compare-Object $e $a -CaseSensitive | ForEach-Object { '{0} {1}' -f $_.SideIndicator, $_.InputObject })
         return @{ Match = $true; Differences = @(); Informational = $info; Lines = 0 }
@@ -294,6 +306,86 @@ function Get-FreePort {
     throw 'No free local port for the scratch server.'
 }
 
+
+# Per-object structure lines that must be identical in the restored copy of full.dump and in a second copy rebuilt from
+# schema-only.sql (a separate pg_dump of the live project made in the same backup run). Both copies are built by the SAME
+# PostgreSQL version, so text that different versions print differently (OR/AND grouping, view column qualifiers) cannot
+# cause false differences, while any missing, extra or altered constraint, policy, view or API-role privilege does.
+# Privileges of Supabase-internal roles (postgres, dashboard_user, supabase_*, pgbouncer) are excluded: their ownership
+# cannot be reproduced on a plain local server. Every other grantee (anon, authenticated, PUBLIC, custom roles) is compared.
+# LIMITS (stated plainly): both artifacts come from the same pg_dump of the same live project, so this proves the two
+# artifacts agree and that the restore reproduces them; it cannot detect a defect that corrupts both identically. The
+# independent live anchors are the object COUNTS and, for backups made after this change, the version-independent
+# 'shape' hashes (policy name/command/roles, constraint name/type, view names) that the backup records from the live project.
+# Run the verification with a scratch server of the SAME major version as the live project to get the strict text comparison.
+# Ownership, role attributes/memberships and the excluded internal-role grants are not proven.
+function Get-StructureCrossCheckSql {
+    $sl = ($script:DumpSchemas | ForEach-Object { "'" + $_ + "'" }) -join ','
+    $ext = "(a.grantee = 0 or pg_get_userbyid(a.grantee) !~ '^(postgres|dashboard_user|pgbouncer|supabase_.*)$')"
+    $g = "case when a.grantee = 0 then 'PUBLIC' else pg_get_userbyid(a.grantee) end"
+    return @"
+select line from (
+select 'constraint|' || n.nspname || '.' || c.relname || '.' || con.conname || '|' || md5(pg_get_constraintdef(con.oid)) as line from pg_constraint con join pg_class c on c.oid = con.conrelid join pg_namespace n on n.oid = c.relnamespace where n.nspname in ($sl)
+union all select 'policy|' || schemaname || '.' || tablename || '.' || policyname || '|' || cmd || ':' || permissive || ':' || roles::text || ':' || md5(coalesce(qual, '') || chr(1) || coalesce(with_check, '')) from pg_policies where schemaname in ($sl)
+union all select 'view|' || n.nspname || '.' || c.relname || '|' || md5(pg_get_viewdef(c.oid)) from pg_class c join pg_namespace n on n.oid = c.relnamespace where c.relkind in ('v','m') and n.nspname in ($sl)
+union all select 'relgrant|' || n.nspname || '.' || c.relname || ':' || c.relkind::text || ':' || $g || ':' || a.privilege_type || ':' || a.is_grantable::text from pg_class c join pg_namespace n on n.oid = c.relnamespace cross join lateral aclexplode(c.relacl) a where c.relkind in ('r','p','v','m','S') and n.nspname in ($sl) and $ext
+union all select 'colgrant|' || n.nspname || '.' || c.relname || '.' || at.attname || ':' || $g || ':' || a.privilege_type || ':' || a.is_grantable::text from pg_attribute at join pg_class c on c.oid = at.attrelid join pg_namespace n on n.oid = c.relnamespace cross join lateral aclexplode(at.attacl) a where n.nspname in ($sl) and $ext
+union all select 'fngrant|' || p.oid::regprocedure::text || ':' || $g || ':' || a.privilege_type || ':' || a.is_grantable::text from pg_proc p join pg_namespace n on n.oid = p.pronamespace cross join lateral aclexplode(p.proacl) a where n.nspname in ($sl) and $ext
+union all select 'schemagrant|' || n.nspname || ':' || $g || ':' || a.privilege_type || ':' || a.is_grantable::text from pg_namespace n cross join lateral aclexplode(n.nspacl) a where n.nspname in ($sl) and $ext
+union all select 'defacl|' || coalesce(n.nspname, '(global)') || ':' || pg_get_userbyid(d.defaclrole) || ':' || d.defaclobjtype::text || ':' || $g || ':' || a.privilege_type || ':' || a.is_grantable::text from pg_default_acl d left join pg_namespace n on n.oid = d.defaclnamespace cross join lateral aclexplode(d.defaclacl) a where (n.nspname is null or n.nspname in ($sl)) and $ext
+) x order by line collate "C";
+"@
+}
+
+# Major version of the server that produced the backup, read from the header pg_dump wrote into schema-only.sql. $null if absent.
+function Get-DumpServerMajor {
+    param([string]$BackupDir)
+    $f = Join-Path $BackupDir 'schema-only.sql'
+    if (-not (Test-Path -LiteralPath $f)) { return $null }
+    foreach ($l in (Get-Content -LiteralPath $f -TotalCount 30)) { if ($l -match 'Dumped from database version (\d+)') { return [int]$Matches[1] } }
+    return $null
+}
+
+# Builds db 'canon_schema' on the scratch server from schema-only.sql and compares it object by object with 'restore_test'.
+# The connection env (scratch host/port) must already be set. Returns @{ Ok; Lines; Differences; LoadErrors }.
+function Invoke-StructureCrossCheck {
+    param([string]$Scratch, [string]$BackupDir, [string]$ExtensionsFile)
+    $r = @{ Ok = $false; Lines = 0; Differences = @(); LoadErrors = @() }
+    $savedDb = $env:PGDATABASE
+    try {
+        $env:PGDATABASE = 'postgres'
+        $f = Join-Path $Scratch 'canon-create.sql'; Write-Utf8NoBom $f "create database canon_schema;`n"
+        if ((Invoke-Pg 'psql.exe' @('-X', '-q', '-v', 'ON_ERROR_STOP=1', '-f', $f) (Join-Path $Scratch 'canon-create.out.txt') (Join-Path $Scratch 'canon-create.err.txt')) -ne 0) { $r.LoadErrors = @('could not create canon_schema'); return $r }
+        $env:PGDATABASE = 'canon_schema'
+        foreach ($l in [IO.File]::ReadAllLines($ExtensionsFile)) {
+            $p = $l -split '\|'
+            if ($p[0] -eq 'plpgsql' -or $p[0] -notmatch '^[A-Za-z0-9_-]+$' -or $p[2] -notmatch '^[A-Za-z0-9_]+$') { continue }
+            # Extensions the portable server lacks fail here exactly as in the main restore; each runs alone so the others still install.
+            $e = Join-Path $Scratch ("canon-ext-$($p[0]).sql")
+            Write-Utf8NoBom $e "create schema if not exists `"$($p[2])`";`ncreate extension if not exists `"$($p[0])`" schema `"$($p[2])`";"
+            $null = Invoke-Pg 'psql.exe' @('-X', '-q', '-f', $e) (Join-Path $Scratch "canon-ext-$($p[0]).out.txt") (Join-Path $Scratch "canon-ext-$($p[0]).err.txt")
+        }
+        # schema-only.sql creates the public schema itself (with the live project's privileges), so drop the default one.
+        $f = Join-Path $Scratch 'canon-setup.sql'; Write-Utf8NoBom $f "drop schema public cascade;`n"
+        $null = Invoke-Pg 'psql.exe' @('-X', '-q', '-f', $f) (Join-Path $Scratch 'canon-setup.out.txt') (Join-Path $Scratch 'canon-setup.err.txt')
+        $loadErr = Join-Path $Scratch 'canon-load.err.txt'
+        $loadCode = Invoke-Pg 'psql.exe' @('-X', '-q', '-v', 'ON_ERROR_STOP=0', '-f', (Join-Path $BackupDir 'schema-only.sql')) (Join-Path $Scratch 'canon-load.out.txt') $loadErr
+        $r.LoadErrors = @(Get-Content -LiteralPath $loadErr -ErrorAction SilentlyContinue | Where-Object { $_ -match 'ERROR:' })
+        if ($loadCode -ne 0) { $r.LoadErrors += "psql exited with code $loadCode while loading schema-only.sql" }
+        $sql = Get-StructureCrossCheckSql
+        $env:PGDATABASE = 'restore_test'
+        $a = Invoke-Query $Scratch 'xcheck-restored' $sql
+        $env:PGDATABASE = 'canon_schema'
+        $b = Invoke-Query $Scratch 'xcheck-canon' $sql
+        $la = Read-SortedLines $a; $lb = Read-SortedLines $b
+        $r.Lines = $la.Count
+        $r.Differences = @(Compare-Object $la $lb -CaseSensitive | ForEach-Object { '{0} {1}' -f $_.SideIndicator, $_.InputObject })
+        $r.Ok = ($r.LoadErrors.Count -eq 0 -and $r.Differences.Count -eq 0 -and $la.Count -gt 0)
+    }
+    finally { $env:PGDATABASE = $savedDb }
+    return $r
+}
+
 # Restores $BackupDir\full.dump into a throwaway local server and compares it with the live fingerprint.
 # Returns $true only when everything strict matches. Never contacts Supabase.
 function Invoke-RestoreVerify {
@@ -384,9 +476,26 @@ function Invoke-RestoreVerify {
 
         $null = Invoke-Query $scratch 'fingerprint-restored' (Get-FingerprintSql)
         Copy-Item -LiteralPath (Join-Path $scratch 'fingerprint-restored.txt') -Destination (Join-Path $BackupDir 'fingerprint-restored.txt') -Force
-        $cmp = Compare-Fingerprints $before (Join-Path $BackupDir 'fingerprint-restored.txt')
+        $restoredFp = Join-Path $BackupDir 'fingerprint-restored.txt'
+        if (-not (Select-String -LiteralPath $before -Pattern '^I\|policy-shape\|' -Quiet)) {
+            # Backup made before the shape rows existed: compare against what the baseline actually recorded.
+            $report += 'note: this backup predates the version-independent shape rows; they are not compared'
+            [IO.File]::WriteAllLines($restoredFp, [string[]]@(Get-Content -LiteralPath $restoredFp | Where-Object { $_ -notmatch '^I\|(policy|constraint|view)-shape\|' }))
+        }
+        $dumpMajor = Get-DumpServerMajor $BackupDir
+        $null = Invoke-Query $scratch 'server-version' "select (current_setting('server_version_num')::int / 10000)::text;"
+        $localMajor = [int]([IO.File]::ReadAllText((Join-Path $scratch 'server-version.txt')).Trim())
+        $crossVersion = ($null -ne $dumpMajor -and $dumpMajor -ne $localMajor)
+        $versionDependent = @(); if ($crossVersion) { $versionDependent = @('constraints', 'policies', 'views') }
+        $report += "live server major version: $(if ($null -ne $dumpMajor) { $dumpMajor } else { 'unknown (compared strictly)' }); scratch server major version: $localMajor"
+        $cmp = Compare-Fingerprints $before (Join-Path $BackupDir 'fingerprint-restored.txt') -VersionDependent $versionDependent
         $restoredAccounts = Get-TableCount (Join-Path $BackupDir 'fingerprint-restored.txt') 'auth.users'
         $report += "strict comparison lines: $($cmp.Lines); differences: $($cmp.Differences.Count)"
+        if ($crossVersion) { $report += "constraints/policies/views: counts compared with the live project; definition text is printed differently by PostgreSQL $dumpMajor and $localMajor, so it is compared by the structure cross-check below" }
+        $cross = Invoke-StructureCrossCheck -Scratch $scratch -BackupDir $BackupDir -ExtensionsFile (Join-Path $BackupDir 'extensions.txt')
+        $report += "structure cross-check (full.dump restore vs schema-only.sql rebuild; constraints, policies, views, grants to anon/authenticated/PUBLIC/custom roles): $($cross.Lines) objects; differences: $($cross.Differences.Count); schema-only load errors: $($cross.LoadErrors.Count)"
+        if ($cross.LoadErrors.Count -gt 0) { $report += 'SCHEMA-ONLY LOAD ERRORS (first 10):'; $report += @($cross.LoadErrors | Select-Object -First 10) }
+        if ($cross.Differences.Count -gt 0) { $report += 'STRUCTURE CROSS-CHECK DIFFERENCES (< restored only, > rebuilt only), first 40:'; $report += @($cross.Differences | Select-Object -First 40) }
         $report += "privilege (informational) differences: $($cmp.Informational.Count)"
         foreach ($t in 'auth.users', 'auth.identities', 'public.profiles', 'public.hoa_memberships', 'public.bookings', 'public.hoas', 'public.maintenance_reports') {
             $report += ("{0,-28} live={1} restored={2}" -f $t, (Get-TableCount $before $t), (Get-TableCount (Join-Path $BackupDir 'fingerprint-restored.txt') $t))
@@ -403,7 +512,7 @@ function Invoke-RestoreVerify {
         if ($volCmp.Informational.Count -gt 0) { $report += @($volCmp.Informational | Select-Object -First 10) }
         # A non-zero pg_restore exit is only acceptable when every reported error is on the known-harmless list.
         $restoreOk = ($rcode -eq 0) -or ($errLines.Count -gt 0 -and $unexpected.Count -eq 0)
-        $verified = ($cmp.Match -and $restoredAccounts -eq $accounts -and $unexpected.Count -eq 0 -and $restoreOk -and $volOk)
+        $verified = ($cmp.Match -and $cross.Ok -and $restoredAccounts -eq $accounts -and $unexpected.Count -eq 0 -and $restoreOk -and $volOk)
     }
     finally {
         # Keep the small log/SQL files for diagnosis; the data directory is never copied.
