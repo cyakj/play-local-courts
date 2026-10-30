@@ -266,7 +266,7 @@ test.describe('fresh-inspection follow-ups (C)', () => {
   test('C-R301: the Schedule chip row starts on and follows the shared active community', () => {
     const c = src('app/(resident)/calendar.tsx');
     expect(c).toMatch(/useActiveCommunity\(\)/);
-    expect(c).toMatch(/if \(sharedCommunity\?\.hoaId\) setActiveCommunity\(sharedCommunity\.hoaId\)/);
+    expect(c).toMatch(/if \(isCommunityMode && sharedCommunity\?\.hoaId\) setActiveCommunity\(sharedCommunity\.hoaId\)/);
   });
   test('C-R302: Home clears community-bound previews (including cancellation banners) on community change', () => {
     const h = src('app/(resident)/index.tsx');
