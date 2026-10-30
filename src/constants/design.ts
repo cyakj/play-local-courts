@@ -94,6 +94,17 @@ export const FontSize = {
 
 // ─── Border Radius ────────────────────────────────────────────────────────────
 
+// Semantic availability colors for time-slot pickers. Deliberately NOT reused from calendar event colors:
+// a blocked court is not a "Community Event" or a "Maintenance" calendar item.
+export const Availability = {
+  available:   '#2FD98B', // open to book (same meaning as positive/confirmed)
+  reserved:    '#7A839A', // already reserved by someone (muted gray)
+  reservedBg:  'rgba(122,131,154,0.10)',
+  blocked:     '#D08A5B', // closed by management (muted copper, distinct from reserved)
+  blockedBg:   'rgba(208,138,91,0.12)',
+  selected:    '#2D6BFF', // the resident's current choice (Intelligent Blue)
+} as const;
+
 export const Radius = {
   xs:     6,    // --r-xs · small tags
   sm:     10,   // --r-sm · inputs, buttons

@@ -11,15 +11,16 @@ import {
 import type { ScrollViewInstance } from 'react-native';
 import Svg, { Circle, G, Line, Path, Rect } from 'react-native-svg';
 
-import { Colors, FontFamily, Radius } from '@/constants/design';
+import { Availability, Colors, FontFamily, Radius } from '@/constants/design';
+import type { SlotInfo } from '@/lib/slotAvailability';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 
 // ─── Wheel dimensions ─────────────────────────────────────────────────────────
 
 const ITEM_H  = 52;
 const VISIBLE = 7;
-const WHEEL_H = ITEM_H * VISIBLE;          // 364
-const PAD     = (WHEEL_H - ITEM_H) / 2;   // 156 — centers first/last items
+const WHEEL_H = ITEM_H * VISIBLE;          // 364 — default before the container is measured
+const MIN_H   = ITEM_H * 3;                // never smaller than 3 rows
 
 // ─── Cylinder transform tables ────────────────────────────────────────────────
 // Each row is scaled & faded based on distance from the center row,
@@ -50,7 +51,10 @@ interface SlotWx {
 }
 
 export interface TimeSlotWheelProps {
-  slots: string[];
+  /** Every candidate start with its availability; unavailable ones stay visible but disabled. */
+  slots: (SlotInfo | string)[];
+  /** Fill the parent's height (reservation sheet). Default keeps the legacy fixed 7-row height used elsewhere. */
+  fill?: boolean;
   selectedSlot: string | null;
   onSelectSlot: (slot: string | null) => void;
   weather: WheelWeatherSource | null;
@@ -212,18 +216,43 @@ function WxIcon({ type, size }: { type: SlotWx['iconType']; size: number }) {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+const STATE_LABEL = { reserved: 'Reserved', blocked: 'Blocked', limit: 'Limit' } as const;
+
+function a11yLabel(slot: SlotInfo, isSelected: boolean): string {
+  const t = fmtSlot(slot.start);
+  if (isSelected) return `${t}, selected`;
+  if (slot.state === 'available') return `${t}, available`;
+  if (slot.state === 'blocked') return `${t}, blocked by management, unavailable`;
+  if (slot.state === 'limit') return `${t}, reservation limit reached, unavailable`;
+  return `${t}, ${slot.mine ? 'reserved by you' : 'reserved'}, unavailable`;
+}
+
+/**
+ * The wheel fills whatever height its parent gives it (flex: 1) and is the ONLY vertical scroller in the
+ * reservation sheet. It measures itself, so there is no per-device height.
+ */
 export const TimeSlotWheel = memo(function TimeSlotWheel({
-  slots, selectedSlot, onSelectSlot,
+  slots: rawSlots, fill = false, selectedSlot, onSelectSlot,
   weather, outdoor, sheetDate, now, theme,
 }: TimeSlotWheelProps) {
+  const slots = useMemo<SlotInfo[]>(
+    () => rawSlots.map((x) => (typeof x === 'string' ? { start: x, state: 'available' as const } : x)),
+    [rawSlots],
+  );
   const scrollRef  = useRef<ScrollViewInstance>(null);
   const lastIdxRef = useRef(0);
   const [centeredIdx, setCenteredIdx] = useState(0);
+  const [wheelH, setWheelH] = useState(WHEEL_H);
   const s = useWheelStyles(theme);
+  const pad = Math.max(0, (wheelH - ITEM_H) / 2);
+  const starts = useMemo(() => slots.map((x) => x.start), [slots]);
 
   useEffect(() => {
     if (slots.length === 0) return;
-    const target = selectedSlot ? Math.max(0, slots.indexOf(selectedSlot)) : 0;
+    // Land on the selection, else the first bookable time, else the top.
+    const sel = selectedSlot ? starts.indexOf(selectedSlot) : -1;
+    const firstOpen = slots.findIndex((x) => x.state === 'available');
+    const target = sel >= 0 ? sel : Math.max(0, firstOpen);
     lastIdxRef.current = target;
     setCenteredIdx(target);
     const tid = setTimeout(() => {
@@ -231,7 +260,7 @@ export const TimeSlotWheel = memo(function TimeSlotWheel({
     }, 60);
     return () => clearTimeout(tid);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slots]);
+  }, [slots, wheelH]);
 
   const handleScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -246,8 +275,9 @@ export const TimeSlotWheel = memo(function TimeSlotWheel({
   );
 
   const handleSelect = useCallback(
-    (slot: string, idx: number) => {
-      const next = slot === selectedSlot ? null : slot;
+    (slot: SlotInfo, idx: number) => {
+      if (slot.state !== 'available') return; // disabled rows never select
+      const next = slot.start === selectedSlot ? null : slot.start;
       onSelectSlot(next);
       if (next !== null) {
         lastIdxRef.current = idx;
@@ -259,7 +289,12 @@ export const TimeSlotWheel = memo(function TimeSlotWheel({
   );
 
   return (
-    <View style={[s.wheel, { height: WHEEL_H }]}>
+    <View
+      style={[s.wheel, fill ? { flex: 1, minHeight: MIN_H } : { height: WHEEL_H, marginBottom: 12 }]}
+      onLayout={fill ? (e) => {
+        const h = Math.round(e.nativeEvent.layout.height);
+        if (h > 0 && Math.abs(h - wheelH) > 1) setWheelH(h);
+      } : undefined}>
       <ScrollView
         ref={scrollRef}
         testID="time-slot-wheel"
@@ -268,39 +303,42 @@ export const TimeSlotWheel = memo(function TimeSlotWheel({
         decelerationRate="fast"
         scrollEventThrottle={16}
         onScroll={handleScroll}
-        contentContainerStyle={{ paddingVertical: PAD }}
+        nestedScrollEnabled
+        contentContainerStyle={{ paddingVertical: pad }}
       >
         {slots.map((slot, i) => {
           const dist       = Math.abs(i - centeredIdx);
+          const open       = slot.state === 'available';
           const isCentered = i === centeredIdx;
-          const isSelected = slot === selectedSlot;
+          const isSelected = slot.start === selectedSlot;
           const { scaleY, opacity } = cylT(dist);
-          const wx = outdoor && weather ? wxForSlot(slot, sheetDate, now, weather) : null;
+          const wx = open && outdoor && weather ? wxForSlot(slot.start, sheetDate, now, weather) : null;
 
           return (
             <View
-              key={slot}
-              testID={`wheel-row-${slot}`}
+              key={slot.start}
+              testID={`wheel-row-${slot.start}`}
               style={[
                 s.row,
                 { opacity },
-                isCentered && s.rowFocused,
+                slot.state === 'reserved' && s.rowReserved,
+                slot.state === 'blocked' && s.rowBlocked,
+                open && isCentered && s.rowFocused,
                 isSelected && s.rowSelected,
               ]}
             >
-              {/* Inner view receives the scaleY cylinder transform */}
               <View style={[s.rowInner, { transform: [{ scaleY }] }]}>
-                {/* Time */}
+                <View style={[s.dot, { backgroundColor: open ? Availability.available : slot.state === 'blocked' ? Availability.blocked : Availability.reserved }]} />
                 <Text
-                  testID={`wheel-time-${slot}`}
-                  style={[s.time, isCentered && s.timeFocused]}
+                  testID={`wheel-time-${slot.start}`}
+                  style={[s.time, open && isCentered && s.timeFocused, !open && s.timeDisabled]}
                   numberOfLines={1}
                 >
-                  {fmtSlot(slot)}
+                  {fmtSlot(slot.start)}
                 </Text>
 
-                {/* Weather (outdoor courts only) */}
-                {outdoor && wx ? (
+                {/* Weather: only for bookable outdoor times, only when real data exists */}
+                {wx ? (
                   <View style={s.wxArea}>
                     <WxIcon type={wx.iconType} size={isCentered ? 20 : 18} />
                     <Text style={[s.temp, isCentered && s.tempFocused]}>{wx.temp}°F</Text>
@@ -312,18 +350,34 @@ export const TimeSlotWheel = memo(function TimeSlotWheel({
                   <View style={s.wxSpacer} />
                 )}
 
-                {/* Select / ✓ button */}
-                <TouchableOpacity
-                  testID={`wheel-select-${slot}`}
-                  style={[s.btn, isSelected && s.btnActive]}
-                  onPress={() => handleSelect(slot, i)}
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Text style={[s.btnLabel, isSelected && s.btnLabelActive]}>
-                    {isSelected ? '✓' : 'Select'}
-                  </Text>
-                </TouchableOpacity>
+                {open ? (
+                  <TouchableOpacity
+                    testID={`wheel-select-${slot.start}`}
+                    style={[s.btn, isSelected && s.btnActive]}
+                    onPress={() => handleSelect(slot, i)}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={a11yLabel(slot, isSelected)}
+                    accessibilityState={{ selected: isSelected }}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Text style={[s.btnLabel, isSelected && s.btnLabelActive]}>
+                      {isSelected ? '✓' : 'Select'}
+                    </Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View
+                    testID={`wheel-unavailable-${slot.start}`}
+                    accessible
+                    accessibilityLabel={a11yLabel(slot, false)}
+                    accessibilityState={{ disabled: true }}
+                    style={[s.statePill, slot.state === 'blocked' ? s.statePillBlocked : s.statePillReserved]}
+                  >
+                    <Text style={[s.statePillText, { color: slot.state === 'blocked' ? Availability.blocked : theme.textMuted }]}>
+                      {slot.state === 'reserved' && slot.mine ? 'Yours' : STATE_LABEL[slot.state as 'reserved' | 'blocked' | 'limit']}
+                    </Text>
+                  </View>
+                )}
               </View>
             </View>
           );
@@ -333,11 +387,31 @@ export const TimeSlotWheel = memo(function TimeSlotWheel({
   );
 });
 
+/** Compact legend for the wheel; uses the shared semantic availability colors. */
+export function AvailabilityLegend({ theme }: { theme: ThemeTokens }) {
+  const items = [
+    { color: Availability.available, label: 'Available' },
+    { color: Availability.reserved, label: 'Reserved' },
+    { color: Availability.blocked, label: 'Blocked' },
+    { color: Availability.selected, label: 'Selected' },
+  ];
+  return (
+    <View testID="availability-legend" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14, justifyContent: 'center', paddingVertical: 6 }}>
+      {items.map((it) => (
+        <View key={it.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: it.color }} />
+          <Text style={{ fontFamily: FontFamily.manropeMedium, fontSize: 12, color: theme.textMuted }}>{it.label}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 function useWheelStyles(theme: ThemeTokens) {
   return useMemo(() => {
-    const selBlue   = Colors.blue;
+    const selBlue   = Availability.selected;
     const selBlueBg = 'rgba(45,107,255,0.09)';
 
     return StyleSheet.create({
@@ -347,10 +421,7 @@ function useWheelStyles(theme: ThemeTokens) {
         backgroundColor: theme.sheetBg,
         borderWidth: 1,
         borderColor: theme.border,
-        marginBottom: 12,
       },
-
-      // Full layout-height container — occupies ITEM_H; no background
       row: {
         height: ITEM_H,
         justifyContent: 'center',
@@ -360,67 +431,31 @@ function useWheelStyles(theme: ThemeTokens) {
         borderRadius: Radius.sm,
         marginHorizontal: 4,
       },
-      // Blue border when this row is the centered/focused one
-      rowFocused: {
-        borderColor: selBlue,
-        backgroundColor: selBlueBg,
-      },
-      // Extra: slightly stronger border when user has tapped Select
-      rowSelected: {
-        borderColor: selBlue,
-        backgroundColor: selBlueBg,
-      },
-
-      // The inner view gets the scaleY cylinder transform — this is what
-      // creates the "rows curving away from the viewer" illusion.
+      rowFocused: { borderColor: selBlue, backgroundColor: selBlueBg },
+      rowSelected: { borderColor: selBlue, backgroundColor: selBlueBg },
+      rowReserved: { backgroundColor: Availability.reservedBg },
+      rowBlocked: { backgroundColor: Availability.blockedBg },
       rowInner: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 10,
         gap: 8,
       },
-
+      dot: { width: 8, height: 8, borderRadius: 4 },
       time: {
         fontFamily: FontFamily.manropeSemiBold,
         fontSize: 15,
         color: theme.textMuted,
-        letterSpacing: 0,
         width: 80,
       },
-      timeFocused: {
-        color: theme.textPrimary,
-        fontFamily: FontFamily.manropeBold,
-      },
-
-      wxArea: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        overflow: 'hidden',
-      },
+      timeFocused: { color: theme.textPrimary, fontFamily: FontFamily.manropeBold },
+      timeDisabled: { color: theme.textMuted, textDecorationLine: 'line-through' },
+      wxArea: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, overflow: 'hidden' },
       wxSpacer: { flex: 1 },
-
-      temp: {
-        fontFamily: FontFamily.manropeSemiBold,
-        fontSize: 13,
-        color: theme.textMuted,
-        minWidth: 34,
-      },
-      tempFocused: {
-        color: Colors.blue,
-      },
-
-      cond: {
-        fontFamily: FontFamily.manropeMedium,
-        fontSize: 13,
-        color: theme.textMuted,
-        flexShrink: 1,
-      },
-      condFocused: {
-        color: theme.textSecondary,
-      },
-
+      temp: { fontFamily: FontFamily.manropeSemiBold, fontSize: 13, color: theme.textMuted, minWidth: 34 },
+      tempFocused: { color: Colors.blue },
+      cond: { fontFamily: FontFamily.manropeMedium, fontSize: 13, color: theme.textMuted, flexShrink: 1 },
+      condFocused: { color: theme.textSecondary },
       btn: {
         paddingHorizontal: 10,
         paddingVertical: 5,
@@ -428,22 +463,20 @@ function useWheelStyles(theme: ThemeTokens) {
         borderWidth: 1,
         borderColor: theme.border,
         backgroundColor: theme.surface2,
-        minWidth: 60,
+        minWidth: 72,
         alignItems: 'center',
         justifyContent: 'center',
       },
-      btnActive: {
-        backgroundColor: selBlue,
-        borderColor: selBlue,
+      btnActive: { backgroundColor: selBlue, borderColor: selBlue },
+      btnLabel: { fontFamily: FontFamily.manropeSemiBold, fontSize: 12, color: theme.textMuted },
+      btnLabelActive: { color: '#FFFFFF' },
+      statePill: {
+        paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, minWidth: 72,
+        alignItems: 'center', justifyContent: 'center', borderWidth: 1,
       },
-      btnLabel: {
-        fontFamily: FontFamily.manropeSemiBold,
-        fontSize: 12,
-        color: theme.textMuted,
-      },
-      btnLabelActive: {
-        color: '#FFFFFF',
-      },
+      statePillReserved: { borderColor: 'rgba(122,131,154,0.35)' },
+      statePillBlocked: { borderColor: 'rgba(208,138,91,0.45)' },
+      statePillText: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: 11, letterSpacing: 0.4 },
     });
   }, [theme]);
 }

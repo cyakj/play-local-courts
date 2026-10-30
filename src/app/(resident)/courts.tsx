@@ -2,12 +2,14 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
@@ -24,7 +26,8 @@ import {
   Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing,
 } from '@/constants/design';
 import { Header } from '@/components/ui/Header';
-import { TimeSlotWheel } from '@/components/ui/TimeSlotWheel';
+import { AvailabilityLegend, TimeSlotWheel } from '@/components/ui/TimeSlotWheel';
+import { computeSlots, isSelectable, revalidateSelection, toDateKey, toMins, type SlotInfo } from '@/lib/slotAvailability';
 import { CalendarPicker, formatDateLabel } from '@/components/ui/CalendarPicker';
 import { useTheme } from '@/context/ThemeContext';
 import { useCommunityName } from '@/hooks/useCommunityName';
@@ -38,6 +41,8 @@ const OUTDOOR_TYPES = new Set(['tennis', 'pickleball', 'basketball', 'pool', 'ou
 const TENNIS_TYPES = new Set(['tennis']);
 // Must match the RAISE EXCEPTION message in enforce_amenity_booking_rules()
 // (supabase/migrations/..._greens_v1_enforce_blockout_conflicts.sql) exactly.
+// Statuses that occupy an amenity's time and count toward limits (matches enforce_amenity_booking_rules).
+const ACTIVE_BOOKING_STATUSES = ['confirmed', 'pending'];
 const BLOCKOUT_CONFLICT_MESSAGE = 'This time is unavailable because the amenity is blocked for maintenance';
 
 function isOutdoor(courtType: string): boolean {
@@ -84,6 +89,8 @@ interface AmenityRules {
   doubles_duration_minutes: number | null;
   advance_booking_days: number | null;
   min_cancellation_hours: number | null;
+  max_duration_minutes?: number | null;
+  max_reservations_per_day?: number | null;
 }
 
 interface CourtStatus {
@@ -179,7 +186,7 @@ function getSlotWeatherIcon(hour: number, selectedDate: Date, now: Date, weather
 }
 
 function computeCourtStatus(courtId: string, now: Date, bookingsByDate: Record<string, TodayBooking[]>): CourtStatus {
-  const dateStr = now.toISOString().split('T')[0];
+  const dateStr = toDateKey(now);
   const bookings = (bookingsByDate[dateStr] ?? []).filter(b => b.court_id === courtId);
   const nowStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:00`;
 
@@ -334,7 +341,7 @@ export default function CourtsScreen() {
 
       const [courtsRes, userBookingsRes] = await Promise.all([
         supabase.from('courts').select('id, name, court_type, hoa_id').in('hoa_id', hoaIds),
-        supabase.from('bookings').select('id, court_id, date, start_time, end_time, courts(name)').eq('user_id', user.id).gte('date', now.toISOString().split('T')[0]).neq('status', 'cancelled').order('date').order('start_time').limit(10),
+        supabase.from('bookings').select('id, court_id, date, start_time, end_time, courts(name)').eq('user_id', user.id).gte('date', toDateKey(now)).in('status', ACTIVE_BOOKING_STATUSES).order('date').order('start_time').limit(10),
       ]);
 
       const fetchedCourts: Court[] = courtsRes.data ?? [];
@@ -342,17 +349,27 @@ export default function CourtsScreen() {
       setUserBookings((userBookingsRes.data ?? []) as UserBooking[]);
 
       if (fetchedCourts.length > 0) {
-        await fetchBookingsForDate(now.toISOString().split('T')[0], fetchedCourts.map(c => c.id));
+        await fetchBookingsForDate(toDateKey(now), fetchedCourts.map(c => c.id));
       }
     } catch { /* silently fail */ }
     finally { setCourtsLoading(false); }
   }
 
+  // Which (date, court) pairs have actually been fetched. A date key can be cached for court A only; court B on the same
+  // date must still be fetched, and a fetch for one court must not wipe another court's cached rows.
+  const fetchedBookings = useRef(new Set<string>());
   async function fetchBookingsForDate(dateStr: string, courtIds?: string[]) {
     const ids = courtIds ?? courts.map(c => c.id);
     if (ids.length === 0) return;
-    const { data } = await supabase.from('bookings').select('court_id, start_time, end_time, user_id').in('court_id', ids).eq('date', dateStr).neq('status', 'cancelled');
-    setBookingsByDate(prev => ({ ...prev, [dateStr]: (data ?? []) as TodayBooking[] }));
+    // Only reservations that occupy time: the DB trigger and exclusion constraint count confirmed + pending (a
+    // rejected or cancelled request frees its interval and does not count toward the daily limit).
+    const { data, error } = await supabase.from('bookings').select('court_id, start_time, end_time, user_id').in('court_id', ids).eq('date', dateStr).in('status', ACTIVE_BOOKING_STATUSES);
+    if (error) return; // keep what we had rather than showing everything as free
+    for (const id of ids) fetchedBookings.current.add(`${dateStr}:${id}`);
+    setBookingsByDate(prev => ({
+      ...prev,
+      [dateStr]: [...(prev[dateStr] ?? []).filter(b => !ids.includes(b.court_id)), ...((data ?? []) as TodayBooking[])],
+    }));
   }
 
   useEffect(() => { loadCourts(); }, []);
@@ -392,12 +409,12 @@ export default function CourtsScreen() {
     setSheetMaintenanceAll([]);
     setSheetRulesLoading(true);
 
-    const dateStr = today.toISOString().split('T')[0];
+    const dateStr = toDateKey(today);
     await Promise.all([
       fetchBookingsForDate(dateStr, [court.id]),
       (async () => {
         try {
-          const { data } = await supabase.from('amenity_rules').select('booking_start_time, booking_end_time, singles_duration_minutes, doubles_duration_minutes, advance_booking_days, min_cancellation_hours').eq('amenity_id', court.id).maybeSingle();
+          const { data } = await supabase.from('amenity_rules').select('booking_start_time, booking_end_time, singles_duration_minutes, doubles_duration_minutes, advance_booking_days, min_cancellation_hours, max_duration_minutes, max_reservations_per_day').eq('amenity_id', court.id).maybeSingle();
           if (!isStale()) setSheetRules(data ?? null);
         } catch { if (!isStale()) setSheetRules(null); }
       })(),
@@ -409,8 +426,8 @@ export default function CourtsScreen() {
   async function onSheetDateChange(date: Date) {
     setSheetDate(date);
     setSheetSelectedSlot(null);
-    const dateStr = date.toISOString().split('T')[0];
-    if (!bookingsByDate[dateStr] && bookingSheet) {
+    const dateStr = toDateKey(date);
+    if (bookingSheet && !fetchedBookings.current.has(`${dateStr}:${bookingSheet.courtId}`)) {
       await fetchBookingsForDate(dateStr, [bookingSheet.courtId]);
     }
   }
@@ -426,7 +443,7 @@ export default function CourtsScreen() {
     setScheduleRules(null);
     setScheduleLoading(true);
     try {
-      const dateStr = today.toISOString().split('T')[0];
+      const dateStr = toDateKey(today);
       await fetchBookingsForDate(dateStr, [court.id]);
       // Fetched once for the whole court, not scoped to a single `date` —
       // BlockoutSheet writes a multi-day range as one row (date=start,
@@ -457,7 +474,7 @@ export default function CourtsScreen() {
       // Maintenance rows for this court are already fully loaded (see
       // openScheduleSheet) and re-filtered per-date in scheduleMaintenanceForDate
       // below — only bookings need refetching per selected date.
-      await fetchBookingsForDate(date.toISOString().split('T')[0], [scheduleSheet.courtId]);
+      await fetchBookingsForDate(toDateKey(date), [scheduleSheet.courtId]);
     } catch { /* keep existing bookings cache */ }
     finally { setScheduleLoading(false); }
   }
@@ -484,63 +501,58 @@ export default function CourtsScreen() {
     return Array.from(durations).sort((a, b) => a - b);
   }, [sheetRules, isTennisBooking]);
 
+  // The cap the database enforces (enforce_amenity_booking_rules, migration 20260922005928): tennis uses the
+  // singles/doubles duration for the chosen play type; every other amenity uses max_duration_minutes (default 60).
+  const sheetDurationCap = useMemo(() => {
+    if (isTennisBooking) {
+      return sheetPlayType === 'doubles' ? (sheetRules?.doubles_duration_minutes ?? 90) : (sheetRules?.singles_duration_minutes ?? 60);
+    }
+    return sheetRules?.max_duration_minutes ?? 60;
+  }, [isTennisBooking, sheetPlayType, sheetRules]);
+
   // ── Time slots ──────────────────────────────────────────────────────────────
-  const sheetTimeSlots = useMemo(() => {
+  const sheetTimeSlots = useMemo<SlotInfo[]>(() => {
     if (!bookingSheet) return [];
     const freshNow = new Date();
-    const dateStr = sheetDate.toISOString().split('T')[0];
+    const dateStr = toDateKey(sheetDate);
 
-    // Merge bookings from two sources:
-    // 1. bookingsByDate — all users' bookings fetched per-date (may be empty if query failed)
-    // 2. userBookings   — current user's own bookings (always present from main load)
+    // Reservations from two sources: every resident's bookings fetched per date (may be empty if that query failed),
+    // plus the current resident's own bookings (always present from the main load).
     const fromCache = (bookingsByDate[dateStr] ?? []).filter(b => b.court_id === bookingSheet.courtId);
-    const ownForDate = userBookings
-      .filter(b => b.court_id === bookingSheet.courtId && b.date === dateStr)
-      .map(b => ({ court_id: b.court_id, start_time: b.start_time, end_time: b.end_time, user_id: userId } as TodayBooking));
-    // Deduplicate: keep any own booking not already in cache (same start+end)
-    const merged: TodayBooking[] = [...fromCache];
-    for (const ob of ownForDate) {
-      if (!merged.some(b => b.start_time === ob.start_time && b.end_time === ob.end_time)) {
-        merged.push(ob);
+    const reservations = fromCache.map(b => ({ start_time: b.start_time, end_time: b.end_time, isMine: !!userId && b.user_id === userId }));
+    for (const ob of userBookings.filter(b => b.court_id === bookingSheet.courtId && b.date === dateStr)) {
+      if (!reservations.some(r => r.start_time === ob.start_time && r.end_time === ob.end_time)) {
+        reservations.push({ start_time: ob.start_time, end_time: ob.end_time, isMine: true });
       }
     }
-    // Admin-scheduled maintenance/blockouts must also block the slot — this
-    // was previously not checked at all here, so a resident could book
-    // straight through an active blockout with no server-side guard either.
-    const activeMaintenance = sheetMaintenanceAll.filter(b => isMaintenanceActiveOnDate(b, dateStr));
-    for (const mb of activeMaintenance) {
-      merged.push({ court_id: bookingSheet.courtId, start_time: mb.start_time, end_time: mb.end_time });
-    }
+    // Admin-scheduled maintenance/blockouts block the slot too (also enforced server-side by a trigger).
+    const blocks = sheetMaintenanceAll
+      .filter(b => isMaintenanceActiveOnDate(b, dateStr))
+      .map(b => ({ start_time: b.start_time, end_time: b.end_time }));
 
-    const startHour = sheetRules?.booking_start_time ? parseInt(sheetRules.booking_start_time.split(':')[0]) : 7;
-    const endHour = sheetRules?.booking_end_time ? parseInt(sheetRules.booking_end_time.split(':')[0]) : 21;
-    const endMins = endHour * 60;
-    const isToday = sheetDate.toDateString() === freshNow.toDateString();
-    const nowMins = freshNow.getHours() * 60 + freshNow.getMinutes();
-
-    const slots: string[] = [];
-    for (let h = startHour; h < endHour; h++) {
-      for (let m = 0; m < 60; m += 30) {
-        const slotStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-        const slotStartMins = h * 60 + m;
-        const slotEndMins = slotStartMins + sheetDuration;
-
-        // Exclude slots that go past operating end
-        if (slotEndMins > endMins) continue;
-        // Exclude past slots for today
-        if (isToday && slotStartMins <= nowMins) continue;
-        // Exclude any slot that overlaps an existing booking or maintenance block
-        const hasConflict = merged.some(b =>
-          slotsOverlap(slotStr, getEndTime(slotStr, sheetDuration), b.start_time, b.end_time)
-        );
-        if (!hasConflict) slots.push(slotStr);
-      }
-    }
-    return slots;
-  }, [bookingSheet, sheetDate, bookingsByDate, sheetDuration, sheetRules, userBookings, userId, sheetMaintenanceAll]);
+    return computeSlots({
+      openMins: sheetRules?.booking_start_time ? toMins(sheetRules.booking_start_time) : 7 * 60,
+      closeMins: sheetRules?.booking_end_time ? toMins(sheetRules.booking_end_time) : 21 * 60,
+      durationMins: sheetDuration,
+      isToday: toDateKey(freshNow) === dateStr,
+      nowMins: freshNow.getHours() * 60 + freshNow.getMinutes(),
+      reservations,
+      blocks,
+      limits: { maxPerDay: sheetRules?.max_reservations_per_day ?? null, maxDurationMins: sheetDurationCap },
+    });
+  }, [bookingSheet, sheetDate, bookingsByDate, sheetDuration, sheetDurationCap, sheetRules, userBookings, userId, sheetMaintenanceAll]);
 
   // ── Confirm booking ─────────────────────────────────────────────────────────
+  // Synchronous re-entrancy guard: React state (`confirming`) updates after the tap, so a fast double tap could
+  // otherwise submit twice. The DB exclusion constraint still backstops this server-side.
+  const confirmInFlight = useRef(false);
   async function handleConfirm() {
+    if (confirmInFlight.current) return;
+    confirmInFlight.current = true;
+    try { await handleConfirmInner(); } finally { confirmInFlight.current = false; }
+  }
+
+  async function handleConfirmInner() {
     if (!userId || !bookingSheet || !sheetSelectedSlot) return;
     // The amenity must still belong to the active community (it may have changed while the sheet was open).
     if (!scopedCourts.some(c => c.id === bookingSheet.courtId)) {
@@ -553,8 +565,46 @@ export default function CourtsScreen() {
     const isStale = () => sheetGen.current !== myGen;
     setConfirming(true);
     setBookingError(null);
-    const dateStr = sheetDate.toISOString().split('T')[0];
+    const dateStr = toDateKey(sheetDate);
     const endTime = getEndTime(sheetSelectedSlot, sheetDuration);
+
+    // Revalidate against FRESH data (not the sheet's cached copy): someone may have booked it, or management may have
+    // blocked it, since the sheet opened. A failed lookup falls through - the database remains the authority.
+    let freshOutcome: string | null = null;
+    try {
+      const [bk, mt] = await Promise.all([
+        supabase.from('bookings').select('start_time, end_time, user_id').eq('court_id', bookingSheet.courtId).eq('date', dateStr).in('status', ACTIVE_BOOKING_STATUSES),
+        supabase.from('court_maintenance').select('date, end_date, start_time, end_time').eq('court_id', bookingSheet.courtId),
+      ]);
+      if (isStale()) { setConfirming(false); return; }
+      if (!bk.error && !mt.error) {
+        const nowD = new Date();
+        const fresh = revalidateSelection(sheetSelectedSlot, {
+          openMins: sheetRules?.booking_start_time ? toMins(sheetRules.booking_start_time) : 7 * 60,
+          closeMins: sheetRules?.booking_end_time ? toMins(sheetRules.booking_end_time) : 21 * 60,
+          limits: { maxPerDay: sheetRules?.max_reservations_per_day ?? null, maxDurationMins: sheetDurationCap },
+          durationMins: sheetDuration,
+          isToday: toDateKey(nowD) === dateStr,
+          nowMins: nowD.getHours() * 60 + nowD.getMinutes(),
+          reservations: (bk.data ?? []).map((b: any) => ({ start_time: b.start_time, end_time: b.end_time, isMine: b.user_id === userId })),
+          blocks: ((mt.data ?? []) as MaintenanceBlock[]).filter(b => isMaintenanceActiveOnDate(b, dateStr)).map(b => ({ start_time: b.start_time, end_time: b.end_time })),
+        });
+        if (fresh !== 'available') freshOutcome = fresh;
+      }
+    } catch { /* fall through to the server-side checks */ }
+    // Whatever happened above (including a lookup that threw), a superseded sheet must never submit.
+    if (isStale()) { setConfirming(false); return; }
+    if (freshOutcome) {
+      setConfirming(false);
+      setSheetSelectedSlot(null);
+      setBookingError(
+        freshOutcome === 'blocked' ? 'That time is no longer available because the amenity is blocked. Please pick another.'
+        : freshOutcome === 'limit' ? 'You have reached the reservation limit for this amenity.'
+        : 'That time was just taken. Please pick another.');
+      await fetchBookingsForDate(dateStr);
+      await fetchMaintenanceForSheet(bookingSheet.courtId, isStale);
+      return;
+    }
     const { data, error } = await supabase.from('bookings').insert({
       court_id: bookingSheet.courtId, user_id: userId, date: dateStr,
       start_time: `${sheetSelectedSlot}:00`, end_time: `${endTime}:00`,
@@ -633,12 +683,12 @@ export default function CourtsScreen() {
   }, [visibleCourts, openCount, sortedCourts, courtStatuses, courtsLoading, activeTab]);
 
   const scheduleMaintenanceForDate = useMemo(() => {
-    const dateStr = scheduleDate.toISOString().split('T')[0];
+    const dateStr = toDateKey(scheduleDate);
     return maintenanceBlocks.filter(b => isMaintenanceActiveOnDate(b, dateStr));
   }, [maintenanceBlocks, scheduleDate]);
 
-  const todayUserBooking = useMemo(() => userBookings.find(b => b.date === now.toISOString().split('T')[0]) ?? null, [userBookings, now]);
-  const upcomingCount = useMemo(() => userBookings.filter(b => b.date >= now.toISOString().split('T')[0]).length, [userBookings, now]);
+  const todayUserBooking = useMemo(() => userBookings.find(b => b.date === toDateKey(now)) ?? null, [userBookings, now]);
+  const upcomingCount = useMemo(() => userBookings.filter(b => b.date >= toDateKey(now)).length, [userBookings, now]);
   const playability = useMemo(() => weather ? getPlayability(weather) : null, [weather]);
   const showWeatherOnMain = isTennisMode && topLevelTab === 'hoa' && activeTab === 'tennis';
 
@@ -834,7 +884,7 @@ export default function CourtsScreen() {
           scheduleDate={scheduleDate}
           onDateChange={onScheduleDateChange}
           rules={scheduleRules}
-          bookings={(bookingsByDate[scheduleDate.toISOString().split('T')[0]] ?? []).filter(b => b.court_id === scheduleSheet.courtId)}
+          bookings={(bookingsByDate[toDateKey(scheduleDate)] ?? []).filter(b => b.court_id === scheduleSheet.courtId)}
           maintenance={scheduleMaintenanceForDate}
           loading={scheduleLoading}
           userId={userId}
@@ -916,7 +966,7 @@ const BookingSheet = memo(function BookingSheet({
   sheetDate: Date; onSheetDateChange: (d: Date) => void;
   playType: 'singles' | 'doubles'; onPlayTypeChange: (t: 'singles' | 'doubles') => void;
   rules: AmenityRules | null; rulesLoading: boolean;
-  timeSlots: string[]; selectedSlot: string | null; onSelectSlot: (s: string | null) => void;
+  timeSlots: SlotInfo[]; selectedSlot: string | null; onSelectSlot: (s: string | null) => void;
   duration: number; availableDurations: number[]; isTennis: boolean; onDurationChange: (d: number) => void;
   weather: WeatherData | null;
   confirming: boolean; success: boolean; pending: boolean; bookingError: string | null; onConfirm: () => void; onClose: () => void;
@@ -926,6 +976,26 @@ const BookingSheet = memo(function BookingSheet({
   const styles = useStyles(theme);
   const outdoor = isOutdoor(courtType);
   const [showCalendar, setShowCalendar] = useState(false);
+  // Sheet height comes from the window, never from a device constant. Normal phones/desktop: fixed top, a flexible
+  // middle that holds the ONLY scroller (the wheel), fixed bottom. If the window is so short that the fixed parts
+  // cannot fit (landscape phones), the body scrolls instead and the confirm area stays pinned: nothing is clipped.
+  const { height: winH } = useWindowDimensions();
+  const constrained = winH < 520;
+  const sheetH = Math.round(Math.min(winH * 0.92, 760));
+  const Body: any = constrained ? ScrollView : View;
+  // While a confirmation is in flight the date, play type, duration and wheel are frozen: the request was built from
+  // the selection at tap time and the screen must keep showing exactly that selection until the outcome arrives.
+  const frozen = confirming ? ({ pointerEvents: 'none' } as const) : null;
+  const bodyProps = constrained
+    ? { style: [{ flex: 1 }, frozen], showsVerticalScrollIndicator: false, keyboardShouldPersistTaps: 'handled', contentContainerStyle: styles.sheetScrollContent }
+    : { style: [styles.sheetBody, frozen] };
+  // Background page must not scroll behind the open sheet (web).
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
 
   // Primary date buttons: Today + Tomorrow
   const primaryDates = useMemo(() => {
@@ -968,7 +1038,7 @@ const BookingSheet = memo(function BookingSheet({
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.sheetOverlay}>
         <Pressable style={styles.sheetBackdrop} onPress={onClose} />
-        <View testID="booking-sheet" style={styles.sheetContainer}>
+        <View testID="booking-sheet" style={[styles.sheetContainer, { height: sheetH, maxHeight: sheetH }]}>
           <View style={styles.sheetHandle} />
 
           {/* Header */}
@@ -981,8 +1051,8 @@ const BookingSheet = memo(function BookingSheet({
             </TouchableOpacity>
           </View>
 
-          {/* Scrollable content */}
-          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.sheetScrollContent}>
+          {/* Body: fixed controls on top, flexible middle (wheel), confirm area pinned below */}
+          <Body {...bodyProps}>
 
           {/* Date row: Today · Tomorrow · Dates (opens calendar) */}
           <View style={styles.dateRow} testID="sheet-date-row">
@@ -1016,18 +1086,6 @@ const BookingSheet = memo(function BookingSheet({
               </View>
             </TouchableOpacity>
           </View>
-
-          {/* Calendar picker (shows when Dates tapped, hides slots) */}
-          {showCalendar && (
-            <CalendarPicker
-              selectedDate={sheetDate}
-              onSelect={(d) => { onSheetDateChange(d); setShowCalendar(false); }}
-              minDate={calMinDate}
-              maxDate={calMaxDate}
-              theme={theme}
-              testID="booking-calendar"
-            />
-          )}
 
           {/* Play type — tennis only; duration for every other amenity ignores
               this value entirely, so showing it there was a dead control */}
@@ -1071,9 +1129,20 @@ const BookingSheet = memo(function BookingSheet({
             ) : null
           )}
 
-          {/* Carousel wheel time-slot selector (hidden when calendar open) */}
-          {!showCalendar && (
-            rulesLoading ? (
+          {/* Flexible middle: the wheel (or the date calendar) takes all remaining height */}
+          <View testID="sheet-middle" style={constrained ? { height: 52 * 3 + 56 } : { flex: 1, minHeight: 0 }}>
+            {showCalendar ? (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <CalendarPicker
+                  selectedDate={sheetDate}
+                  onSelect={(d) => { onSheetDateChange(d); setShowCalendar(false); }}
+                  minDate={calMinDate}
+                  maxDate={calMaxDate}
+                  theme={theme}
+                  testID="booking-calendar"
+                />
+              </ScrollView>
+            ) : rulesLoading ? (
               <ActivityIndicator color={Colors.cyan} style={{ marginVertical: 20 }} />
             ) : timeSlots.length === 0 ? (
               <View style={styles.noSlotsState} testID="no-slots-state">
@@ -1082,20 +1151,31 @@ const BookingSheet = memo(function BookingSheet({
                 </Text>
               </View>
             ) : (
-              <TimeSlotWheel
-                slots={timeSlots}
-                selectedSlot={selectedSlot}
-                onSelectSlot={onSelectSlot}
-                weather={weather}
-                outdoor={outdoor}
-                sheetDate={sheetDate}
-                now={now}
-                theme={theme}
-              />
-            )
-          )}
+              <>
+                {!timeSlots.some(isSelectable) && (
+                  <Text testID="all-unavailable-note" style={styles.allUnavailableText}>
+                    {timeSlots.some(s => s.state === 'limit')
+                      ? 'You have reached the reservation limit for this amenity on this date.'
+                      : 'Every time on this date is already reserved or blocked.'}
+                  </Text>
+                )}
+                <TimeSlotWheel
+                  fill
+                  slots={timeSlots}
+                  selectedSlot={selectedSlot}
+                  onSelectSlot={onSelectSlot}
+                  weather={weather}
+                  outdoor={outdoor}
+                  sheetDate={sheetDate}
+                  now={now}
+                  theme={theme}
+                />
+                <AvailabilityLegend theme={theme} />
+              </>
+            )}
+          </View>
 
-          </ScrollView>
+          </Body>
 
           {/* Sticky confirm area — always visible at bottom of sheet */}
           <View style={[styles.sheetConfirmArea, { paddingBottom: Math.max(insets.bottom, 24) }]}>
@@ -1378,6 +1458,8 @@ function useStyles(theme: ThemeTokens) {
   sheetBackdrop: { ...StyleSheet.absoluteFill, backgroundColor: theme.backdrop },
   sheetContainer: { backgroundColor: theme.sheetBg, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, borderTopWidth: 1, borderColor: theme.border, paddingTop: 12, maxHeight: '88%', ...theme.shadowSheet },
   sheetScrollContent: { paddingHorizontal: Spacing.pagePx, paddingBottom: 4 },
+  sheetBody: { flex: 1, minHeight: 0, paddingHorizontal: Spacing.pagePx },
+  allUnavailableText: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label, color: theme.textMuted, textAlign: 'center', marginBottom: 8 },
   sheetConfirmArea: { paddingHorizontal: Spacing.pagePx, paddingTop: 12, borderTopWidth: 1, borderTopColor: theme.border, gap: 8 },
   bookingErrorText: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.body, color: Colors.negative, textAlign: 'center' as const },
   scheduleSheetContainer: { maxHeight: '85%' },
