@@ -9,6 +9,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
+import type { ScrollViewInstance } from 'react-native';
 import { Clock3, X } from 'lucide-react-native';
 
 import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/design';
@@ -61,7 +62,7 @@ function WheelColumn<T extends string>({
 }) {
   const { theme } = useTheme();
   const styles = useStyles(theme);
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   const initialIndex = useRef(Math.max(0, values.indexOf(selected))).current;
   const [centeredIndex, setCenteredIndex] = useState(initialIndex);
 

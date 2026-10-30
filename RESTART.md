@@ -1,3 +1,9 @@
+# SDK UPDATE (2026-10-30)
+
+App is now on **Expo SDK 58.0.21** (was 57). Start with `npx expo start --go` and scan the QR in Expo Go (SDK 58). Install deps with `npm install --legacy-peer-deps`. Details: see the SDK 58 section of `GREENS_V1_CHECKPOINT.md`. The notes below are older.
+
+---
+
 # Session Restart Handoff
 
 **Last commit:** `bdc8b95` — fix: docs screen — Supabase documents, categories, search, layout  

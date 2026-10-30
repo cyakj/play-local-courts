@@ -8,6 +8,7 @@ import {
   type NativeSyntheticEvent,
   type NativeScrollEvent,
 } from 'react-native';
+import type { ScrollViewInstance } from 'react-native';
 import Svg, { Circle, G, Line, Path, Rect } from 'react-native-svg';
 
 import { Colors, FontFamily, Radius } from '@/constants/design';
@@ -215,7 +216,7 @@ export const TimeSlotWheel = memo(function TimeSlotWheel({
   slots, selectedSlot, onSelectSlot,
   weather, outdoor, sheetDate, now, theme,
 }: TimeSlotWheelProps) {
-  const scrollRef  = useRef<ScrollView>(null);
+  const scrollRef  = useRef<ScrollViewInstance>(null);
   const lastIdxRef = useRef(0);
   const [centeredIdx, setCenteredIdx] = useState(0);
   const s = useWheelStyles(theme);

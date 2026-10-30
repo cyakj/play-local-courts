@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import type { ScrollViewInstance } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -592,7 +593,7 @@ const FILTER_SCROLL_STEP = 120;
 
 function FilterBar({ filters, onEdit }: { filters: MatchFilters; onEdit: () => void }) {
   const { theme } = useTheme();
-  const scrollRef  = useRef<ScrollView>(null);
+  const scrollRef  = useRef<ScrollViewInstance>(null);
   const [scrollX, setScrollX]       = useState(0);
   const [contentW, setContentW]     = useState(0);
   const [containerW, setContainerW] = useState(0);

@@ -24,8 +24,8 @@ React Native + TypeScript app for HOA community court/amenity booking,
 built with Expo (expo-router) and Supabase as the backend.
 
 ### Tech Stack
-- React Native 0.85 with TypeScript
-- Expo SDK 56 / expo-router 56 for routing
+- React Native 0.88 with TypeScript
+- Expo SDK 58 / expo-router 58 for routing
 - Supabase (auth, database, RLS, edge functions)
 - Lucide React Native for icons
 - Custom design tokens in `src/constants/design.ts`

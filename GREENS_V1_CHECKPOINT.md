@@ -273,3 +273,12 @@ A broad run was queued across 12 spec files (`announcements`, `book`, `calendar`
 3. Skip `book.spec.ts` and `navigation.spec.ts` entirely until/unless someone decides to either delete them or rewrite them for Community-mode (dead route / stale tab assertions respectively — see above).
 4. Separately, scope and execute the double-booking fix: audit existing `bookings` rows for pre-existing overlaps, then decide partial-unique-index vs. `btree_gist` exclusion constraint, then migrate.
 5. Real-device QA pass using the manual sequence above — nothing in this session was seen rendered on an actual device or simulator.
+
+## SDK 58 upgrade (2026-10-30)
+
+- Upgraded Expo SDK 57 -> 58.0.21 (RN 0.88.1, React 19.3.0, expo-router 58.0.28) so Expo Go SDK 58 on the iPhone can open the app.
+- `npm install` hit an ERESOLVE (expo-symbols peer, stale node_modules); resolved with `npm install --legacy-peer-deps`. `npx expo install --check` = up to date; `npx expo-doctor` = 20/20.
+- Breaking changes fixed: (1) BottomNav now uses `navigateToTab(route.key)` (Router 58 no longer passes `navigation` to custom tab bars); (2) `useUnsavedChangesGuard` migrated from removed `beforeRemove` to `usePreventRemove`; (3) ScrollView/TextInput ref types -> `ScrollViewInstance`/`TextInputInstance`.
+- Verified: `expo export -p ios` succeeds. `tsc` still reports the large pre-existing legacy-web error set (unchanged categories); no new errors in touched files. No automated unit suite exists; Playwright (web) specs not run. `expo lint` unavailable (needs ESLint >= 8.57; pre-existing).
+- Codex review: round 1 CHANGES REQUIRED (2 P1 above), round 2 APPROVED.
+- Not done / unverified: nothing opened on a physical iPhone yet. No DB migrations applied; TENISX REAL untouched; not pushed.

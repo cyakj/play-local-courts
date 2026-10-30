@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { router, useNavigation } from 'expo-router';
+import { router, usePreventRemove } from 'expo-router';
 
 import { Colors, FontFamily, FontSize, Radius } from '@/constants/design';
 import { UNSAVED_COPY } from '@/lib/unsavedChanges';
@@ -23,30 +23,30 @@ interface Options {
  * deliberate `router.back()` so the guard does not prompt a second time.
  */
 export function useUnsavedChangesGuard({ dirty, save, discard }: Options) {
-  const navigation = useNavigation();
   const [webVisible, setWebVisible] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const dirtyRef = useRef(dirty);
   const saveRef = useRef(save);
   const discardRef = useRef(discard);
-  dirtyRef.current = dirty;
   saveRef.current = save;
   discardRef.current = discard;
 
-  const allowRef = useRef(false);
-  const pendingAction = useRef<any>(null);
+  // `repeat` re-dispatches the blocked navigation action after turning prevention off.
+  const pendingRepeat = useRef<(() => void) | null>(null);
+  const disablePreventionRef = useRef<() => void>(() => {});
 
   const proceed = useCallback(() => {
-    allowRef.current = true;
-    const action = pendingAction.current;
-    pendingAction.current = null;
-    if (action) navigation.dispatch(action);
-    else if (router.canGoBack()) router.back();
-  }, [navigation]);
+    const repeat = pendingRepeat.current;
+    pendingRepeat.current = null;
+    if (repeat) repeat();
+    else {
+      disablePreventionRef.current();
+      if (router.canGoBack()) router.back();
+    }
+  }, []);
 
   const onKeep = useCallback(() => {
-    pendingAction.current = null;
+    pendingRepeat.current = null;
     setWebVisible(false);
   }, []);
 
@@ -65,29 +65,26 @@ export function useUnsavedChangesGuard({ dirty, save, discard }: Options) {
       proceed();
     } else {
       // The save handler has already told the user why; stay on the screen.
-      pendingAction.current = null;
+      pendingRepeat.current = null;
       setWebVisible(false);
     }
   }, [proceed]);
 
-  useEffect(() => {
-    return navigation.addListener('beforeRemove', (e: any) => {
-      if (allowRef.current || !dirtyRef.current) return;
-      e.preventDefault();
-      pendingAction.current = e.data.action;
-      if (Platform.OS === 'web') {
-        setWebVisible(true);
-      } else {
-        Alert.alert(UNSAVED_COPY.title, UNSAVED_COPY.message, [
-          { text: UNSAVED_COPY.save, onPress: onSave },
-          { text: UNSAVED_COPY.discard, style: 'destructive', onPress: onDiscard },
-          { text: UNSAVED_COPY.keep, style: 'cancel', onPress: onKeep },
-        ], { cancelable: true, onDismiss: onKeep });
-      }
-    });
-  }, [navigation, onSave, onDiscard, onKeep]);
+  const disablePrevention = usePreventRemove(dirty, ({ repeat }) => {
+    pendingRepeat.current = repeat;
+    if (Platform.OS === 'web') {
+      setWebVisible(true);
+    } else {
+      Alert.alert(UNSAVED_COPY.title, UNSAVED_COPY.message, [
+        { text: UNSAVED_COPY.save, onPress: onSave },
+        { text: UNSAVED_COPY.discard, style: 'destructive', onPress: onDiscard },
+        { text: UNSAVED_COPY.keep, style: 'cancel', onPress: onKeep },
+      ], { cancelable: true, onDismiss: onKeep });
+    }
+  });
+  disablePreventionRef.current = disablePrevention;
 
-  const allowNavigation = useCallback(() => { allowRef.current = true; }, []);
+  const allowNavigation = disablePrevention;
 
   const dialog = Platform.OS === 'web' ? (
     <Modal visible={webVisible} transparent animationType="fade" onRequestClose={onKeep}>

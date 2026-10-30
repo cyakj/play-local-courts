@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import type { TextInputInstance } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Eye, EyeOff, Lock } from 'lucide-react-native';
@@ -27,7 +28,7 @@ function OTPInput({
   onChange: (v: string) => void;
   disabled?: boolean;
 }) {
-  const refs = useRef<(TextInput | null)[]>(Array(6).fill(null));
+  const refs = useRef<(TextInputInstance | null)[]>(Array(6).fill(null));
   const digits = Array.from({ length: 6 }, (_, i) => value[i] || '');
 
   return (

@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import type { ScrollViewInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Copy, Pencil, Plus, Trash2 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
@@ -67,9 +68,9 @@ export function CoachAvailabilityEditor({ slots, onRefresh }: Props) {
   const [newLocation, setNewLocation] = useState<string>('coach_facility');
   const [saving, setSaving]           = useState(false);
 
-  const dayScrollRef   = useRef<ScrollView>(null);
-  const startScrollRef = useRef<ScrollView>(null);
-  const endScrollRef   = useRef<ScrollView>(null);
+  const dayScrollRef   = useRef<ScrollViewInstance>(null);
+  const startScrollRef = useRef<ScrollViewInstance>(null);
+  const endScrollRef   = useRef<ScrollViewInstance>(null);
 
   // Refs that hold latest values so the scroll useEffect isn't stale
   const newDayRef   = useRef(newDay);

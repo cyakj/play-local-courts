@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import type { TextInputInstance } from 'react-native';
 import { X } from 'lucide-react-native';
 import { Colors, FontFamily, FontSize, Radius, Spacing } from '@/constants/design';
 import { useTheme } from '@/context/ThemeContext';
@@ -89,7 +90,7 @@ export function CreateClinicSheet({ visible, initial, onClose, onSaved }: Props)
   const [form, setForm]         = useState<ClinicFormData>({ ...BLANK, ...initial });
   const [saving, setSaving]     = useState(false);
   const [priceError, setPriceError] = useState('');
-  const nameRef  = useRef<TextInput>(null);
+  const nameRef  = useRef<TextInputInstance>(null);
 
   useEffect(() => {
     if (visible) setForm({ ...BLANK, ...initial });
