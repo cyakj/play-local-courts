@@ -1,3 +1,4 @@
+import { blockHostedWrites } from './helpers/hostedWriteGuard';
 import { test, expect } from '@playwright/test';
 
 /**
@@ -41,13 +42,13 @@ test.describe('Settings — main screen', () => {
   test('Notifications row navigates to notification prefs screen', async ({ page }) => {
     await goSettings(page);
     await page.getByText('Notifications').click();
-    await expect(page.getByText('ALERT PREFERENCES', { exact: true })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('EMAIL PREFERENCES', { exact: true })).toBeVisible({ timeout: 15000 });
   });
 
   test('Privacy row navigates to privacy screen', async ({ page }) => {
     await goSettings(page);
     await page.getByText('Privacy').click();
-    await expect(page.getByText('VISIBILITY & SHARING')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('WHAT YOUR COMMUNITY CAN SEE')).toBeVisible({ timeout: 15000 });
   });
 
   test('Account row navigates to account screen', async ({ page }) => {
@@ -81,6 +82,7 @@ test.describe('Settings — main screen', () => {
 
 test.describe('Settings — Notifications screen', () => {
   test.beforeEach(async ({ page }) => {
+    await blockHostedWrites(page); // hosted TENISX REAL is read-only for tests
     await page.goto('/settings-notifications');
     await page.waitForLoadState('domcontentloaded');
   });
@@ -88,27 +90,24 @@ test.describe('Settings — Notifications screen', () => {
   test('screen loads without red error', async ({ page }) => {
     // No React Native error overlay
     await expect(page.locator('text=Error')).not.toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('ALERT PREFERENCES')).toBeVisible({ timeout: 20000 });
+    await expect(page.getByText('EMAIL PREFERENCES')).toBeVisible({ timeout: 20000 });
   });
 
-  test('Match Invitations toggle is visible', async ({ page }) => {
-    await expect(page.getByText('Match Invitations')).toBeVisible({ timeout: 20000 });
+  test('HOA categories are shown and the legacy tennis categories are not', async ({ page }) => {
+    await expect(page.getByText('Reservation confirmations')).toBeVisible({ timeout: 20000 });
+    await expect(page.getByText('Reservation changes & cancellations')).toBeVisible();
+    await expect(page.getByText('Reservation reminders')).toBeVisible();
+    await expect(page.getByText('Messages from HOA management')).toBeVisible(); // in-app, not a switch
+    await expect(page.getByText('HOA announcements')).toBeVisible();
+    await expect(page.getByText('Maintenance report updates')).toBeVisible();
+    for (const gone of ['Match Invitations', 'Lesson Reminders', 'Coach Messages']) {
+      await expect(page.getByText(gone)).toHaveCount(0);
+    }
   });
 
-  test('Booking Confirmations toggle is visible', async ({ page }) => {
-    await expect(page.getByText('Booking Confirmations')).toBeVisible({ timeout: 20000 });
-  });
-
-  test('Lesson Reminders toggle is visible', async ({ page }) => {
-    await expect(page.getByText('Lesson Reminders', { exact: true })).toBeVisible({ timeout: 20000 });
-  });
-
-  test('Announcements toggle is visible', async ({ page }) => {
-    await expect(page.getByText('Announcements', { exact: true })).toBeVisible({ timeout: 20000 });
-  });
-
-  test('Coach Messages toggle is visible', async ({ page }) => {
-    await expect(page.getByText('Coach Messages')).toBeVisible({ timeout: 20000 });
+  test('push is not claimed and essential emails are explained', async ({ page }) => {
+    await expect(page.locator('[data-testid="notif-push-note"]')).toBeVisible({ timeout: 20000 });
+    await expect(page.locator('[data-testid="notif-essential-note"]')).toBeVisible();
   });
 
   test('Save button is present', async ({ page }) => {
@@ -119,7 +118,7 @@ test.describe('Settings — Notifications screen', () => {
     await page.goto('/settings');
     await expect(page.locator('[data-testid="theme-toggle"]')).toBeVisible({ timeout: 30000 });
     await page.getByText('Notifications').click();
-    await expect(page.getByText('ALERT PREFERENCES', { exact: true })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('EMAIL PREFERENCES', { exact: true })).toBeVisible({ timeout: 15000 });
     // Tap the back arrow (ArrowLeft). It's a TouchableOpacity, which
     // react-native-web renders as a plain div (no literal <button> tag
     // anywhere on this screen — the old `page.locator('button')` locator
@@ -140,24 +139,23 @@ test.describe('Settings — Privacy screen', () => {
     await page.waitForLoadState('domcontentloaded');
   });
 
-  test('screen loads without red error', async ({ page }) => {
-    await expect(page.getByText('VISIBILITY & SHARING')).toBeVisible({ timeout: 20000 });
+  test('screen shows what the community can see, with no switches and no save', async ({ page }) => {
+    await expect(page.getByText('WHAT YOUR COMMUNITY CAN SEE')).toBeVisible({ timeout: 20000 });
+    await expect(page.locator('[data-testid="privacy-facts"]')).toBeVisible();
+    await expect(page.getByRole('switch')).toHaveCount(0);
+    await expect(page.getByText('Save', { exact: true })).toHaveCount(0);
   });
 
-  test('Show Location toggle is visible', async ({ page }) => {
-    await expect(page.getByText('Show Location')).toBeVisible({ timeout: 20000 });
+  test('legacy tennis privacy toggles are gone', async ({ page }) => {
+    await expect(page.getByText('WHAT YOUR COMMUNITY CAN SEE')).toBeVisible({ timeout: 20000 });
+    for (const gone of ['Show Location', 'Activity Status', 'Exact Distance', 'Hide Contact Until Match']) {
+      await expect(page.getByText(gone)).toHaveCount(0);
+    }
   });
 
-  test('Activity Status toggle is visible', async ({ page }) => {
-    await expect(page.getByText('Activity Status')).toBeVisible({ timeout: 20000 });
-  });
-
-  test('Profile Visibility link to Edit Profile is present', async ({ page }) => {
-    await expect(page.getByText('Profile Visibility')).toBeVisible({ timeout: 20000 });
-  });
-
-  test('Save button is present', async ({ page }) => {
-    await expect(page.getByText('Save')).toBeVisible({ timeout: 20000 });
+  test('policy links are present', async ({ page }) => {
+    await expect(page.locator('[data-testid="privacy-policy-link"]')).toBeVisible({ timeout: 20000 });
+    await expect(page.locator('[data-testid="terms-link"]')).toBeVisible();
   });
 });
 
@@ -290,12 +288,14 @@ test.describe('Edit Profile screen', () => {
     await expect(page.getByText('BIO')).toBeVisible({ timeout: 20000 });
   });
 
-  test('HOME LOCATION field is visible', async ({ page }) => {
-    await expect(page.getByText('HOME LOCATION')).toBeVisible({ timeout: 20000 });
+  test('HOME LOCATION field is hidden in Community mode (matchmaking-only)', async ({ page }) => {
+    await expect(page.getByText('FULL NAME')).toBeVisible({ timeout: 20000 });
+    await expect(page.getByText('HOME LOCATION')).toHaveCount(0);
   });
 
-  test('PROFILE VISIBILITY field is visible', async ({ page }) => {
-    await expect(page.getByText('PROFILE VISIBILITY')).toBeVisible({ timeout: 20000 });
+  test('PROFILE VISIBILITY is hidden in Community mode (nothing enforces it)', async ({ page }) => {
+    await expect(page.getByText('FULL NAME')).toBeVisible({ timeout: 20000 });
+    await expect(page.getByText('PROFILE VISIBILITY')).toHaveCount(0);
   });
 
   test('Right / Left / Two-handed hand chips are not present (Community mode)', async ({ page }) => {
@@ -321,10 +321,10 @@ test.describe('Edit Profile screen', () => {
     await expect(page.getByText('Tournament Ready')).not.toBeVisible({ timeout: 5000 });
   });
 
-  test('Public / Community / Private visibility chips visible', async ({ page }) => {
-    await expect(page.getByText('Public')).toBeVisible({ timeout: 20000 });
-    await expect(page.getByText('Community')).toBeVisible({ timeout: 20000 });
-    await expect(page.getByText('Private')).toBeVisible({ timeout: 20000 });
+  test('Public / Community / Private visibility chips are not shown in Community mode', async ({ page }) => {
+    await expect(page.getByText('FULL NAME')).toBeVisible({ timeout: 20000 });
+    await expect(page.getByText('Public', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('Private', { exact: true })).toHaveCount(0);
   });
 
   test('Save button is present in header', async ({ page }) => {

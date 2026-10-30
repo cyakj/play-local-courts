@@ -11,6 +11,8 @@ export async function blockHostedWrites(page: Page): Promise<void> {
     if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return route.fallback();
     const url = req.url();
     const wantsObject = (req.headers()['accept'] ?? '').includes('vnd.pgrst.object');
+    // Read-only RPCs (get_*/my_*/check_*/is_*/has_*) are POSTs by transport but only read: let them through.
+    if (/\/rest\/v1\/rpc\/(get_|my_|check_|is_|has_|list_)/.test(url)) return route.fallback();
     if (/\/rest\/v1\/rpc\//.test(url)) return route.fulfill({ status: 200, contentType: 'application/json', body: 'true' });
     if (/\/storage\/v1\//.test(url)) return route.fulfill({ status: 200, contentType: 'application/json', body: '{"Key":"mock"}' });
     if (/\/functions\/v1\//.test(url)) return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });

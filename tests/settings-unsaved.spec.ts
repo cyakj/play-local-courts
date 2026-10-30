@@ -9,6 +9,7 @@
  * The two Save tests write the signed-in account's notification preferences and then
  * restore them.
  */
+import { blockHostedWrites } from './helpers/hostedWriteGuard';
 import { test, expect, type Page } from '@playwright/test';
 
 const SCREEN = '/settings-notifications';
@@ -18,16 +19,20 @@ const dialog = (page: Page) => page.locator('[data-testid="unsaved-dialog"]');
 const firstSwitch = (page: Page) => page.getByRole('switch').first();
 
 async function open(page: Page) {
+  await blockHostedWrites(page); // hosted TENISX REAL is read-only for tests
   await page.goto(SCREEN);
-  await expect(page.getByText('ALERT PREFERENCES')).toBeVisible({ timeout: 30000 });
+  await expect(page.getByText('EMAIL PREFERENCES')).toBeVisible({ timeout: 30000 });
   await expect(save(page)).toBeVisible();
   // wait for the saved preferences to load (switches are disabled while loading)
   await expect(firstSwitch(page)).toBeEnabled({ timeout: 20000 });
 }
 
+// Saving a switch now calls update_email_preference (email_preferences) or PATCHes notification_preferences (messages).
+// Hosted writes are blocked below, so these are the canned local responses.
 const isPrefsPatch = (r: any) =>
-  r.url().includes('/rest/v1/profiles') && r.request().method() === 'PATCH' &&
-  (r.request().postData() ?? '').includes('notification_preferences');
+  r.request().method() !== 'GET' &&
+  (r.url().includes('/rest/v1/rpc/update_email_preference') ||
+    (r.url().includes('/rest/v1/profiles') && (r.request().postData() ?? '').includes('notification_preferences')));
 
 test.describe('Settings unsaved changes', () => {
   test('clean form: Save is disabled and leaving does not prompt', async ({ page }) => {

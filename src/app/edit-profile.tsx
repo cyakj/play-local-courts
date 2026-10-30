@@ -498,37 +498,44 @@ export default function EditProfileScreen() {
           </View>
           <Text style={styles.charCount}>{bio.length}/300</Text>
 
+          {/* Home location + profile visibility are matchmaking features: nothing in the HOA app reads or enforces them,
+              so they are shown only in Tennis mode (V1-007). */}
+          {isTennisMode && (
+            <>
           {/* Home Location */}
-          <Text style={[styles.label, styles.topGap]}>HOME LOCATION</Text>
-          <Text style={styles.hint}>Search and select your city or neighborhood.</Text>
-          <LocationAutocomplete
-            value={location}
-            onChange={setLocation}
-            disabled={loading}
-          />
+              <Text style={[styles.label, styles.topGap]}>HOME LOCATION</Text>
+              <Text style={styles.hint}>Search and select your city or neighborhood.</Text>
+              <LocationAutocomplete
+                value={location}
+                onChange={setLocation}
+                disabled={loading}
+              />
 
-          {/* Profile Visibility */}
-          <View style={[styles.labelRow, styles.topGap]}>
-            <Text style={styles.label}>PROFILE VISIBILITY</Text>
-            <InfoTooltip
-              label="Profile Visibility"
-              text="Public: any TenisX member can view your profile. Community: only members of your HOA community can view it. Private: only you can view it."
-            />
-          </View>
-          <View style={styles.chipRow}>
-            {VISIBILITY_OPTIONS.map(({ value, label }) => {
-              const active = visibility === value;
-              return (
-                <TouchableOpacity
-                  key={value}
-                  style={[styles.chip, styles.chipFlex, active ? styles.chipActiveBlue : styles.chipInactive]}
-                  onPress={() => setVisibility(value)}
-                  activeOpacity={0.7}>
-                  <Text style={[styles.chipTxt, { color: active ? Colors.blue : theme.textSecondary }]}>{label}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+              {/* Profile Visibility */}
+              <View style={[styles.labelRow, styles.topGap]}>
+                <Text style={styles.label}>PROFILE VISIBILITY</Text>
+                <InfoTooltip
+                  label="Profile Visibility"
+                  text="Public: any TenisX member can view your profile. Community: only members of your HOA community can view it. Private: only you can view it."
+                />
+              </View>
+              <View style={styles.chipRow}>
+                {VISIBILITY_OPTIONS.map(({ value, label }) => {
+                  const active = visibility === value;
+                  return (
+                    <TouchableOpacity
+                      key={value}
+                      style={[styles.chip, styles.chipFlex, active ? styles.chipActiveBlue : styles.chipInactive]}
+                      onPress={() => setVisibility(value)}
+                      activeOpacity={0.7}>
+                      <Text style={[styles.chipTxt, { color: active ? Colors.blue : theme.textSecondary }]}>{label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+            </>
+          )}
 
         </View>
       </ScrollView>

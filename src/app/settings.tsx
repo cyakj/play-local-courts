@@ -14,7 +14,7 @@ import { isCMRoutable, isCoachRoutable } from '@/lib/roleRouting';
 
 const SETTINGS_LINKS = [
   { icon: Bell,     label: 'Notifications', desc: 'Manage alert preferences',    route: '/settings-notifications' },
-  { icon: Shield,   label: 'Privacy',       desc: 'Profile visibility settings', route: '/settings-privacy'       },
+  { icon: Shield,   label: 'Privacy',       desc: 'What your community can see', route: '/settings-privacy'       },
   { icon: Lock,     label: 'Account',       desc: 'Email, phone, password',      route: '/settings-account'       },
   { icon: LifeBuoy, label: 'Help & Support', desc: 'FAQ, terms, contact',        route: '/settings-help'          },
 ] as const;

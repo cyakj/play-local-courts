@@ -1,3 +1,5 @@
+import { useActiveCommunity } from '@/hooks/useActiveCommunity';
+import { contactsForActiveCommunity } from '@/lib/messagingScope';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View,
@@ -120,7 +122,13 @@ export default function CommunityMessages({ role, tabScreen = false }: { role: R
 
   const [userId, setUserId] = useState('');
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [allContacts, setAllContacts] = useState<Contact[]>([]);
+  const { community: activeCommunity } = useActiveCommunity();
+  // Residents only see administrators of the ACTIVE community (admins see their members).
+  const contacts = useMemo(
+    () => contactsForActiveCommunity(allContacts, role, activeCommunity?.hoaId),
+    [allContacts, role, activeCommunity?.hoaId],
+  );
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -176,7 +184,11 @@ export default function CommunityMessages({ role, tabScreen = false }: { role: R
       .eq('sender_id', partnerId).eq('receiver_id', uid).is('read_at', null);
   }, []);
 
+  // Bumped when a thread opens or the community changes: a slow response for an old thread must not publish into a new one.
+  const threadGen = useRef(0);
+
   const openThread = useCallback(async (uid: string, partnerId: string, partnerName: string) => {
+    const gen = ++threadGen.current;
     setActive({ partnerId, partnerName });
     setThread([]);
     setThreadError(null);
@@ -187,6 +199,7 @@ export default function CommunityMessages({ role, tabScreen = false }: { role: R
       .select('id, sender_id, receiver_id, content, created_at, read_at')
       .or(`and(sender_id.eq.${uid},receiver_id.eq.${partnerId}),and(sender_id.eq.${partnerId},receiver_id.eq.${uid})`)
       .order('created_at', { ascending: true });
+    if (gen !== threadGen.current) return;
     if (error) setThreadError(errorMessage(error, 'Could not load this conversation.'));
     else setThread((data ?? []) as Msg[]);
     setThreadLoading(false);
@@ -202,7 +215,7 @@ export default function CommunityMessages({ role, tabScreen = false }: { role: R
       setUserId(user.id);
       await loadConversations(user.id);
       const list = await fetchContacts(user.id, role).catch(() => [] as Contact[]);
-      if (!cancelled) setContacts(list);
+      if (!cancelled) setAllContacts(list);
     });
     return () => { cancelled = true; };
   }, [loadConversations, role]);
@@ -210,9 +223,11 @@ export default function CommunityMessages({ role, tabScreen = false }: { role: R
   // Deep link: /messages?partner=<uid> (from a notification).
   useEffect(() => {
     if (didDeepLink.current || !userId || !partnerParam) return;
-    didDeepLink.current = true;
     const known = conversations.find((c) => c.partnerId === partnerParam);
     const contact = contacts.find((c) => c.user_id === partnerParam);
+    // A resident can only be taken to an administrator of the active community; wait for that list, never open anyone else.
+    if (role !== 'admin' && !contact) return;
+    didDeepLink.current = true;
     openThread(userId, partnerParam, known?.partnerName ?? contact?.full_name ?? 'Community member');
   }, [userId, partnerParam, conversations, contacts, openThread]);
 
@@ -242,17 +257,43 @@ export default function CommunityMessages({ role, tabScreen = false }: { role: R
     return () => { supabase.removeChannel(channel); };
   }, [userId, loadConversations, markRead]);
 
+  // A resident may only write to administrators of the ACTIVE community; managers rely on the server-side policy.
+  const canMessage = (partnerId: string) => role === 'admin' || contacts.some((c) => c.user_id === partnerId);
+
+  // Switching community closes the open thread and discards the draft: nothing written under one community's identity
+  // can be sent under another's.
+  useEffect(() => {
+    threadGen.current += 1;
+    setActive(null);
+    setThread([]);
+    setDraft('');
+    setSendError(null);
+    setThreadError(null);
+  }, [activeCommunity?.hoaId]);
+
   async function send() {
     const body = draft.trim();
     if (!body || !active || !userId || sending) return;
+    if (!canMessage(active.partnerId)) {
+      setSendError('You can only message administrators of your active community.');
+      return;
+    }
+    // Capture which thread this send belongs to: if the resident leaves it, opens another or switches community before the
+    // insert returns, the outcome must not touch the thread, draft or error of whatever is on screen now.
+    const sendGen = threadGen.current;
+    const recipient = active.partnerId;
     setSending(true);
     setSendError(null);
     const { data, error } = await supabase
       .from('messages')
-      .insert({ sender_id: userId, receiver_id: active.partnerId, content: body })
+      .insert({ sender_id: userId, receiver_id: recipient, content: body })
       .select('id, sender_id, receiver_id, content, created_at, read_at')
       .single();
     setSending(false);
+    if (sendGen !== threadGen.current || activeRef.current?.partnerId !== recipient) {
+      loadConversations(userId); // the message may have been sent; refresh the list but leave the current thread alone
+      return;
+    }
     if (error || !data) {
       setSendError(
         error?.code === '42501'
@@ -273,8 +314,9 @@ export default function CommunityMessages({ role, tabScreen = false }: { role: R
     router.back();
   }
 
-  const totalUnread = conversations.reduce((n, c) => n + c.unread, 0);
-  const filtered = conversations.filter((c) => c.partnerName.toLowerCase().includes(search.trim().toLowerCase()));
+  const visibleConversations = conversations.filter((c) => canMessage(c.partnerId));
+  const totalUnread = visibleConversations.reduce((n, c) => n + c.unread, 0);
+  const filtered = visibleConversations.filter((c) => c.partnerName.toLowerCase().includes(search.trim().toLowerCase()));
   const pickable = contacts.filter((c) => c.full_name.toLowerCase().includes(search.trim().toLowerCase()));
 
   // ───────────── Thread view ─────────────
@@ -396,7 +438,7 @@ export default function CommunityMessages({ role, tabScreen = false }: { role: R
         }
       />
       {loadError ? <View style={s.pad}><ErrorBlock message={loadError} onRetry={() => { setLoading(true); loadConversations(userId); }} /></View> : null}
-      {conversations.length > 4 ? (
+      {visibleConversations.length > 4 ? (
         <View style={s.pad}>
           <View style={s.searchBox}>
             <Search size={18} color={A.textSecondary} />
