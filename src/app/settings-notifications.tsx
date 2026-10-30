@@ -63,6 +63,7 @@ export default function SettingsNotificationsScreen() {
     setSaving(true);
     const result = await saveToggles(userId, saved, prefs, rowExists);
     setSaving(false);
+    if (result.rowCreated) setRowExists(true); // the default row exists now, even if a later update failed
     if (!result.ok) {
       // Keep the screen honest: whatever did not save snaps back to its stored value.
       const reverted = { ...prefs };

@@ -76,7 +76,7 @@ test.describe('V1-008 notifications: only switches whose delivery path honors th
     expect(screen).toMatch(/reverted\[f\.key\] = saved\[f\.key\]/);
     const api = src('lib/notificationPrefsApi.ts');
     expect(api).toMatch(/failed\.push\(change\)/);
-    expect(api).toMatch(/return failed\.length === 0 \? \{ ok: true \} : \{ ok: false, failed \}/);
+    expect(api).toMatch(/return failed\.length === 0 \? \{ ok: true, rowCreated \} : \{ ok: false, failed, rowCreated \}/);
     expect(api).toMatch(/rpc\('update_email_preference'/);
     expect(api).not.toMatch(/notification_preferences/); // no read-modify-write of the shared JSON column
   });
@@ -200,5 +200,30 @@ test.describe('inspection round 2 regressions (D-REVIEW-001/002)', () => {
   });
   test('D-REVIEW-002: switches are frozen while saving so no edit can be lost to the submitted snapshot', () => {
     expect(src('app/settings-notifications.tsx')).toMatch(/disabled=\{loading \|\| loadError \|\| !userId \|\| saving\}/);
+  });
+});
+
+test.describe('fresh-inspection follow-ups (D)', () => {
+  test('D-101: a created preferences row is remembered even when a later update fails', () => {
+    expect(src('lib/notificationPrefsApi.ts')).toMatch(/rowCreated = true;/);
+    expect(src('app/settings-notifications.tsx')).toMatch(/if \(result\.rowCreated\) setRowExists\(true\);/);
+  });
+  test('D-102: a failed administrator lookup is shown as an error, never as an empty inbox', () => {
+    const m = src('components/messaging/CommunityMessages.tsx');
+    expect(m).toMatch(/if \(hoasError\) throw hoasError;/);
+    expect(m).toMatch(/setContactsFailed\(true\)/);
+    expect(m).toMatch(/Could not load your community administrators/);
+  });
+  test('D-103: the location disclosure says it is sent to the weather service (and for what)', () => {
+    const loc = PRIVACY_FACTS.find((f) => f.title === 'Location')!;
+    expect(loc.body).toMatch(/sent to the weather service/);
+    expect(loc.body).not.toMatch(/not shared\./);
+  });
+  test('proposed report-insert policy requires an approved membership and a matching amenity (not applied)', () => {
+    const m = readFileSync('supabase/migrations/20261030130000_report_insert_requires_membership.sql', 'utf8');
+    expect(m).toMatch(/NOT APPLIED/);
+    expect(m).toMatch(/m\.status = 'approved'/);
+    expect(m).toMatch(/c\.hoa_id = maintenance_reports\.hoa_id/);
+    expect(m).toMatch(/auth\.uid\(\) = reporter_id/);
   });
 });

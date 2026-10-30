@@ -23,7 +23,7 @@ export const PRIVACY_FACTS: PrivacyFact[] = [
   },
   {
     title: 'Location',
-    body: 'Your device location is used only to show local weather on the Home screen. It is not saved to your profile or shared.',
+    body: 'Your device location is used only to show local weather on the Home screen. It is sent to the weather service to fetch the forecast. It is not saved to your profile and is not shown to other residents or HOA administrators.',
   },
   {
     title: 'Messages',

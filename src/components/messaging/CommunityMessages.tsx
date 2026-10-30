@@ -88,7 +88,8 @@ async function fetchContacts(uid: string, role: Role): Promise<Contact[]> {
 
   // my_message_contacts() ships in migration 20261013120000. Until it is applied, fall back to what RLS
   // already allows so the screen still works (admin: members of their communities; resident: HOA owner).
-  const { data: hoas } = await supabase.from('hoas').select('id, name, admin_id');
+  const { data: hoas, error: hoasError } = await supabase.from('hoas').select('id, name, admin_id');
+  if (hoasError) throw hoasError;
   const rows = hoas ?? [];
   if (rows.length === 0) return [];
   if (role === 'resident') {
@@ -131,6 +132,8 @@ export default function CommunityMessages({ role, tabScreen = false }: { role: R
   );
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // The administrator list could not be loaded: say so instead of showing an empty inbox as if there were nothing.
+  const [contactsFailed, setContactsFailed] = useState(false);
   const [search, setSearch] = useState('');
 
   const [active, setActive] = useState<{ partnerId: string; partnerName: string } | null>(null);
@@ -214,7 +217,7 @@ export default function CommunityMessages({ role, tabScreen = false }: { role: R
       if (!user || cancelled) { setLoading(false); return; }
       setUserId(user.id);
       await loadConversations(user.id);
-      const list = await fetchContacts(user.id, role).catch(() => [] as Contact[]);
+      const list = await fetchContacts(user.id, role).catch(() => { if (!cancelled) setContactsFailed(true); return [] as Contact[]; });
       if (!cancelled) setAllContacts(list);
     });
     return () => { cancelled = true; };
@@ -437,6 +440,7 @@ export default function CommunityMessages({ role, tabScreen = false }: { role: R
           </Pressable>
         }
       />
+      {contactsFailed && role === 'resident' && !loadError ? <View style={s.pad}><ErrorBlock message="Could not load your community administrators. Please try again." onRetry={() => { setContactsFailed(false); }} /></View> : null}
       {loadError ? <View style={s.pad}><ErrorBlock message={loadError} onRetry={() => { setLoading(true); loadConversations(userId); }} /></View> : null}
       {visibleConversations.length > 4 ? (
         <View style={s.pad}>

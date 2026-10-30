@@ -120,9 +120,9 @@ test.describe('booking confirmation safeguards', () => {
     expect((courts.match(/in\('status', ACTIVE_BOOKING_STATUSES\)/g) ?? []).length).toBeGreaterThanOrEqual(3);
   });
   test('B-004: booking cache is merged per court and completeness is tracked per (date, court)', () => {
-    expect(courts).toMatch(/fetchedBookings = useRef\(new Set<string>\(\)\)/);
+    expect(courts).toMatch(/fetchedBookings = useRef\(new Map<string, number>\(\)\)/);
     expect(courts).toMatch(/\.filter\(b => !ids\.includes\(b\.court_id\)\), \.\.\.\(\(data \?\? \[\]\) as TodayBooking\[\]\)/);
-    expect(courts).toMatch(/!fetchedBookings\.current\.has\(`\$\{dateStr\}:\$\{bookingSheet\.courtId\}`\)/);
+    expect(courts).toMatch(/fetchedBookings\.current\.get\(`\$\{dateStr\}:\$\{bookingSheet\.courtId\}`\)/);
     expect(courts).not.toMatch(/if \(!bookingsByDate\[dateStr\] && bookingSheet\)/);
   });
   test('server-side backstops remain: exclusion constraint code and blockout trigger message are still handled', () => {
@@ -133,5 +133,18 @@ test.describe('booking confirmation safeguards', () => {
   });
   test('date keys use the local calendar day, never a UTC slice', () => {
     expect(courts).not.toMatch(/toISOString\(\)\.split\('T'\)\[0\]/);
+  });
+});
+
+test.describe('fresh-inspection follow-ups (B)', () => {
+  test('RESB-001: a cached date is re-fetched once it is older than the freshness window', () => {
+    expect(courts).toMatch(/const BOOKING_CACHE_MS = 30 \* 1000;/);
+    expect(courts).toMatch(/fetchedAt === undefined \|\| Date\.now\(\) - fetchedAt > BOOKING_CACHE_MS/);
+    expect(courts).toMatch(/fetchedBookings\.current\.set\(`\$\{dateStr\}:\$\{id\}`, Date\.now\(\)\)/);
+  });
+  test('RESB-002: no weather is shown beyond the real forecast (no fallback to current conditions)', () => {
+    expect(wheel).toMatch(/SlotWx \| null \{/);
+    expect(wheel).toMatch(/if \(typeof t !== 'number' \|\| typeof r !== 'number'\) return null;/);
+    expect(wheel).not.toMatch(/\?\? wx\.tempF|: Math\.round\(wx\.tempF\)|: wx\.rainPct/);
   });
 });

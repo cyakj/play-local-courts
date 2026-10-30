@@ -251,6 +251,7 @@ export default function ReportScreen() {
   useEffect(() => {
     // Switching community while a form is open discards community-bound state.
     generation.current += 1;
+    setReports([]); // the previous community's reports must not stay visible while the new ones load
     setLocations([]);
     setSelectedLocationId(null);
     setSubmitting(false);

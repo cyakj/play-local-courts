@@ -445,7 +445,12 @@ export default function HomeScreen() {
 
   const loadRef = useRef(load);
   loadRef.current = load;
-  useEffect(() => { setLoading(true); loadRef.current(); }, [activeHoaId, communityLoading]);
+  useEffect(() => {
+    // Community-bound content is cleared immediately; it is repopulated from the new community's load.
+    setNextBooking(null); setCancelledBookings([]); setAnnouncements([]); setUpcomingEvents([]); setUpcomingMaintenance([]);
+    setLoading(true);
+    loadRef.current();
+  }, [activeHoaId, communityLoading]);
   useFocusEffect(useCallback(() => { loadRef.current(); }, []));
 
   async function onRefresh() {

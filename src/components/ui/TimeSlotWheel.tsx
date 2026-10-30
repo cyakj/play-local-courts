@@ -75,11 +75,16 @@ function hourlyIdx(selected: Date, hour: number, now: Date): number {
   return Math.max(0, dayDiff * 24 + hour);
 }
 
-function wxForSlot(slot: string, date: Date, now: Date, wx: WheelWeatherSource): SlotWx {
+// Returns null when the forecast does not cover this hour: showing today's temperature for a day beyond the forecast
+// would be fabricated data.
+function wxForSlot(slot: string, date: Date, now: Date, wx: WheelWeatherSource): SlotWx | null {
   const hour = parseInt(slot.split(':')[0], 10);
   const idx  = hourlyIdx(date, hour, now);
-  const temp = idx < wx.hourlyTemp.length ? Math.round(wx.hourlyTemp[idx] ?? wx.tempF) : Math.round(wx.tempF);
-  const rain = idx < wx.hourlyRain.length ? (wx.hourlyRain[idx] ?? wx.rainPct) : wx.rainPct;
+  const t = wx.hourlyTemp[idx];
+  const r = wx.hourlyRain[idx];
+  if (typeof t !== 'number' || typeof r !== 'number') return null;
+  const temp = Math.round(t);
+  const rain = r;
 
   if (rain >= 70) return { iconType: 'storm', temp, condition: 'Storm' };
   if (rain >= 45) return { iconType: 'rain',  temp, condition: 'Rain' };

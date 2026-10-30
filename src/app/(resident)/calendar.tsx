@@ -10,6 +10,7 @@ import {
 import { ChevronLeft, ChevronRight, X } from 'lucide-react-native';
 import { Header } from '@/components/ui/Header';
 import { useTheme } from '@/context/ThemeContext';
+import { useActiveCommunity } from '@/hooks/useActiveCommunity';
 
 import { supabase } from '@/lib/supabase';
 import {
@@ -129,6 +130,9 @@ export default function ResidentCalendarScreen() {
 
   const [communities, setCommunities]         = useState<Community[]>([]);
   const [activeCommunity, setActiveCommunity] = useState('all');
+  // The chip row can still show 'All', but it starts on, and follows, the shared active community (header menu).
+  const { community: sharedCommunity } = useActiveCommunity();
+  useEffect(() => { if (sharedCommunity?.hoaId) setActiveCommunity(sharedCommunity.hoaId); }, [sharedCommunity?.hoaId]);
   const [activeEventType, setActiveEventType] = useState('All');
   const [events, setEvents]                   = useState<ScheduleEvent[]>([]);
   const [loading, setLoading]                 = useState(true);

@@ -22,16 +22,18 @@ export async function loadToggles(userId: string): Promise<LoadedToggles> {
   return { toggles: readToggles(row), rowExists: !!row };
 }
 
-export type SaveResult = { ok: true } | { ok: false; failed: PrefChange[] };
+export type SaveResult = { ok: true; rowCreated: boolean } | { ok: false; failed: PrefChange[]; rowCreated: boolean };
 
 /** Applies only what changed; reports exactly which writes failed so the screen never claims a false success. */
 export async function saveToggles(userId: string, saved: ToggleState, next: ToggleState, rowExists: boolean): Promise<SaveResult> {
   const changes = diffToggles(saved, next);
-  if (changes.length === 0) return { ok: true };
+  if (changes.length === 0) return { ok: true, rowCreated: false };
+  let rowCreated = false;
   if (!rowExists) {
     // First explicit save for this account: create the default row, then apply the change on top of it.
     const created = await db.rpc('create_default_email_preferences', { target_user_id: userId });
-    if (created.error) return { ok: false, failed: changes };
+    if (created.error) return { ok: false, failed: changes, rowCreated: false };
+    rowCreated = true;
   }
   const failed: PrefChange[] = [];
   for (const change of changes) {
@@ -40,5 +42,5 @@ export async function saveToggles(userId: string, saved: ToggleState, next: Togg
     });
     if (error) failed.push(change);
   }
-  return failed.length === 0 ? { ok: true } : { ok: false, failed };
+  return failed.length === 0 ? { ok: true, rowCreated } : { ok: false, failed, rowCreated };
 }

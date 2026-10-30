@@ -21,6 +21,9 @@ export interface ProfileIdentity {
   photoUrl: string | null;
 }
 
+// Refresh a minute before the signed URL expires.
+const EXPIRY_MARGIN_MS = 60 * 1000;
+
 interface Snapshot extends ProfileIdentity {
   loaded: boolean;
   /** When the signed photo URL stops working (ms since epoch); 0 when there is no signed URL. */
@@ -33,9 +36,17 @@ let inflight: Promise<void> | null = null;
 let boundUserId: string | null | undefined;
 const listeners = new Set<() => void>();
 const loadGuard = createLatestGuard();
+let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 
 function emit(next: Snapshot) {
   snapshot = next;
+  // Refresh the signed photo URL shortly before it expires, even if no screen remounts, so long sessions never keep a
+  // dead image URL.
+  if (refreshTimer) { clearTimeout(refreshTimer); refreshTimer = null; }
+  if (next.expiresAt > 0) {
+    const wait = Math.max(5_000, next.expiresAt - Date.now() - EXPIRY_MARGIN_MS);
+    refreshTimer = setTimeout(() => { refreshProfileIdentity(); }, wait);
+  }
   listeners.forEach((l) => l());
 }
 
@@ -80,9 +91,6 @@ export function refreshProfileIdentity(): Promise<void> {
   inflight = run;
   return run;
 }
-
-// Refresh a minute before the signed URL expires so a long-lived session never keeps a dead image URL.
-const EXPIRY_MARGIN_MS = 60 * 1000;
 
 function ensureLoaded() {
   if (inflight) return;

@@ -261,3 +261,24 @@ test.describe('inspection round 2 regressions (C-R201..C-R204)', () => {
     expect(src('app/(platform)/index.tsx')).toMatch(/showMenu/);
   });
 });
+
+test.describe('fresh-inspection follow-ups (C)', () => {
+  test('C-R301: the Schedule chip row starts on and follows the shared active community', () => {
+    const c = src('app/(resident)/calendar.tsx');
+    expect(c).toMatch(/useActiveCommunity\(\)/);
+    expect(c).toMatch(/if \(sharedCommunity\?\.hoaId\) setActiveCommunity\(sharedCommunity\.hoaId\)/);
+  });
+  test('C-R302: Home clears community-bound previews (including cancellation banners) on community change', () => {
+    const h = src('app/(resident)/index.tsx');
+    expect(h).toMatch(/setNextBooking\(null\); setCancelledBookings\(\[\]\); setAnnouncements\(\[\]\); setUpcomingEvents\(\[\]\); setUpcomingMaintenance\(\[\]\);/);
+  });
+  test('C-R303: the signed photo URL is refreshed on a timer shortly before it expires', () => {
+    const id = src('hooks/useProfileIdentity.ts');
+    expect(id).toMatch(/refreshTimer = setTimeout\(\(\) => \{ refreshProfileIdentity\(\); \}, wait\)/);
+    expect(id).toMatch(/next\.expiresAt - Date\.now\(\) - EXPIRY_MARGIN_MS/);
+    expect(id).toMatch(/if \(refreshTimer\) \{ clearTimeout\(refreshTimer\); refreshTimer = null; \}/);
+  });
+  test('the report list is cleared when the community changes (A follow-up R-003)', () => {
+    expect(src('app/report.tsx')).toMatch(/setReports\(\[\]\); \/\/ the previous community's reports/);
+  });
+});

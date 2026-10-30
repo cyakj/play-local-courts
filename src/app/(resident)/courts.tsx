@@ -43,6 +43,7 @@ const TENNIS_TYPES = new Set(['tennis']);
 // (supabase/migrations/..._greens_v1_enforce_blockout_conflicts.sql) exactly.
 // Statuses that occupy an amenity's time and count toward limits (matches enforce_amenity_booking_rules).
 const ACTIVE_BOOKING_STATUSES = ['confirmed', 'pending'];
+const BOOKING_CACHE_MS = 30 * 1000;
 const BLOCKOUT_CONFLICT_MESSAGE = 'This time is unavailable because the amenity is blocked for maintenance';
 
 function isOutdoor(courtType: string): boolean {
@@ -357,7 +358,9 @@ export default function CourtsScreen() {
 
   // Which (date, court) pairs have actually been fetched. A date key can be cached for court A only; court B on the same
   // date must still be fetched, and a fetch for one court must not wipe another court's cached rows.
-  const fetchedBookings = useRef(new Set<string>());
+  // key -> when it was fetched. A date is re-fetched when its entry is older than BOOKING_CACHE_MS, so a booking made or
+  // cancelled elsewhere shows up when the resident revisits that date.
+  const fetchedBookings = useRef(new Map<string, number>());
   async function fetchBookingsForDate(dateStr: string, courtIds?: string[]) {
     const ids = courtIds ?? courts.map(c => c.id);
     if (ids.length === 0) return;
@@ -365,7 +368,7 @@ export default function CourtsScreen() {
     // rejected or cancelled request frees its interval and does not count toward the daily limit).
     const { data, error } = await supabase.from('bookings').select('court_id, start_time, end_time, user_id').in('court_id', ids).eq('date', dateStr).in('status', ACTIVE_BOOKING_STATUSES);
     if (error) return; // keep what we had rather than showing everything as free
-    for (const id of ids) fetchedBookings.current.add(`${dateStr}:${id}`);
+    for (const id of ids) fetchedBookings.current.set(`${dateStr}:${id}`, Date.now());
     setBookingsByDate(prev => ({
       ...prev,
       [dateStr]: [...(prev[dateStr] ?? []).filter(b => !ids.includes(b.court_id)), ...((data ?? []) as TodayBooking[])],
@@ -427,7 +430,8 @@ export default function CourtsScreen() {
     setSheetDate(date);
     setSheetSelectedSlot(null);
     const dateStr = toDateKey(date);
-    if (bookingSheet && !fetchedBookings.current.has(`${dateStr}:${bookingSheet.courtId}`)) {
+    const fetchedAt = bookingSheet ? fetchedBookings.current.get(`${dateStr}:${bookingSheet.courtId}`) : undefined;
+    if (bookingSheet && (fetchedAt === undefined || Date.now() - fetchedAt > BOOKING_CACHE_MS)) {
       await fetchBookingsForDate(dateStr, [bookingSheet.courtId]);
     }
   }
