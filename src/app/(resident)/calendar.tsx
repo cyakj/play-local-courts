@@ -19,6 +19,7 @@ import {
 import { useUpcomingMatches } from '@/hooks/useUpcomingMatches';
 import { useCommunityName } from '@/hooks/useCommunityName';
 import { isCommunityMode, isTennisMode } from '@/config/productMode';
+import { hasNothingToFetch } from '@/lib/scheduleScope';
 
 // ─── Event type config ─────────────────────────────────────────────────────────
 
@@ -149,7 +150,8 @@ export default function ResidentCalendarScreen() {
   const displayMonthLabel = displayMonth.toLocaleString('en-US', { month: 'long', year: 'numeric' });
 
   async function fetchAll(uid: string, comms: Community[]) {
-    if (comms.length === 0) { setLoading(false); return; }
+    // Community mode has nothing to show without a community. Tennis mode still has personal matches and lessons.
+    if (hasNothingToFetch(comms.length, isTennisMode)) { setEvents([]); setLoading(false); return; }
     setLoading(true);
     const hoaIds = comms.map((c) => c.hoaId);
     const hoaMap = new Map(comms.map((c) => [c.hoaId, c.name]));
@@ -240,7 +242,7 @@ export default function ResidentCalendarScreen() {
     }
 
     // HOA events
-    const { data: hoaEvents } = await supabase
+    const { data: hoaEvents } = hoaIds.length === 0 ? { data: null } : await supabase
       .from('hoa_events')
       .select('id, title, event_type, location, starts_at, hoa_id, description')
       .in('hoa_id', hoaIds)

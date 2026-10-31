@@ -6,7 +6,7 @@ DECLARE b record; n int;
 BEGIN
   SELECT * INTO b FROM storage.buckets WHERE id = 'profile-photos';
   IF NOT FOUND THEN RAISE EXCEPTION 'FAIL M8 bucket missing'; END IF;
-  IF b.public IS DISTINCT FROM false OR b.file_size_limit <> 5242880 OR b.allowed_mime_types <> ARRAY['image/jpeg','image/png','image/webp'] THEN RAISE EXCEPTION 'FAIL M8 bucket settings'; END IF;
+  IF b.public IS DISTINCT FROM false OR b.file_size_limit IS DISTINCT FROM 5242880 OR b.allowed_mime_types IS DISTINCT FROM ARRAY['image/jpeg','image/png','image/webp'] THEN RAISE EXCEPTION 'FAIL M8 bucket settings'; END IF;
   SELECT count(*) INTO n FROM pg_policies WHERE schemaname='storage' AND tablename='objects' AND policyname LIKE 'Owners can % their profile photo';
   IF n <> 4 THEN RAISE EXCEPTION 'FAIL M8 expected 4 owner policies, found %', n; END IF;
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='profiles' AND column_name='avatar_path') THEN RAISE EXCEPTION 'FAIL M8 avatar_path missing'; END IF;

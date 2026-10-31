@@ -28,6 +28,7 @@ import { Header } from '@/components/ui/Header';
 import { useTheme } from '@/context/ThemeContext';
 import { useActiveCommunity } from '@/hooks/useActiveCommunity';
 import { createLatestGuard } from '@/lib/latestGuard';
+import { base64DecodedBytes, reportPhotoProblem } from '@/lib/reportPhotoLimits';
 import { describeReport, isReportReady, resolveReportContext, toPersistedCategory } from '@/lib/reportContext';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 
@@ -315,6 +316,9 @@ export default function ReportScreen() {
         base64: true,
       });
       if (!result.canceled && result.assets[0]) {
+        const b64 = result.assets[0].base64;
+        const tooBig = b64 ? reportPhotoProblem(base64DecodedBytes(b64), result.assets[0].mimeType) : null;
+        if (tooBig) { setSubmitError(tooBig); return; }
         setPhotoUri(result.assets[0].uri);
         photoBase64.current = result.assets[0].base64 ?? null;
       }
@@ -333,6 +337,9 @@ export default function ReportScreen() {
       base64: true,
     });
     if (!result.canceled && result.assets[0]) {
+      const b64 = result.assets[0].base64;
+      const tooBig = b64 ? reportPhotoProblem(base64DecodedBytes(b64), result.assets[0].mimeType) : null;
+      if (tooBig) { setSubmitError(tooBig); return; }
       setPhotoUri(result.assets[0].uri);
       photoBase64.current = result.assets[0].base64 ?? null;
     }
@@ -341,6 +348,8 @@ export default function ReportScreen() {
   function handleWebFileChange(e: any) {
     const file: File = e.target?.files?.[0];
     if (!file) return;
+    const problem = reportPhotoProblem(file.size, file.type);
+    if (problem) { setSubmitError(problem); e.target.value = ''; return; }
     const url = URL.createObjectURL(file);
     setPhotoUri(url);
     // store the File object for upload
@@ -394,6 +403,14 @@ export default function ReportScreen() {
     if (!description.trim() || !userId || !hoaId || !ready || submitting) return;
     const myGeneration = generation.current;
     const superseded = () => generation.current !== myGeneration; // community switched mid-submit
+    // Re-check the chosen photo BEFORE the report row exists: the report is created first (its id names the file), so a
+    // photo Storage would reject must never leave a report behind.
+    if (photoUri) {
+      const picked: File | undefined = Platform.OS === 'web' ? (fileInputRef.current as any)?.__file : undefined;
+      const bytes = Platform.OS === 'web' ? picked?.size : (photoBase64.current ? base64DecodedBytes(photoBase64.current) : undefined);
+      const problem = bytes === undefined ? null : reportPhotoProblem(bytes, picked?.type);
+      if (problem) { setSubmitError(problem); return; }
+    }
     setSubmitting(true);
     setSubmitError(null);
 
@@ -933,7 +950,7 @@ export default function ReportScreen() {
                       <Camera color={Colors.accentCyan} size={30} strokeWidth={1.75} />
                     </View>
                     <Text style={styles.photoUploadLabel}>Add a Photo</Text>
-                    <Text style={styles.photoUploadSub}>Tap to upload · JPG, PNG or WEBP · max 10 MB</Text>
+                    <Text style={styles.photoUploadSub}>Tap to upload · JPG, PNG or WEBP · max 5 MB</Text>
                   </TouchableOpacity>
                 ) : (
                   <View testID="photo-upload-area" style={styles.photoPickerRow}>

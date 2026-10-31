@@ -1,5 +1,5 @@
 import { db } from '@/lib/untypedDb';
-import { type PrefChange, type ToggleState, diffToggles, readToggles } from '@/lib/notificationPrefs';
+import { type PrefChange, type ToggleState, diffToggles, readToggles, updateSucceeded } from '@/lib/notificationPrefs';
 
 // email_preferences is read/written through the same RPCs the rest of the product uses. get/create refuse a caller
 // asking about someone else (migration 20261023140000); update_email_preference exists on the hosted database only.
@@ -37,10 +37,10 @@ export async function saveToggles(userId: string, saved: ToggleState, next: Togg
   }
   const failed: PrefChange[] = [];
   for (const change of changes) {
-    const { error } = await db.rpc('update_email_preference', {
+    const res = await db.rpc('update_email_preference', {
       target_user_id: userId, preference_key: change.column, preference_value: change.value,
     });
-    if (error) failed.push(change);
+    if (!updateSucceeded(res)) failed.push(change);
   }
   return failed.length === 0 ? { ok: true, rowCreated } : { ok: false, failed, rowCreated };
 }

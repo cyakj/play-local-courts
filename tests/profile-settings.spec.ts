@@ -48,7 +48,7 @@ test.describe('Settings — main screen', () => {
   test('Privacy row navigates to privacy screen', async ({ page }) => {
     await goSettings(page);
     await page.getByText('Privacy').click();
-    await expect(page.getByText('WHAT YOUR COMMUNITY CAN SEE')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('WHAT YOUR COMMUNITY CAN SEE', { exact: true })).toBeVisible({ timeout: 15000 });
   });
 
   test('Account row navigates to account screen', async ({ page }) => {
@@ -140,14 +140,14 @@ test.describe('Settings — Privacy screen', () => {
   });
 
   test('screen shows what the community can see, with no switches and no save', async ({ page }) => {
-    await expect(page.getByText('WHAT YOUR COMMUNITY CAN SEE')).toBeVisible({ timeout: 20000 });
+    await expect(page.getByText('WHAT YOUR COMMUNITY CAN SEE', { exact: true })).toBeVisible({ timeout: 20000 });
     await expect(page.locator('[data-testid="privacy-facts"]')).toBeVisible();
     await expect(page.getByRole('switch')).toHaveCount(0);
     await expect(page.getByText('Save', { exact: true })).toHaveCount(0);
   });
 
   test('legacy tennis privacy toggles are gone', async ({ page }) => {
-    await expect(page.getByText('WHAT YOUR COMMUNITY CAN SEE')).toBeVisible({ timeout: 20000 });
+    await expect(page.getByText('WHAT YOUR COMMUNITY CAN SEE', { exact: true })).toBeVisible({ timeout: 20000 });
     for (const gone of ['Show Location', 'Activity Status', 'Exact Distance', 'Hide Contact Until Match']) {
       await expect(page.getByText(gone)).toHaveCount(0);
     }

@@ -55,6 +55,14 @@ export const PUSH_NOTE = 'Push notifications are not available in this version o
 
 export interface PrefChange { store: PrefStore; column: string; value: boolean; key: ToggleKey }
 
+/**
+ * update_email_preference returns true only when a row was updated (false when none was). Anything else - an error, false,
+ * null or a missing result - is a failed save, so a missing row can never be reported as "Saved".
+ */
+export function updateSucceeded(res: { data: unknown; error: unknown }): boolean {
+  return !res.error && res.data === true;
+}
+
 /** The minimal set of writes needed to turn `saved` into `next`. */
 export function diffToggles(saved: ToggleState, next: ToggleState): PrefChange[] {
   return NOTIFICATION_TOGGLES
