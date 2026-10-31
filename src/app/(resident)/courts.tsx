@@ -23,12 +23,14 @@ import * as Location from 'expo-location';
 import { supabase } from '@/lib/supabase';
 import { sendNotificationEmail } from '@/lib/emailNotifications';
 import {
-  Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing,
+  Availability, Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing,
 } from '@/constants/design';
 import { Header } from '@/components/ui/Header';
 import { AvailabilityLegend, TimeSlotWheel } from '@/components/ui/TimeSlotWheel';
+import { buildScheduleRows } from '@/lib/scheduleRows';
 import { computeSlots, isSelectable, revalidateSelection, toDateKey, toMins, type SlotInfo } from '@/lib/slotAvailability';
 import { CalendarPicker, formatDateLabel } from '@/components/ui/CalendarPicker';
+import { useScrollToTopOnTabEnter } from '@/hooks/useScrollToTopOnTabEnter';
 import { useTheme } from '@/context/ThemeContext';
 import { useCommunityName } from '@/hooks/useCommunityName';
 import { useActiveCommunity } from '@/hooks/useActiveCommunity';
@@ -265,6 +267,7 @@ function WeatherIcon({ type, color, size }: { type: 'sun' | 'cloud' | 'rain' | '
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function CourtsScreen() {
+  const scrollRef = useScrollToTopOnTabEnter('courts');
   const { theme } = useTheme();
   const styles = useStyles(theme);
   const insets = useSafeAreaInsets();
@@ -361,19 +364,32 @@ export default function CourtsScreen() {
   // key -> when it was fetched. A date is re-fetched when its entry is older than BOOKING_CACHE_MS, so a booking made or
   // cancelled elsewhere shows up when the resident revisits that date.
   const fetchedBookings = useRef(new Map<string, number>());
+  // Per date+court outcome of the booking fetch. A date that has not loaded successfully must NOT be drawn as "all free".
+  const [bookingLoad, setBookingLoad] = useState<Record<string, 'ok' | 'error'>>({});
   async function fetchBookingsForDate(dateStr: string, courtIds?: string[]) {
     const ids = courtIds ?? courts.map(c => c.id);
     if (ids.length === 0) return;
     // Only reservations that occupy time: the DB trigger and exclusion constraint count confirmed + pending (a
     // rejected or cancelled request frees its interval and does not count toward the daily limit).
     const { data, error } = await supabase.from('bookings').select('court_id, start_time, end_time, user_id').in('court_id', ids).eq('date', dateStr).in('status', ACTIVE_BOOKING_STATUSES);
-    if (error) return; // keep what we had rather than showing everything as free
+    if (error) { // keep what we had; a date with nothing loaded is shown as an error, never as everything free
+      setBookingLoad(prev => { const next = { ...prev }; for (const id of ids) if (next[`${dateStr}:${id}`] !== 'ok') next[`${dateStr}:${id}`] = 'error'; return next; });
+      return;
+    }
+    setBookingLoad(prev => { const next = { ...prev }; for (const id of ids) next[`${dateStr}:${id}`] = 'ok'; return next; });
     for (const id of ids) fetchedBookings.current.set(`${dateStr}:${id}`, Date.now());
     setBookingsByDate(prev => ({
       ...prev,
       [dateStr]: [...(prev[dateStr] ?? []).filter(b => !ids.includes(b.court_id)), ...((data ?? []) as TodayBooking[])],
     }));
   }
+
+  // Cached reservations belong to one account in one community: drop them when either changes.
+  useEffect(() => {
+    setBookingsByDate({});
+    setBookingLoad({});
+    fetchedBookings.current.clear();
+  }, [userId, activeCommunity?.hoaId]);
 
   useEffect(() => { loadCourts(); }, []);
   useFocusEffect(useCallback(() => { loadCourts(); }, []));
@@ -430,6 +446,7 @@ export default function CourtsScreen() {
     setSheetDate(date);
     setSheetSelectedSlot(null);
     const dateStr = toDateKey(date);
+    if (bookingSheet) setBookingLoad(prev => (prev[`${dateStr}:${bookingSheet.courtId}`] === 'error' ? Object.fromEntries(Object.entries(prev).filter(([k]) => k !== `${dateStr}:${bookingSheet.courtId}`)) : prev));
     const fetchedAt = bookingSheet ? fetchedBookings.current.get(`${dateStr}:${bookingSheet.courtId}`) : undefined;
     if (bookingSheet && (fetchedAt === undefined || Date.now() - fetchedAt > BOOKING_CACHE_MS)) {
       await fetchBookingsForDate(dateStr, [bookingSheet.courtId]);
@@ -702,7 +719,7 @@ export default function CourtsScreen() {
     <View testID="courts-screen" style={styles.screen}>
       <Header variant="resident" communityName={communityName} />
 
-      <ScrollView
+      <ScrollView ref={scrollRef}
         style={{ flex: 1 }}
         contentContainerStyle={styles.body}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.cyan} />}
@@ -861,6 +878,8 @@ export default function CourtsScreen() {
           onPlayTypeChange={t => { setSheetPlayType(t); setSheetSelectedSlot(null); }}
           rules={sheetRules}
           rulesLoading={sheetRulesLoading}
+          availabilityStatus={bookingSheet ? (bookingLoad[`${toDateKey(sheetDate)}:${bookingSheet.courtId}`] ?? 'loading') : 'loading'}
+          onRetryAvailability={() => { if (bookingSheet) void fetchBookingsForDate(toDateKey(sheetDate), [bookingSheet.courtId]); }}
           timeSlots={sheetTimeSlots}
           selectedSlot={sheetSelectedSlot}
           onSelectSlot={setSheetSelectedSlot}
@@ -891,6 +910,8 @@ export default function CourtsScreen() {
           bookings={(bookingsByDate[toDateKey(scheduleDate)] ?? []).filter(b => b.court_id === scheduleSheet.courtId)}
           maintenance={scheduleMaintenanceForDate}
           loading={scheduleLoading}
+          availabilityStatus={bookingLoad[`${toDateKey(scheduleDate)}:${scheduleSheet.courtId}`] ?? 'loading'}
+          onRetryAvailability={() => { void onScheduleDateChange(scheduleDate); }}
           userId={userId}
           onBook={(slot) => { setScheduleSheet(null); openBookingSheet({ id: scheduleSheet.courtId, name: scheduleSheet.courtName, court_type: scheduleSheet.courtType, hoa_id: '' }, slot); }}
           onClose={() => setScheduleSheet(null)}
@@ -961,7 +982,7 @@ function CourtCard({ court, status, isMyBooking, onBook, onSchedule, onReport }:
 
 const BookingSheet = memo(function BookingSheet({
   courtName, courtType, now, sheetDate, onSheetDateChange,
-  playType, onPlayTypeChange, rules, rulesLoading,
+  playType, onPlayTypeChange, rules, rulesLoading, availabilityStatus, onRetryAvailability,
   timeSlots, selectedSlot, onSelectSlot,
   duration, availableDurations, isTennis, onDurationChange,
   weather, confirming, success, pending, bookingError, onConfirm, onClose, insets,
@@ -970,6 +991,7 @@ const BookingSheet = memo(function BookingSheet({
   sheetDate: Date; onSheetDateChange: (d: Date) => void;
   playType: 'singles' | 'doubles'; onPlayTypeChange: (t: 'singles' | 'doubles') => void;
   rules: AmenityRules | null; rulesLoading: boolean;
+  availabilityStatus: 'loading' | 'ok' | 'error'; onRetryAvailability: () => void;
   timeSlots: SlotInfo[]; selectedSlot: string | null; onSelectSlot: (s: string | null) => void;
   duration: number; availableDurations: number[]; isTennis: boolean; onDurationChange: (d: number) => void;
   weather: WeatherData | null;
@@ -1146,8 +1168,15 @@ const BookingSheet = memo(function BookingSheet({
                   testID="booking-calendar"
                 />
               </ScrollView>
-            ) : rulesLoading ? (
-              <ActivityIndicator color={Colors.cyan} style={{ marginVertical: 20 }} />
+            ) : rulesLoading || availabilityStatus === 'loading' ? (
+              <ActivityIndicator testID="availability-loading" color={Colors.cyan} style={{ marginVertical: 20 }} />
+            ) : availabilityStatus === 'error' ? (
+              <View style={styles.noSlotsState} testID="availability-error">
+                <Text style={styles.noSlotsText}>Could not load this date's reservations.</Text>
+                <TouchableOpacity testID="availability-retry" onPress={onRetryAvailability} style={{ marginTop: 12, minHeight: 44, justifyContent: 'center' }}>
+                  <Text style={styles.noSlotsText}>Tap to retry</Text>
+                </TouchableOpacity>
+              </View>
             ) : timeSlots.length === 0 ? (
               <View style={styles.noSlotsState} testID="no-slots-state">
                 <Text style={styles.noSlotsText}>
@@ -1222,10 +1251,11 @@ const BookingSheet = memo(function BookingSheet({
 
 // ─── ScheduleSheet ────────────────────────────────────────────────────────────
 
-function ScheduleSheet({ courtName, courtType, now, scheduleDate, onDateChange, rules, bookings, maintenance, loading, userId, onBook, onClose, insets }: {
+function ScheduleSheet({ courtName, courtType, now, scheduleDate, onDateChange, rules, bookings, maintenance, loading, availabilityStatus, onRetryAvailability, userId, onBook, onClose, insets }: {
   courtName: string; courtType: string; now: Date; scheduleDate: Date;
   onDateChange: (d: Date) => void; rules: AmenityRules | null;
   bookings: TodayBooking[]; maintenance: MaintenanceBlock[]; loading: boolean;
+  availabilityStatus: 'loading' | 'ok' | 'error'; onRetryAvailability: () => void;
   userId: string; onBook: (slot: string) => void; onClose: () => void; insets: { bottom: number };
 }) {
   const { theme } = useTheme();
@@ -1255,25 +1285,15 @@ function ScheduleSheet({ courtName, courtType, now, scheduleDate, onDateChange, 
   }, [scheduleDate, now]);
 
   const dateLabel = scheduleDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
-  const START_HOUR = rules?.booking_start_time ? parseInt(rules.booking_start_time.split(':')[0]) : 7;
-  const END_HOUR = rules?.booking_end_time ? parseInt(rules.booking_end_time.split(':')[0]) : 21;
-
-  const timeBlocks = useMemo(() => {
-    const blocks: Array<{ slotStr: string; label: string; type: 'available' | 'booked' | 'mine' | 'maintenance' }> = [];
-    for (let h = START_HOUR; h < END_HOUR; h++) {
-      const slotStr = `${h.toString().padStart(2, '0')}:00`;
-      const slotEnd = `${(h + 1).toString().padStart(2, '0')}:00`;
-      const isMaint = maintenance.some(mb => slotsOverlap(slotStr, slotEnd, mb.start_time, mb.end_time));
-      const isMine = userId ? bookings.some(b => slotsOverlap(slotStr, slotEnd, b.start_time, b.end_time) && b.user_id === userId) : false;
-      const isBooked = bookings.some(b => slotsOverlap(slotStr, slotEnd, b.start_time, b.end_time));
-      blocks.push({
-        slotStr,
-        label: `${formatTime(slotStr)} – ${formatTime(slotEnd)}`,
-        type: isMaint ? 'maintenance' : isMine ? 'mine' : isBooked ? 'booked' : 'available',
-      });
-    }
-    return blocks;
-  }, [bookings, maintenance, userId, START_HOUR, END_HOUR]);
+  // 30 minute cells, one merged row per reservation / blockout (see lib/scheduleRows.ts).
+  const timeBlocks = useMemo(() => buildScheduleRows({
+    openMins: rules?.booking_start_time ? toMins(rules.booking_start_time) : 7 * 60,
+    closeMins: rules?.booking_end_time ? toMins(rules.booking_end_time) : 21 * 60,
+    bookings,
+    maintenance,
+    userId,
+  }).map((r) => ({ slotStr: r.start, label: `${formatTime(r.start)} – ${formatTime(r.end)}`, type: r.type })),
+  [bookings, maintenance, userId, rules]);
 
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
@@ -1320,8 +1340,15 @@ function ScheduleSheet({ courtName, courtType, now, scheduleDate, onDateChange, 
           )}
 
           {/* Schedule blocks — hidden while calendar is open */}
-          {!showSchedCalendar && (loading ? (
+          {!showSchedCalendar && (loading || availabilityStatus === 'loading' ? (
             <ActivityIndicator color={Colors.cyan} style={{ marginVertical: 24 }} />
+          ) : availabilityStatus === 'error' ? (
+            <View testID="schedule-error" style={{ alignItems: 'center', paddingVertical: 24 }}>
+              <Text style={styles.scheduleBlockStatus}>Could not load this date's reservations.</Text>
+              <TouchableOpacity testID="schedule-retry" onPress={onRetryAvailability} style={{ minHeight: 44, justifyContent: 'center' }}>
+                <Text style={styles.scheduleBookBtnText}>Tap to retry</Text>
+              </TouchableOpacity>
+            </View>
           ) : (
             <ScrollView testID="schedule-blocks" showsVerticalScrollIndicator={false} style={{ maxHeight: 400 }}>
               <View>
@@ -1358,7 +1385,7 @@ function ScheduleSheet({ courtName, courtType, now, scheduleDate, onDateChange, 
                         <Text style={[
                           styles.scheduleBlockStatus,
                           isMaint && { color: Colors.negative },
-                          isMine && { color: Colors.volt },
+                          isMine && { color: theme.textPrimary, fontFamily: FontFamily.jetbrainsMonoSemiBold },
                         ]}>
                           {isMaint ? 'MAINTENANCE' : isMine ? 'MY RESERVATION' : 'BOOKED'}
                         </Text>
@@ -1370,7 +1397,7 @@ function ScheduleSheet({ courtName, courtType, now, scheduleDate, onDateChange, 
               {/* Legend */}
               <View testID="schedule-legend" style={styles.scheduleLegend}>
                 <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: Colors.positive }]} /><Text style={styles.legendText}>Available</Text></View>
-                <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: Colors.volt }]} /><Text style={styles.legendText}>My Reservation</Text></View>
+                <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: Availability.mine }]} /><Text style={styles.legendText}>My Reservation</Text></View>
                 <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: theme.borderStrong }]} /><Text style={styles.legendText}>Booked</Text></View>
                 <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: Colors.negative }]} /><Text style={styles.legendText}>Maintenance</Text></View>
               </View>
@@ -1545,7 +1572,7 @@ function useStyles(theme: ThemeTokens) {
   scheduleRowAvail: { borderLeftWidth: 3, borderLeftColor: Colors.positive, paddingLeft: 10, backgroundColor: theme.schedAvailBg },
   scheduleRowBooked: { borderLeftWidth: 3, borderLeftColor: theme.border, paddingLeft: 10, opacity: 0.7 },
   scheduleRowMaint: { borderLeftWidth: 3, borderLeftColor: Colors.negative, paddingLeft: 10, backgroundColor: theme.schedMaintBg, opacity: 0.85 },
-  scheduleRowMine: { borderLeftWidth: 3, borderLeftColor: Colors.volt, paddingLeft: 10, backgroundColor: theme.schedMineBg },
+  scheduleRowMine: { borderLeftWidth: 4, borderLeftColor: Availability.mine, paddingLeft: 10, backgroundColor: Availability.mineBg },
   scheduleRowLabel: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: 12, color: theme.textMuted, letterSpacing: 0.3 },
   scheduleRowLabelAvail: { color: theme.textPrimary },
   scheduleRowLabelMaint: { color: Colors.negative },

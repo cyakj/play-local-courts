@@ -30,13 +30,31 @@ test.describe('computeSlots', () => {
     expect(isSelectable(b.find((x) => x.start === '10:00'))).toBe(false);
     expect(isSelectable(b.find((x) => x.start === '12:00'))).toBe(true);
   });
-  test('blocked wins over reserved; mine is flagged only when every overlap is the residents own', () => {
+  test('blocked wins over reserved; mine is flagged only for starts INSIDE the residents own reservation', () => {
     const both = states({ reservations: [{ start_time: '09:00', end_time: '10:00' }], blocks: [{ start_time: '09:00', end_time: '10:00' }] });
     expect(both['09:00']).toBe('blocked');
     const mine = computeSlots({ ...base, reservations: [{ start_time: '09:00', end_time: '10:00', isMine: true }] }).find((x) => x.start === '09:00');
-    expect(mine).toMatchObject({ state: 'reserved', mine: true });
-    const mixed = computeSlots({ ...base, reservations: [{ start_time: '09:00', end_time: '09:30', isMine: true }, { start_time: '09:30', end_time: '10:00' }] }).find((x) => x.start === '09:00');
-    expect(mixed?.mine).toBe(false);
+    expect(mine).toMatchObject({ state: 'reserved', mine: true, inside: true });
+    const adj = computeSlots({ ...base, reservations: [{ start_time: '09:00', end_time: '09:30', isMine: true }, { start_time: '09:30', end_time: '10:00' }] });
+    expect(adj.find((x) => x.start === '09:00')?.mine).toBe(true);   // starts inside my 09:00-09:30
+    expect(adj.find((x) => x.start === '09:30')?.mine).toBe(false);  // starts inside someone else's 09:30-10:00
+  });
+  test('REGRESSION: a 90 minute reservation of mine is "Yours" for exactly 90 minutes of half-hour starts, not more', () => {
+    const slots = computeSlots({
+      openMins: 8 * 60, closeMins: 14 * 60, durationMins: 90, isToday: false, nowMins: 0, blocks: [],
+      reservations: [{ start_time: '10:00:00', end_time: '11:30:00', isMine: true }],
+    });
+    const yours = slots.filter((x) => x.mine).map((x) => x.start);
+    expect(yours).toEqual(['10:00', '10:30', '11:00']);          // 3 half-hour cells = 90 minutes
+    const overlaps = slots.filter((x) => x.state === 'reserved' && !x.mine).map((x) => x.start);
+    expect(overlaps).toEqual(['09:00', '09:30']);                // unavailable because a 90 minute booking would run into it...
+    expect(slots.filter((x) => x.inside === false).every((x) => x.mine === false)).toBe(true); // ...but they are not "Yours"
+    expect(slots.find((x) => x.start === '08:30')?.state).toBe('available'); // ends exactly at 10:00
+    expect(slots.find((x) => x.start === '11:30')?.state).toBe('available'); // starts exactly at the end
+  });
+  test('someone elses reservation is never "Yours"', () => {
+    const slots = computeSlots({ ...base, reservations: [{ start_time: '09:00', end_time: '10:00', isMine: false }] });
+    expect(slots.filter((x) => x.mine)).toHaveLength(0);
   });
   test('past times are hidden today but nothing is hidden on other days', () => {
     expect(computeSlots({ ...base, isToday: true, nowMins: 9 * 60 }).map((s) => s.start)[0]).toBe('09:30');

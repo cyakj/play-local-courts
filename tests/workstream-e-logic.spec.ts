@@ -10,7 +10,7 @@ const body = cal.slice(cal.indexOf('<View style={styles.screen}>'), cal.indexOf(
 
 test.describe('Schedule layout', () => {
   test('the heading and month subtitle are INSIDE the page ScrollView; the Header stays outside it', () => {
-    const scrollOpen = body.indexOf('<ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}');
+    const scrollOpen = body.indexOf('<ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={styles.content}');
     expect(scrollOpen).toBeGreaterThan(0);
     expect(body.indexOf('<Header variant="resident"')).toBeLessThan(scrollOpen);
     expect(body.indexOf('testID="schedule-heading"')).toBeGreaterThan(scrollOpen);

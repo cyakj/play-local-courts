@@ -2,13 +2,15 @@ import { useState } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Bell, ArrowLeft, Menu, MessageCircle } from 'lucide-react-native';
+import { Bell, Menu, MessageCircle } from 'lucide-react-native';
 
 import { Colors, FontFamily, FontSize } from '@/constants/design';
 import { useTheme } from '@/context/ThemeContext';
 import { supabase } from '@/lib/supabase';
 import { isCommunityMode, isTennisMode } from '@/config/productMode';
 import { CommunityLogo, TenisXLogo } from '@/components/branding/BrandLogos';
+import { BackButton } from '@/components/ui/BackButton';
+import { HEADER_BRAND } from '@/constants/headerBrand';
 import { ProfileAvatar } from '@/components/ui/ProfileAvatar';
 import { AccountMenu } from '@/components/ui/AccountMenu';
 import { useProfileIdentity } from '@/hooks/useProfileIdentity';
@@ -117,18 +119,10 @@ export function Header(props: HeaderProps) {
         <View style={[styles.topBar, styles.residentTopBar]}>
           <View style={styles.topBarLeft}>
             {props.variant === 'resident' && (props as ResidentHeaderProps).onBack && (
-              <TouchableOpacity
-                testID="header-back"
-                onPress={(props as ResidentHeaderProps).onBack}
-                style={styles.iconBtn}
-                accessibilityRole="button"
-                accessibilityLabel="Back"
-                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
-                <ArrowLeft color="#FFFFFF" size={22} strokeWidth={1.5} />
-              </TouchableOpacity>
+              <BackButton onPress={(props as ResidentHeaderProps).onBack!} />
             )}
             {isCommunityMode ? (
-              <TenisXLogo height={38} testID="tenisx-logo" />
+              <TenisXLogo height={HEADER_BRAND.tenisxHeight} testID="tenisx-logo" />
             ) : (
               <View testID="tenisx-logo" style={[styles.residentLogoWrap, { flexShrink: 1 }]}>
                 <Image
@@ -179,8 +173,8 @@ export function Header(props: HeaderProps) {
               hoaId={identity.hoaId}
               logoUrl={identity.logoUrl}
               name={identity.name}
-              height={40}
-              maxWidth={260}
+              height={HEADER_BRAND.communityHeight}
+              maxWidth={HEADER_BRAND.communityMaxWidth}
             />
           </View>
         )}
@@ -195,15 +189,15 @@ export function Header(props: HeaderProps) {
       <View style={[styles.base, { paddingTop: topPad + 8, paddingBottom: 20 }]}>
         {showBrand && (
           <View style={styles.brandStrip}>
-            <TenisXLogo height={22} testID="tenisx-logo" />
+            <TenisXLogo height={HEADER_BRAND.tenisxHeight} testID="tenisx-logo" />
             {showCommunity && (
               <View testID="community-wordmark" style={styles.brandStripCommunity}>
                 <CommunityLogo
                   hoaId={identity.hoaId}
                   logoUrl={identity.logoUrl}
                   name={identity.name}
-                  height={24}
-                  maxWidth={150}
+                  height={HEADER_BRAND.communityHeight}
+                  maxWidth={HEADER_BRAND.communityMaxWidth - 70}
                 />
               </View>
             )}
@@ -214,15 +208,7 @@ export function Header(props: HeaderProps) {
               spacers (no fill/border), so nothing renders as an empty box. */}
           <View style={styles.innerSide}>
             {props.onBack && (
-              <TouchableOpacity
-                testID="header-back"
-                onPress={props.onBack}
-                style={styles.iconBtn}
-                accessibilityRole="button"
-                accessibilityLabel="Back"
-                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
-                <ArrowLeft color="#FFFFFF" size={22} strokeWidth={1.5} />
-              </TouchableOpacity>
+              <BackButton onPress={props.onBack} />
             )}
           </View>
           <Text style={styles.innerTitle} numberOfLines={1} accessibilityRole="header">
@@ -241,12 +227,7 @@ export function Header(props: HeaderProps) {
         <View style={styles.topBar}>
           <View style={styles.topBarLeft}>
             {props.onBack && (
-              <TouchableOpacity
-                onPress={props.onBack}
-                style={styles.iconBtn}
-                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
-                <ArrowLeft color="#FFFFFF" size={22} strokeWidth={1.5} />
-              </TouchableOpacity>
+              <BackButton onPress={props.onBack} />
             )}
             {isCommunityMode && <TenisXLogo height={28} testID="tenisx-logo" />}
           </View>
@@ -437,7 +418,7 @@ const styles = StyleSheet.create({
     color: 'rgba(45,224,255,0.75)',
   },
   innerSide: {
-    width: 76,
+    width: 84,
     minHeight: 44,
     justifyContent: 'center',
     alignItems: 'flex-start',

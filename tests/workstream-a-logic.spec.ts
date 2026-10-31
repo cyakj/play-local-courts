@@ -158,7 +158,8 @@ test.describe('inspection round 1 regressions', () => {
   test('R5: Report and Docs keep the resident header (bell, avatar) with a back arrow', () => {
     expect(r).toMatch(/<Header variant="resident" onBack=\{goBack\}/);
     expect(src('app/docs.tsx')).toMatch(/<Header variant="resident" onBack=/);
-    expect(src('components/ui/Header.tsx')).toMatch(/testID="header-back"/);
+    expect(src('components/ui/BackButton.tsx')).toMatch(/testID = 'header-back'/);
+    expect(src('components/ui/Header.tsx')).toMatch(/<BackButton onPress=/);
   });
 });
 

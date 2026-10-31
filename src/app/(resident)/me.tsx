@@ -26,6 +26,7 @@ import { Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing } from '@/const
 import { Header } from '@/components/ui/Header';
 import { CardSkeleton } from '@/components/ui/Skeleton';
 import { InfoTooltip } from '@/components/ui/InfoTooltip';
+import { useScrollToTopOnTabEnter } from '@/hooks/useScrollToTopOnTabEnter';
 import { useTheme } from '@/context/ThemeContext';
 import { useUpcomingMatches } from '@/hooks/useUpcomingMatches';
 import { isCommunityMode } from '@/config/productMode';
@@ -89,6 +90,7 @@ function formatTime12(t: string): string {
 }
 
 export default function MeScreen() {
+  const scrollRef = useScrollToTopOnTabEnter('me');
   const identity = useProfileIdentity();
   const { community: activeCommunity, loading: communityLoading } = useActiveCommunity();
   const activeHoaId = activeCommunity?.hoaId ?? null;
@@ -259,7 +261,7 @@ export default function MeScreen() {
     <View style={styles.screen}>
       <Header variant="resident" communityName={profile?.communityName ?? undefined} />
 
-      <ScrollView
+      <ScrollView ref={scrollRef}
         contentContainerStyle={styles.body}
         showsVerticalScrollIndicator={false}>
 

@@ -3,6 +3,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps as RNBottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Colors, FontFamily, Spacing } from '@/constants/design';
 import { useTheme } from '@/context/ThemeContext';
+import { emitTabEnter } from '@/lib/tabScroll';
 
 // Expo Router 58 passes `navigateToTab` instead of a `navigation` prop to custom tab bars.
 type BottomTabBarProps = Pick<RNBottomTabBarProps, 'state' | 'descriptors'> & {
@@ -42,6 +43,7 @@ export function BottomNav(props: BottomTabBarProps) {
             style={styles.tab}
             onPress={() => {
               if (!isFocused) navigateToTab(route.key);
+              emitTabEnter(route.name); // entering OR re-tapping a primary tab returns it to the top
             }}
             accessibilityLabel={
               typeof options.tabBarBadge === 'number' && options.tabBarBadge > 0

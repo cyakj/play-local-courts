@@ -58,3 +58,6 @@ export function describeReport(key: string, label: string | undefined, descripti
   const text = description.trim();
   return toPersistedCategory(key) !== key && label ? `[${label}] ${text}` : text;
 }
+
+/** New reports start at Low severity; the resident raises it deliberately (High/Critical also flag the report urgent). */
+export const DEFAULT_REPORT_SEVERITY = 'low' as const;

@@ -102,6 +102,8 @@ export const Availability = {
   reservedBg:  'rgba(122,131,154,0.10)',
   blocked:     '#D08A5B', // closed by management (muted copper, distinct from reserved)
   blockedBg:   'rgba(208,138,91,0.12)',
+  mine:        '#9BC400', // the resident's OWN reservation (volt family, dark enough for light backgrounds)
+  mineBg:      'rgba(214,255,61,0.22)',
   selected:    '#2D6BFF', // the resident's current choice (Intelligent Blue)
 } as const;
 

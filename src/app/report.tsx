@@ -14,7 +14,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { base64ToBytes, sniffDocumentMime } from '@/lib/imageBytes';
 import {
   Plus, Droplet, Zap, Building2, Wrench, AlertTriangle,
-  HelpCircle, ChevronRight, X, Camera, ImageIcon, ArrowLeft,
+  HelpCircle, ChevronRight, X, Camera, ImageIcon,
   Grid3x3, Minus, DoorOpen, Trash2, Package,
   Dumbbell, Thermometer, Tv, Shield, Waves, Layers, Sparkles,
 } from 'lucide-react-native';
@@ -25,11 +25,12 @@ import {
   Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing,
 } from '@/constants/design';
 import { Header } from '@/components/ui/Header';
+import { BackButton } from '@/components/ui/BackButton';
 import { useTheme } from '@/context/ThemeContext';
 import { useActiveCommunity } from '@/hooks/useActiveCommunity';
 import { createLatestGuard } from '@/lib/latestGuard';
 import { base64DecodedBytes, reportPhotoProblem } from '@/lib/reportPhotoLimits';
-import { describeReport, isReportReady, resolveReportContext, toPersistedCategory } from '@/lib/reportContext';
+import { DEFAULT_REPORT_SEVERITY, describeReport, isReportReady, resolveReportContext, toPersistedCategory } from '@/lib/reportContext';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 
 // ─── Category config ──────────────────────────────────────────────────────────
@@ -181,7 +182,7 @@ export default function ReportScreen() {
   const [submittedId, setSubmittedId] = useState<string | null>(null);
   const [step, setStep] = useState<1 | 2>(1);
   const [category, setCategory] = useState<string>(isCourtReport ? facilityCategories[0].key : 'plumbing');
-  const [severity, setSeverity] = useState<SeverityKey>('medium');
+  const [severity, setSeverity] = useState<SeverityKey>(DEFAULT_REPORT_SEVERITY);
   const [description, setDescription] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -275,7 +276,7 @@ export default function ReportScreen() {
       setFacilityFormOpen(false);
       setStep(1);
       setCategory(cats[0].key);
-      setSeverity('medium');
+      setSeverity(DEFAULT_REPORT_SEVERITY);
       setDescription('');
       setPhotoUri(null);
       setSubmitSuccess(false);
@@ -465,7 +466,7 @@ export default function ReportScreen() {
     setPhotoWarning(null);
     setStep(1);
     setCategory(isCourtReport ? facilityCategories[0].key : 'plumbing');
-    setSeverity('medium');
+    setSeverity(DEFAULT_REPORT_SEVERITY);
     setDescription('');
     setPhotoUri(null);
     setSubmitSuccess(false);
@@ -534,9 +535,7 @@ export default function ReportScreen() {
       <View style={styles.screen}>
         {/* Inner header — back + facility name */}
         <View testID="court-issue-header" style={styles.courtIssueHeader}>
-          <TouchableOpacity testID="facility-form-back" accessibilityRole="button" accessibilityLabel="Back to reports" onPress={closeForm} style={styles.courtIssueBackBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <ArrowLeft color={Colors.white} size={22} strokeWidth={1.5} />
-          </TouchableOpacity>
+          <BackButton testID="facility-form-back" label="Back to reports" onPress={closeForm} />
           <View style={{ flex: 1 }}>
             <Text style={styles.heroLabel}>REPORT ISSUE</Text>
             <Text style={styles.heroTitle}>{prefilledCourtName ?? 'Facility'}</Text>

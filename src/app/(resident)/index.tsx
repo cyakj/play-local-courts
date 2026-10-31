@@ -21,6 +21,7 @@ import {
   Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing,
 } from '@/constants/design';
 import { Header } from '@/components/ui/Header';
+import { useScrollToTopOnTabEnter } from '@/hooks/useScrollToTopOnTabEnter';
 import { useTheme } from '@/context/ThemeContext';
 import { useUpcomingMatches } from '@/hooks/useUpcomingMatches';
 import { useCommunityName } from '@/hooks/useCommunityName';
@@ -182,6 +183,7 @@ function formatEventDateTime(startsAt: string): string {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
+  const scrollRef = useScrollToTopOnTabEnter('index');
   const { theme } = useTheme();
   const styles = useStyles(theme);
   const communityName = useCommunityName();
@@ -467,7 +469,7 @@ export default function HomeScreen() {
     <View testID="home-screen" style={styles.screen}>
       <Header variant="resident" communityName={communityName} />
 
-      <ScrollView
+      <ScrollView ref={scrollRef}
         style={{ flex: 1 }}
         contentContainerStyle={styles.body}
         refreshControl={

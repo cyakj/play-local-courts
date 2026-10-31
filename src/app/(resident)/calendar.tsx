@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react-native';
 import { Header } from '@/components/ui/Header';
+import { useScrollToTopOnTabEnter } from '@/hooks/useScrollToTopOnTabEnter';
 import { useTheme } from '@/context/ThemeContext';
 import { useActiveCommunity } from '@/hooks/useActiveCommunity';
 
@@ -118,6 +119,7 @@ function filterChipLabel(opt: string): string {
 }
 
 export default function ResidentCalendarScreen() {
+  const scrollRef = useScrollToTopOnTabEnter('calendar');
   const now = new Date();
   const { theme } = useTheme();
   const communityName = useCommunityName();
@@ -394,7 +396,7 @@ export default function ResidentCalendarScreen() {
 
       {/* The header and bottom nav stay fixed; the title and month subtitle scroll away with the content so the calendar
           gets the full height while browsing (V1-004). */}
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={{ maxWidth: MaxWidth, width: '100%', alignSelf: 'center' }}>
 
           {/* ── Hero (scrolls with the page) ───────────────────────────────── */}

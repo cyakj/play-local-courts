@@ -229,7 +229,7 @@ function a11yLabel(slot: SlotInfo, isSelected: boolean): string {
   if (slot.state === 'available') return `${t}, available`;
   if (slot.state === 'blocked') return `${t}, blocked by management, unavailable`;
   if (slot.state === 'limit') return `${t}, reservation limit reached, unavailable`;
-  return `${t}, ${slot.mine ? 'reserved by you' : 'reserved'}, unavailable`;
+  return `${t}, ${slot.mine ? 'reserved by you' : slot.inside === false ? 'would overlap a reservation' : 'reserved'}, unavailable`;
 }
 
 /**
@@ -326,14 +326,15 @@ export const TimeSlotWheel = memo(function TimeSlotWheel({
               style={[
                 s.row,
                 { opacity },
-                slot.state === 'reserved' && s.rowReserved,
+                slot.state === 'reserved' && !slot.mine && s.rowReserved,
+                slot.state === 'reserved' && slot.mine && s.rowMine,
                 slot.state === 'blocked' && s.rowBlocked,
                 open && isCentered && s.rowFocused,
                 isSelected && s.rowSelected,
               ]}
             >
               <View style={[s.rowInner, { transform: [{ scaleY }] }]}>
-                <View style={[s.dot, { backgroundColor: open ? Availability.available : slot.state === 'blocked' ? Availability.blocked : Availability.reserved }]} />
+                <View style={[s.dot, { backgroundColor: open ? Availability.available : slot.state === 'blocked' ? Availability.blocked : slot.mine ? Availability.mine : Availability.reserved }]} />
                 <Text
                   testID={`wheel-time-${slot.start}`}
                   style={[s.time, open && isCentered && s.timeFocused, !open && s.timeDisabled]}
@@ -376,10 +377,10 @@ export const TimeSlotWheel = memo(function TimeSlotWheel({
                     accessible
                     accessibilityLabel={a11yLabel(slot, false)}
                     accessibilityState={{ disabled: true }}
-                    style={[s.statePill, slot.state === 'blocked' ? s.statePillBlocked : s.statePillReserved]}
+                    style={[s.statePill, slot.state === 'blocked' ? s.statePillBlocked : slot.mine ? s.statePillMine : s.statePillReserved]}
                   >
-                    <Text style={[s.statePillText, { color: slot.state === 'blocked' ? Availability.blocked : theme.textMuted }]}>
-                      {slot.state === 'reserved' && slot.mine ? 'Yours' : STATE_LABEL[slot.state as 'reserved' | 'blocked' | 'limit']}
+                    <Text style={[s.statePillText, { color: slot.state === 'blocked' ? Availability.blocked : slot.mine ? theme.textPrimary : theme.textMuted }]}>
+                      {slot.state === 'reserved' && slot.mine ? 'Yours' : slot.state === 'reserved' && slot.inside === false ? 'Overlaps' : STATE_LABEL[slot.state as 'reserved' | 'blocked' | 'limit']}
                     </Text>
                   </View>
                 )}
@@ -396,6 +397,7 @@ export const TimeSlotWheel = memo(function TimeSlotWheel({
 export function AvailabilityLegend({ theme }: { theme: ThemeTokens }) {
   const items = [
     { color: Availability.available, label: 'Available' },
+    { color: Availability.mine, label: 'Yours' },
     { color: Availability.reserved, label: 'Reserved' },
     { color: Availability.blocked, label: 'Blocked' },
     { color: Availability.selected, label: 'Selected' },
@@ -440,6 +442,7 @@ function useWheelStyles(theme: ThemeTokens) {
       rowSelected: { borderColor: selBlue, backgroundColor: selBlueBg },
       rowReserved: { backgroundColor: Availability.reservedBg },
       rowBlocked: { backgroundColor: Availability.blockedBg },
+      rowMine: { backgroundColor: Availability.mineBg },
       rowInner: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -481,6 +484,7 @@ function useWheelStyles(theme: ThemeTokens) {
       },
       statePillReserved: { borderColor: 'rgba(122,131,154,0.35)' },
       statePillBlocked: { borderColor: 'rgba(208,138,91,0.45)' },
+      statePillMine: { borderColor: Availability.mine, backgroundColor: Availability.mineBg },
       statePillText: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: 11, letterSpacing: 0.4 },
     });
   }, [theme]);

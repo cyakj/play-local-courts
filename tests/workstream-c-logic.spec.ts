@@ -4,6 +4,7 @@
  */
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { HEADER_BRAND } from '../src/constants/headerBrand';
 import {
   MAX_PROFILE_PHOTO_BYTES, avatarObjectPath, checkProfilePhoto, classifyAvatarValue, initialsFor, isOwnPhotoPath,
 } from '../src/lib/profilePhoto';
@@ -176,9 +177,12 @@ test.describe('community switching refreshes community-scoped screens (V1-010)',
 test.describe('header branding (V1-001)', () => {
   const h = src('components/ui/Header.tsx');
   test('TenisX logo is larger and the community identity row keeps a stable minimum height (no layout shift)', () => {
-    expect(h).toMatch(/<TenisXLogo height=\{38\} testID="tenisx-logo" \/>/);
-    expect(h).toMatch(/height=\{40\}\s*maxWidth=\{260\}/);
+    // Sizes now come from one shared constant so the resident and inner headers cannot drift apart again.
+    expect(h).toMatch(/<TenisXLogo height=\{HEADER_BRAND\.tenisxHeight\} testID="tenisx-logo" \/>/);
+    expect(h).toMatch(/height=\{HEADER_BRAND\.communityHeight\}\s*maxWidth=\{HEADER_BRAND\.communityMaxWidth\}/);
     expect(h).toMatch(/minHeight: 40,/);
+    expect(HEADER_BRAND.tenisxHeight).toBeGreaterThanOrEqual(36);
+    expect(h.match(/<TenisXLogo height=\{HEADER_BRAND\.tenisxHeight\}/g)?.length).toBeGreaterThanOrEqual(2); // resident AND inner layouts
   });
   test('community logo keeps its aspect ratio, is width-capped, and falls back to the name', () => {
     const b = src('components/branding/BrandLogos.tsx');

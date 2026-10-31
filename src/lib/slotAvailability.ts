@@ -11,8 +11,14 @@ export interface SlotInfo {
   /** HH:MM, 24h */
   start: string;
   state: SlotState;
-  /** Every overlapping reservation belongs to the current resident (only meaningful when state === 'reserved'). */
+  /**
+   * state === 'reserved' only. True when this START TIME itself lies inside one of the resident's own reservations
+   * ("Yours"). A start whose duration merely overlaps a reservation (e.g. 09:00 for a 90 minute booking next to a 10:00
+   * reservation) is unavailable but is NOT the resident's time, so it is not "Yours".
+   */
   mine?: boolean;
+  /** state === 'reserved' only. True when this start time lies inside a reservation; false when it only overlaps one. */
+  inside?: boolean;
 }
 
 export interface TimeRange {
@@ -78,7 +84,11 @@ export function computeSlots(input: ComputeSlotsInput): SlotInfo[] {
     // A blockout wins over a reservation: it is the stronger, management-set reason.
     if (blocks.some((b) => overlaps(s, e, b))) { out.push({ start, state: 'blocked' }); continue; }
     const hit = reservations.filter((r) => overlaps(s, e, r));
-    if (hit.length > 0) { out.push({ start, state: 'reserved', mine: hit.every((r) => r.isMine === true) }); continue; }
+    if (hit.length > 0) {
+      const containing = reservations.filter((r) => s >= toMins(r.start_time) && s < toMins(r.end_time));
+      out.push({ start, state: 'reserved', inside: containing.length > 0, mine: containing.some((r) => r.isMine === true) });
+      continue;
+    }
     out.push({ start, state: limited ? 'limit' : 'available' });
   }
   return out;

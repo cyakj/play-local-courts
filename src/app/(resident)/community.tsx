@@ -18,6 +18,7 @@ import {
   Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing,
 } from '@/constants/design';
 import { Header } from '@/components/ui/Header';
+import { useScrollToTopOnTabEnter } from '@/hooks/useScrollToTopOnTabEnter';
 import { useTheme } from '@/context/ThemeContext';
 import { useActiveCommunity } from '@/hooks/useActiveCommunity';
 
@@ -42,6 +43,7 @@ function timeAgo(iso: string | null): string {
 }
 
 export default function CommunityScreen() {
+  const scrollRef = useScrollToTopOnTabEnter('community');
   const { theme } = useTheme();
   const styles = useStyles(theme);
   const [hoa, setHoa] = useState<HoaInfo | null>(null);
@@ -96,7 +98,7 @@ export default function CommunityScreen() {
         {hoa?.description ? <Text style={styles.heroSub}>{hoa.description}</Text> : null}
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={{ maxWidth: MaxWidth, width: '100%', alignSelf: 'center' }}>
 
           {loading ? (
