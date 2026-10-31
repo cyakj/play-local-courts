@@ -30,7 +30,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useActiveCommunity } from '@/hooks/useActiveCommunity';
 import { createLatestGuard } from '@/lib/latestGuard';
 import { base64DecodedBytes, reportPhotoProblem } from '@/lib/reportPhotoLimits';
-import { DEFAULT_REPORT_SEVERITY, describeReport, isReportReady, resolveReportContext, toPersistedCategory } from '@/lib/reportContext';
+import { DEFAULT_REPORT_SEVERITY, describeReport, isReportReady, resolveReportContext, shouldCloseFormOnContextChange, toPersistedCategory } from '@/lib/reportContext';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 
 // ─── Category config ──────────────────────────────────────────────────────────
@@ -250,6 +250,7 @@ export default function ReportScreen() {
     }
   }, [activeCommunity?.hoaId, communityStoreLoading, routeContext.courtId]);
 
+  const formContextRef = useRef<{ hoaId: string | null; courtId: string | null | undefined; settled: boolean }>({ hoaId: null, courtId: undefined, settled: false });
   useEffect(() => {
     // Switching community while a form is open discards community-bound state.
     generation.current += 1;
@@ -259,8 +260,13 @@ export default function ReportScreen() {
     setSubmitting(false);
     setLoading(true);
     setHoaId('');
-    setShowForm(false);
-    setFacilityFormOpen(false);
+    // The form is discarded only for a real switch (or a different amenity), never because the community just finished resolving.
+    const next = { hoaId: activeCommunity?.hoaId ?? null, courtId: routeContext.courtId };
+    if (shouldCloseFormOnContextChange(formContextRef.current, next)) {
+      setShowForm(false);
+      setFacilityFormOpen(false);
+    }
+    formContextRef.current = { ...next, settled: true };
     load();
   }, [activeCommunity?.hoaId, communityStoreLoading, routeContext.courtId, load]);
   const selectedLocation = locations.find(l => l.id === selectedLocationId) ?? null;

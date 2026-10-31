@@ -70,3 +70,36 @@ Stage D - profile photos
   with auth.uid()); not changed here.
 - report-photos is public-by-URL (unchanged app contract); a private bucket + signed URLs is stricter but changes the admin screens.
 - Data restore is the only rollback for DDL that dropped policies; keep the fresh backup until the smoke tests pass.
+
+
+---
+
+## Addendum 2026-10-31: the final Resident codebase's database dependencies (plan UNCHANGED, still NOT applied)
+
+Checked against the 2026-10-29 hosted snapshot (a restore of the real backup; re-run on the fresh backup). The plan above stands as
+written: **no new migration is required** by the Resident corrections (V1-014 .. V1-024), the 13 original issues, or the overnight audits.
+
+**Already on hosted (the final code works against these today):** `hoa_notifications.dedupe_key`, `report_notes.is_internal`, `hoas.logo_url`,
+`hoa_events`, `hoa_documents` + private bucket `hoa-documents` + its member read policy, RPC `my_message_contacts` (the client also has a
+fallback), RPC `update_email_preference`, `amenity_rules.max_duration_minutes` / `max_reservations_per_day`, the `bookings` exclusion
+constraint, `bookings.cancellation_reason`.
+
+**Still missing on hosted, and exactly which pending migration supplies it:**
+
+| Feature (Resident code) | Missing object | Supplied by | Without it |
+|---|---|---|---|
+| Profile photo add / replace / remove (V1-005) | bucket `profile-photos`, column `profiles.avatar_path` | `20261030120000` | upload says "Profile photos are not enabled on this server yet" (Storage answers "Bucket not found"); initials are shown |
+| Report photo attach | RPC `attach_report_photo`, bucket `report-photos` | `20261023130000` + `20261030140000` | the report is saved; the photo is not attached / upload fails with a clear message |
+| Database-enforced report rules | insert policy + `create_maintenance_report()` replacement | `20261030130000` | the app already sends only valid reports; a direct API call could still file one for another community (security gap, not a feature) |
+| Admin booking-review notifications | trigger that writes `booking_review_needed` | `20261023100000` | admins are not notified; residents unaffected |
+
+**Behaviour that now works WITHOUT any migration (done in the client):** notification taps open the exact report / reservation from the ids in
+the row (previously every tap fell back to a list page because no row stores a `route`); duplicate-looking notifications are
+described by what they are about; the Documents, messaging, reservation and cancellation flows use only objects that already exist.
+
+**Stage order is unchanged.** Two smoke tests to add to the existing stage smoke list:
+- after Stage C: open a notification for a report and one for a reservation, and confirm each lands on its detail screen;
+- after Stage D: add, replace and remove a profile photo, and confirm the header avatar and Me screen both update.
+
+**Optional follow-up migration (recommended, NOT part of this plan, needs its own rehearsal):** close the same-community full-row read on
+`profiles` described in `docs/RESIDENT-PRIVACY-RECOMMENDATIONS.md`.

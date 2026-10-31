@@ -61,3 +61,19 @@ export function describeReport(key: string, label: string | undefined, descripti
 
 /** New reports start at Low severity; the resident raises it deliberately (High/Critical also flag the report urgent). */
 export const DEFAULT_REPORT_SEVERITY = 'low' as const;
+
+/**
+ * Should an open report form be discarded because the context changed?
+ * Yes when the active community moved from one community to another (or the account changed and it went to none), or when the
+ * route's amenity changed after the first render. NO when the community merely finished resolving for the first time
+ * (nothing -> a community): a resident who opened the form early must not lose it to the screen finishing its initial load.
+ */
+export function shouldCloseFormOnContextChange(
+  prev: { hoaId: string | null; courtId: string | null | undefined; settled: boolean },
+  next: { hoaId: string | null; courtId: string | null | undefined },
+): boolean {
+  if (!prev.settled) return false; // first run of the effect
+  const communitySwitched = prev.hoaId !== null && prev.hoaId !== next.hoaId;
+  const courtChanged = (prev.courtId ?? null) !== (next.courtId ?? null);
+  return communitySwitched || courtChanged;
+}

@@ -80,3 +80,33 @@ test('report submit re-checks the photo size before the report row is created (c
   const camera = s.slice(s.indexOf('launchCameraAsync'), s.indexOf('launchImageLibraryAsync'));
   expect(camera).toMatch(/reportPhotoProblem\(base64DecodedBytes/);
 });
+
+import { shouldCloseFormOnContextChange } from '../src/lib/reportContext';
+
+test.describe('report form is kept while the community first resolves (browser-found regression)', () => {
+  const first = { hoaId: null, courtId: undefined, settled: false };
+  test('REGRESSION: the first run of the effect never closes the form', () => {
+    expect(shouldCloseFormOnContextChange(first, { hoaId: 'h1', courtId: undefined })).toBe(false);
+    expect(shouldCloseFormOnContextChange(first, { hoaId: null, courtId: undefined })).toBe(false);
+  });
+  test('REGRESSION: nothing -> a community (initial load finishing) does not close an early-opened form', () => {
+    expect(shouldCloseFormOnContextChange({ hoaId: null, courtId: undefined, settled: true }, { hoaId: 'h1', courtId: undefined })).toBe(false);
+  });
+  test('a real switch from one community to another closes the form', () => {
+    expect(shouldCloseFormOnContextChange({ hoaId: 'h1', courtId: undefined, settled: true }, { hoaId: 'h2', courtId: undefined })).toBe(true);
+  });
+  test('the account changing (community -> none) closes the form', () => {
+    expect(shouldCloseFormOnContextChange({ hoaId: 'h1', courtId: undefined, settled: true }, { hoaId: null, courtId: undefined })).toBe(true);
+  });
+  test('a different amenity in the route closes the form; the same one does not', () => {
+    expect(shouldCloseFormOnContextChange({ hoaId: 'h1', courtId: 'c1', settled: true }, { hoaId: 'h1', courtId: 'c2' })).toBe(true);
+    expect(shouldCloseFormOnContextChange({ hoaId: 'h1', courtId: 'c1', settled: true }, { hoaId: 'h1', courtId: 'c1' })).toBe(false);
+  });
+  test('the report screen uses the rule instead of closing unconditionally', () => {
+    const s = readFileSync('src/app/report.tsx', 'utf8');
+    expect(s).toMatch(/shouldCloseFormOnContextChange\(formContextRef\.current, next\)/);
+    const effect = s.slice(s.indexOf('Switching community while a form is open'), s.indexOf('const selectedLocation = locations.find'));
+    expect(effect.match(/setShowForm\(false\)/g)?.length).toBe(1);
+    expect(effect.indexOf('setShowForm(false)')).toBeGreaterThan(effect.indexOf('shouldCloseFormOnContextChange'));
+  });
+});

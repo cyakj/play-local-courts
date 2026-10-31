@@ -63,6 +63,18 @@ test.describe('Report: default severity and back button', () => {
     await expect(page.locator('[data-testid="severity-low"]')).not.toHaveCSS('background-color', 'rgb(16, 185, 129)');
   });
 
+  test('REGRESSION: a form opened the moment the screen appears is NOT closed when the community finishes resolving', async ({ page }) => {
+    await page.goto('/report');
+    await expect(page.locator('[data-testid="filter-tabs"]')).toBeVisible({ timeout: 30000 });
+    await page.locator('[data-testid="new-report-btn"]').click(); // deliberately no settle time
+    await expect(page.locator('[data-testid="report-form"]')).toBeVisible({ timeout: 10000 });
+    await page.waitForTimeout(4000); // long enough for any late community/data resolution
+    await expect(page.locator('[data-testid="report-form"]')).toBeVisible();
+    // and the form is still usable
+    await page.locator('[data-testid="category-tile"]').nth(1).click();
+    await expect(page.locator('[data-testid="report-form"]')).toBeVisible();
+  });
+
   test('the facility-form back button is a visible 44pt+ target', async ({ page }) => {
     await page.goto('/report');
     await expect(page.locator('[data-testid="filter-tabs"]')).toBeVisible({ timeout: 30000 });
