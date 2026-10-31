@@ -43,6 +43,8 @@ export function safeNotificationRoute(route: unknown, type: string): string | nu
  * notification carries (works without any database migration); else the list screen for the type; else nowhere.
  */
 export function notificationRoute(type: string, metadata: Record<string, unknown> | null | undefined): string | null {
+  // Management review requests also carry a booking_id and may carry a resident route: they always go to management.
+  if (type === 'booking_review_needed') return FALLBACK_ROUTE[type];
   const explicit = metadata?.route;
   if (typeof explicit === 'string' && SAFE_ROUTE.test(explicit)) return explicit;
   const reportId = metadata?.report_id;
@@ -84,8 +86,11 @@ export const DUPLICATE_WINDOW_MS = 2 * 60 * 1000;
 export function collapseDuplicates(items: ListItem[], windowMs: number = DUPLICATE_WINDOW_MS): ListItem[] {
   const out: ListItem[] = [];
   for (const it of items) {
-    const key = `${it.type}|${targetKey(it.metadata)}|${it.title}|${it.body}`;
-    const prev = out.find((o) => `${o.type}|${targetKey(o.metadata)}|${o.title}|${o.body}` === key
+    const target = targetKey(it.metadata);
+    // No verified target (announcements, surveys, metadata-free rows): two rows with the same text may be two real events.
+    if (target === '') { out.push({ ...it, ids: [...it.ids] }); continue; }
+    const key = `${it.type}|${target}|${it.title}|${it.body}`;
+    const prev = out.find((o) => targetKey(o.metadata) !== '' && `${o.type}|${targetKey(o.metadata)}|${o.title}|${o.body}` === key
       && Math.abs(new Date(o.createdAt).getTime() - new Date(it.createdAt).getTime()) <= windowMs);
     if (prev) {
       prev.ids.push(...it.ids);

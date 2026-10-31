@@ -57,6 +57,15 @@ test.describe('collapseDuplicates', () => {
     ]);
     expect(out).toHaveLength(2);
   });
+  test('REGRESSION: rows without a verified target are never folded, even with identical text', () => {
+    const out = collapseDuplicates([
+      mk({ id: 'a', type: 'announcement', title: 'Pool closed', body: 'Closed today', metadata: null, createdAt: '2026-10-30T10:00:20Z' }),
+      mk({ id: 'b', type: 'announcement', title: 'Pool closed', body: 'Closed today', metadata: null, createdAt: '2026-10-30T10:00:00Z' }),
+      mk({ id: 'c', type: 'booking_cancelled', title: 'Cancelled', body: 'x', metadata: { amenity_id: 'p', date: '2026-10-30' }, createdAt: '2026-10-30T10:00:10Z' }),
+      mk({ id: 'd', type: 'booking_cancelled', title: 'Cancelled', body: 'x', metadata: { amenity_id: 'p', date: '2026-10-30' }, createdAt: '2026-10-30T10:00:05Z' }),
+    ]);
+    expect(out).toHaveLength(4);
+  });
   test('does not mutate its input', () => {
     const input = [mk({ id: 'a' }), mk({ id: 'b', createdAt: '2026-10-30T10:00:05Z' })];
     collapseDuplicates(input);
@@ -84,6 +93,9 @@ test.describe('notificationRoute', () => {
   test('REGRESSION: management review notifications (they carry a booking_id) go to management, never the resident reservation screen', () => {
     expect(notificationRoute('booking_review_needed', { booking_id: B1, route: '/(admin)/manage-amenities' })).toBe('/(admin)/manage-amenities');
     expect(notificationRoute('booking_review_needed', { booking_id: B1 })).toBe('/(admin)/manage-amenities');
+  });
+  test('REGRESSION: management review goes to management even if the row carries an allowlisted resident route', () => {
+    expect(notificationRoute('booking_review_needed', { booking_id: B1, route: `/reservation-detail/${B1}` })).toBe('/(admin)/manage-amenities');
   });
   test('types without a destination do nothing', () => {
     expect(notificationRoute('member_approved', { membership_id: R1 })).toBeNull();

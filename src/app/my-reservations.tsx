@@ -169,6 +169,7 @@ export default function MyReservationsScreen() {
           <View style={[styles.dateChip, up ? styles.dateChipUpcoming : styles.dateChipPast]}>
             <Text style={[styles.dateDayName, up ? styles.dateTextUpcoming : styles.dateTextPast]}>{dayName.toUpperCase()}</Text>
             <Text style={[styles.dateDayNum, up ? styles.dateTextUpcoming : styles.dateTextPast]}>{dayNum}</Text>
+            <Text style={[styles.dateDayName, up ? styles.dateTextUpcoming : styles.dateTextPast]}>{d.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }).toUpperCase()}</Text>
           </View>
 
           <View style={styles.cardBody}>
@@ -177,8 +178,7 @@ export default function MyReservationsScreen() {
               <ReservationStatusPill status={b.status} />
             </View>
             <Text style={styles.cardTime} numberOfLines={1}>
-              {when ? <Text style={styles.cardWhen}>{when} · </Text> : null}
-              {up ? '' : `${formatShortDate(b.date)} · `}{formatTime12(b.start_time)} – {formatTime12(b.end_time)} · {durationLabel(b.start_time, b.end_time)}
+              {when ? <Text style={styles.cardWhen}>{when} · </Text> : `${formatShortDate(b.date)} · `}{formatTime12(b.start_time)} – {formatTime12(b.end_time)} · {durationLabel(b.start_time, b.end_time)}
             </Text>
             {(b.status === 'cancelled' || b.status === 'rejected') && b.cancellationReason ? (
               <Text testID="cancellation-reason" style={styles.cardReason}>

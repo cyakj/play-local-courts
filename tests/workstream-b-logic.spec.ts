@@ -121,7 +121,8 @@ test.describe('booking confirmation safeguards', () => {
   });
   test('B-004: booking cache is merged per court and completeness is tracked per (date, court)', () => {
     expect(courts).toMatch(/fetchedBookings = useRef\(new Map<string, number>\(\)\)/);
-    expect(courts).toMatch(/\.filter\(b => !ids\.includes\(b\.court_id\)\), \.\.\.\(\(data \?\? \[\]\) as TodayBooking\[\]\)/);
+    // merged per court, and only for the courts whose response is still current (see lib/requestLedger.ts)
+    expect(courts).toMatch(/\.filter\(b => !liveIds\.includes\(b\.court_id\)\), \.\.\.\(\(data \?\? \[\]\) as TodayBooking\[\]\)\.filter\(b => liveIds\.includes\(b\.court_id\)\)/);
     expect(courts).toMatch(/fetchedBookings\.current\.get\(`\$\{dateStr\}:\$\{bookingSheet\.courtId\}`\)/);
     expect(courts).not.toMatch(/if \(!bookingsByDate\[dateStr\] && bookingSheet\)/);
   });

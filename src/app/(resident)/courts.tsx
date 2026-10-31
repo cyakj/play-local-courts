@@ -28,6 +28,7 @@ import {
 import { Header } from '@/components/ui/Header';
 import { AvailabilityLegend, TimeSlotWheel } from '@/components/ui/TimeSlotWheel';
 import { buildScheduleRows } from '@/lib/scheduleRows';
+import { RequestLedger } from '@/lib/requestLedger';
 import { computeSlots, isSelectable, revalidateSelection, toDateKey, toMins, type SlotInfo } from '@/lib/slotAvailability';
 import { CalendarPicker, formatDateLabel } from '@/components/ui/CalendarPicker';
 import { useScrollToTopOnTabEnter } from '@/hooks/useScrollToTopOnTabEnter';
@@ -364,28 +365,36 @@ export default function CourtsScreen() {
   // key -> when it was fetched. A date is re-fetched when its entry is older than BOOKING_CACHE_MS, so a booking made or
   // cancelled elsewhere shows up when the resident revisits that date.
   const fetchedBookings = useRef(new Map<string, number>());
-  // Per date+court outcome of the booking fetch. A date that has not loaded successfully must NOT be drawn as "all free".
-  const [bookingLoad, setBookingLoad] = useState<Record<string, 'ok' | 'error'>>({});
+  // Per date+court outcome of the booking fetch: 'ok' loaded; 'stale' loaded earlier but the latest refresh failed (data kept,
+  // flagged); 'error' never loaded. A date with nothing loaded must NOT be drawn as "all free".
+  const [bookingLoad, setBookingLoad] = useState<Record<string, 'ok' | 'stale' | 'error'>>({});
+  // Decides whether a response may still be applied (account/community changed, or a newer request for the key started).
+  const bookingLedger = useRef(new RequestLedger());
   async function fetchBookingsForDate(dateStr: string, courtIds?: string[]) {
     const ids = courtIds ?? courts.map(c => c.id);
     if (ids.length === 0) return;
+    const ticket = bookingLedger.current.begin(ids.map(id => `${dateStr}:${id}`));
     // Only reservations that occupy time: the DB trigger and exclusion constraint count confirmed + pending (a
     // rejected or cancelled request frees its interval and does not count toward the daily limit).
     const { data, error } = await supabase.from('bookings').select('court_id, start_time, end_time, user_id').in('court_id', ids).eq('date', dateStr).in('status', ACTIVE_BOOKING_STATUSES);
-    if (error) { // keep what we had; a date with nothing loaded is shown as an error, never as everything free
-      setBookingLoad(prev => { const next = { ...prev }; for (const id of ids) if (next[`${dateStr}:${id}`] !== 'ok') next[`${dateStr}:${id}`] = 'error'; return next; });
+    const liveKeys = bookingLedger.current.live(ticket);
+    if (liveKeys.length === 0) return; // superseded or belongs to a previous account/community
+    const liveIds = ids.filter(id => liveKeys.includes(`${dateStr}:${id}`));
+    if (error) { // keep what we had, but never let it pass as current: stale if it had loaded once, else an error
+      setBookingLoad(prev => { const next = { ...prev }; for (const id of liveIds) { const k = `${dateStr}:${id}`; next[k] = next[k] === 'ok' || next[k] === 'stale' ? 'stale' : 'error'; } return next; });
       return;
     }
-    setBookingLoad(prev => { const next = { ...prev }; for (const id of ids) next[`${dateStr}:${id}`] = 'ok'; return next; });
-    for (const id of ids) fetchedBookings.current.set(`${dateStr}:${id}`, Date.now());
+    setBookingLoad(prev => { const next = { ...prev }; for (const id of liveIds) next[`${dateStr}:${id}`] = 'ok'; return next; });
+    for (const id of liveIds) fetchedBookings.current.set(`${dateStr}:${id}`, Date.now());
     setBookingsByDate(prev => ({
       ...prev,
-      [dateStr]: [...(prev[dateStr] ?? []).filter(b => !ids.includes(b.court_id)), ...((data ?? []) as TodayBooking[])],
+      [dateStr]: [...(prev[dateStr] ?? []).filter(b => !liveIds.includes(b.court_id)), ...((data ?? []) as TodayBooking[]).filter(b => liveIds.includes(b.court_id))],
     }));
   }
 
   // Cached reservations belong to one account in one community: drop them when either changes.
   useEffect(() => {
+    bookingLedger.current.reset(); // responses still in flight for the previous account/community are now ignored
     setBookingsByDate({});
     setBookingLoad({});
     fetchedBookings.current.clear();
@@ -991,7 +1000,7 @@ const BookingSheet = memo(function BookingSheet({
   sheetDate: Date; onSheetDateChange: (d: Date) => void;
   playType: 'singles' | 'doubles'; onPlayTypeChange: (t: 'singles' | 'doubles') => void;
   rules: AmenityRules | null; rulesLoading: boolean;
-  availabilityStatus: 'loading' | 'ok' | 'error'; onRetryAvailability: () => void;
+  availabilityStatus: 'loading' | 'ok' | 'stale' | 'error'; onRetryAvailability: () => void;
   timeSlots: SlotInfo[]; selectedSlot: string | null; onSelectSlot: (s: string | null) => void;
   duration: number; availableDurations: number[]; isTennis: boolean; onDurationChange: (d: number) => void;
   weather: WeatherData | null;
@@ -1185,6 +1194,11 @@ const BookingSheet = memo(function BookingSheet({
               </View>
             ) : (
               <>
+                {availabilityStatus === 'stale' && (
+                  <TouchableOpacity testID="availability-stale" onPress={onRetryAvailability} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center' }}>
+                    <Text style={styles.allUnavailableText}>Could not refresh this date, so these times may be out of date. Tap to retry.</Text>
+                  </TouchableOpacity>
+                )}
                 {!timeSlots.some(isSelectable) && (
                   <Text testID="all-unavailable-note" style={styles.allUnavailableText}>
                     {timeSlots.some(s => s.state === 'limit')
@@ -1255,7 +1269,7 @@ function ScheduleSheet({ courtName, courtType, now, scheduleDate, onDateChange, 
   courtName: string; courtType: string; now: Date; scheduleDate: Date;
   onDateChange: (d: Date) => void; rules: AmenityRules | null;
   bookings: TodayBooking[]; maintenance: MaintenanceBlock[]; loading: boolean;
-  availabilityStatus: 'loading' | 'ok' | 'error'; onRetryAvailability: () => void;
+  availabilityStatus: 'loading' | 'ok' | 'stale' | 'error'; onRetryAvailability: () => void;
   userId: string; onBook: (slot: string) => void; onClose: () => void; insets: { bottom: number };
 }) {
   const { theme } = useTheme();
@@ -1292,7 +1306,7 @@ function ScheduleSheet({ courtName, courtType, now, scheduleDate, onDateChange, 
     bookings,
     maintenance,
     userId,
-  }).map((r) => ({ slotStr: r.start, label: `${formatTime(r.start)} – ${formatTime(r.end)}`, type: r.type })),
+  }).map((r) => ({ slotStr: r.start, label: `${formatTime(r.start)} – ${formatTime(r.end)}`, type: r.type, onGrid: r.onGrid })),
   [bookings, maintenance, userId, rules]);
 
   return (
@@ -1350,6 +1364,12 @@ function ScheduleSheet({ courtName, courtType, now, scheduleDate, onDateChange, 
               </TouchableOpacity>
             </View>
           ) : (
+            <>
+            {availabilityStatus === 'stale' && (
+              <TouchableOpacity testID="schedule-stale" onPress={onRetryAvailability} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center' }}>
+                <Text style={styles.scheduleBlockStatus}>Could not refresh this date, so this may be out of date. Tap to retry.</Text>
+              </TouchableOpacity>
+            )}
             <ScrollView testID="schedule-blocks" showsVerticalScrollIndicator={false} style={{ maxHeight: 400 }}>
               <View>
                 {timeBlocks.map((block, i) => {
@@ -1373,7 +1393,7 @@ function ScheduleSheet({ courtName, courtType, now, scheduleDate, onDateChange, 
                         isMine && styles.scheduleRowLabelMine,
                       ]}>{block.label}</Text>
                       {isAvail ? (
-                        isPastDate ? (
+                        isPastDate || !block.onGrid ? (
                           <Text style={styles.scheduleBlockStatus}>OPEN</Text>
                         ) : (
                           <TouchableOpacity testID={`schedule-book-${block.slotStr}`} style={styles.scheduleBookBtn}
@@ -1402,6 +1422,7 @@ function ScheduleSheet({ courtName, courtType, now, scheduleDate, onDateChange, 
                 <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: Colors.negative }]} /><Text style={styles.legendText}>Maintenance</Text></View>
               </View>
             </ScrollView>
+            </>
           ))}
         </View>
       </View>

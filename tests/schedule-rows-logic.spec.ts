@@ -13,7 +13,7 @@ test.describe('buildScheduleRows', () => {
     const rows = buildScheduleRows({ openMins: open, closeMins: close, userId: me, maintenance: [],
       bookings: [{ start_time: '10:00:00', end_time: '11:30:00', user_id: me }] });
     const mine = rows.filter((r) => r.type === 'mine');
-    expect(mine).toEqual([{ start: '10:00', end: '11:30', type: 'mine' }]);
+    expect(mine).toEqual([{ start: '10:00', end: '11:30', type: 'mine', onGrid: true }]);
     expect(rows.find((r) => r.start === '09:30')?.type).toBe('available');
     expect(rows.find((r) => r.start === '11:30')?.type).toBe('available');
   });
@@ -21,8 +21,8 @@ test.describe('buildScheduleRows', () => {
     const rows = buildScheduleRows({ openMins: open, closeMins: close, userId: me, maintenance: [],
       bookings: [{ start_time: '09:00', end_time: '10:00', user_id: other }, { start_time: '10:00', end_time: '11:00', user_id: me }] });
     expect(rows.filter((r) => r.type !== 'available')).toEqual([
-      { start: '09:00', end: '10:00', type: 'booked' },
-      { start: '10:00', end: '11:00', type: 'mine' },
+      { start: '09:00', end: '10:00', type: 'booked', onGrid: true },
+      { start: '10:00', end: '11:00', type: 'mine', onGrid: true },
     ]);
   });
   test('two separate bookings by the same person back to back stay two rows', () => {
@@ -33,7 +33,7 @@ test.describe('buildScheduleRows', () => {
   test('maintenance wins over a booking and is one row', () => {
     const rows = buildScheduleRows({ openMins: open, closeMins: close, userId: me,
       maintenance: [{ start_time: '12:00', end_time: '13:00' }], bookings: [{ start_time: '12:00', end_time: '13:00', user_id: me }] });
-    expect(rows.filter((r) => r.type === 'maintenance')).toEqual([{ start: '12:00', end: '13:00', type: 'maintenance' }]);
+    expect(rows.filter((r) => r.type === 'maintenance')).toEqual([{ start: '12:00', end: '13:00', type: 'maintenance', onGrid: true }]);
     expect(rows.some((r) => r.type === 'mine')).toBe(false);
   });
   test('with no signed-in user nothing is "mine"; empty day is all available 30 minute rows', () => {
@@ -51,6 +51,40 @@ test.describe('buildScheduleRows', () => {
 });
 
 import { durationLabel, relativeDay } from '../src/lib/reservations';
+
+test.describe('buildScheduleRows: off-grid times (Codex finding)', () => {
+  test('REGRESSION: 09:15-10:15 is shown as 09:15-10:15, not rounded out to 09:00-10:30', () => {
+    const rows = buildScheduleRows({ openMins: open, closeMins: close, userId: me, maintenance: [],
+      bookings: [{ start_time: '09:15', end_time: '10:15', user_id: me }] });
+    expect(rows.filter((r) => r.type === 'mine')).toEqual([{ start: '09:15', end: '10:15', type: 'mine', onGrid: false }]);
+    // open time either side is split at the booking edge, never swallowed
+    expect(rows.find((r) => r.end === '09:15')?.type).toBe('available');
+    expect(rows.find((r) => r.start === '10:15')?.type).toBe('available');
+  });
+  test('adjacent off-grid bookings by different people share a cell without order-dependent results', () => {
+    const a = buildScheduleRows({ openMins: open, closeMins: close, userId: me, maintenance: [],
+      bookings: [{ start_time: '09:00', end_time: '09:15', user_id: other }, { start_time: '09:15', end_time: '09:30', user_id: me }] });
+    const b = buildScheduleRows({ openMins: open, closeMins: close, userId: me, maintenance: [],
+      bookings: [{ start_time: '09:15', end_time: '09:30', user_id: me }, { start_time: '09:00', end_time: '09:15', user_id: other }] });
+    expect(a).toEqual(b);
+    expect(a.filter((r) => r.type !== 'available').map((r) => [r.start, r.end, r.type])).toEqual([['09:00', '09:15', 'booked'], ['09:15', '09:30', 'mine']]);
+  });
+  test('a non-aligned closing time keeps its last partial row', () => {
+    const rows = buildScheduleRows({ openMins: 8 * 60, closeMins: 9 * 60 + 15, userId: me, maintenance: [], bookings: [] });
+    expect(rows.at(-1)).toEqual({ start: '09:00', end: '09:15', type: 'available', onGrid: true });
+  });
+  test('overlapping pending bookings resolve by precedence: maintenance > mine > booked', () => {
+    const rows = buildScheduleRows({ openMins: open, closeMins: close, userId: me, maintenance: [],
+      bookings: [{ start_time: '09:00', end_time: '10:00', user_id: other }, { start_time: '09:30', end_time: '10:30', user_id: me }] });
+    expect(rows.find((r) => r.start === '09:30')?.type).toBe('mine');
+    expect(rows.find((r) => r.start === '09:00')?.type).toBe('booked');
+  });
+  test('bookings outside operating hours are clamped, and an empty or inverted day yields no rows', () => {
+    const rows = buildScheduleRows({ openMins: open, closeMins: close, userId: me, maintenance: [], bookings: [{ start_time: '07:00', end_time: '08:30', user_id: me }] });
+    expect(rows[0]).toEqual({ start: '08:00', end: '08:30', type: 'mine', onGrid: true });
+    expect(buildScheduleRows({ openMins: close, closeMins: open, userId: me, maintenance: [], bookings: [] })).toEqual([]);
+  });
+});
 
 test.describe('My Reservations upcoming helpers', () => {
   const now = new Date(2026, 9, 31, 15, 30);
