@@ -86,3 +86,25 @@ export function formatLongDate(isoDate: string): string {
   const d = new Date(`${isoDate}T00:00:00Z`);
   return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 }
+
+/** "Today" / "Tomorrow" / "In 3 days" for a reservation date (device-local calendar days); null when further away or past. */
+export function relativeDay(isoDate: string, now: Date = new Date()): string | null {
+  const [y, m, d] = isoDate.split('-').map(Number);
+  const target = new Date(y, m - 1, d).getTime();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const days = Math.round((target - today) / 86400000);
+  if (days === 0) return 'Today';
+  if (days === 1) return 'Tomorrow';
+  if (days > 1 && days <= 6) return `In ${days} days`;
+  return null;
+}
+
+/** "1 h 30 min" style length of a reservation from its start and end times (HH:MM or HH:MM:SS). */
+export function durationLabel(start: string, end: string): string {
+  const mins = (t: string) => { const [h, mm] = t.split(':').map(Number); return h * 60 + (mm || 0); };
+  const total = Math.max(0, mins(end) - mins(start));
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (h === 0) return `${m} min`;
+  return m ? `${h} h ${m} min` : `${h} h`;
+}

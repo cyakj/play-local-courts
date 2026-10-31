@@ -15,7 +15,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useActiveCommunity } from '@/hooks/useActiveCommunity';
 import { createLatestGuard } from '@/lib/latestGuard';
 import type { ThemeTokens } from '@/constants/theme-tokens';
-import { cancellationState, formatTime12, isUpcoming } from '@/lib/reservations';
+import { cancellationState, durationLabel, formatTime12, isUpcoming, relativeDay } from '@/lib/reservations';
 
 interface Booking {
   id: string;
@@ -155,6 +155,7 @@ export default function MyReservationsScreen() {
     const cancel = up
       ? cancellationState({ status: b.status, date: b.date, startTime: b.start_time, minHours: b.minCancellationHours })
       : { canCancel: false } as ReturnType<typeof cancellationState>;
+    const when = up ? relativeDay(b.date) : null;
 
     return (
       <TouchableOpacity
@@ -165,19 +166,20 @@ export default function MyReservationsScreen() {
         accessibilityRole="button"
         accessibilityLabel={`${b.courtName}, ${formatShortDate(b.date)}, ${b.status}. Opens reservation details`}>
         <View style={styles.cardRow}>
-          <View style={[styles.dateSidebar, up ? styles.dateSidebarUpcoming : styles.dateSidebarPast]}>
-            <Text style={[styles.dateDayName, up ? styles.dateTextUpcoming : styles.dateTextPast]}>{dayName}</Text>
+          <View style={[styles.dateChip, up ? styles.dateChipUpcoming : styles.dateChipPast]}>
+            <Text style={[styles.dateDayName, up ? styles.dateTextUpcoming : styles.dateTextPast]}>{dayName.toUpperCase()}</Text>
             <Text style={[styles.dateDayNum, up ? styles.dateTextUpcoming : styles.dateTextPast]}>{dayNum}</Text>
           </View>
 
           <View style={styles.cardBody}>
-            <Text style={[styles.cardCourt, !up && { color: theme.textMuted }]} numberOfLines={1}>
-              {b.courtName}
+            <View style={styles.cardTitleRow}>
+              <Text style={[styles.cardCourt, !up && { color: theme.textMuted }]} numberOfLines={1}>{b.courtName}</Text>
+              <ReservationStatusPill status={b.status} />
+            </View>
+            <Text style={styles.cardTime} numberOfLines={1}>
+              {when ? <Text style={styles.cardWhen}>{when} · </Text> : null}
+              {up ? '' : `${formatShortDate(b.date)} · `}{formatTime12(b.start_time)} – {formatTime12(b.end_time)} · {durationLabel(b.start_time, b.end_time)}
             </Text>
-            <Text style={styles.cardTime}>
-              {formatShortDate(b.date)} · {formatTime12(b.start_time)}–{formatTime12(b.end_time)}
-            </Text>
-            <ReservationStatusPill status={b.status} />
             {(b.status === 'cancelled' || b.status === 'rejected') && b.cancellationReason ? (
               <Text testID="cancellation-reason" style={styles.cardReason}>
                 {b.status === 'rejected' ? 'Declined' : b.cancelledBy === 'admin' ? 'Cancelled by an administrator' : 'Cancelled'}: {b.cancellationReason}
@@ -199,9 +201,9 @@ export default function MyReservationsScreen() {
                 <Text style={styles.cancelText}>{cancelling === b.id ? 'Cancelling…' : 'Cancel reservation'}</Text>
               </TouchableOpacity>
             ) : (
-              <View testID="cancel-unavailable" style={styles.cancelUnavailable}>
-                <Info color={theme.textMuted} size={16} strokeWidth={1.75} />
-                <Text style={styles.cancelUnavailableText}>{cancel.reason}</Text>
+              <View testID="cancel-unavailable" style={styles.cancelUnavailable} accessibilityLabel={cancel.reason}>
+                <Info color={theme.textMuted} size={14} strokeWidth={1.75} />
+                <Text style={styles.cancelUnavailableText} numberOfLines={1}>{cancel.short ?? cancel.reason}</Text>
               </View>
             )}
           </View>
@@ -280,22 +282,17 @@ function useStyles(theme: ThemeTokens) {
       ...theme.shadowCard,
       overflow: 'hidden',
     },
-    cardRow: { flexDirection: 'row', alignItems: 'center', paddingRight: 12 },
-    dateSidebar: {
-      width: 64,
-      alignSelf: 'stretch',
-      paddingVertical: 16,
-      alignItems: 'center',
-      justifyContent: 'center',
-      flexShrink: 0,
-    },
-    dateSidebarUpcoming: { backgroundColor: Colors.courtBlue },
-    dateSidebarPast:     { backgroundColor: theme.surface2 },
-    dateDayName: { fontFamily: FontFamily.manropeBold, fontSize: 13 },
-    dateDayNum:  { fontFamily: FontFamily.manropeBlack, fontSize: 22, lineHeight: 26 },
+    cardRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 12 },
+    dateChip: { width: 52, paddingVertical: 8, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+    dateChipUpcoming: { backgroundColor: Colors.courtBlue },
+    dateChipPast:     { backgroundColor: theme.surface2 },
+    dateDayName: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: 11, letterSpacing: 1 },
+    dateDayNum:  { fontFamily: FontFamily.spaceGroteskBold, fontSize: 22, lineHeight: 26 },
     dateTextUpcoming: { color: Colors.white },
     dateTextPast:     { color: theme.textMuted },
-    cardBody: { flex: 1, padding: 14, gap: 4 },
+    cardBody: { flex: 1, gap: 2 },
+    cardTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+    cardWhen: { fontFamily: FontFamily.manropeBold, color: theme.cyanOnLight },
     cardCourt: {
       fontFamily: FontFamily.spaceGroteskBold,
       fontSize: FontSize.cardTitle,
@@ -309,11 +306,12 @@ function useStyles(theme: ThemeTokens) {
     cardFooter: {
       borderTopWidth: 1,
       borderTopColor: theme.border,
-      paddingHorizontal: 14,
-      paddingVertical: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 4,
+      alignItems: 'flex-end',
     },
     cancelBtn: {
-      alignSelf: 'flex-start',
+      alignSelf: 'flex-end',
       paddingHorizontal: 14,
       borderRadius: Radius.button,
       backgroundColor: 'rgba(255,92,107,0.12)',
@@ -327,12 +325,11 @@ function useStyles(theme: ThemeTokens) {
       fontSize: FontSize.label,
       color: Colors.negative,
     },
-    cancelUnavailable: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+    cancelUnavailable: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 32, alignSelf: 'flex-start' },
     cancelUnavailableText: {
       flex: 1,
       fontFamily: FontFamily.manropeMedium,
-      fontSize: FontSize.label,
-      lineHeight: 20,
+      fontSize: 13,
       color: theme.textMuted,
     },
     showMore: {

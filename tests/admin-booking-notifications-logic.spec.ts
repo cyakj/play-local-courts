@@ -6,7 +6,7 @@ import { join } from 'node:path';
 const read = (path: string) => readFileSync(join(__dirname, '..', path), 'utf8');
 const previous = read('supabase/migrations/20261013110000_admin_blockouts_and_reservation_workflow.sql');
 const sql = read('supabase/migrations/20261023100000_admin_booking_review_notifications.sql');
-const screen = read('src/app/notifications.tsx');
+const screen = read('src/lib/notificationView.ts'); // route table moved out of the screen into the pure helper
 const body = sql.match(/AS \$function\$([\s\S]*?)\$function\$;/)![1];
 
 function checkTypes(source: string): string[] {

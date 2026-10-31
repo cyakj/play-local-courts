@@ -49,3 +49,25 @@ test.describe('buildScheduleRows', () => {
     expect(rows.at(-1)?.end).toBe('11:30');
   });
 });
+
+import { durationLabel, relativeDay } from '../src/lib/reservations';
+
+test.describe('My Reservations upcoming helpers', () => {
+  const now = new Date(2026, 9, 31, 15, 30);
+  test('relativeDay: Today / Tomorrow / In N days, nothing for far or past dates', () => {
+    expect(relativeDay('2026-10-31', now)).toBe('Today');
+    expect(relativeDay('2026-11-01', now)).toBe('Tomorrow');
+    expect(relativeDay('2026-11-04', now)).toBe('In 4 days');
+    expect(relativeDay('2026-11-07', now)).toBeNull();
+    expect(relativeDay('2026-10-30', now)).toBeNull();
+  });
+  test('relativeDay crosses month and year boundaries', () => {
+    expect(relativeDay('2027-01-01', new Date(2026, 11, 31, 23, 0))).toBe('Tomorrow');
+  });
+  test('durationLabel', () => {
+    expect(durationLabel('10:00:00', '11:30:00')).toBe('1 h 30 min');
+    expect(durationLabel('10:00', '11:00')).toBe('1 h');
+    expect(durationLabel('10:00', '10:30')).toBe('30 min');
+    expect(durationLabel('11:00', '10:00')).toBe('0 min');
+  });
+});

@@ -29,6 +29,9 @@ const FALLBACK_ROUTE: Record<string, string> = {
   announcement: '/announcements',
 };
 
+const REPORT_DETAIL_TYPES = new Set(['report_status_changed', 'report_update', 'report_unresolved', 'report_submitted']);
+const RESERVATION_DETAIL_TYPES = new Set(['booking_pending', 'booking_confirmed', 'booking_rejected', 'booking_cancelled', 'booking_reminder']);
+
 /** An explicit deep link (only the allowlisted in-app destinations), else the list screen for the type, else null. */
 export function safeNotificationRoute(route: unknown, type: string): string | null {
   if (typeof route === 'string' && SAFE_ROUTE.test(route)) return route;
@@ -42,11 +45,11 @@ export function safeNotificationRoute(route: unknown, type: string): string | nu
 export function notificationRoute(type: string, metadata: Record<string, unknown> | null | undefined): string | null {
   const explicit = metadata?.route;
   if (typeof explicit === 'string' && SAFE_ROUTE.test(explicit)) return explicit;
-  const kind = kindOf(type);
   const reportId = metadata?.report_id;
   const bookingId = metadata?.booking_id;
-  if (kind === 'report' && typeof reportId === 'string' && UUID_ONLY.test(reportId)) return `/report-detail/${reportId}`;
-  if (kind === 'booking' && typeof bookingId === 'string' && UUID_ONLY.test(bookingId)) return `/reservation-detail/${bookingId}`;
+  if (REPORT_DETAIL_TYPES.has(type) && typeof reportId === 'string' && UUID_ONLY.test(reportId)) return `/report-detail/${reportId}`;
+  // booking_review_needed is for MANAGEMENT (it also carries a booking_id) and must not open the resident's reservation screen.
+  if (RESERVATION_DETAIL_TYPES.has(type) && typeof bookingId === 'string' && UUID_ONLY.test(bookingId)) return `/reservation-detail/${bookingId}`;
   return FALLBACK_ROUTE[type] ?? null;
 }
 
