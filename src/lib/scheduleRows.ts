@@ -15,7 +15,7 @@ export interface ScheduleRow {
   /** HH:MM */
   end: string;
   type: ScheduleRowType;
-  /** Starts on the 30 minute booking grid, so the reservation wheel offers it (an off-grid open gap cannot be pre-selected). */
+  /** Starts on the booking wheel's grid (opening time + n x 30 min), so the wheel offers it (an off-grid open gap cannot be pre-selected). */
   onGrid: boolean;
 }
 
@@ -36,7 +36,8 @@ export function buildScheduleRows(input: {
   const clamp = (m: number) => Math.min(Math.max(m, openMins), closeMins);
 
   const points = new Set<number>([openMins, closeMins]);
-  for (let m = Math.ceil(openMins / GRID) * GRID; m < closeMins; m += GRID) points.add(m);
+  // The booking wheel offers starts at opening time and every 30 minutes after it (computeSlots), so the grid is relative to opening.
+  for (let m = openMins; m < closeMins; m += GRID) points.add(m);
   for (const r of [...bookings, ...maintenance]) { points.add(clamp(toMins(r.start_time))); points.add(clamp(toMins(r.end_time))); }
   const cuts = [...points].sort((a, b) => a - b);
 
@@ -58,5 +59,5 @@ export function buildScheduleRows(input: {
     if (last && last.key === key && type !== 'available') { last.b = b; continue; } // one row per reservation / blockout
     segs.push({ a, b, type, key });
   }
-  return segs.map(({ a, b, type }) => ({ start: fmtHHMM(a), end: fmtHHMM(b), type, onGrid: a % GRID === 0 }));
+  return segs.map(({ a, b, type }) => ({ start: fmtHHMM(a), end: fmtHHMM(b), type, onGrid: (a - openMins) % GRID === 0 }));
 }

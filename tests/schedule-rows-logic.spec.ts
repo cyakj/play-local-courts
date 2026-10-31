@@ -86,6 +86,20 @@ test.describe('buildScheduleRows: off-grid times (Codex finding)', () => {
   });
 });
 
+test.describe('buildScheduleRows: grid follows opening time (matches the booking wheel)', () => {
+  test('REGRESSION: with a 08:15 opening the open rows start on the wheel grid (08:15, 08:45...) not on :00/:30', () => {
+    const rows = buildScheduleRows({ openMins: 8 * 60 + 15, closeMins: 11 * 60 + 15, userId: me, maintenance: [], bookings: [] });
+    expect(rows.map((r) => [r.start, r.onGrid])).toEqual([['08:15', true], ['08:45', true], ['09:15', true], ['09:45', true], ['10:15', true], ['10:45', true]]);
+  });
+  test('an open gap that starts off the wheel grid is not offered for pre-selection', () => {
+    const rows = buildScheduleRows({ openMins: 8 * 60 + 15, closeMins: 11 * 60 + 15, userId: me, maintenance: [],
+      bookings: [{ start_time: '09:00', end_time: '09:30', user_id: other }] });
+    const gap = rows.find((r) => r.start === '09:30');
+    expect(gap?.type).toBe('available');
+    expect(gap?.onGrid).toBe(false); // 09:30 is 75 minutes after 08:15
+  });
+});
+
 test.describe('My Reservations upcoming helpers', () => {
   const now = new Date(2026, 9, 31, 15, 30);
   test('relativeDay: Today / Tomorrow / In N days, nothing for far or past dates', () => {

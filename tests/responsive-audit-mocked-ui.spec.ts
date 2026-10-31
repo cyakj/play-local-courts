@@ -28,22 +28,22 @@ async function mockRead(page: Page, table: string, rows: unknown[]) {
   });
 }
 
-interface Screen { name: string; path: string; tabbed: boolean; mock?: (p: Page) => Promise<void>; ready: string }
+interface Screen { name: string; path: string; tabbed: boolean; mock?: (p: Page) => Promise<void>; ready: string; controls: string[] }
 const SCREENS: Screen[] = [
-  { name: 'Home', path: '/(resident)', tabbed: true, ready: '[data-testid="bottom-nav"]' },
-  { name: 'Reserve', path: '/(resident)/courts', tabbed: true, ready: '[data-testid="bottom-nav"]' },
-  { name: 'Schedule', path: '/(resident)/calendar', tabbed: true, ready: '[data-testid="bottom-nav"]' },
-  { name: 'Community', path: '/(resident)/community', tabbed: true, ready: '[data-testid="bottom-nav"]' },
-  { name: 'Me', path: '/(resident)/me', tabbed: true, ready: '[data-testid="bottom-nav"]' },
-  { name: 'Report', path: '/report', tabbed: false, ready: '[data-testid="filter-tabs"]' },
-  { name: 'Notifications', path: '/notifications', tabbed: false, ready: '[data-testid="notification-item"]', mock: async (p) => {
+  { name: 'Home', controls: ['bell-icon', 'avatar-icon'], path: '/(resident)', tabbed: true, ready: '[data-testid="bottom-nav"]' },
+  { name: 'Reserve', controls: ['bell-icon', 'avatar-icon'], path: '/(resident)/courts', tabbed: true, ready: '[data-testid="bottom-nav"]' },
+  { name: 'Schedule', controls: ['bell-icon', 'avatar-icon'], path: '/(resident)/calendar', tabbed: true, ready: '[data-testid="bottom-nav"]' },
+  { name: 'Community', controls: ['bell-icon', 'avatar-icon'], path: '/(resident)/community', tabbed: true, ready: '[data-testid="bottom-nav"]' },
+  { name: 'Me', controls: ['bell-icon', 'avatar-icon'], path: '/(resident)/me', tabbed: true, ready: '[data-testid="bottom-nav"]' },
+  { name: 'Report', controls: ['header-back', 'bell-icon', 'avatar-icon'], path: '/report', tabbed: false, ready: '[data-testid="filter-tabs"]' },
+  { name: 'Notifications', controls: ['header-back'], path: '/notifications', tabbed: false, ready: '[data-testid="notification-item"]', mock: async (p) => {
     await mockRead(p, 'messages', []);
     await mockRead(p, 'hoa_notifications', [
       { id: 'n1', type: 'report_status_changed', title: 'Your report was updated with a rather long title that must wrap', body: 'Status is now in progress and a long explanation follows here so the body wraps over lines', metadata: { report_id: R1 }, read: false, created_at: new Date().toISOString() },
     ]);
     await mockRead(p, 'maintenance_reports', [{ id: R1, category: 'grounds_landscaping', location_text: 'The north pool deck by the clubhouse entrance', amenity_id: null }]);
   } },
-  { name: 'Report detail', path: `/report-detail/${R1}`, tabbed: false, ready: '[data-testid="report-detail-screen"] [data-testid="detail-title"]', mock: async (p) => {
+  { name: 'Report detail', controls: ['header-back'], path: `/report-detail/${R1}`, tabbed: false, ready: '[data-testid="report-detail-screen"] [data-testid="detail-title"]', mock: async (p) => {
     await mockRead(p, 'maintenance_reports', [{
       id: R1, category: 'grounds_landscaping', description: 'A long description '.repeat(12), status: 'in_progress', priority: 'high',
       photo_url: null, resolution_notes: null, location_text: 'The north pool deck by the clubhouse entrance', report_type: 'location', is_urgent: true,
@@ -52,7 +52,7 @@ const SCREENS: Screen[] = [
     await mockRead(p, 'report_notes', []);
     await mockRead(p, 'courts', []);
   } },
-  { name: 'My Reservations', path: '/my-reservations', tabbed: false, ready: '[data-testid="reservation-card"]', mock: async (p) => {
+  { name: 'My Reservations', controls: ['header-back'], path: '/my-reservations', tabbed: false, ready: '[data-testid="reservation-card"]', mock: async (p) => {
     const d = new Date(); d.setDate(d.getDate() + 2);
     const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     await mockRead(p, 'bookings', [{ id: 'b1', date, start_time: '15:00:00', end_time: '16:30:00', status: 'pending', cancellation_reason: null, cancelled_by: null, court_id: 'c1', courts: { name: 'The Greens Tennis Court Number One', hoa_id: 'h' } }]);
@@ -60,14 +60,14 @@ const SCREENS: Screen[] = [
   } },
 ];
 
-async function audit(page: Page, size: { width: number; height: number }, tabbed: boolean) {
-  return page.evaluate(({ w, h, tabbed }) => {
+async function audit(page: Page, size: { width: number; height: number }, tabbed: boolean, controls: string[]) {
+  return page.evaluate(({ w, h, tabbed, controls }) => {
     const problems: string[] = [];
     const de = document.documentElement;
     if (de.scrollWidth > w + 1) problems.push(`page is ${de.scrollWidth}px wide in a ${w}px viewport`);
-    for (const id of ['header-back', 'bell-icon', 'avatar-icon']) {
+    for (const id of controls) {
       const el = document.querySelector<HTMLElement>(`[data-testid="${id}"]`);
-      if (!el) continue;
+      if (!el) { problems.push(`${id} is missing on this screen`); continue; }
       const r = el.getBoundingClientRect();
       if (r.width < 43.5 || r.height < 43.5) problems.push(`${id} is ${Math.round(r.width)}x${Math.round(r.height)} (<44)`);
       if (r.left < -0.5 || r.right > w + 0.5) problems.push(`${id} is outside the viewport (${Math.round(r.left)}..${Math.round(r.right)})`);
@@ -89,9 +89,17 @@ async function audit(page: Page, size: { width: number; height: number }, tabbed
       }
       return true;
     });
+    // text cut off INSIDE its own box (overflow hidden with content wider than the box)
+    const cut = Array.from(document.querySelectorAll<HTMLElement>('div,span')).filter((e) => {
+      if (!Array.from(e.childNodes).some((n) => n.nodeType === 3 && (n.textContent ?? '').trim())) return false;
+      const st = getComputedStyle(e);
+      if (st.overflowX !== 'hidden' || st.textOverflow === 'ellipsis') return false; // ellipsised single-line text is deliberate
+      return e.scrollWidth > e.clientWidth + 2;
+    });
+    if (cut.length) problems.push(`${cut.length} text element(s) are cut off inside their box, e.g. "${(cut[0].textContent ?? '').trim().slice(0, 40)}"`);
     if (clipped.length) problems.push(`${clipped.length} text element(s) extend past the right edge, e.g. "${(clipped[0].textContent ?? '').trim().slice(0, 40)}"`);
     return problems;
-  }, { w: size.width, h: size.height, tabbed });
+  }, { w: size.width, h: size.height, tabbed, controls });
 }
 
 for (const size of SIZES) {
@@ -105,7 +113,7 @@ for (const size of SIZES) {
         await page.goto(screen.path);
         await expect(page.locator(screen.ready).first()).toBeVisible({ timeout: 60000 });
         await page.waitForTimeout(1500);
-        const problems = await audit(page, size, screen.tabbed);
+        const problems = await audit(page, size, screen.tabbed, screen.controls);
         expect(problems, problems.join('\n')).toEqual([]);
       });
     }

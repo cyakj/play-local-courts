@@ -123,9 +123,9 @@ test.describe('Reservation ownership, date loading and View Schedule (mocked ava
     }
     // the unavailable rows around it are not "Yours"
     await expect(page.locator('[data-testid^="wheel-unavailable-"]').filter({ hasText: 'Yours' })).toHaveCount(3);
-    if (await page.locator('[data-testid="wheel-unavailable-11:30"]').count()) {
-      await expect(page.locator('[data-testid="wheel-unavailable-11:30"]')).not.toContainText('Yours');
-    }
+    // 11:30 starts exactly when my reservation ends: it must exist and must not be labelled "Yours"
+    await expect(page.locator('[data-testid="wheel-row-11:30"]')).toHaveCount(1);
+    await expect(page.locator('[data-testid="wheel-row-11:30"]')).not.toContainText('Yours');
     await expect(page.locator('[data-testid="availability-legend"]')).toContainText('Yours');
   });
 

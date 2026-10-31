@@ -60,7 +60,7 @@ export default function NotificationsScreen() {
           .limit(50),
         supabase
           .from('hoa_notifications')
-          .select('id, type, title, body, metadata, read, created_at')
+          .select('id, type, title, body, metadata, read, created_at, dedupe_key')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
           .limit(100),
@@ -70,7 +70,7 @@ export default function NotificationsScreen() {
 
       const hoaRaw: ListItem[] = (hoaRes.data ?? []).map((n: any) => ({
         id: `hoa-${n.id}`, ids: [n.id], type: n.type, title: n.title, body: n.body, createdAt: n.created_at,
-        read: !!n.read, metadata: (n.metadata ?? null) as Record<string, unknown> | null, count: 1,
+        read: !!n.read, metadata: (n.metadata ?? null) as Record<string, unknown> | null, dedupeKey: n.dedupe_key ?? null, count: 1,
       }));
       const hoaItems = collapseDuplicates(hoaRaw);
 

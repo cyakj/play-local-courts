@@ -66,6 +66,21 @@ test.describe('collapseDuplicates', () => {
     ]);
     expect(out).toHaveLength(4);
   });
+  test('REGRESSION: two notes on the same report have different dedupe keys, so they are two events even with identical text', () => {
+    const out = collapseDuplicates([
+      mk({ id: 'a', type: 'report_update', metadata: { report_id: R1 }, dedupeKey: 'report_note:n2', createdAt: '2026-10-30T10:00:20Z' }),
+      mk({ id: 'b', type: 'report_update', metadata: { report_id: R1 }, dedupeKey: 'report_note:n1', createdAt: '2026-10-30T10:00:00Z' }),
+    ]);
+    expect(out).toHaveLength(2);
+  });
+  test('the same dedupe key, or rows with no key at all, can still be folded', () => {
+    expect(collapseDuplicates([
+      mk({ id: 'a', dedupeKey: 'k', createdAt: '2026-10-30T10:00:20Z' }), mk({ id: 'b', dedupeKey: 'k', createdAt: '2026-10-30T10:00:00Z' }),
+    ])).toHaveLength(1);
+    expect(collapseDuplicates([
+      mk({ id: 'a', dedupeKey: null, createdAt: '2026-10-30T10:00:20Z' }), mk({ id: 'b', dedupeKey: null, createdAt: '2026-10-30T10:00:00Z' }),
+    ])).toHaveLength(1);
+  });
   test('does not mutate its input', () => {
     const input = [mk({ id: 'a' }), mk({ id: 'b', createdAt: '2026-10-30T10:00:05Z' })];
     collapseDuplicates(input);

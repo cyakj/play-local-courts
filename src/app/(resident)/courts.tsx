@@ -29,6 +29,7 @@ import { Header } from '@/components/ui/Header';
 import { AvailabilityLegend, TimeSlotWheel } from '@/components/ui/TimeSlotWheel';
 import { buildScheduleRows } from '@/lib/scheduleRows';
 import { RequestLedger } from '@/lib/requestLedger';
+import { gateAvailability } from '@/lib/availabilityGate';
 import { computeSlots, isSelectable, revalidateSelection, toDateKey, toMins, type SlotInfo } from '@/lib/slotAvailability';
 import { CalendarPicker, formatDateLabel } from '@/components/ui/CalendarPicker';
 import { useScrollToTopOnTabEnter } from '@/hooks/useScrollToTopOnTabEnter';
@@ -333,14 +334,22 @@ export default function CourtsScreen() {
   }, []);
 
   // ── Load courts + bookings ──────────────────────────────────────────────────
+  // The account the most recent loadCourts() ran for. A slower load for a PREVIOUS account must not publish over the current one
+  // (signed out / switched account while its requests were in flight).
+  const loadingUserRef = useRef<string | null>(null);
   async function loadCourts() {
+    let uid: string | null = null;
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const user = session?.user ?? null;
-      if (!user) { setCourtsLoading(false); return; }
+      if (!user) { loadingUserRef.current = null; setCourtsLoading(false); return; }
+      uid = user.id;
+      loadingUserRef.current = uid;
+      const current = () => loadingUserRef.current === uid;
       setUserId(user.id);
 
       const { data: memberships } = await supabase.from('hoa_memberships').select('hoa_id').eq('user_id', user.id).eq('status', 'approved');
+      if (!current()) return;
       const hoaIds = (memberships ?? []).map((m: { hoa_id: string }) => m.hoa_id);
       if (hoaIds.length === 0) { setCourts([]); setCourtsLoading(false); return; }
 
@@ -348,6 +357,7 @@ export default function CourtsScreen() {
         supabase.from('courts').select('id, name, court_type, hoa_id').in('hoa_id', hoaIds),
         supabase.from('bookings').select('id, court_id, date, start_time, end_time, courts(name)').eq('user_id', user.id).gte('date', toDateKey(now)).in('status', ACTIVE_BOOKING_STATUSES).order('date').order('start_time').limit(10),
       ]);
+      if (!current()) return;
 
       const fetchedCourts: Court[] = courtsRes.data ?? [];
       setCourts(fetchedCourts);
@@ -357,7 +367,7 @@ export default function CourtsScreen() {
         await fetchBookingsForDate(toDateKey(now), fetchedCourts.map(c => c.id));
       }
     } catch { /* silently fail */ }
-    finally { setCourtsLoading(false); }
+    finally { if (uid === null || loadingUserRef.current === uid) setCourtsLoading(false); }
   }
 
   // Which (date, court) pairs have actually been fetched. A date key can be cached for court A only; court B on the same
@@ -693,9 +703,17 @@ export default function CourtsScreen() {
 
   const courtStatuses = useMemo(() => {
     const map: Record<string, CourtStatus> = {};
-    for (const court of courts) { map[court.id] = computeCourtStatus(court.id, now, bookingsByDate); }
+    for (const court of courts) {
+      // Never present an unloaded or failed day as "open all day": no entry renders as CHECKING, a failure as UNKNOWN.
+      const gated = gateAvailability(
+        bookingLoad[`${toDateKey(now)}:${court.id}`],
+        () => computeCourtStatus(court.id, now, bookingsByDate),
+        { status: 'booked', statusText: 'UNKNOWN', detailText: 'Availability could not be loaded' } as CourtStatus,
+      );
+      if (gated) map[court.id] = gated;
+    }
     return map;
-  }, [courts, now, bookingsByDate]);
+  }, [courts, now, bookingsByDate, bookingLoad]);
 
   const sortedCourts = useMemo(() => [...visibleCourts].sort((a, b) => {
     const order = { open: 0, soon: 1, booked: 2 };

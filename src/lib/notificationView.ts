@@ -67,6 +67,8 @@ export interface ListItem {
   createdAt: string;
   read: boolean;
   metadata: Record<string, unknown> | null;
+  /** The row's dedupe_key when the database set one (distinct events have distinct keys). */
+  dedupeKey?: string | null;
   /** How many identical rows were folded in (1 = none). */
   count: number;
 }
@@ -74,6 +76,16 @@ export interface ListItem {
 export function targetKey(metadata: Record<string, unknown> | null | undefined): string {
   const m = metadata ?? {};
   return String(m.report_id ?? m.booking_id ?? m.membership_id ?? m.applicant_id ?? '');
+}
+
+/**
+ * The database gives genuinely distinct events a unique dedupe_key (e.g. report_note:<note id>) and INSERT ... ON CONFLICT drops a
+ * repeat of the same one. Two rows with DIFFERENT dedupe keys are therefore different events even when target and text match, so
+ * they must never be folded. Rows with the same key, or with no key at all (older rows), may still be folded by target + text.
+ */
+export function sameEvent(a: { dedupeKey?: string | null }, b: { dedupeKey?: string | null }): boolean {
+  if (a.dedupeKey && b.dedupeKey) return a.dedupeKey === b.dedupeKey;
+  return true;
 }
 
 export const DUPLICATE_WINDOW_MS = 2 * 60 * 1000;
@@ -91,6 +103,7 @@ export function collapseDuplicates(items: ListItem[], windowMs: number = DUPLICA
     if (target === '') { out.push({ ...it, ids: [...it.ids] }); continue; }
     const key = `${it.type}|${target}|${it.title}|${it.body}`;
     const prev = out.find((o) => targetKey(o.metadata) !== '' && `${o.type}|${targetKey(o.metadata)}|${o.title}|${o.body}` === key
+      && sameEvent(o, it)
       && Math.abs(new Date(o.createdAt).getTime() - new Date(it.createdAt).getTime()) <= windowMs);
     if (prev) {
       prev.ids.push(...it.ids);

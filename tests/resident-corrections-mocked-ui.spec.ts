@@ -67,11 +67,10 @@ test.describe('Report: default severity and back button', () => {
     await page.goto('/report');
     await expect(page.locator('[data-testid="filter-tabs"]')).toBeVisible({ timeout: 30000 });
     const back = page.locator('[data-testid="header-back"]').first();
-    if (await back.count()) {
-      const box = await back.boundingBox();
-      expect(box!.width).toBeGreaterThanOrEqual(44);
-      expect(box!.height).toBeGreaterThanOrEqual(44);
-    }
+    await expect(back).toBeVisible({ timeout: 15000 }); // required: the Report screen always has a back control
+    const box = await back.boundingBox();
+    expect(box!.width).toBeGreaterThanOrEqual(44);
+    expect(box!.height).toBeGreaterThanOrEqual(44);
   });
 });
 
@@ -198,7 +197,7 @@ test.describe('Primary tabs return to the top', () => {
       if (els[0]) els[0].scrollTop = yy;
     }, y);
     const before = await scrollerTop(page);
-    test.skip(!before.has, 'the Reserve tab has no scrollable content with the test data');
+    expect(before.has, 'the Reserve tab must have scrollable content for this test to mean anything').toBe(true);
     await scrollIt(page, 220);
     expect((await scrollerTop(page)).top).toBeGreaterThan(50);
     await page.locator('[data-testid="tab-index"]').click();
