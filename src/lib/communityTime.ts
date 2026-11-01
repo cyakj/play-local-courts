@@ -78,6 +78,32 @@ export function timeZoneLabel(timeZone: string, at: Date = new Date()): string {
   } catch { return timeZone; }
 }
 
+/**
+ * Mirror of the database rule (reservation_time_problem): a reservation whose start/end local time does not exist (spring-forward
+ * gap) or occurs twice (fall-back hour), or whose interval spans an offset change, is refused. Returns the reason or null.
+ */
+export function reservationTimeProblem(date: string, start: string, end: string, timeZone: string): 'nonexistent' | 'ambiguous' | 'spans_change' | null {
+  const sWall = wallClockMs(date, start);
+  const eWall = wallClockMs(date, end);
+  const si = localToUtcMs(date, start, timeZone);
+  const ei = localToUtcMs(date, end, timeZone);
+  const wallOf = (utcMs: number) => { const p = wallParts(new Date(utcMs), timeZone); return Date.UTC(p.y, p.mo - 1, p.d, p.h, p.mi, p.s); };
+  if (wallOf(si) !== sWall || wallOf(ei) !== eWall) return 'nonexistent';
+  for (let g = -8; g <= 8; g++) {
+    if (g === 0) continue;
+    const d = g * 15 * 60_000;
+    if (wallOf(si + d) === sWall || wallOf(ei + d) === eWall) return 'ambiguous';
+  }
+  if (ei - si !== eWall - sWall) return 'spans_change';
+  return null;
+}
+
+/** A PostgREST/Postgres "this column does not exist" error (an unmigrated server), as opposed to a network or permission failure. */
+export function isMissingColumnError(err: { code?: string; message?: string } | null | undefined): boolean {
+  if (!err) return false;
+  return err.code === '42703' || /column .*does not exist|could not find the .* column/i.test(err.message ?? '');
+}
+
 /** True when the phone is in a different zone from the community right now (offsets differ), so a label is worth showing. */
 export function deviceZoneDiffers(timeZone: string, now: Date = new Date()): boolean {
   try {

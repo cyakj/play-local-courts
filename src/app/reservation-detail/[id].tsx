@@ -15,7 +15,7 @@ import { cancellationState, formatLongDate, formatTime12, kindDescription } from
 import { reservationKind } from '@/lib/reservationState';
 import { useNow } from '@/hooks/useNow';
 import { db } from '@/lib/untypedDb';
-import { COMMUNITY_TIME_ZONE, deviceZoneDiffers, isValidTimeZone, timeZoneLabel } from '@/lib/communityTime';
+import { COMMUNITY_TIME_ZONE, deviceZoneDiffers, isMissingColumnError, isValidTimeZone, timeZoneLabel } from '@/lib/communityTime';
 
 interface Detail {
   id: string;
@@ -33,6 +33,8 @@ interface Detail {
   cancelledBy: string | null;
   /** IANA zone of the HOA that owns the amenity; every time on this screen is in it. */
   timeZone: string;
+  /** The HOA's zone could not be read: times are shown in the fallback zone and cancelling is held back. */
+  timeZoneUnavailable: boolean;
 }
 
 export default function ReservationDetailScreen() {
@@ -67,6 +69,8 @@ export default function ReservationDetailScreen() {
     // The HOA's own zone (tolerant: before migration 20261031100000 the column does not exist -> legacy Puerto Rico).
     const tzRes = court?.hoa_id ? await db.from('hoas').select('timezone').eq('id', court.hoa_id).maybeSingle() : { data: null, error: null };
     const tzRaw = (tzRes.data as { timezone?: string | null } | null)?.timezone;
+    const tzMissing = isMissingColumnError(tzRes.error); // legacy server only
+    const timeZoneUnavailable = !!tzRes.error && !tzMissing;
     const timeZone = !tzRes.error && isValidTimeZone(tzRaw) ? tzRaw : COMMUNITY_TIME_ZONE;
     setDetail({
       id: b.id,
@@ -83,6 +87,7 @@ export default function ReservationDetailScreen() {
       cancellationReason: (b as any).cancellation_reason ?? null,
       cancelledBy: (b as any).cancelled_by ?? null,
       timeZone,
+      timeZoneUnavailable,
     });
     setLoading(false);
   }, [id]);
@@ -91,7 +96,7 @@ export default function ReservationDetailScreen() {
   // Ticking clock + periodic/focus refresh: an approval, rejection or the booking ending shows up without leaving the screen.
   const now = useNow({ onRefresh: load });
 
-  const cancel = detail
+  const cancel = detail && !detail.timeZoneUnavailable
     ? cancellationState({
         status: detail.status,
         date: detail.date,

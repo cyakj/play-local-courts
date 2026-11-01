@@ -46,46 +46,12 @@ test.describe('Resident Book Screen', () => {
     }
   });
 
-  test('tapping "Book Now" navigates to booking detail screen', async ({ page }) => {
-    // Wait for an amenity card to appear
-    await expect(page.locator('[data-testid="amenity-card"]').first()).toBeVisible({ timeout: 25000 });
-    // Click the first "Book Now →" button
-    await page.locator('[data-testid="book-now-btn"]').first().click();
-    // Should navigate to amenity-book; wait for date strip heading
-    await expect(page.getByText('SELECT DATE')).toBeVisible({ timeout: 20000 });
-  });
-
-  test('booking detail screen shows amenity name', async ({ page }) => {
+  test('tapping "Book Now" forwards to the Reserve screen (the only place reservations are made: HOA zone, holds, conflicts)', async ({ page }) => {
     await expect(page.locator('[data-testid="amenity-card"]').first()).toBeVisible({ timeout: 25000 });
     await page.locator('[data-testid="book-now-btn"]').first().click();
-    // Amenity name is shown in the detail header
-    await expect(page.locator('[data-testid="amenity-detail-name"]')).toBeVisible({ timeout: 20000 });
+    await expect(page.locator('[data-testid="courts-screen"]')).toBeVisible({ timeout: 30000 });
+    await expect(page.getByText('SELECT DATE')).toHaveCount(0);
   });
-
-  test('booking detail screen has date selector pills', async ({ page }) => {
-    await expect(page.locator('[data-testid="amenity-card"]').first()).toBeVisible({ timeout: 25000 });
-    await page.locator('[data-testid="book-now-btn"]').first().click();
-    // "Today" date pill should always be present
-    await expect(page.getByText('Today')).toBeVisible({ timeout: 20000 });
-  });
-
-  test('booking detail screen has OPTIONS card with Type of Play', async ({ page }) => {
-    await expect(page.locator('[data-testid="amenity-card"]').first()).toBeVisible({ timeout: 25000 });
-    await page.locator('[data-testid="book-now-btn"]').first().click();
-    await expect(page.getByText('OPTIONS')).toBeVisible({ timeout: 20000 });
-    // Type of Play or Type of Use
-    await expect(
-      page.getByText('Type of Play').or(page.getByText('Type of Use'))
-    ).toBeVisible({ timeout: 10000 });
-  });
-
-  test('booking detail screen has Duration selector', async ({ page }) => {
-    await expect(page.locator('[data-testid="amenity-card"]').first()).toBeVisible({ timeout: 25000 });
-    await page.locator('[data-testid="book-now-btn"]').first().click();
-    await expect(page.getByText('Duration')).toBeVisible({ timeout: 20000 });
-  });
-
-  // ── Icon & amenity polish ─────────────────────────────────────────────────
 
   test('amenity cards render icon containers', async ({ page }) => {
     await expect(page.locator('[data-testid="amenity-card"]').first()).toBeVisible({ timeout: 25000 });

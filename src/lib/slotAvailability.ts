@@ -56,6 +56,8 @@ export interface ComputeSlotsInput {
    * caps - the schema has columns but no Greens V1 admin screen sets them and no trigger enforces them.
    */
   limits?: { maxPerDay?: number | null; maxDurationMins?: number | null };
+  /** Candidate intervals to drop entirely (daylight-saving gaps/repeats): the database refuses them, so they are never offered. */
+  skipInterval?: (startMins: number, endMins: number) => boolean;
 }
 
 export type LimitReason = 'daily' | 'duration' | null;
@@ -90,6 +92,7 @@ export function computeSlots(input: ComputeSlotsInput): SlotInfo[] {
   for (let s = open; s < close; s += stepMins) {
     const e = s + durationMins;
     if (e > close) continue; // would run past closing
+    if (input.skipInterval?.(s, e)) continue; // daylight-saving gap / repeated hour / offset change
     if (isToday && s <= nowMins) continue; // past times are hidden
     const start = fmtHHMM(s);
     // A blockout wins over a reservation: it is the stronger, management-set reason.

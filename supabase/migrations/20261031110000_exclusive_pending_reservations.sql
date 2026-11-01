@@ -213,7 +213,9 @@ STABLE
 SECURITY DEFINER
 SET search_path TO 'public'
 AS $function$
-  SELECT b.court_id, b.start_time, b.end_time, b.status, (b.user_id = auth.uid()) AS is_mine, (b.user_id = auth.uid()) AS counts_toward_cap
+  SELECT b.court_id, b.start_time, b.end_time, b.status, (b.user_id = auth.uid()) AS is_mine,
+         -- an expired-but-unswept pending request no longer counts toward the daily limit (the insert-time sweep releases it)
+         (b.user_id = auth.uid() AND NOT (b.status = 'pending' AND h.timezone IS NOT NULL AND (b.date + b.start_time) <= (now() AT TIME ZONE h.timezone))) AS counts_toward_cap
   FROM public.bookings b
   JOIN public.courts c ON c.id = b.court_id
   JOIN public.hoas h ON h.id = c.hoa_id

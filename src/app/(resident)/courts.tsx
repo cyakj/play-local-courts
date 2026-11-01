@@ -35,7 +35,7 @@ import { ReservationLegend } from '@/components/ui/ReservationLegend';
 import { useNow } from '@/hooks/useNow';
 import { useCommunityTimeZone } from '@/hooks/useActiveCommunity';
 import { db } from '@/lib/untypedDb';
-import { deviceZoneDiffers, timeZoneLabel } from '@/lib/communityTime';
+import { deviceZoneDiffers, reservationTimeProblem, timeZoneLabel } from '@/lib/communityTime';
 import { RequestLedger } from '@/lib/requestLedger';
 import { gateAvailability } from '@/lib/availabilityGate';
 import { computeSlots, isSelectable, revalidateSelection, toDateKey, toMins, type SlotInfo } from '@/lib/slotAvailability';
@@ -138,6 +138,10 @@ type TopLevelTab = 'hoa' | 'other';
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /** "Times outside 7 AM - 9 PM are not offered" - closed hours are not 'blocked'. */
+function minsToHHMM(m: number): string {
+  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+}
+
 function hoursNoteFor(rules: AmenityRules | null): string | null {
   if (!rules?.booking_start_time || !rules?.booking_end_time) return null;
   return `Open for booking ${formatTime(rules.booking_start_time)} - ${formatTime(rules.booking_end_time)}. Times outside these hours are not offered.`;
@@ -306,7 +310,7 @@ function WeatherIcon({ type, color, size }: { type: 'sun' | 'cloud' | 'rain' | '
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function CourtsScreen() {
-  const { timeZone: tz, unset: tzUnset } = useCommunityTimeZone();
+  const { timeZone: tz, unset: tzUnset, unavailable: tzUnavailable } = useCommunityTimeZone();
   const scrollRef = useScrollToTopOnTabEnter('courts');
   const { theme } = useTheme();
   const styles = useStyles(theme);
@@ -650,8 +654,9 @@ export default function CourtsScreen() {
       reservations,
       blocks,
       limits: { maxPerDay: sheetRules?.max_reservations_per_day ?? null, maxDurationMins: sheetDurationCap },
+      skipInterval: (s, e) => reservationTimeProblem(dateStr, minsToHHMM(s), minsToHHMM(e), tz) !== null,
     });
-  }, [bookingSheet, sheetDate, bookingsByDate, sheetDuration, sheetDurationCap, sheetRules, userBookings, userId, sheetMaintenanceAll, now]);
+  }, [tz, bookingSheet, sheetDate, bookingsByDate, sheetDuration, sheetDurationCap, sheetRules, userBookings, userId, sheetMaintenanceAll, now]);
 
   // ── Confirm booking ─────────────────────────────────────────────────────────
   // Synchronous re-entrancy guard: React state (`confirming`) updates after the tap, so a fast double tap could
@@ -694,6 +699,7 @@ export default function CourtsScreen() {
           openMins: sheetRules?.booking_start_time ? toMins(sheetRules.booking_start_time) : 7 * 60,
           closeMins: sheetRules?.booking_end_time ? toMins(sheetRules.booking_end_time) : 21 * 60,
           limits: { maxPerDay: sheetRules?.max_reservations_per_day ?? null, maxDurationMins: sheetDurationCap },
+          skipInterval: (s, e) => reservationTimeProblem(dateStr, minsToHHMM(s), minsToHHMM(e), tz) !== null,
           durationMins: sheetDuration,
           isToday: communityToday(nowD, tz) === dateStr,
           nowMins: communityMinutesNow(nowD, tz),
@@ -1108,7 +1114,8 @@ const BookingSheet = memo(function BookingSheet({
 }) {
   const { theme } = useTheme();
   const styles = useStyles(theme);
-  const { timeZone: tz, unset: tzUnset } = useCommunityTimeZone();
+  const { timeZone: tz, unset: tzUnset0, unavailable: tzUnavailable } = useCommunityTimeZone();
+  const tzUnset = tzUnset0 || tzUnavailable;
   const tzNote = !tzUnset && deviceZoneDiffers(tz, now) ? `All times shown in ${timeZoneLabel(tz, now)} (the community's local time).` : null;
   const outdoor = isOutdoor(courtType);
   const [showCalendar, setShowCalendar] = useState(false);
@@ -1346,7 +1353,7 @@ const BookingSheet = memo(function BookingSheet({
               </View>
             )}
             {tzUnset && (
-              <Text testID="booking-tz-unset" style={styles.bookingErrorText}>This community's time zone is not set yet, so reservations are not available. Ask a community administrator to set it.</Text>
+              <Text testID="booking-tz-unset" style={styles.bookingErrorText}>{tzUnavailable ? "This community's time zone could not be loaded. Check your connection and try again." : "This community's time zone is not set yet, so reservations are not available. Ask a community administrator to set it."}</Text>
             )}
             {!!bookingError && (
               <Text testID="booking-error" style={styles.bookingErrorText}>{bookingError}</Text>

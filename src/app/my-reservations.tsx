@@ -63,6 +63,8 @@ export default function MyReservationsScreen() {
   const [loadingMore, setLoadingMore] = useState(false);
   // How many history rows are loaded; a periodic refresh re-fetches at least that many so "load older" is not lost.
   const historyLoaded = useRef(0);
+  // Account + community the screen is currently showing; a late "load older" response for any other scope is discarded.
+  const scopeKey = useRef('');
   const timeZone = community?.timeZone ?? COMMUNITY_TIME_ZONE;
 
   // A slow load for a previous community/account must never publish over the current one.
@@ -77,6 +79,7 @@ export default function MyReservationsScreen() {
     if (isStale()) return;
     if (!user) { setLoading(false); return; }
     setUserId(user.id);
+    scopeKey.current = `${user.id}:${hoaId}`;
 
     // Scoped to the active community (courts.hoa_id). Two server-side queries, never "everything, capped silently":
     //  * Upcoming: only CURRENT reservations (confirmed not over / pending not started, in the HOA's zone), paged until complete.
@@ -130,7 +133,7 @@ export default function MyReservationsScreen() {
     setLoading(false);
   }, [hoaId, communityLoading, timeZone]);
 
-  useEffect(() => { historyLoaded.current = 0; setBookings([]); setLoading(true); load(); return () => { loadGuard.invalidate(); }; }, [load]);
+  useEffect(() => { historyLoaded.current = 0; scopeKey.current = ''; setBookings([]); setLoading(true); load(); return () => { loadGuard.invalidate(); }; }, [load]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   // Ticking community clock + periodic/focus/resume refetch: a booking moves to History by itself when it ends, and an
@@ -147,11 +150,14 @@ export default function MyReservationsScreen() {
 
   async function loadOlder() {
     if (loadingMore || historyDone || !hoaId || !userId) return;
+    const myScope = `${userId}:${hoaId}`;
+    if (scopeKey.current !== myScope) return;
     setLoadingMore(true);
     const from = historyLoaded.current;
     const { data: more } = await supabase.from('bookings').select(BOOKING_SELECT).eq('user_id', userId).eq('courts.hoa_id', hoaId)
       .or(`status.in.(cancelled,rejected,expired),date.lte.${currentBookingsFilter(new Date(), timeZone).today}`)
       .order('date', { ascending: false }).order('start_time', { ascending: false }).range(from, from + HISTORY_FETCH - 1);
+    if (scopeKey.current !== myScope) { setLoadingMore(false); return; } // account or community changed while loading
     const rows = (more ?? []) as any[];
     historyLoaded.current = from + rows.length;
     setHistoryDone(rows.length < HISTORY_FETCH);

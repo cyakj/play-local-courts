@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import {
   ArrowLeft, Bell, Menu, Check,
 } from 'lucide-react-native';
@@ -82,7 +82,17 @@ interface AmenityRules {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+/**
+ * Reservations are made ONLY through the Reserve screen: it uses the HOA's time zone, shows other residents' pending and confirmed
+ * holds (get_amenity_busy_times) and handles the "time zone not set" and conflict cases. This older direct-booking screen used the
+ * phone's clock and date, so it now forwards there instead of offering a second, weaker way to create a reservation.
+ */
 export default function AmenityBookScreen() {
+  return <Redirect href="/(resident)/courts" />;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function LegacyAmenityBookScreen() {
   const { theme } = useTheme();
   const styles = useStyles(theme);
   const insets = useSafeAreaInsets();

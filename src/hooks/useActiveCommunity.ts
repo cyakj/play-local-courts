@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
 import { createLatestGuard } from '@/lib/latestGuard';
 import { db } from '@/lib/untypedDb';
-import { COMMUNITY_TIME_ZONE, isValidTimeZone } from '@/lib/communityTime';
+import { COMMUNITY_TIME_ZONE, isMissingColumnError, isValidTimeZone } from '@/lib/communityTime';
 
 export interface CommunityIdentity {
   hoaId: string;
@@ -14,6 +14,8 @@ export interface CommunityIdentity {
   timeZone: string | null;
   /** True when hoas.timezone does not exist on this server yet (pre-migration): every community is then treated as Puerto Rico. */
   timeZoneAssumed: boolean;
+  /** The zone could not be read (network/permission error): reservation actions stay off until it loads. */
+  timeZoneUnavailable: boolean;
 }
 
 interface Snapshot {
@@ -72,6 +74,8 @@ async function load(): Promise<void> {
     // not break the community list. Missing column => legacy fallback (Puerto Rico); NULL value => "not set" (reservations off).
     const tzRes = await db.from('hoas').select('id, timezone').in('id', ids);
     if (isStale()) return;
+    const tzMissing = isMissingColumnError(tzRes.error); // legacy server: ONLY this case may fall back to Puerto Rico
+    const tzFailed = !!tzRes.error && !tzMissing;
     const tzKnown = !tzRes.error;
     const tzById = new Map<string, string | null>(((tzRes.data ?? []) as Array<{ id: string; timezone: string | null }>).map((r) => [r.id, r.timezone]));
     const communities: CommunityIdentity[] = ids
@@ -81,8 +85,9 @@ async function load(): Promise<void> {
         const raw = tzById.get(h.id) ?? null;
         return {
           hoaId: h.id, name: h.name, logoUrl: h.logo_url ?? null,
-          timeZone: tzKnown ? (isValidTimeZone(raw) ? raw : null) : COMMUNITY_TIME_ZONE,
-          timeZoneAssumed: !tzKnown,
+          timeZone: tzKnown ? (isValidTimeZone(raw) ? raw : null) : tzMissing ? COMMUNITY_TIME_ZONE : null,
+          timeZoneAssumed: tzMissing,
+          timeZoneUnavailable: tzFailed,
         };
       });
 
@@ -151,11 +156,12 @@ export function useActiveCommunity() {
  * The active community's reservation time zone. `unset` = the community has not configured one: reservation actions must be
  * disabled with a message (never silently assume a zone). `timeZone` always holds a usable zone for pure display math.
  */
-export function useCommunityTimeZone(): { timeZone: string; unset: boolean; assumed: boolean } {
+export function useCommunityTimeZone(): { timeZone: string; unset: boolean; unavailable: boolean; assumed: boolean } {
   const { community } = useActiveCommunity();
   return {
     timeZone: community?.timeZone ?? COMMUNITY_TIME_ZONE,
-    unset: !!community && community.timeZone === null,
+    unset: !!community && community.timeZone === null && !community.timeZoneUnavailable,
+    unavailable: !!community?.timeZoneUnavailable,
     assumed: !!community?.timeZoneAssumed,
   };
 }

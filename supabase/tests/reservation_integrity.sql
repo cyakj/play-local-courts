@@ -180,6 +180,13 @@ BEGIN
   PERFORM pg_temp.as_user(c.a);
   PERFORM pg_temp.expect_fail('resident cannot set expired by hand', format('UPDATE public.bookings SET status = %L WHERE id = %L', 'expired', bid), '42501');
 
+  -- the unswept expired request is still returned to its owner but no longer counts toward the daily limit
+  PERFORM pg_temp.as_user(c.a);
+  INSERT INTO t_results (name, ok, detail)
+  SELECT 'expired unswept own request: counts_toward_cap = false', bool_and(NOT counts_toward_cap) AND count(*) = 1, count(*)::text
+    FROM public.get_amenity_busy_times(ARRAY[c.court], c.d - 2) WHERE start_time = '10:00';
+  PERFORM pg_temp.as_owner();
+
   -- B requests the SAME (past) interval: the insert-time sweep releases the expired hold, running as a different resident
   PERFORM pg_temp.as_user(c.b);
   PERFORM pg_temp.expect_ok('another resident inserting sweeps the expired hold and succeeds', pg_temp.ins(c.b, c.court, c.d - 2, '10:00', '11:00'));

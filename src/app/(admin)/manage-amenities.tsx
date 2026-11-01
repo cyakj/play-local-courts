@@ -39,7 +39,9 @@ import { formatDateFull, formatTime12h } from '@/lib/format';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 import type { Database } from '@/lib/types';
 import { ReservationStatusPill } from '@/components/ui/ReservationStatusPill';
-import { communityToday } from '@/lib/communityTime';
+import { COMMUNITY_TIME_ZONE, isValidTimeZone } from '@/lib/communityTime';
+import { isCurrentReservation } from '@/lib/reservationState';
+import { db } from '@/lib/untypedDb';
 
 type Court = Database['public']['Tables']['courts']['Row'];
 type AmenityRules = Database['public']['Tables']['amenity_rules']['Row'];
@@ -84,8 +86,32 @@ function getTypeIcon(courtType: string) {
   }
 }
 
-function todayISO(): string {
-  return communityToday();
+/** Wide server-side lower bound (every zone is within 36 h of UTC); the exact per-community test is isCurrentReservation. */
+function earliestISO(): string {
+  return new Date(Date.now() - 36 * 3_600_000).toISOString().slice(0, 10);
+}
+
+/** hoa id -> IANA zone (communities without one, or a server without the column, fall back to Puerto Rico for this READ-only view). */
+async function loadZones(): Promise<Map<string, string>> {
+  const res = await db.from('hoas').select('id, timezone');
+  return new Map(((res.error ? [] : res.data ?? []) as Array<{ id: string; timezone: string | null }>)
+    .filter((h) => isValidTimeZone(h.timezone)).map((h) => [h.id, h.timezone as string]));
+}
+
+/** Pending/confirmed bookings of the given courts that are still CURRENT in their community's zone, paged to exhaustion. */
+async function loadCurrentBookings<T extends { court_id: string; date: string; start_time: string; end_time: string; status: string }>(
+  courtIds: string[], select: string, hoaOfCourt: Map<string, string>, zones: Map<string, string>,
+): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; from < 5000; from += 500) {
+    const pg = await supabase.from('bookings').select(select).in('court_id', courtIds).in('status', ['pending', 'confirmed'])
+      .gte('date', earliestISO()).order('date', { ascending: true }).order('start_time', { ascending: true }).range(from, from + 499);
+    const rows = ((pg.data ?? []) as unknown) as T[];
+    out.push(...rows);
+    if (pg.error || rows.length < 500) break;
+  }
+  const now = new Date();
+  return out.filter((b) => isCurrentReservation(b, now, zones.get(hoaOfCourt.get(b.court_id) ?? '') ?? COMMUNITY_TIME_ZONE));
 }
 
 export default function ManageAmenitiesScreen() {
@@ -130,22 +156,20 @@ export default function ManageAmenitiesScreen() {
 
     if (list.length > 0) {
       const ids = list.map((c) => c.id);
-      const [bookingsRes, maintRes] = await Promise.all([
-        supabase
-          .from('bookings')
-          .select('court_id')
-          .in('court_id', ids)
-          .gte('date', todayISO())
-          .neq('status', 'cancelled'),
+      const zones = await loadZones();
+      const hoaOfCourt = new Map<string, string>(list.map((c: any) => [c.id as string, c.hoa_id as string]));
+      const [currentBookings, maintRes] = await Promise.all([
+        loadCurrentBookings<{ court_id: string; date: string; start_time: string; end_time: string; status: string }>(
+          ids, 'court_id, date, start_time, end_time, status', hoaOfCourt, zones),
         supabase
           .from('court_maintenance')
           .select('*')
           .in('court_id', ids)
-          .gte('date', todayISO())
+          .gte('date', earliestISO())
           .order('date', { ascending: true }),
       ]);
       const counts: Record<string, number> = {};
-      for (const b of bookingsRes.data ?? []) {
+      for (const b of currentBookings) {
         counts[b.court_id] = (counts[b.court_id] ?? 0) + 1;
       }
       setUpcomingCounts(counts);
@@ -239,16 +263,14 @@ export default function ManageAmenitiesScreen() {
         .from('court_maintenance')
         .select('*')
         .eq('court_id', court.id)
-        .gte('date', todayISO())
+        .gte('date', earliestISO())
         .order('date', { ascending: true }),
-      supabase
-        .from('bookings')
-        .select('id, date, start_time, end_time, status, user_id')
-        .eq('court_id', court.id)
-        .gte('date', todayISO())
-        .not('status', 'in', '(cancelled,rejected)')
-        .order('date', { ascending: true })
-        .limit(10),
+      (async () => {
+        const zones = await loadZones();
+        const rows = await loadCurrentBookings<{ id: string; court_id: string; date: string; start_time: string; end_time: string; status: string; user_id: string }>(
+          [court.id], 'id, court_id, date, start_time, end_time, status, user_id', new Map([[court.id, (court as any).hoa_id as string]]), zones);
+        return { data: rows as unknown[], error: null };
+      })(),
       supabase
         .from('bookings')
         .select('id', { count: 'exact', head: true })

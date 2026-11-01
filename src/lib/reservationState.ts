@@ -123,7 +123,7 @@ export function toSlotReservation(
   const phase = timePhase({ date, start_time: b.start_time, end_time: b.end_time }, now, timeZone);
   // A pending request holds its time only until its start (then it expires); a confirmed one until its end.
   const ended = b.status === 'expired' || (b.status === 'pending' ? phase !== 'upcoming' : phase === 'ended');
-  return { start_time: b.start_time, end_time: b.end_time, isMine: own && !ended, pending: b.status === 'pending', ended, ownForCap: own };
+  return { start_time: b.start_time, end_time: b.end_time, isMine: own && !ended, pending: b.status === 'pending', ended, ownForCap: own && b.status !== 'expired' && !(b.status === 'pending' && phase !== 'upcoming') };
 }
 
 /** Community date key (YYYY-MM-DD) as a local Date at midnight, so device-local date arithmetic lands on the community's day. */

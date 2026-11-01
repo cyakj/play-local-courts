@@ -90,9 +90,9 @@ test.describe('pending requests expire at their START', () => {
     expect(isCurrentReservation({ ...base, status: 'expired' }, z('2026-10-30T00:00:00Z'))).toBe(false);
     expect(statusDisplay('expired').label).toBe('Request expired');
   });
-  test('an expired pending request does not occupy the picker; an own one still counts toward the daily cap', () => {
+  test('an expired pending request does not occupy the picker and no longer counts toward the daily cap (the insert-time sweep releases it)', () => {
     const r = toSlotReservation({ start_time: '16:00', end_time: '17:00', user_id: 'me', status: 'pending' }, '2026-10-31', 'me', z('2026-10-31T20:30:00Z'));
-    expect(r).toMatchObject({ ended: true, isMine: false, ownForCap: true });
+    expect(r).toMatchObject({ ended: true, isMine: false, ownForCap: false });
   });
   test('copy: a pending request HOLDS the time, is not confirmed, and says when it is released', () => {
     for (const d of [kindDescription('pending'), statusDisplay('pending').description]) {
@@ -209,5 +209,59 @@ test.describe('static checks of the migrations and wiring', () => {
     const a = readFileSync('src/app/(admin)/pending-requests.tsx', 'utf8');
     expect(a).toMatch(/\.range\(from, from \+ 499\)/);
     expect(a).toMatch(/=== 'pending'/);
+  });
+});
+
+test.describe('inspection round 1 follow-ups (RI-06..RI-11)', () => {
+  const rd = (p: string) => readFileSync(p, 'utf8');
+  test('RI-09: the app validator mirrors the database daylight-saving policy', async () => {
+    const { reservationTimeProblem } = await import('../src/lib/communityTime');
+    expect(reservationTimeProblem('2027-03-14', '02:30', '03:00', NY)).toBe('nonexistent');
+    expect(reservationTimeProblem('2026-11-01', '01:30', '02:00', NY)).toBe('ambiguous');
+    expect(reservationTimeProblem('2027-03-14', '01:30', '03:30', NY)).not.toBeNull();
+    expect(reservationTimeProblem('2027-04-04', '01:45', '02:00', 'Australia/Lord_Howe')).not.toBeNull(); // 30 minute shift
+    expect(reservationTimeProblem('2027-03-14', '10:00', '11:00', NY)).toBeNull();
+    expect(reservationTimeProblem('2027-03-14', '02:30', '03:00', PR)).toBeNull();
+    // the picker drops such starts
+    const { computeSlots } = await import('../src/lib/slotAvailability');
+    const hh = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+    const slots = computeSlots({ openMins: 0, closeMins: 6 * 60, durationMins: 30, isToday: false, nowMins: 0, reservations: [], blocks: [],
+      skipInterval: (s, e) => reservationTimeProblem('2027-03-14', hh(s), hh(e), NY) !== null });
+    expect(slots.some((s) => s.start === '02:00' || s.start === '02:30')).toBe(false);
+    expect(slots.some((s) => s.start === '03:00')).toBe(true);
+  });
+  test('RI-10: only a missing column may fall back to Puerto Rico', async () => {
+    const { isMissingColumnError } = await import('../src/lib/communityTime');
+    expect(isMissingColumnError({ code: '42703', message: 'column hoas.timezone does not exist' })).toBe(true);
+    expect(isMissingColumnError({ message: 'Failed to fetch' })).toBe(false);
+    expect(isMissingColumnError({ code: '42501', message: 'permission denied for table hoas' })).toBe(false);
+    expect(isMissingColumnError(null)).toBe(false);
+    expect(rd('src/hooks/useActiveCommunity.ts')).toMatch(/tzMissing \? COMMUNITY_TIME_ZONE : null/);
+    expect(rd('src/hooks/useHoaTimeZone.ts')).toMatch(/isMissingColumnError\(res\.error\)/);
+  });
+  test('RI-07: an expired pending request no longer counts toward the daily limit (matches the insert-time sweep)', () => {
+    const now = z('2026-10-31T20:30:00Z'); // 16:30 PR, request started 16:00
+    const exp = toSlotReservation({ start_time: '16:00', end_time: '17:00', user_id: 'me', status: 'pending' }, '2026-10-31', 'me', now);
+    expect(exp.ownForCap).toBe(false);
+    const done = toSlotReservation({ start_time: '09:00', end_time: '10:00', user_id: 'me', status: 'confirmed' }, '2026-10-31', 'me', now);
+    expect(done.ownForCap).toBe(true); // completed confirmed bookings still count
+    expect(rd('supabase/migrations/20261031110000_exclusive_pending_reservations.sql')).toMatch(/counts_toward_cap/);
+    expect(rd('supabase/migrations/20261031110000_exclusive_pending_reservations.sql')).toMatch(/NOT \(b\.status = 'pending' AND h\.timezone IS NOT NULL/);
+  });
+  test('RI-08: a late "load older" response for another account/community is discarded', () => {
+    const m = rd('src/app/my-reservations.tsx');
+    expect(m).toMatch(/scopeKey\.current !== myScope/);
+    expect(m).toMatch(/scopeKey\.current = ''/);
+  });
+  test('RI-06: the second booking screen forwards to Reserve instead of creating reservations with the phone clock', () => {
+    const a = rd('src/app/amenity-book.tsx');
+    expect(a).toMatch(/export default function AmenityBookScreen\(\) \{\s*return <Redirect href="\/\(resident\)\/courts" \/>;/);
+  });
+  test('RI-11: manager amenity screen uses each community zone, the current predicate and pages to exhaustion', () => {
+    const a = rd('src/app/(admin)/manage-amenities.tsx');
+    expect(a).toMatch(/isCurrentReservation\(b, now,/);
+    expect(a).toMatch(/\.range\(from, from \+ 499\)/);
+    expect(a).not.toMatch(/communityToday\(\)/);
+    expect(a).not.toMatch(/\.limit\(10\)\s*,\s*\n\s*supabase\s*\n\s*\.from\('bookings'\)/);
   });
 });
