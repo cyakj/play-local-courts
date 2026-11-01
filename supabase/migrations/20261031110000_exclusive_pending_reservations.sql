@@ -18,6 +18,14 @@
 -- Existing data is never altered: the migration ABORTS (changing nothing) if any two pending/confirmed rows already overlap.
 
 DO $$
+BEGIN
+  IF to_regprocedure('public.hoa_local_now_for_court(uuid,boolean)') IS NULL OR to_regprocedure('public.reservation_time_problem(date,time,time,text)') IS NULL THEN
+    RAISE EXCEPTION 'Apply 20261031100000_hoa_timezones.sql first: this migration needs its time zone helpers. Nothing was changed.';
+  END IF;
+END
+$$;
+
+DO $$
 DECLARE
   n integer;
 BEGIN

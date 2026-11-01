@@ -145,8 +145,12 @@ test.describe('Courts Screen — Phase 3 Refined', () => {
       // Stick to tomorrow: per-amenity advance_booking_days rules can disable
       // farther-out calendar cells entirely (onPress is a no-op when
       // isDisabled — CalendarPicker.tsx), so a farther offset can flake.
+      // The calendar opens on the CURRENT month. Tomorrow can fall in the next month (month end); then day numbers would
+      // point at a past, disabled cell of this month, so pick today's (enabled) cell instead.
       const dayOfMonth = await page.evaluate(() => {
-        const d = new Date(); d.setDate(d.getDate() + 1); return d.getDate();
+        const today = new Date();
+        const d = new Date(); d.setDate(d.getDate() + 1);
+        return d.getMonth() === today.getMonth() ? d.getDate() : today.getDate();
       });
       const dayCell = page.locator(`[data-testid="cal-day-${dayOfMonth}"]`);
       if (await dayCell.count() > 0) {
@@ -460,10 +464,11 @@ test.describe('Courts Screen — Phase 3 Refined', () => {
       await expect(page.locator('[data-testid="facility-report-cta"]')).toBeVisible({ timeout: 10000 });
       await page.locator('[data-testid="facility-report-cta"]').click();
       await expect(page.locator('[data-testid="court-issue-header"]')).toBeVisible({ timeout: 10000 });
-      // Form back returns to the Reports overview; the Courts tab returns to Courts.
+      // Form back returns to the Reports overview. /report is a root-stack screen WITHOUT the bottom tab bar (see the
+      // workstream-a R3 test), so the way back to Courts is the header Back control (returnTo=courts).
       await page.locator('[data-testid="facility-form-back"]').click();
       await expect(page.locator('[data-testid="facility-report-cta"]')).toBeVisible({ timeout: 10000 });
-      await page.locator('[data-testid="tab-courts"]').click();
+      await page.locator('[data-testid="header-back"]').first().click();
       await page.waitForTimeout(1000);
       // Should be on courts, not home
       await expect(page.locator('[data-testid="courts-screen"]')).toBeVisible({ timeout: 10000 });

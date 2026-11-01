@@ -82,4 +82,19 @@ pq -d "${DB}m" -c "alter table bookings drop constraint bookings_no_overlapping_
 mo="$(pq -d "${DB}m" -f supabase/tests/reservation_integrity.sql 2>&1 | { grep -E 'failures=' || true; })"
 echo "$mo" | grep -q 'failures=0 ' && { echo "FAIL mutation not detected"; rc=1; } || echo "PASS mutation detected ($mo)"
 
+echo "== 6. full chain: the ten pending migrations (Stages A-D, in plan order), then M1 and M2, then the verification script"
+CHAIN=(20261022120000_resident_join_flow_hardening 20261023100000_admin_booking_review_notifications 20261023110000_hoa_application_hardening
+  20261023120000_community_interest_requests 20261013130000_revoke_anon_execute_on_admin_rpcs 20261023140000_lock_down_anon_definer_rpcs_and_email_prefs
+  20261023130000_report_photo_attach 20261030140000_report_photos_bucket_hardened 20261030130000_report_insert_requires_membership
+  20261030120000_profile_photos_private_bucket 20261031100000_hoa_timezones 20261031110000_exclusive_pending_reservations)
+fresh "${DB}f"
+for f in "${CHAIN[@]}"; do
+  pq -d "${DB}f" -1 -f "supabase/migrations/$f.sql" >/dev/null 2>&1 || { echo "FAIL chain stopped at $f"; rc=1; break; }
+done
+co="$(pq -d "${DB}f" -f supabase/tests/reservation_integrity.sql 2>&1 | { grep -E 'failures=' || true; })"
+echo "$co" | grep -q 'failures=0 ' && echo "PASS full chain applies and the verification script passes ($co)" || { echo "FAIL full chain verification: $co"; rc=1; }
+# the new functions must not be callable by anon
+an="$(pq -d "${DB}f" -At -c "select string_agg(p.proname, ',') from pg_proc p where p.pronamespace='public'::regnamespace and p.proname in ('expire_pending_bookings','get_amenity_busy_times','set_hoa_timezone','hoa_timezone_for_court','hoa_local_now_for_court','hoa_local_date_for_court') and has_function_privilege('anon', p.oid, 'EXECUTE')")"
+[ -z "$an" ] && echo "PASS none of the new functions is executable by anon" || { echo "FAIL anon can execute: $an"; rc=1; }
+
 exit $rc

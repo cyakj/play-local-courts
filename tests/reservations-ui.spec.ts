@@ -38,7 +38,10 @@ test.describe('My Reservations', () => {
     await expect(page.locator('[data-testid="reservation-card"]').first()).toBeVisible({ timeout: 30000 });
     expect(await page.getByText(/^<\d+h$/).count()).toBe(0);
     for (const el of await page.locator('[data-testid="cancel-unavailable"]').all()) {
-      await expect(el).toContainText(/Cancellations close \d+ hours? before the start time|already started/);
+      // The chip shows the SHORT reason ("Closed 24h before start" / "Started"); the full sentence is its accessible label.
+      const spoken = `${(await el.getAttribute('aria-label')) ?? ''} ${await el.innerText()}`;
+      expect(spoken).toMatch(/Cancellations close \d+ hours? before the start time|already started/);
+      expect(await el.innerText()).toMatch(/Closed \d+h before start|Started/);
     }
   });
 
