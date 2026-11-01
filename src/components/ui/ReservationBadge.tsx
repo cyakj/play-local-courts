@@ -44,12 +44,14 @@ export function ReservationBadge({ kind, testID, label }: { kind: ReservationKin
   return (
     <View testID={testID ?? 'reservation-badge'} accessibilityLabel={label ?? b.label} style={[styles.pill, { backgroundColor: c.bg, borderColor: c.border }]}>
       <BadgeIconView icon={b.icon} color={c.fg} />
-      <Text style={[styles.text, { color: c.fg }]}>{label ?? b.label}</Text>
+      <Text style={[styles.text, { color: c.fg }]} numberOfLines={2}>{label ?? b.label}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  pill: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: Radius.pill, borderWidth: 1 },
-  text: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: 12 },
+  // maxWidth keeps the pill inside its container (it can never push a sibling such as a chevron out of place); the label wraps
+  // instead of overflowing and the icon never shrinks.
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', maxWidth: '100%', flexShrink: 1, paddingHorizontal: 10, paddingVertical: 4, borderRadius: Radius.pill, borderWidth: 1 },
+  text: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: 12, flexShrink: 1 },
 });

@@ -62,8 +62,12 @@ test.describe('V1-012 unavailable slots stay visible but disabled', () => {
   });
   test('legend is rendered next to the wheel with all four states', () => {
     expect(sheet).toMatch(/<ReservationLegend theme=\{theme\} variant="picker"/);
+    // UI polish sprint: the visible legend is compact (one-word labels); the full descriptions live in lib/reservationCopy and are each
+    // item's accessibility label, so every state keeps its words and its meaning.
     const legend = readFileSync('src/components/ui/ReservationLegend.tsx', 'utf8');
-    for (const label of ['Available', 'Reserved by someone else', 'Blocked by management', 'Selected', 'My reservation', 'pending approval']) expect(legend).toContain(label);
+    const copy = readFileSync('src/lib/reservationCopy.ts', 'utf8');
+    expect(legend).toContain('accessibilityLabel={label.full}');
+    for (const label of ['Available', 'Reserved by someone else', 'Blocked by management', 'Selected', 'My reservation', 'pending approval']) expect(copy).toContain(label);
   });
   test('slot list comes from the pure computeSlots with reservations and blocks kept separate', () => {
     expect(courts).toMatch(/return computeSlots\(\{/);

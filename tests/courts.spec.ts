@@ -335,9 +335,12 @@ test.describe('Courts Screen — Phase 3 Refined', () => {
       const legend = page.locator('[data-testid="schedule-legend"]');
       await expect(legend).toBeVisible({ timeout: 5000 });
       // Scope all text searches to legend to avoid matching off-screen status text
+      // UI polish: compact one-word labels are visible; the full description is each item's accessible name
       await expect(legend.getByText('Available', { exact: true })).toBeVisible();
-      await expect(legend.getByText('Reserved by someone else', { exact: true })).toBeVisible();
-      await expect(legend.getByText('Blocked by management', { exact: true })).toBeVisible();
+      await expect(legend.getByText('Reserved', { exact: true })).toBeVisible();
+      await expect(legend.getByText('Blocked', { exact: true })).toBeVisible();
+      await expect(legend.getByLabel('Reserved by someone else', { exact: true })).toBeVisible();
+      await expect(legend.getByLabel('Blocked by management', { exact: true })).toBeVisible();
     }
   });
 

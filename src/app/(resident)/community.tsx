@@ -21,8 +21,10 @@ import { Header } from '@/components/ui/Header';
 import { useScrollToTopOnTabEnter } from '@/hooks/useScrollToTopOnTabEnter';
 import { useTheme } from '@/context/ThemeContext';
 import { useActiveCommunity } from '@/hooks/useActiveCommunity';
+import { fetchAnnouncements, type AnnouncementRow } from '@/lib/announcements';
+import { UrgentDot, CategoryChip } from '@/components/community/AnnouncementMeta';
 
-interface Announcement { id: string; title: string; body: string; created_at: string | null; }
+type Announcement = AnnouncementRow;
 interface HoaInfo {
   name: string;
   address: string | null;
@@ -67,12 +69,12 @@ export default function CommunityScreen() {
     (async () => {
       const [hoaRes, annRes, docRes] = await Promise.all([
         supabase.from('hoas').select('name, address, phone, email, description').eq('id', hoaId).single(),
-        supabase.from('hoa_announcements').select('id, title, body, created_at').eq('hoa_id', hoaId).order('created_at', { ascending: false }).limit(5),
+        fetchAnnouncements(hoaId, 5),
         supabase.from('hoa_documents').select('id', { count: 'exact', head: true }).eq('hoa_id', hoaId).eq('visibility', 'all_residents'),
       ]);
       if (cancelled) return;
       setHoa(hoaRes.data ?? null);
-      setAnnouncements(annRes.data ?? []);
+      setAnnouncements(annRes.rows);
       setDocCount(docRes.count ?? 0);
       setLoading(false);
     })().catch(() => { if (!cancelled) setLoading(false); });
@@ -114,7 +116,11 @@ export default function CommunityScreen() {
                 <Text style={styles.emptyText}>No announcements yet.</Text>
               ) : announcements.map((a) => (
                 <View key={a.id} style={styles.card}>
-                  <Text style={styles.cardTitle}>{a.title}</Text>
+                  <View style={styles.cardTitleRow}>
+                    {a.isUrgent ? <UrgentDot /> : null}
+                    <Text style={[styles.cardTitle, { flex: 1, marginBottom: 0 }]}>{a.title}</Text>
+                  </View>
+                  <CategoryChip category={a.category} theme={theme} />
                   <Text style={styles.cardBody} numberOfLines={2}>{a.body}</Text>
                   <Text style={styles.cardTime}>{timeAgo(a.created_at)}</Text>
                 </View>
@@ -197,7 +203,8 @@ function useStyles(theme: ReturnType<typeof useTheme>['theme']) {
       borderWidth: 1, borderColor: theme.border, ...theme.shadowCard,
     },
     cardTitle: { fontFamily: FontFamily.manropeSemiBold, fontSize: 15, color: theme.textPrimary, marginBottom: 4 },
-    cardBody: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.body, color: theme.textSecondary, lineHeight: 20 },
+    cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+    cardBody: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.body, color: theme.textSecondary, lineHeight: 20, marginTop: 4 },
     cardTime: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: 11, color: theme.textMuted, marginTop: 8 },
 
     linkRow: { alignItems: 'flex-end', marginBottom: 4 },

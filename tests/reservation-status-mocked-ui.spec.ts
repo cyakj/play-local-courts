@@ -98,8 +98,10 @@ test.describe('Reserve court list (mocked)', () => {
     await page.locator('[data-testid^="view-schedule-"]').first().click({ timeout: 30000 });
     const legend = page.locator('[data-testid="schedule-legend"]');
     await expect(legend).toBeVisible({ timeout: 20000 });
-    for (const t of ['Available', 'Reserved by someone else', 'Blocked by management', 'My reservation', 'pending approval', 'Completed / passed']) {
-      await expect(legend).toContainText(t);
+    // compact visible labels + full accessible descriptions
+    for (const t of ['Available', 'Reserved', 'Blocked', 'Mine', 'Pending', 'Past']) await expect(legend).toContainText(t);
+    for (const t of ['Reserved by someone else', 'Blocked by management', 'My reservation', 'My request, pending approval', 'Completed or passed']) {
+      await expect(legend.getByLabel(t, { exact: true })).toHaveCount(1);
     }
   });
 });

@@ -17,6 +17,8 @@ import {
 import { Header } from '@/components/ui/Header';
 import { useTheme } from '@/context/ThemeContext';
 import { useActiveCommunity } from '@/hooks/useActiveCommunity';
+import { fetchAnnouncements, type AnnouncementCategory } from '@/lib/announcements';
+import { UrgentDot, CategoryChip } from '@/components/community/AnnouncementMeta';
 
 interface AnnouncementItem {
   id: string;
@@ -25,6 +27,8 @@ interface AnnouncementItem {
   created_at: string;
   isSurveyResult?: boolean;
   surveyId?: string;
+  isUrgent?: boolean;
+  category?: AnnouncementCategory;
 }
 
 function timeAgo(iso: string): string {
@@ -61,11 +65,7 @@ export default function AnnouncementsScreen() {
         setLoading(true);
 
         const [announcementsRes, surveysRes] = await Promise.all([
-          supabase
-            .from('hoa_announcements')
-            .select('id, title, body, created_at')
-            .eq('hoa_id', hoaId)
-            .order('created_at', { ascending: false }),
+          fetchAnnouncements(hoaId, 200),
           supabase
             .from('hoa_surveys')
             .select('id, title, created_at, closes_at')
@@ -76,11 +76,13 @@ export default function AnnouncementsScreen() {
         ]);
         if (cancelled) return;
 
-        const announcements: AnnouncementItem[] = (announcementsRes.data ?? []).map((a: any) => ({
+        const announcements: AnnouncementItem[] = announcementsRes.rows.map((a) => ({
           id: a.id,
           title: a.title,
           body: a.body,
-          created_at: a.created_at,
+          created_at: a.created_at ?? new Date(0).toISOString(),
+          isUrgent: a.isUrgent,
+          category: a.category,
         }));
 
         const surveyResults: AnnouncementItem[] = (surveysRes.data ?? []).map((s: any) => ({
@@ -140,7 +142,11 @@ export default function AnnouncementsScreen() {
                   style={styles.card}
                   onPress={() => setExpandedId(isExpanded ? null : item.id)}
                   activeOpacity={0.8}>
-                  <Text style={styles.itemTitle}>{item.title}</Text>
+                  <View style={styles.itemTitleRow}>
+                    {item.isUrgent ? <UrgentDot /> : null}
+                    <Text style={[styles.itemTitle, { flex: 1, marginBottom: 0 }]}>{item.title}</Text>
+                  </View>
+                  {item.category ? <CategoryChip category={item.category} theme={theme} /> : null}
                   <Text style={styles.itemBody} numberOfLines={isExpanded ? undefined : 2}>
                     {item.body}
                   </Text>
@@ -201,6 +207,7 @@ function useStyles(theme: ReturnType<typeof useTheme>['theme']) {
       color: theme.textPrimary,
       marginBottom: 6,
     },
+    itemTitleRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 8, marginBottom: 6 },
     itemBody: {
       fontFamily: FontFamily.manropeMedium,
       fontSize: FontSize.body,

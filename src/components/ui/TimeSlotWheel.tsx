@@ -1,39 +1,31 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  type NativeSyntheticEvent,
-  type NativeScrollEvent,
-} from 'react-native';
-import type { ScrollViewInstance } from 'react-native';
-import Svg, { Circle, G, Line, Path, Rect } from 'react-native-svg';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Animated, {
+  Extrapolation, interpolate, interpolateColor, useAnimatedRef, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue,
+  type SharedValue,
+} from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
+import Svg, { Circle, Defs, G, Line, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
+import { centeredIndex, decideFeedback, newGate, type FeedbackGate } from '@/lib/pickerFeedback';
+import {
+  getPickerPrefs, hapticConfirm, hapticTick, loadPickerPrefs, soundTick, subscribePickerPrefs, warmPickerSound,
+} from '@/lib/pickerFeedbackRuntime';
 import { Availability, Colors, FontFamily, Radius } from '@/constants/design';
 import type { SlotInfo } from '@/lib/slotAvailability';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 
 // ─── Wheel dimensions ─────────────────────────────────────────────────────────
 
-const ITEM_H  = 52;
+const ITEM_H  = 44;
 const VISIBLE = 7;
-const WHEEL_H = ITEM_H * VISIBLE;          // 364 — default before the container is measured
+const WHEEL_H = ITEM_H * VISIBLE;          // 308 - default before the container is measured (the sheet fills ~7-9 rows)
 const MIN_H   = ITEM_H * 3;                // never smaller than 3 rows
 
-// ─── Cylinder transform tables ────────────────────────────────────────────────
-// Each row is scaled & faded based on distance from the center row,
-// simulating the curved surface of a rotating drum (Apple picker wheel style).
-// scaleY compresses row content vertically — the primary cue that rows "curve away".
-
-const CSCALE_Y  = [1.00, 0.68, 0.34, 0.12] as const;  // vertical compression
-const COPACITY  = [1.00, 0.55, 0.22, 0.07] as const;  // opacity falloff
-
-function cylT(dist: number) {
-  const i = Math.min(dist, 3) as 0 | 1 | 2 | 3;
-  return { scaleY: CSCALE_Y[i], opacity: COPACITY[i] };
-}
+// Drum geometry: each row tilts about its horizontal axis in proportion to its distance from the centre (subtle, not extreme).
+const DRUM_PERSPECTIVE = 520;
+const DRUM_DEG_PER_ROW = 21;
+const DRUM_MAX_DEG = 62;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -232,9 +224,97 @@ function a11yLabel(slot: SlotInfo, isSelected: boolean): string {
   return `${t}, ${slot.mine && slot.pending ? 'your request, pending approval' : slot.mine ? 'reserved by you' : slot.inside === false ? 'would overlap a reservation' : 'reserved'}, unavailable`;
 }
 
+interface WheelRowProps {
+  slot: SlotInfo; index: number; scrollY: SharedValue<number>; isSelected: boolean;
+  wx: SlotWx | null; theme: ThemeTokens; s: ReturnType<typeof useWheelStyles>; onSelect: (slot: SlotInfo, idx: number) => void;
+}
+
+/** One drum row. Its curvature, scale, opacity and text colour are driven by the scroll offset on the UI thread. */
+const WheelRow = memo(function WheelRow({ slot, index, scrollY, isSelected, wx, theme, s, onSelect }: WheelRowProps) {
+  const open = slot.state === 'available';
+  const focusColor = theme.textPrimary;
+  const restColor = theme.textMuted;
+  const drum = useAnimatedStyle(() => {
+    const d = (index * ITEM_H - scrollY.value) / ITEM_H;   // signed distance from the centre, in rows
+    const ad = Math.abs(d);
+    return {
+      opacity: interpolate(ad, [0, 1, 2, 3, 4], [1, 0.82, 0.55, 0.3, 0.1], Extrapolation.CLAMP),
+      // the top edge of rows above the centre tilts away, the bottom edge of rows below does: a cylinder seen from the front
+      transform: [
+        { perspective: DRUM_PERSPECTIVE },
+        { rotateX: `${Math.max(-DRUM_MAX_DEG, Math.min(DRUM_MAX_DEG, -d * DRUM_DEG_PER_ROW))}deg` },
+        { scale: interpolate(ad, [0, 3], [1, 0.88], Extrapolation.CLAMP) },
+      ],
+    };
+  });
+  const timeColor = useAnimatedStyle(() => {
+    const ad = Math.abs((index * ITEM_H - scrollY.value) / ITEM_H);
+    return { color: interpolateColor(ad, [0, 0.7], [focusColor, restColor]) };
+  });
+  const dotColor = open ? Availability.available : slot.state === 'blocked' ? Availability.blocked : slot.mine && slot.pending ? Availability.minePending : slot.mine ? Availability.mine : Availability.reserved;
+
+  return (
+    <Animated.View
+      testID={`wheel-row-${slot.start}`}
+      style={[
+        s.row, drum,
+        slot.state === 'reserved' && !slot.mine && s.rowReserved,
+        slot.state === 'reserved' && slot.mine && !slot.pending && s.rowMine,
+        slot.state === 'reserved' && slot.mine && slot.pending && s.rowPending,
+        slot.state === 'blocked' && s.rowBlocked,
+        isSelected && s.rowSelected,
+      ]}>
+      <View style={s.rowInner}>
+        <View style={[s.dot, { backgroundColor: dotColor }]} />
+        <Animated.Text testID={`wheel-time-${slot.start}`} style={[s.time, timeColor, !open && s.timeDisabled]} numberOfLines={1}>
+          {fmtSlot(slot.start)}
+        </Animated.Text>
+
+        {/* Weather: only for bookable outdoor times, only when real data exists */}
+        {wx ? (
+          <View style={s.wxArea}>
+            <WxIcon type={wx.iconType} size={18} />
+            <Text style={s.temp}>{wx.temp}°F</Text>
+            <Text style={s.cond} numberOfLines={1}>{wx.condition}</Text>
+          </View>
+        ) : (
+          <View style={s.wxSpacer} />
+        )}
+
+        {open ? (
+          <TouchableOpacity
+            testID={`wheel-select-${slot.start}`}
+            style={[s.btn, isSelected && s.btnActive]}
+            onPress={() => onSelect(slot, index)}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={a11yLabel(slot, isSelected)}
+            accessibilityState={{ selected: isSelected }}
+            hitSlop={{ top: 6, bottom: 6, left: 10, right: 10 }}>
+            <Text style={[s.btnLabel, isSelected && s.btnLabelActive]}>{isSelected ? '✓' : 'Select'}</Text>
+          </TouchableOpacity>
+        ) : (
+          <View
+            testID={`wheel-unavailable-${slot.start}`}
+            accessible
+            accessibilityLabel={a11yLabel(slot, false)}
+            accessibilityState={{ disabled: true }}
+            style={[s.statePill, slot.state === 'blocked' ? s.statePillBlocked : slot.mine && slot.pending ? s.statePillPending : slot.mine ? s.statePillMine : s.statePillReserved]}>
+            <Text style={[s.statePillText, { color: slot.state === 'blocked' ? Availability.blocked : slot.mine && slot.pending ? Availability.minePending : slot.mine ? theme.textPrimary : theme.textMuted }]}>
+              {slot.state === 'reserved' && slot.mine && slot.pending ? 'Pending' : slot.state === 'reserved' && slot.mine ? 'Yours' : slot.state === 'reserved' && slot.inside === false ? 'Overlaps' : STATE_LABEL[slot.state as 'reserved' | 'blocked' | 'limit']}
+            </Text>
+          </View>
+        )}
+      </View>
+    </Animated.View>
+  );
+});
+
 /**
- * The wheel fills whatever height its parent gives it (flex: 1) and is the ONLY vertical scroller in the
- * reservation sheet. It measures itself, so there is no per-device height.
+ * A custom drum wheel (not the native iOS picker): the rows need weather, availability colours, disabled states and per-row
+ * actions, which UIDatePicker cannot render. Curvature/fade run on the UI thread from the scroll offset (react-native-reanimated,
+ * included in Expo Go). The centred row is only FOCUS; a time is booked-selected only through its Select button.
+ * It fills the height its parent gives it, is the only vertical scroller in the sheet, and measures itself.
  */
 export const TimeSlotWheel = memo(function TimeSlotWheel({
   slots: rawSlots, fill = false, selectedSlot, onSelectSlot,
@@ -244,40 +324,56 @@ export const TimeSlotWheel = memo(function TimeSlotWheel({
     () => rawSlots.map((x) => (typeof x === 'string' ? { start: x, state: 'available' as const } : x)),
     [rawSlots],
   );
-  const scrollRef  = useRef<ScrollViewInstance>(null);
-  const lastIdxRef = useRef(0);
-  const [centeredIdx, setCenteredIdx] = useState(0);
+  const scrollRef = useAnimatedRef<Animated.ScrollView>();
+  const scrollY = useSharedValue(0);
+  const lastIdx = useSharedValue(-1);
   const [wheelH, setWheelH] = useState(WHEEL_H);
   const s = useWheelStyles(theme);
   const pad = Math.max(0, (wheelH - ITEM_H) / 2);
   const starts = useMemo(() => slots.map((x) => x.start), [slots]);
 
+  // Feedback: a subtle tick per meaningful centre change caused by the USER's finger; never for refreshes or programmatic scrolls.
+  const gateRef = useRef<FeedbackGate>(newGate());
+  const userDriven = useRef(false);
+  const prefsRef = useRef(getPickerPrefs());
+  useEffect(() => {
+    void loadPickerPrefs().then((p) => { prefsRef.current = p; if (p.sound) warmPickerSound(); });
+    return subscribePickerPrefs((p) => { prefsRef.current = p; if (p.sound) warmPickerSound(); });
+  }, []);
+  const onCentreChange = useCallback((idx: number) => {
+    const d = decideFeedback(gateRef.current, idx, Date.now(), { userDriven: userDriven.current, ...prefsRef.current });
+    gateRef.current = d.gate;
+    if (d.haptic) hapticTick();
+    if (d.sound) soundTick();
+  }, []);
+
+  const scrollToIndex = useCallback((idx: number, animated: boolean) => {
+    userDriven.current = false;
+    gateRef.current = { ...gateRef.current, lastIdx: idx };
+    scrollRef.current?.scrollTo({ y: idx * ITEM_H, animated });
+  }, [scrollRef]);
+
   useEffect(() => {
     if (slots.length === 0) return;
-    // Land on the selection, else the first bookable time, else the top.
+    // Land on the selection, else the first bookable time, else the top. Only when the list or the height changes.
     const sel = selectedSlot ? starts.indexOf(selectedSlot) : -1;
     const firstOpen = slots.findIndex((x) => x.state === 'available');
     const target = sel >= 0 ? sel : Math.max(0, firstOpen);
-    lastIdxRef.current = target;
-    setCenteredIdx(target);
-    const tid = setTimeout(() => {
-      scrollRef.current?.scrollTo({ y: target * ITEM_H, animated: false });
-    }, 60);
+    const tid = setTimeout(() => scrollToIndex(target, false), 60);
     return () => clearTimeout(tid);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slots, wheelH]);
 
-  const handleScroll = useCallback(
-    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const raw = e.nativeEvent.contentOffset.y;
-      const idx = Math.max(0, Math.min(Math.round(raw / ITEM_H), slots.length - 1));
-      if (idx !== lastIdxRef.current) {
-        lastIdxRef.current = idx;
-        setCenteredIdx(idx);
+  const onScroll = useAnimatedScrollHandler({
+    onScroll: (e) => {
+      scrollY.value = e.contentOffset.y;
+      const idx = centeredIndex(e.contentOffset.y, ITEM_H, slots.length);
+      if (idx !== lastIdx.value) {
+        lastIdx.value = idx;
+        scheduleOnRN(onCentreChange, idx);
       }
     },
-    [slots.length],
-  );
+  });
 
   const handleSelect = useCallback(
     (slot: SlotInfo, idx: number) => {
@@ -285,12 +381,11 @@ export const TimeSlotWheel = memo(function TimeSlotWheel({
       const next = slot.start === selectedSlot ? null : slot.start;
       onSelectSlot(next);
       if (next !== null) {
-        lastIdxRef.current = idx;
-        setCenteredIdx(idx);
-        scrollRef.current?.scrollTo({ y: idx * ITEM_H, animated: true });
+        hapticConfirm();
+        scrollToIndex(idx, true);
       }
     },
-    [selectedSlot, onSelectSlot],
+    [selectedSlot, onSelectSlot, scrollToIndex],
   );
 
   return (
@@ -300,99 +395,58 @@ export const TimeSlotWheel = memo(function TimeSlotWheel({
         const h = Math.round(e.nativeEvent.layout.height);
         if (h > 0 && Math.abs(h - wheelH) > 1) setWheelH(h);
       } : undefined}>
-      <ScrollView
+      {/* Fixed centre band: the focus indicator never moves; the drum rolls under it. */}
+      <View pointerEvents="none" style={[s.band, { top: pad, height: ITEM_H }]} />
+      <Animated.ScrollView
         ref={scrollRef}
         testID="time-slot-wheel"
         showsVerticalScrollIndicator={false}
         snapToInterval={ITEM_H}
+        snapToAlignment="start"
         decelerationRate="fast"
         scrollEventThrottle={16}
-        onScroll={handleScroll}
+        onScroll={onScroll}
+        onScrollBeginDrag={() => { userDriven.current = true; }}
+        onMomentumScrollBegin={() => { userDriven.current = true; }}
         nestedScrollEnabled
-        contentContainerStyle={{ paddingVertical: pad }}
-      >
-        {slots.map((slot, i) => {
-          const dist       = Math.abs(i - centeredIdx);
-          const open       = slot.state === 'available';
-          const isCentered = i === centeredIdx;
-          const isSelected = slot.start === selectedSlot;
-          const { scaleY, opacity } = cylT(dist);
-          const wx = open && outdoor && weather ? wxForSlot(slot.start, sheetDate, now, weather) : null;
-
-          return (
-            <View
-              key={slot.start}
-              testID={`wheel-row-${slot.start}`}
-              style={[
-                s.row,
-                { opacity },
-                slot.state === 'reserved' && !slot.mine && s.rowReserved,
-                slot.state === 'reserved' && slot.mine && !slot.pending && s.rowMine,
-                slot.state === 'reserved' && slot.mine && slot.pending && s.rowPending,
-                slot.state === 'blocked' && s.rowBlocked,
-                open && isCentered && s.rowFocused,
-                isSelected && s.rowSelected,
-              ]}
-            >
-              <View style={[s.rowInner, { transform: [{ scaleY }] }]}>
-                <View style={[s.dot, { backgroundColor: open ? Availability.available : slot.state === 'blocked' ? Availability.blocked : slot.mine && slot.pending ? Availability.minePending : slot.mine ? Availability.mine : Availability.reserved }]} />
-                <Text
-                  testID={`wheel-time-${slot.start}`}
-                  style={[s.time, open && isCentered && s.timeFocused, !open && s.timeDisabled]}
-                  numberOfLines={1}
-                >
-                  {fmtSlot(slot.start)}
-                </Text>
-
-                {/* Weather: only for bookable outdoor times, only when real data exists */}
-                {wx ? (
-                  <View style={s.wxArea}>
-                    <WxIcon type={wx.iconType} size={isCentered ? 20 : 18} />
-                    <Text style={[s.temp, isCentered && s.tempFocused]}>{wx.temp}°F</Text>
-                    <Text style={[s.cond, isCentered && s.condFocused]} numberOfLines={1}>
-                      {wx.condition}
-                    </Text>
-                  </View>
-                ) : (
-                  <View style={s.wxSpacer} />
-                )}
-
-                {open ? (
-                  <TouchableOpacity
-                    testID={`wheel-select-${slot.start}`}
-                    style={[s.btn, isSelected && s.btnActive]}
-                    onPress={() => handleSelect(slot, i)}
-                    activeOpacity={0.7}
-                    accessibilityRole="button"
-                    accessibilityLabel={a11yLabel(slot, isSelected)}
-                    accessibilityState={{ selected: isSelected }}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  >
-                    <Text style={[s.btnLabel, isSelected && s.btnLabelActive]}>
-                      {isSelected ? '✓' : 'Select'}
-                    </Text>
-                  </TouchableOpacity>
-                ) : (
-                  <View
-                    testID={`wheel-unavailable-${slot.start}`}
-                    accessible
-                    accessibilityLabel={a11yLabel(slot, false)}
-                    accessibilityState={{ disabled: true }}
-                    style={[s.statePill, slot.state === 'blocked' ? s.statePillBlocked : slot.mine && slot.pending ? s.statePillPending : slot.mine ? s.statePillMine : s.statePillReserved]}
-                  >
-                    <Text style={[s.statePillText, { color: slot.state === 'blocked' ? Availability.blocked : slot.mine && slot.pending ? Availability.minePending : slot.mine ? theme.textPrimary : theme.textMuted }]}>
-                      {slot.state === 'reserved' && slot.mine && slot.pending ? 'Pending' : slot.state === 'reserved' && slot.mine ? 'Yours' : slot.state === 'reserved' && slot.inside === false ? 'Overlaps' : STATE_LABEL[slot.state as 'reserved' | 'blocked' | 'limit']}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </View>
-          );
-        })}
-      </ScrollView>
+        contentContainerStyle={{ paddingVertical: pad }}>
+        {slots.map((slot, i) => (
+          <WheelRow
+            key={slot.start}
+            slot={slot}
+            index={i}
+            scrollY={scrollY}
+            isSelected={slot.start === selectedSlot}
+            wx={slot.state === 'available' && outdoor && weather ? wxForSlot(slot.start, sheetDate, now, weather) : null}
+            theme={theme}
+            s={s}
+            onSelect={handleSelect}
+          />
+        ))}
+      </Animated.ScrollView>
+      {/* Soft top/bottom fade so the wheel reads as continuous, not clipped */}
+      <FadeMask position="top" color={theme.sheetBg} height={Math.max(ITEM_H, pad * 0.9)} />
+      <FadeMask position="bottom" color={theme.sheetBg} height={Math.max(ITEM_H, pad * 0.9)} />
     </View>
   );
 });
+
+function FadeMask({ position, color, height }: { position: 'top' | 'bottom'; color: string; height: number }) {
+  const id = `fade-${position}`;
+  return (
+    <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, height, [position]: 0 }}>
+      <Svg width="100%" height="100%">
+        <Defs>
+          <LinearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={color} stopOpacity={position === 'top' ? 0.95 : 0} />
+            <Stop offset="1" stopColor={color} stopOpacity={position === 'top' ? 0 : 0.95} />
+          </LinearGradient>
+        </Defs>
+        <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${id})`} />
+      </Svg>
+    </View>
+  );
+}
 
 /** Compact legend for the wheel; uses the shared semantic availability colors. */
 export function AvailabilityLegend({ theme }: { theme: ThemeTokens }) {
@@ -439,7 +493,11 @@ function useWheelStyles(theme: ThemeTokens) {
         borderRadius: Radius.sm,
         marginHorizontal: 4,
       },
-      rowFocused: { borderColor: selBlue, backgroundColor: selBlueBg },
+      band: {
+        position: 'absolute', left: 6, right: 6, borderRadius: Radius.sm,
+        backgroundColor: theme.surface2, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth,
+        borderColor: theme.border,
+      },
       rowSelected: { borderColor: selBlue, backgroundColor: selBlueBg },
       rowReserved: { backgroundColor: Availability.reservedBg },
       rowBlocked: { backgroundColor: Availability.blockedBg },
@@ -458,14 +516,11 @@ function useWheelStyles(theme: ThemeTokens) {
         color: theme.textMuted,
         width: 80,
       },
-      timeFocused: { color: theme.textPrimary, fontFamily: FontFamily.manropeBold },
       timeDisabled: { color: theme.textMuted, textDecorationLine: 'line-through' },
       wxArea: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, overflow: 'hidden' },
       wxSpacer: { flex: 1 },
       temp: { fontFamily: FontFamily.manropeSemiBold, fontSize: 13, color: theme.textMuted, minWidth: 34 },
-      tempFocused: { color: Colors.blue },
       cond: { fontFamily: FontFamily.manropeMedium, fontSize: 13, color: theme.textMuted, flexShrink: 1 },
-      condFocused: { color: theme.textSecondary },
       btn: {
         paddingHorizontal: 10,
         paddingVertical: 5,

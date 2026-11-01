@@ -194,9 +194,11 @@ test.describe('static checks of the migrations and wiring', () => {
   test('the Resident app reads availability through the busy-times function, never only the own-rows table', () => {
     const c = readFileSync('src/app/(resident)/courts.tsx', 'utf8');
     expect(c).toMatch(/get_amenity_busy_times/);
-    expect(c).toMatch(/Reservations and requests by other residents can't be shown yet/);
+    // UI polish sprint: shorter wording, same two facts (others' bookings not visible yet; community zone label)
+    expect(c).toMatch(/OTHERS_NOT_SHOWN_NOTE/);
+    expect(readFileSync('src/lib/reservationCopy.ts', 'utf8')).toMatch(/Other residents' bookings aren't shown yet/);
     expect(c).toMatch(/This community's time zone is not set yet/);
-    expect(c).toMatch(/All times shown in/);
+    expect(c).toMatch(/Times in \$\{timeZoneLabel/);
   });
   test('My Reservations pages history on the server and keeps Upcoming complete', () => {
     const m = readFileSync('src/app/my-reservations.tsx', 'utf8');

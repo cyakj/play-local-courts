@@ -126,7 +126,7 @@ test.describe('Reservation ownership, date loading and View Schedule (mocked ava
     // 11:30 starts exactly when my reservation ends: it must exist and must not be labelled "Yours"
     await expect(page.locator('[data-testid="wheel-row-11:30"]')).toHaveCount(1);
     await expect(page.locator('[data-testid="wheel-row-11:30"]')).not.toContainText('Yours');
-    await expect(page.locator('[data-testid="availability-legend"]')).toContainText('My reservation');
+    await expect(page.locator('[data-testid="availability-legend"]').getByLabel('My reservation', { exact: true })).toHaveCount(1);
   });
 
   test('REGRESSION: a date whose reservations fail to load shows an error and retry, never "everything free"', async ({ page }) => {
@@ -151,6 +151,6 @@ test.describe('Reservation ownership, date loading and View Schedule (mocked ava
     await expect(mine).toContainText(/MY RESERVATION|COMPLETED/);
     await expect(mine).toContainText('10:00 AM');
     await expect(mine).toContainText('11:30 AM');
-    await expect(page.locator('[data-testid="schedule-legend"]')).toContainText('My reservation');
+    await expect(page.locator('[data-testid="schedule-legend"]').getByLabel('My reservation', { exact: true })).toHaveCount(1);
   });
 });

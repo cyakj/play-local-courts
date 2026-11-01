@@ -12,8 +12,10 @@ import { useActiveCommunity } from '@/hooks/useActiveCommunity';
 import { createLatestGuard } from '@/lib/latestGuard';
 import {
   AlertTriangle, X, MapPin, Swords, GraduationCap, Calendar,
-  ChevronRight, Sun, Cloud, CloudRain, CloudSnow, Zap, Wrench,
+  ChevronRight, Sun, Cloud, CloudRain, CloudSnow, Zap, Wrench, Activity,
 } from 'lucide-react-native';
+import { fetchAnnouncements, pickPulseAnnouncement, type AnnouncementRow } from '@/lib/announcements';
+import { UrgentDot, CategoryChip } from '@/components/community/AnnouncementMeta';
 import * as Location from 'expo-location';
 
 import { supabase } from '@/lib/supabase';
@@ -68,12 +70,7 @@ interface RecentResult {
   date: string;
 }
 
-interface Announcement {
-  id: string;
-  title: string;
-  body: string;
-  created_at: string;
-}
+type Announcement = AnnouncementRow;
 
 interface UpcomingEvent {
   id: string;
@@ -273,12 +270,9 @@ export default function HomeScreen() {
           .order('start_time', { ascending: true })
           .limit(5) : Promise.resolve({ data: [] }),
 
-        hId ? supabase
-          .from('hoa_announcements')
-          .select('id, title, body, created_at')
-          .eq('hoa_id', hId)
-          .order('created_at', { ascending: false })
-          .limit(2) : Promise.resolve({ data: [] }),
+        // Community Pulse shows exactly ONE announcement: an urgent one first, else the newest. We look at a short window so an
+        // urgent notice that is not the very latest is still found.
+        hId ? fetchAnnouncements(hId, 20) : Promise.resolve({ rows: [] as AnnouncementRow[], error: null }),
 
         hId ? supabase
           .from('bookings')
@@ -340,7 +334,8 @@ export default function HomeScreen() {
         status: r.status,
       })));
 
-      setAnnouncements((announcementsRes.data ?? []) as Announcement[]);
+      const pulse = pickPulseAnnouncement(announcementsRes.rows);
+      setAnnouncements(pulse ? [pulse] : []);
 
       setUpcomingEvents(
         (eventsRes.data ?? []).map((e: any) => ({
@@ -800,20 +795,30 @@ export default function HomeScreen() {
             </View>
           )}
 
-          {/* ── Community Pulse (max 2 — hidden if empty) ──────────────── */}
+          {/* ── Community Pulse (exactly ONE announcement - hidden if none) ── */}
           {!loading && announcements.length > 0 && (
             <View testID="community-pulse-card" style={styles.pulseCard}>
-              <Text testID="community-pulse-label" style={styles.pulseLabel}>COMMUNITY PULSE</Text>
-              {announcements.map((a, i) => (
+              <View style={styles.pulseHeaderRow}>
+                <Activity color={theme.cyanOnLight} size={14} strokeWidth={2} />
+                <Text testID="community-pulse-label" style={styles.pulseLabelStrong}>COMMUNITY PULSE</Text>
+              </View>
+              {announcements.slice(0, 1).map((a) => (
                 <TouchableOpacity
                   key={a.id}
-                  style={[styles.listRow, i < announcements.length - 1 && styles.listRowBorder]}
+                  testID="community-pulse-item"
+                  style={styles.listRow}
                   onPress={() => router.push('/announcements')}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${a.isUrgent ? 'Urgent. ' : ''}${a.title}. Opens announcements`}
                   activeOpacity={0.7}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.pulseTitle} numberOfLines={2}>{a.title}</Text>
+                  <View style={{ flex: 1, gap: 6, minWidth: 0 }}>
+                    <View style={styles.pulseTitleRow}>
+                      {a.isUrgent ? <UrgentDot testID="community-pulse-urgent-dot" /> : null}
+                      <Text style={[styles.pulseTitle, styles.pulseTitleStrong]} numberOfLines={2}>{a.title}</Text>
+                    </View>
+                    <CategoryChip category={a.category} theme={theme} />
                   </View>
-                  <ChevronRight color={Colors.fg3} size={16} strokeWidth={1.5} />
+                  <ChevronRight color={theme.textMuted} size={16} strokeWidth={1.5} />
                 </TouchableOpacity>
               ))}
             </View>
@@ -1106,6 +1111,16 @@ function useStyles(theme: ThemeTokens) {
       color: theme.textSecondary,
       lineHeight: 22,
     },
+    // Community Pulse heading: full-contrast, semibold, with a small pulse icon (no reduced opacity).
+    pulseHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
+    pulseLabelStrong: {
+      fontFamily: FontFamily.jetbrainsMonoSemiBold,
+      fontSize: FontSize.eyebrow,
+      color: theme.textPrimary,
+      letterSpacing: 1.8,
+    },
+    pulseTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    pulseTitleStrong: { flex: 1, fontFamily: FontFamily.manropeSemiBold, color: theme.textPrimary },
 
     eventTypeBadge: {
       backgroundColor: theme.surface2,

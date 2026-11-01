@@ -231,7 +231,7 @@ export default function MyReservationsScreen() {
 
           <View style={styles.cardBody}>
             <View style={styles.cardTitleRow}>
-              <Text style={[styles.cardCourt, !up && { color: theme.textMuted }]} numberOfLines={1}>{b.courtName}</Text>
+              <Text style={[styles.cardCourt, !up && { color: theme.textMuted }]} numberOfLines={2}>{b.courtName}</Text>
               <ReservationStatusPill status={b.status} date={b.date} start_time={b.start_time} end_time={b.end_time} now={now} timeZone={timeZone} />
             </View>
             <Text style={styles.cardTime} numberOfLines={1}>
@@ -243,7 +243,9 @@ export default function MyReservationsScreen() {
               </Text>
             ) : null}
           </View>
-          <ChevronRight color={theme.textMuted} size={18} strokeWidth={1.75} />
+          <View style={styles.chevronSlot} testID="reservation-chevron">
+            <ChevronRight color={theme.textMuted} size={18} strokeWidth={1.75} />
+          </View>
         </View>
 
         {up && (cancel.canCancel || cancel.reason) && (
@@ -352,10 +354,15 @@ function useStyles(theme: ThemeTokens) {
     dateDayNum:  { fontFamily: FontFamily.spaceGroteskBold, fontSize: 22, lineHeight: 26 },
     dateTextUpcoming: { color: Colors.white },
     dateTextPast:     { color: theme.textMuted },
-    cardBody: { flex: 1, gap: 2 },
-    cardTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+    // minWidth: 0 lets the body shrink below its content width, so a long name or badge wraps instead of pushing into the chevron.
+    cardBody: { flex: 1, minWidth: 0, gap: 4 },
+    // Title and status badge share a row when they fit and the badge drops under the title when they do not: never overlapping.
+    cardTitleRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 8, rowGap: 6 },
+    // A dedicated, never-shrinking slot for the chevron (44pt tall for comfortable touch, the whole card is the tap target).
+    chevronSlot: { width: 20, flexShrink: 0, alignSelf: 'stretch', alignItems: 'flex-end', justifyContent: 'center' },
     cardWhen: { fontFamily: FontFamily.manropeBold, color: theme.cyanOnLight },
     cardCourt: {
+      flexShrink: 1,
       fontFamily: FontFamily.spaceGroteskBold,
       fontSize: FontSize.cardTitle,
       color: theme.textPrimary,

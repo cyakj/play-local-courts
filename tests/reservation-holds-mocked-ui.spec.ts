@@ -50,14 +50,14 @@ test.describe('Pending requests hold the time (mocked availability)', () => {
     // both are disabled rows: no Select button for them
     await expect(page.locator('[data-testid="wheel-select-10:00"]')).toHaveCount(0);
     await expect(page.locator('[data-testid="wheel-select-14:00"]')).toHaveCount(0);
-    await expect(page.locator('[data-testid="availability-legend"]')).not.toContainText("can't be shown yet");
+    await expect(page.locator('[data-testid="availability-legend"]')).not.toContainText("aren't shown yet");
   });
 
   test('a server without the busy-times function says other reservations cannot be shown (never "everything free" silently)', async ({ page }) => {
     await page.route(/\/rest\/v1\/rpc\/get_amenity_busy_times/, (route) =>
       route.fulfill(json({ code: 'PGRST202', message: 'Could not find the function public.get_amenity_busy_times in the schema cache' }, 404)));
     await openTomorrow(page);
-    await expect(page.locator('[data-testid="availability-legend"]')).toContainText("can't be shown yet", { timeout: 20000 });
+    await expect(page.locator('[data-testid="availability-legend"]')).toContainText("aren't shown yet", { timeout: 20000 });
   });
 
   test('a taken-moments-ago insert shows the plain "just taken" message', async ({ page }) => {

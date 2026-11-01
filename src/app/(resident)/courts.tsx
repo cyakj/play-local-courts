@@ -32,6 +32,7 @@ import { communityMinutesNow, communityToday } from '@/lib/communityTime';
 import { communityDate, currentWindowStartDate, ownLabel, reservationKind, selectCurrentReservations, toSlotReservation } from '@/lib/reservationState';
 import { ReservationBadge } from '@/components/ui/ReservationBadge';
 import { ReservationLegend } from '@/components/ui/ReservationLegend';
+import { approvalNotice, availableToBookLine, OTHERS_NOT_SHOWN_NOTE } from '@/lib/reservationCopy';
 import { useNow } from '@/hooks/useNow';
 import { useCommunityTimeZone } from '@/hooks/useActiveCommunity';
 import { db } from '@/lib/untypedDb';
@@ -140,11 +141,6 @@ type TopLevelTab = 'hoa' | 'other';
 /** "Times outside 7 AM - 9 PM are not offered" - closed hours are not 'blocked'. */
 function minsToHHMM(m: number): string {
   return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
-}
-
-function hoursNoteFor(rules: AmenityRules | null): string | null {
-  if (!rules?.booking_start_time || !rules?.booking_end_time) return null;
-  return `Open for booking ${formatTime(rules.booking_start_time)} - ${formatTime(rules.booking_end_time)}. Times outside these hours are not offered.`;
 }
 
 function formatTime(t: string): string {
@@ -1116,7 +1112,7 @@ const BookingSheet = memo(function BookingSheet({
   const styles = useStyles(theme);
   const { timeZone: tz, unset: tzUnset0, unavailable: tzUnavailable } = useCommunityTimeZone();
   const tzUnset = tzUnset0 || tzUnavailable;
-  const tzNote = !tzUnset && deviceZoneDiffers(tz, now) ? `All times shown in ${timeZoneLabel(tz, now)} (the community's local time).` : null;
+  const tzNote = !tzUnset && deviceZoneDiffers(tz, now) ? `Times in ${timeZoneLabel(tz, now)}` : null;
   const outdoor = isOutdoor(courtType);
   const [showCalendar, setShowCalendar] = useState(false);
   // Sheet height comes from the window, never from a device constant. Normal phones/desktop: fixed top, a flexible
@@ -1243,18 +1239,13 @@ const BookingSheet = memo(function BookingSheet({
                   </Text>
                 </TouchableOpacity>
               ))}
+              <Text testID="duration-info" style={styles.durationInlineText}>{duration} min</Text>
             </View>
           )}
 
           {/* Duration: informational for tennis, selector for non-tennis (hidden when calendar open) */}
           {!showCalendar && (
-            isTennis ? (
-              <View testID="duration-info" style={styles.durationInfoRow}>
-                <Text style={styles.durationInfoText}>
-                  {playType === 'singles' ? 'Singles' : 'Doubles'} · {duration} min
-                </Text>
-              </View>
-            ) : availableDurations.length > 1 ? (
+            isTennis ? null : availableDurations.length > 1 ? (
               <View testID="duration-selector" style={styles.durationRow}>
                 {availableDurations.map(d => (
                   <TouchableOpacity
@@ -1273,7 +1264,7 @@ const BookingSheet = memo(function BookingSheet({
           )}
 
           {/* Flexible middle: the wheel (or the date calendar) takes all remaining height */}
-          <View testID="sheet-middle" style={constrained ? { height: 52 * 3 + 56 } : { flex: 1, minHeight: 0 }}>
+          <View testID="sheet-middle" style={constrained ? { height: 44 * 6 + 24 } : { flex: 1, minHeight: 0 }}>
             {showCalendar ? (
               <ScrollView showsVerticalScrollIndicator={false}>
                 <CalendarPicker
@@ -1325,7 +1316,7 @@ const BookingSheet = memo(function BookingSheet({
                   now={now}
                   theme={theme}
                 />
-                <ReservationLegend theme={theme} variant="picker" hoursNote={[degraded ? "Reservations and requests by other residents can't be shown yet, so a time may already be taken." : null, tzNote, hoursNoteFor(rules)].filter(Boolean).join(' ') || null} />
+                <ReservationLegend theme={theme} variant="picker" hoursNote={[degraded ? OTHERS_NOT_SHOWN_NOTE : null, availableToBookLine(rules), tzNote].filter(Boolean).join(' · ') || null} />
               </>
             )}
           </View>
@@ -1358,9 +1349,9 @@ const BookingSheet = memo(function BookingSheet({
             {!!bookingError && (
               <Text testID="booking-error" style={styles.bookingErrorText}>{bookingError}</Text>
             )}
-            {!!rules?.requires_admin_approval && !success && (
+            {!success && !!approvalNotice(!!rules?.requires_admin_approval, !degraded) && (
               <Text testID="booking-approval-notice" style={styles.approvalNoticeText}>
-                This amenity needs administrator approval. Your request will be pending (not confirmed), and the time is held for you while it waits.
+                {approvalNotice(!!rules?.requires_admin_approval, !degraded)}
               </Text>
             )}
             <TouchableOpacity testID="confirm-booking-btn"
@@ -1391,7 +1382,7 @@ function ScheduleSheet({ courtName, courtType, now, scheduleDate, onDateChange, 
   const { theme } = useTheme();
   const styles = useStyles(theme);
   const { timeZone: tz } = useCommunityTimeZone();
-  const tzNote = deviceZoneDiffers(tz, now) ? `All times shown in ${timeZoneLabel(tz, now)} (the community's local time).` : null;
+  const tzNote = deviceZoneDiffers(tz, now) ? `Times in ${timeZoneLabel(tz, now)}` : null;
   const [showSchedCalendar, setShowSchedCalendar] = useState(false);
 
   // Schedule calendar: 2 years back, advance_booking_days forward
@@ -1533,7 +1524,7 @@ function ScheduleSheet({ courtName, courtType, now, scheduleDate, onDateChange, 
                   );
                 })}
               </View>
-              <ReservationLegend theme={theme} variant="schedule" hoursNote={[degraded ? "Reservations and requests by other residents can't be shown yet, so a time may already be taken." : null, tzNote, hoursNoteFor(rules)].filter(Boolean).join(' ') || null} />
+              <ReservationLegend theme={theme} variant="schedule" hoursNote={[degraded ? OTHERS_NOT_SHOWN_NOTE : null, availableToBookLine(rules), tzNote].filter(Boolean).join(' · ') || null} />
             </ScrollView>
             </>
           ))}
@@ -1643,6 +1634,7 @@ function useStyles(theme: ThemeTokens) {
   playTypeTextActive: { color: Colors.white },
 
   // Duration
+  durationInlineText: { marginLeft: 'auto' as const, fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: 12, color: theme.textMuted, letterSpacing: 0.6 },
   durationInfoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: theme.surface2, borderRadius: Radius.sm, borderWidth: 1, borderColor: theme.border },
   durationInfoText: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: 12, color: theme.cyanOnLight, letterSpacing: 0.8 },
   durationRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },

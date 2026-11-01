@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { Redirect, router } from 'expo-router';
 import { useSession } from '@/context/NativeAuthContext';
 import { Bell, ChevronRight, LifeBuoy, Lock, Moon, Shield, Sun } from 'lucide-react-native';
@@ -11,6 +11,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { Header } from '@/components/ui/Header';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 import { isCMRoutable, isCoachRoutable } from '@/lib/roleRouting';
+import { getPickerPrefs, loadPickerPrefs, setPickerPrefs, subscribePickerPrefs, warmPickerSound } from '@/lib/pickerFeedbackRuntime';
 
 const SETTINGS_LINKS = [
   { icon: Bell,     label: 'Notifications', desc: 'Manage alert preferences',    route: '/settings-notifications' },
@@ -23,6 +24,11 @@ export default function SettingsScreen() {
   const { session, loading } = useSession();
   const { mode, theme, setTheme } = useTheme();
   const [signOutError, setSignOutError] = useState('');
+  const [picker, setPicker] = useState(getPickerPrefs());
+  useEffect(() => {
+    void loadPickerPrefs().then(setPicker);
+    return subscribePickerPrefs(setPicker);
+  }, []);
 
   if (loading) return null;
   if (!session) return <Redirect href="/(auth)/login" />;
@@ -77,6 +83,26 @@ export default function SettingsScreen() {
                   Dark
                 </Text>
               </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Picker feedback: haptic tick (on by default) and optional sound (off by default) for the time wheel */}
+          <Text style={[styles.sectionLabel, { color: theme.textMuted, marginTop: 28 }]}>TIME PICKER FEEDBACK</Text>
+          <View style={[styles.card, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
+            <View style={styles.linkRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.linkLabel, { color: theme.textPrimary }]}>Haptics</Text>
+                <Text style={[styles.linkDesc, { color: theme.textMuted }]}>A light tick as the time wheel moves</Text>
+              </View>
+              <Switch testID="picker-haptics-switch" accessibilityLabel="Time picker haptics" value={picker.haptics} onValueChange={(v) => { void setPickerPrefs({ haptics: v }); }} />
+            </View>
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+            <View style={styles.linkRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.linkLabel, { color: theme.textPrimary }]}>Sound</Text>
+                <Text style={[styles.linkDesc, { color: theme.textMuted }]}>A soft tick. Silent when your iPhone is on silent.</Text>
+              </View>
+              <Switch testID="picker-sound-switch" accessibilityLabel="Time picker sound" value={picker.sound} onValueChange={(v) => { if (v) warmPickerSound(); void setPickerPrefs({ sound: v }); }} />
             </View>
           </View>
 
