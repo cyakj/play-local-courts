@@ -11,7 +11,8 @@ import { supabase } from '@/lib/supabase';
 import { errorMessage } from '@/lib/errors';
 import { db } from '@/lib/untypedDb';
 import { platformAlert } from '@/lib/platformAlert';
-import { communityToday } from '@/lib/communityTime';
+import { communityMinutesNow, communityToday } from '@/lib/communityTime';
+import { useHoaTimeZone } from '@/hooks/useHoaTimeZone';
 import { formatDateFull } from '@/lib/format';
 import {
   buildSlots, formatMinutes, isSelectable, minutesToTime, SLOT_STATE_LABEL, selectionRange, toMinutes,
@@ -79,7 +80,9 @@ function friendlyRpcError(e: { message: string; code?: string }): string {
 
 export function AmenityScheduleSheet({ visible, onClose, court, openTime, closeTime, onChanged }: Props) {
   const insets = useSafeAreaInsets();
-  const today = communityToday();
+  // Every time on this sheet is in the amenity's own HOA zone (not Puerto Rico, not the phone's).
+  const { timeZone: tz } = useHoaTimeZone(court?.hoa_id);
+  const today = communityToday(new Date(), tz);
   const [date, setDate] = useState(today);
   const [step, setStep] = useState<Step>('schedule');
   const [loading, setLoading] = useState(false);
@@ -116,13 +119,9 @@ export function AmenityScheduleSheet({ visible, onClose, court, openTime, closeT
   const openMin = openTime ? toMinutes(openTime) : 6 * 60;
   const closeMin = closeTime ? toMinutes(closeTime) : 22 * 60;
 
-  const nowMinutes = useMemo(() => {
-    const parts = new Intl.DateTimeFormat('en-US', {
-      timeZone: 'America/Puerto_Rico', hourCycle: 'h23', hour: '2-digit', minute: '2-digit',
-    }).formatToParts(new Date());
-    return Number(parts.find((p) => p.type === 'hour')?.value ?? 0) * 60 + Number(parts.find((p) => p.type === 'minute')?.value ?? 0);
+  const nowMinutes = useMemo(() => communityMinutesNow(new Date(), tz),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, visible, bookings, blockouts]);
+    [date, visible, bookings, blockouts, tz]);
 
   const slots: Slot[] = useMemo(
     () => buildSlots({ date, today, nowMinutes, openMin, closeMin, bookings, blockouts }),
@@ -173,7 +172,7 @@ export function AmenityScheduleSheet({ visible, onClose, court, openTime, closeT
   // Reset when (re)opened for an amenity.
   useEffect(() => {
     if (!visible) return;
-    setStep('schedule'); setSelected(new Set()); setBanner(null); setDate(communityToday());
+    setStep('schedule'); setSelected(new Set()); setBanner(null); setDate(communityToday(new Date(), tz));
   }, [visible, courtId]);
 
   // Keep the grid honest if a resident books/cancels (or another admin blocks) while it is open.

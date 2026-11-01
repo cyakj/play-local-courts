@@ -18,7 +18,7 @@ export function statusDisplay(status: string, communityName?: string): StatusDis
     case 'pending':
       return {
         label: 'Pending approval',
-        description: `This amenity requires approval. Your request is waiting for ${by}. The time is not held for you until it is approved.`,
+        description: `This amenity requires approval. Your request is waiting for ${by}. It is not confirmed yet, but the time is held for you while it waits. It is released if the request is declined or cancelled, or if it is not approved before the start time.`,
         tone: 'warning',
       };
     case 'confirmed':
@@ -27,6 +27,8 @@ export function statusDisplay(status: string, communityName?: string): StatusDis
       return { label: 'Declined', description: `${by.charAt(0).toUpperCase()}${by.slice(1)} declined this request.`, tone: 'negative' };
     case 'cancelled':
       return { label: 'Cancelled', description: 'This reservation was cancelled.', tone: 'muted' };
+    case 'expired':
+      return { label: 'Request expired', description: 'This request was not approved before its start time, so it expired and the time was released.', tone: 'muted' };
     default:
       return { label: status, description: '', tone: 'muted' };
   }
@@ -51,11 +53,12 @@ export function cancellationState(input: {
   startTime: string;
   minHours: number;
   now?: Date;
+  timeZone?: string;
 }): CancellationState {
-  const { status, date, startTime, minHours, now } = input;
+  const { status, date, startTime, minHours, now, timeZone } = input;
   if (status !== 'pending' && status !== 'confirmed') return { canCancel: false };
 
-  const hours = hoursUntilStart(date, startTime, now);
+  const hours = hoursUntilStart(date, startTime, now, timeZone);
   if (hours <= 0) {
     return { canCancel: false, reason: 'This reservation has already started, so it can no longer be cancelled.', short: 'Started' };
   }
@@ -113,11 +116,11 @@ export function durationLabel(start: string, end: string): string {
 export function kindDescription(kind: ReservationKind, communityName?: string): string {
   const by = communityName ? `${communityName}'s administrator` : 'your community administrator';
   switch (kind) {
-    case 'pending': return `This amenity requires approval. Your request is waiting for ${by}. It is NOT confirmed, and the time is not held for you until it is approved.`;
+    case 'pending': return `This amenity requires approval. Your request is waiting for ${by}. It is NOT confirmed yet, but the time is held for you while it waits. It is released if the request is declined or cancelled, or if it is not approved before the start time.`;
     case 'confirmed': return 'Your reservation is confirmed.';
     case 'in_progress': return 'Your reservation is happening now.';
     case 'completed': return 'This reservation has ended.';
-    case 'request_expired': return 'This request was never approved before its time passed.';
+    case 'request_expired': return 'This request was not approved before its start time, so it expired and the time was released.';
     case 'rejected': return `${by.charAt(0).toUpperCase()}${by.slice(1)} declined this request.`;
     case 'cancelled': return 'This reservation was cancelled.';
     default: return '';

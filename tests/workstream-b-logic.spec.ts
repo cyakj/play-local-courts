@@ -67,7 +67,7 @@ test.describe('V1-012 unavailable slots stay visible but disabled', () => {
   });
   test('slot list comes from the pure computeSlots with reservations and blocks kept separate', () => {
     expect(courts).toMatch(/return computeSlots\(\{/);
-    expect(courts).toMatch(/toSlotReservation\(b, dateStr, userId, freshNow\)/);
+    expect(courts).toMatch(/toSlotReservation\(b, dateStr, userId, freshNow, tz\)/);
     expect(courts).not.toMatch(/if \(!hasConflict\) slots\.push/);
   });
   test('a wheel selection of a reserved/blocked time is impossible (selectable check shared with the pure module)', () => {
@@ -118,7 +118,7 @@ test.describe('booking confirmation safeguards', () => {
   test('B-003: only confirmed + pending bookings occupy time or count (rejected/cancelled do not) in every booking query', () => {
     expect(courts).toMatch(/const ACTIVE_BOOKING_STATUSES = \['confirmed', 'pending'\]/);
     expect(courts).not.toMatch(/neq\('status', 'cancelled'\)/);
-    expect((courts.match(/in\('status', ACTIVE_BOOKING_STATUSES\)/g) ?? []).length).toBeGreaterThanOrEqual(3);
+    expect((courts.match(/in\('status', ACTIVE_BOOKING_STATUSES\)/g) ?? []).length).toBeGreaterThanOrEqual(2); // own-bookings load + the pre-migration fallback; others' holds come from get_amenity_busy_times
   });
   test('B-004: booking cache is merged per court and completeness is tracked per (date, court)', () => {
     expect(courts).toMatch(/fetchedBookings = useRef\(new Map<string, number>\(\)\)/);

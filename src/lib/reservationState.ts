@@ -2,16 +2,16 @@
 //
 // Three independent dimensions are kept apart so no screen has to re-derive them:
 //   * ownership   - whose it is (callers know this; a reservation can be yours and still be over)
-//   * approval    - the stored `bookings.status`: pending | confirmed | rejected | cancelled
+//   * approval    - the stored `bookings.status`: pending | confirmed | rejected | cancelled | expired (after migration 20261031110000)
 //   * time phase  - DERIVED from the community clock: upcoming | in_progress | ended
 // "In progress" and "completed" are never stored; they come from the end timestamp.
 //
 // `bookings.date/start_time/end_time` are zone-less community wall-clock values (see communityTime.ts), so every
 // comparison is made against "now at the community", never against UTC or the phone's own clock.
 import type { TimeRange } from '@/lib/slotAvailability';
-import { COMMUNITY_TIME_ZONE, communityNowMs, communityToday, wallClockMs } from '@/lib/communityTime';
+import { COMMUNITY_TIME_ZONE, communityMinutesNow, communityNowMs, communityToday, wallClockMs } from '@/lib/communityTime';
 
-export type ApprovalStatus = 'pending' | 'confirmed' | 'rejected' | 'cancelled';
+export type ApprovalStatus = 'pending' | 'confirmed' | 'rejected' | 'cancelled' | 'expired';
 export type TimePhase = 'upcoming' | 'in_progress' | 'ended';
 
 export type ReservationKind =
@@ -49,7 +49,10 @@ export function reservationKind(r: ReservationLike, now: Date = new Date(), time
   const phase = timePhase(r, now, timeZone);
   switch (r.status) {
     case 'confirmed': return phase === 'ended' ? 'completed' : phase === 'in_progress' ? 'in_progress' : 'confirmed';
-    case 'pending': return phase === 'ended' ? 'request_expired' : 'pending';
+    // A pending request expires at its START (V1 rule, enforced by the database): once the start has passed it is expired,
+    // never "pending" and never "in progress".
+    case 'pending': return phase === 'upcoming' ? 'pending' : 'request_expired';
+    case 'expired': return 'request_expired';
     case 'rejected': return 'rejected';
     case 'cancelled': return 'cancelled';
     default: return 'unknown';
@@ -117,7 +120,9 @@ export function toSlotReservation(
   timeZone = COMMUNITY_TIME_ZONE,
 ): TimeRange {
   const own = !!userId && b.user_id === userId;
-  const ended = timePhase({ date, start_time: b.start_time, end_time: b.end_time }, now, timeZone) === 'ended';
+  const phase = timePhase({ date, start_time: b.start_time, end_time: b.end_time }, now, timeZone);
+  // A pending request holds its time only until its start (then it expires); a confirmed one until its end.
+  const ended = b.status === 'expired' || (b.status === 'pending' ? phase !== 'upcoming' : phase === 'ended');
   return { start_time: b.start_time, end_time: b.end_time, isMine: own && !ended, pending: b.status === 'pending', ended, ownForCap: own };
 }
 
@@ -135,4 +140,25 @@ export function ownLabel(kind: ReservationKind): string {
     case 'in_progress': return 'My reservation - in progress';
     default: return reservationBadge(kind).label;
   }
+}
+
+/**
+ * PostgREST `or=` filter that keeps only CURRENT reservations on the server, so a resident's next booking can never be pushed
+ * out of the first page by old rows: confirmed rows whose END is still ahead, pending rows whose START is still ahead
+ * (a pending request expires at its start). Use together with `.gte('date', today)`; the client re-checks with
+ * isCurrentReservation. Community date and time come from the HOA's zone.
+ */
+export function currentBookingsFilter(now: Date = new Date(), timeZone = COMMUNITY_TIME_ZONE): { today: string; or: string } {
+  const today = communityToday(now, timeZone);
+  const mins = communityMinutesNow(now, timeZone);
+  const t = `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}:00`;
+  return {
+    today,
+    or: [
+      `and(status.eq.confirmed,date.gt.${today})`,
+      `and(status.eq.confirmed,date.eq.${today},end_time.gt.${t})`,
+      `and(status.eq.pending,date.gt.${today})`,
+      `and(status.eq.pending,date.eq.${today},start_time.gt.${t})`,
+    ].join(','),
+  };
 }

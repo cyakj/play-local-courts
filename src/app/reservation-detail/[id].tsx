@@ -14,6 +14,8 @@ import type { ThemeTokens } from '@/constants/theme-tokens';
 import { cancellationState, formatLongDate, formatTime12, kindDescription } from '@/lib/reservations';
 import { reservationKind } from '@/lib/reservationState';
 import { useNow } from '@/hooks/useNow';
+import { db } from '@/lib/untypedDb';
+import { COMMUNITY_TIME_ZONE, deviceZoneDiffers, isValidTimeZone, timeZoneLabel } from '@/lib/communityTime';
 
 interface Detail {
   id: string;
@@ -29,6 +31,8 @@ interface Detail {
   requiresApproval: boolean;
   cancellationReason: string | null;
   cancelledBy: string | null;
+  /** IANA zone of the HOA that owns the amenity; every time on this screen is in it. */
+  timeZone: string;
 }
 
 export default function ReservationDetailScreen() {
@@ -60,6 +64,10 @@ export default function ReservationDetailScreen() {
       .maybeSingle();
 
     const court: any = (b as any).courts;
+    // The HOA's own zone (tolerant: before migration 20261031100000 the column does not exist -> legacy Puerto Rico).
+    const tzRes = court?.hoa_id ? await db.from('hoas').select('timezone').eq('id', court.hoa_id).maybeSingle() : { data: null, error: null };
+    const tzRaw = (tzRes.data as { timezone?: string | null } | null)?.timezone;
+    const timeZone = !tzRes.error && isValidTimeZone(tzRaw) ? tzRaw : COMMUNITY_TIME_ZONE;
     setDetail({
       id: b.id,
       date: b.date,
@@ -74,6 +82,7 @@ export default function ReservationDetailScreen() {
       requiresApproval: !!rule?.requires_admin_approval,
       cancellationReason: (b as any).cancellation_reason ?? null,
       cancelledBy: (b as any).cancelled_by ?? null,
+      timeZone,
     });
     setLoading(false);
   }, [id]);
@@ -89,6 +98,7 @@ export default function ReservationDetailScreen() {
         startTime: detail.start_time,
         minHours: detail.minCancellationHours ?? 0,
         now,
+        timeZone: detail.timeZone,
       })
     : { canCancel: false };
 
@@ -128,7 +138,7 @@ export default function ReservationDetailScreen() {
     ]);
   }
 
-  const kind = detail ? reservationKind(detail, now) : null;
+  const kind = detail ? reservationKind(detail, now, detail.timeZone) : null;
   const display = detail && kind ? { description: kindDescription(kind, detail.communityName ?? undefined) } : null;
 
   return (
@@ -148,7 +158,7 @@ export default function ReservationDetailScreen() {
             <>
               <View style={styles.heroCard}>
                 <Text testID="reservation-court" style={styles.title} numberOfLines={2}>{detail.courtName}</Text>
-                <View style={{ marginTop: 10 }}><ReservationStatusPill status={detail.status} date={detail.date} start_time={detail.start_time} end_time={detail.end_time} now={now} /></View>
+                <View style={{ marginTop: 10 }}><ReservationStatusPill status={detail.status} date={detail.date} start_time={detail.start_time} end_time={detail.end_time} now={now} timeZone={detail.timeZone} /></View>
                 <Text testID="reservation-status-description" style={[styles.body, { marginTop: 12 }]}>
                   {display.description}
                 </Text>
@@ -162,7 +172,7 @@ export default function ReservationDetailScreen() {
               <View style={styles.card}>
                 <Row styles={styles} theme={theme} icon={CalendarDays} label="Date" value={formatLongDate(detail.date)} />
                 <Row styles={styles} theme={theme} icon={Clock} label="Time"
-                  value={`${formatTime12(detail.start_time)} – ${formatTime12(detail.end_time)}`} />
+                  value={`${formatTime12(detail.start_time)} – ${formatTime12(detail.end_time)}${deviceZoneDiffers(detail.timeZone, now) ? ` (${timeZoneLabel(detail.timeZone, now)})` : ''}`} />
                 {detail.communityName && (
                   <Row styles={styles} theme={theme} icon={MapPin} label="Community" value={detail.communityName} />
                 )}

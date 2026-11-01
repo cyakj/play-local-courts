@@ -33,6 +33,9 @@ import { communityDate, currentWindowStartDate, ownLabel, reservationKind, selec
 import { ReservationBadge } from '@/components/ui/ReservationBadge';
 import { ReservationLegend } from '@/components/ui/ReservationLegend';
 import { useNow } from '@/hooks/useNow';
+import { useCommunityTimeZone } from '@/hooks/useActiveCommunity';
+import { db } from '@/lib/untypedDb';
+import { deviceZoneDiffers, timeZoneLabel } from '@/lib/communityTime';
 import { RequestLedger } from '@/lib/requestLedger';
 import { gateAvailability } from '@/lib/availabilityGate';
 import { computeSlots, isSelectable, revalidateSelection, toDateKey, toMins, type SlotInfo } from '@/lib/slotAvailability';
@@ -204,11 +207,29 @@ function getSlotWeatherIcon(hour: number, selectedDate: Date, now: Date, weather
   return 'sun';
 }
 
-function computeCourtStatus(courtId: string, now: Date, bookingsByDate: Record<string, TodayBooking[]>): CourtStatus {
+/**
+ * What is taken on a date. Residents can only READ their own bookings through the table (RLS), so other residents' holds come
+ * from get_amenity_busy_times (migration 20261031110000): intervals + status, never user ids. If that function does not exist
+ * yet (migration not applied) we fall back to the resident's own bookings and say so - never "everything is free".
+ */
+async function loadBusyTimes(ids: string[], dateStr: string, userId: string): Promise<{ data: TodayBooking[]; error: { message: string } | null; degraded: boolean }> {
+  const rpc = await db.rpc('get_amenity_busy_times', { p_court_ids: ids, p_date: dateStr });
+  if (!rpc.error) {
+    const rows = (rpc.data ?? []) as Array<{ court_id: string; start_time: string; end_time: string; status: string; is_mine: boolean }>;
+    return { error: null, degraded: false, data: rows.map(r => ({ court_id: r.court_id, start_time: r.start_time, end_time: r.end_time, status: r.status, user_id: r.is_mine ? userId : 'another-resident' })) };
+  }
+  if (rpc.error.code === 'PGRST202' || rpc.error.code === '42883' || /could not find the function/i.test(rpc.error.message ?? '')) {
+    const own = await supabase.from('bookings').select('court_id, start_time, end_time, user_id, status').in('court_id', ids).eq('date', dateStr).in('status', ACTIVE_BOOKING_STATUSES);
+    return { error: own.error ? { message: own.error.message } : null, degraded: true, data: (own.data ?? []) as TodayBooking[] };
+  }
+  return { error: { message: rpc.error.message }, degraded: false, data: [] };
+}
+
+function computeCourtStatus(courtId: string, now: Date, bookingsByDate: Record<string, TodayBooking[]>, tz: string): CourtStatus {
   // Community clock, not the phone's. Only reservations that are not over occupy time.
-  const dateStr = communityToday(now);
-  const nowMinsC = communityMinutesNow(now);
-  const bookings = (bookingsByDate[dateStr] ?? []).filter(b => b.court_id === courtId && !toSlotReservation(b, dateStr, null, now).ended);
+  const dateStr = communityToday(now, tz);
+  const nowMinsC = communityMinutesNow(now, tz);
+  const bookings = (bookingsByDate[dateStr] ?? []).filter(b => b.court_id === courtId && !toSlotReservation(b, dateStr, null, now, tz).ended);
   const nowStr = `${Math.floor(nowMinsC / 60).toString().padStart(2, '0')}:${(nowMinsC % 60).toString().padStart(2, '0')}:00`;
 
   const active = bookings.find(b => b.start_time <= nowStr && b.end_time > nowStr);
@@ -285,6 +306,7 @@ function WeatherIcon({ type, color, size }: { type: 'sun' | 'cloud' | 'rain' | '
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function CourtsScreen() {
+  const { timeZone: tz, unset: tzUnset } = useCommunityTimeZone();
   const scrollRef = useScrollToTopOnTabEnter('courts');
   const { theme } = useTheme();
   const styles = useStyles(theme);
@@ -311,7 +333,7 @@ export default function CourtsScreen() {
 
   // ── Booking sheet state ──────────────────────────────────────────────────────
   const [bookingSheet, setBookingSheet] = useState<{ courtId: string; courtName: string; courtType: string } | null>(null);
-  const [sheetDate, setSheetDate] = useState<Date>(() => communityDate());
+  const [sheetDate, setSheetDate] = useState<Date>(() => communityDate(new Date(), tz));
   const [sheetRules, setSheetRules] = useState<AmenityRules | null>(null);
   const [sheetRulesLoading, setSheetRulesLoading] = useState(false);
   const [sheetPlayType, setSheetPlayType] = useState<'singles' | 'doubles'>('singles');
@@ -333,7 +355,7 @@ export default function CourtsScreen() {
     setScheduleSheet(null);
     setSheetSelectedSlot(null);
   }, [activeCommunity?.hoaId]);
-  const [scheduleDate, setScheduleDate] = useState<Date>(() => communityDate());
+  const [scheduleDate, setScheduleDate] = useState<Date>(() => communityDate(new Date(), tz));
   const [maintenanceBlocks, setMaintenanceBlocks] = useState<MaintenanceBlock[]>([]);
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [scheduleRules, setScheduleRules] = useState<AmenityRules | null>(null);
@@ -380,7 +402,7 @@ export default function CourtsScreen() {
       const loadOwnBookings = async () => {
         const rows: unknown[] = [];
         for (let from = 0; from < 1000; from += 100) {
-          const page = await supabase.from('bookings').select('id, court_id, date, start_time, end_time, status, courts!inner(name, hoa_id)').eq('user_id', user.id).in('courts.hoa_id', activeCommunity ? [activeCommunity.hoaId] : hoaIds).gte('date', currentWindowStartDate(now)).in('status', ACTIVE_BOOKING_STATUSES).order('date').order('start_time').range(from, from + 99);
+          const page = await supabase.from('bookings').select('id, court_id, date, start_time, end_time, status, courts!inner(name, hoa_id)').eq('user_id', user.id).in('courts.hoa_id', activeCommunity ? [activeCommunity.hoaId] : hoaIds).gte('date', currentWindowStartDate(now, tz)).in('status', ACTIVE_BOOKING_STATUSES).order('date').order('start_time').range(from, from + 99);
           if (page.error) return { data: rows.length ? rows : null, error: page.error };
           rows.push(...(page.data ?? []));
           if ((page.data ?? []).length < 100) break;
@@ -398,7 +420,7 @@ export default function CourtsScreen() {
       setUserBookings((userBookingsRes.data ?? []) as UserBooking[]);
 
       if (fetchedCourts.length > 0) {
-        await fetchBookingsForDate(communityToday(now), fetchedCourts.map(c => c.id));
+        await fetchBookingsForDate(communityToday(now, tz), fetchedCourts.map(c => c.id));
       }
     } catch { /* silently fail */ }
     finally { if (loadGenRef.current === myGen && (uid === null || loadingUserRef.current === uid)) setCourtsLoading(false); }
@@ -411,6 +433,7 @@ export default function CourtsScreen() {
   const fetchedBookings = useRef(new Map<string, number>());
   // Per date+court outcome of the booking fetch: 'ok' loaded; 'stale' loaded earlier but the latest refresh failed (data kept,
   // flagged); 'error' never loaded. A date with nothing loaded must NOT be drawn as "all free".
+  const [busyDegraded, setBusyDegraded] = useState(false);
   const [bookingLoad, setBookingLoad] = useState<Record<string, 'ok' | 'stale' | 'error'>>({});
   // Decides whether a response may still be applied (account/community changed, or a newer request for the key started).
   const bookingLedger = useRef(new RequestLedger());
@@ -420,7 +443,8 @@ export default function CourtsScreen() {
     const ticket = bookingLedger.current.begin(ids.map(id => `${dateStr}:${id}`));
     // Only reservations that occupy time: the DB trigger and exclusion constraint count confirmed + pending (a
     // rejected or cancelled request frees its interval and does not count toward the daily limit).
-    const { data, error } = await supabase.from('bookings').select('court_id, start_time, end_time, user_id, status').in('court_id', ids).eq('date', dateStr).in('status', ACTIVE_BOOKING_STATUSES);
+    const { data, error, degraded } = await loadBusyTimes(ids, dateStr, userId);
+    setBusyDegraded(degraded);
     const liveKeys = bookingLedger.current.live(ticket);
     if (liveKeys.length === 0) return; // superseded or belongs to a previous account/community
     const liveIds = ids.filter(id => liveKeys.includes(`${dateStr}:${id}`));
@@ -479,7 +503,7 @@ export default function CourtsScreen() {
     // Opening another sheet, closing, or switching community supersedes every outstanding sheet load.
     const myGen = ++sheetGen.current;
     const isStale = () => sheetGen.current !== myGen;
-    const today = communityDate();
+    const today = communityDate(new Date(), tz);
     setSheetDate(today);
     setBookingSheet({ courtId: court.id, courtName: court.name, courtType: court.court_type });
     setSheetSelectedSlot(preselectedSlot ?? null);
@@ -520,7 +544,7 @@ export default function CourtsScreen() {
   async function openScheduleSheet(court: Court) {
     const myGen = ++sheetGen.current;
     const isStale = () => sheetGen.current !== myGen;
-    const today = communityDate();
+    const today = communityDate(new Date(), tz);
     setScheduleDate(today);
     setScheduleSheet({ courtId: court.id, courtName: court.name, courtType: court.court_type });
     setMaintenanceBlocks([]);
@@ -599,16 +623,16 @@ export default function CourtsScreen() {
     if (!bookingSheet) return [];
     const freshNow = new Date();
     const dateStr = toDateKey(sheetDate);
-    if (dateStr < communityToday(freshNow)) return []; // a past day (e.g. the sheet stayed open across community midnight) offers nothing
+    if (dateStr < communityToday(freshNow, tz)) return []; // a past day (e.g. the sheet stayed open across community midnight) offers nothing
 
     // Reservations from two sources: every resident's bookings fetched per date (may be empty if that query failed),
     // plus the current resident's own bookings (always present from the main load). Ownership, approval (pending) and
     // time (ended) are separate: an ended booking is never "yours" here, a pending one is amber, and both still count
     // toward the database daily cap.
     const fromCache = (bookingsByDate[dateStr] ?? []).filter(b => b.court_id === bookingSheet.courtId);
-    const reservations = fromCache.map(b => toSlotReservation(b, dateStr, userId, freshNow));
+    const reservations = fromCache.map(b => toSlotReservation(b, dateStr, userId, freshNow, tz));
     for (const ob of userBookings.filter(b => b.court_id === bookingSheet.courtId && b.date === dateStr)) {
-      const own = toSlotReservation({ ...ob, user_id: userId }, dateStr, userId, freshNow);
+      const own = toSlotReservation({ ...ob, user_id: userId }, dateStr, userId, freshNow, tz);
       const i = reservations.findIndex(r => r.start_time === ob.start_time && r.end_time === ob.end_time && r.ownForCap);
       if (i < 0) reservations.push(own); else reservations[i] = own; // the own-bookings load is authoritative for status
     }
@@ -621,8 +645,8 @@ export default function CourtsScreen() {
       openMins: sheetRules?.booking_start_time ? toMins(sheetRules.booking_start_time) : 7 * 60,
       closeMins: sheetRules?.booking_end_time ? toMins(sheetRules.booking_end_time) : 21 * 60,
       durationMins: sheetDuration,
-      isToday: communityToday(freshNow) === dateStr,
-      nowMins: communityMinutesNow(freshNow),
+      isToday: communityToday(freshNow, tz) === dateStr,
+      nowMins: communityMinutesNow(freshNow, tz),
       reservations,
       blocks,
       limits: { maxPerDay: sheetRules?.max_reservations_per_day ?? null, maxDurationMins: sheetDurationCap },
@@ -660,20 +684,20 @@ export default function CourtsScreen() {
     let freshOutcome: string | null = null;
     try {
       const [bk, mt] = await Promise.all([
-        supabase.from('bookings').select('start_time, end_time, user_id, status').eq('court_id', bookingSheet.courtId).eq('date', dateStr).in('status', ACTIVE_BOOKING_STATUSES),
+        loadBusyTimes([bookingSheet.courtId], dateStr, userId),
         supabase.from('court_maintenance').select('date, end_date, start_time, end_time').eq('court_id', bookingSheet.courtId),
       ]);
       if (isStale()) { setConfirming(false); return; }
       if (!bk.error && !mt.error) {
         const nowD = new Date();
-        const fresh = dateStr < communityToday(nowD) ? 'gone' : revalidateSelection(sheetSelectedSlot, {
+        const fresh = dateStr < communityToday(nowD, tz) ? 'gone' : revalidateSelection(sheetSelectedSlot, {
           openMins: sheetRules?.booking_start_time ? toMins(sheetRules.booking_start_time) : 7 * 60,
           closeMins: sheetRules?.booking_end_time ? toMins(sheetRules.booking_end_time) : 21 * 60,
           limits: { maxPerDay: sheetRules?.max_reservations_per_day ?? null, maxDurationMins: sheetDurationCap },
           durationMins: sheetDuration,
-          isToday: communityToday(nowD) === dateStr,
-          nowMins: communityMinutesNow(nowD),
-          reservations: (bk.data ?? []).map((b: any) => toSlotReservation(b, dateStr, userId, nowD)),
+          isToday: communityToday(nowD, tz) === dateStr,
+          nowMins: communityMinutesNow(nowD, tz),
+          reservations: (bk.data ?? []).map((b: any) => toSlotReservation(b, dateStr, userId, nowD, tz)),
           blocks: ((mt.data ?? []) as MaintenanceBlock[]).filter(b => isMaintenanceActiveOnDate(b, dateStr)).map(b => ({ start_time: b.start_time, end_time: b.end_time })),
         });
         if (fresh !== 'available') freshOutcome = fresh;
@@ -687,7 +711,7 @@ export default function CourtsScreen() {
       setBookingError(
         freshOutcome === 'blocked' ? 'That time is no longer available because the amenity is blocked. Please pick another.'
         : freshOutcome === 'limit' ? 'You have reached the reservation limit for this amenity.'
-        : 'That time was just taken. Please pick another.');
+        : 'That time was just taken by another reservation or pending request. Please pick another time.');
       await fetchBookingsForDate(dateStr);
       await fetchMaintenanceForSheet(bookingSheet.courtId, isStale);
       return;
@@ -721,7 +745,7 @@ export default function CourtsScreen() {
       await loadCourts();
       setTimeout(() => { if (isStale()) return; setBookingSheet(null); setBookingSuccess(false); setBookingPending(false); setBookingError(null); }, 1400);
     } else if (error.code === '23P01') {
-      setBookingError('That time slot was just taken — please pick another.');
+      setBookingError('That time was just taken by another reservation or pending request. Please pick another time.');
       await fetchBookingsForDate(dateStr);
       await loadCourts();
     } else if (error.message === BLOCKOUT_CONFLICT_MESSAGE) {
@@ -753,8 +777,8 @@ export default function CourtsScreen() {
     for (const court of courts) {
       // Never present an unloaded or failed day as "open all day": no entry renders as CHECKING, a failure as UNKNOWN.
       const gated = gateAvailability(
-        bookingLoad[`${communityToday(now)}:${court.id}`],
-        () => computeCourtStatus(court.id, now, bookingsByDate),
+        bookingLoad[`${communityToday(now, tz)}:${court.id}`],
+        () => computeCourtStatus(court.id, now, bookingsByDate, tz),
         { status: 'booked', statusText: 'UNKNOWN', detailText: 'Availability could not be loaded' } as CourtStatus,
       );
       if (gated) map[court.id] = gated;
@@ -785,10 +809,10 @@ export default function CourtsScreen() {
   // Only reservations that are not over, in the ACTIVE community, count as the resident's current ones.
   const currentUserBookings = useMemo(() => {
     const scoped = new Set(scopedCourts.map(c => c.id));
-    return selectCurrentReservations(userBookings.filter(b => scoped.has(b.court_id)), now);
+    return selectCurrentReservations(userBookings.filter(b => scoped.has(b.court_id)), now, tz);
   }, [userBookings, scopedCourts, now]);
   // The booking to flag on a court card: today's (community date) current booking; one that has ended is history.
-  const todayUserBookings = useMemo(() => currentUserBookings.filter(b => b.date === communityToday(now)), [currentUserBookings, now]);
+  const todayUserBookings = useMemo(() => currentUserBookings.filter(b => b.date === communityToday(now, tz)), [currentUserBookings, now]);
   const upcomingCount = currentUserBookings.length;
   const playability = useMemo(() => weather ? getPlayability(weather) : null, [weather]);
   const showWeatherOnMain = isTennisMode && topLevelTab === 'hoa' && activeTab === 'tennis';
@@ -958,6 +982,7 @@ export default function CourtsScreen() {
           onPlayTypeChange={t => { setSheetPlayType(t); setSheetSelectedSlot(null); }}
           rules={sheetRules}
           rulesLoading={sheetRulesLoading}
+          degraded={busyDegraded}
           availabilityStatus={bookingSheet ? (bookingLoad[`${toDateKey(sheetDate)}:${bookingSheet.courtId}`] ?? 'loading') : 'loading'}
           onRetryAvailability={() => { if (bookingSheet) void fetchBookingsForDate(toDateKey(sheetDate), [bookingSheet.courtId]); }}
           timeSlots={sheetTimeSlots}
@@ -990,6 +1015,7 @@ export default function CourtsScreen() {
           bookings={(bookingsByDate[toDateKey(scheduleDate)] ?? []).filter(b => b.court_id === scheduleSheet.courtId)}
           maintenance={scheduleMaintenanceForDate}
           loading={scheduleLoading}
+          degraded={busyDegraded}
           availabilityStatus={bookingLoad[`${toDateKey(scheduleDate)}:${scheduleSheet.courtId}`] ?? 'loading'}
           onRetryAvailability={() => { void onScheduleDateChange(scheduleDate); }}
           userId={userId}
@@ -1008,12 +1034,13 @@ function CourtCard({ court, status, isMyBooking, now, onBook, onSchedule, onRepo
   court: Court; status: CourtStatus | undefined; isMyBooking: UserBooking | null; now: Date;
   onBook: () => void; onSchedule: () => void; onReport: () => void;
 }) {
+  const { timeZone: tz } = useCommunityTimeZone();
   const { theme } = useTheme();
   const styles = useStyles(theme);
   const s = status ?? { status: 'booked' as const, statusText: 'CHECKING', detailText: '' };
   const isOpen = s.status === 'open';
   const isMine = !!isMyBooking;
-  const myKind = isMyBooking ? reservationKind(isMyBooking, now) : null;
+  const myKind = isMyBooking ? reservationKind(isMyBooking, now, tz) : null;
   const borderColor = isMine ? (myKind === 'pending' ? Availability.minePending : Availability.mine) : isOpen ? Colors.cyan : theme.border;
 
   return (
@@ -1063,7 +1090,7 @@ function CourtCard({ court, status, isMyBooking, now, onBook, onSchedule, onRepo
 
 const BookingSheet = memo(function BookingSheet({
   courtName, courtType, now, sheetDate, onSheetDateChange,
-  playType, onPlayTypeChange, rules, rulesLoading, availabilityStatus, onRetryAvailability,
+  playType, onPlayTypeChange, rules, rulesLoading, availabilityStatus, onRetryAvailability, degraded,
   timeSlots, selectedSlot, onSelectSlot,
   duration, availableDurations, isTennis, onDurationChange,
   weather, confirming, success, pending, bookingError, onConfirm, onClose, insets,
@@ -1072,7 +1099,7 @@ const BookingSheet = memo(function BookingSheet({
   sheetDate: Date; onSheetDateChange: (d: Date) => void;
   playType: 'singles' | 'doubles'; onPlayTypeChange: (t: 'singles' | 'doubles') => void;
   rules: AmenityRules | null; rulesLoading: boolean;
-  availabilityStatus: 'loading' | 'ok' | 'stale' | 'error'; onRetryAvailability: () => void;
+  availabilityStatus: 'loading' | 'ok' | 'stale' | 'error'; onRetryAvailability: () => void; degraded: boolean;
   timeSlots: SlotInfo[]; selectedSlot: string | null; onSelectSlot: (s: string | null) => void;
   duration: number; availableDurations: number[]; isTennis: boolean; onDurationChange: (d: number) => void;
   weather: WeatherData | null;
@@ -1081,6 +1108,8 @@ const BookingSheet = memo(function BookingSheet({
 }) {
   const { theme } = useTheme();
   const styles = useStyles(theme);
+  const { timeZone: tz, unset: tzUnset } = useCommunityTimeZone();
+  const tzNote = !tzUnset && deviceZoneDiffers(tz, now) ? `All times shown in ${timeZoneLabel(tz, now)} (the community's local time).` : null;
   const outdoor = isOutdoor(courtType);
   const [showCalendar, setShowCalendar] = useState(false);
   // Sheet height comes from the window, never from a device constant. Normal phones/desktop: fixed top, a flexible
@@ -1106,19 +1135,19 @@ const BookingSheet = memo(function BookingSheet({
 
   // Primary date buttons: Today + Tomorrow
   const primaryDates = useMemo(() => {
-    const t = communityDate(now);
+    const t = communityDate(now, tz);
     const tom = new Date(t); tom.setDate(t.getDate() + 1);
     return [t, tom];
   }, [now]);
 
   // Calendar bounds: today → advance_booking_days from admin rules
   const calMinDate = useMemo(() => {
-    return communityDate(now);
+    return communityDate(now, tz);
   }, [now]);
 
   const calMaxDate = useMemo(() => {
     const advDays = rules?.advance_booking_days ?? 7;
-    const d = communityDate(now);
+    const d = communityDate(now, tz);
     d.setDate(d.getDate() + advDays);
     return d;
   }, [rules, now]);
@@ -1129,7 +1158,7 @@ const BookingSheet = memo(function BookingSheet({
     [sheetDate, primaryDates]
   );
 
-  const sheetIsToday = toDateKey(sheetDate) === communityToday(now);
+  const sheetIsToday = toDateKey(sheetDate) === communityToday(now, tz);
 
   // Weather data for the selected slot — shown in summary row
   const selectedSlotWx = useMemo(() => {
@@ -1289,7 +1318,7 @@ const BookingSheet = memo(function BookingSheet({
                   now={now}
                   theme={theme}
                 />
-                <ReservationLegend theme={theme} variant="picker" hoursNote={hoursNoteFor(rules)} />
+                <ReservationLegend theme={theme} variant="picker" hoursNote={[degraded ? "Reservations and requests by other residents can't be shown yet, so a time may already be taken." : null, tzNote, hoursNoteFor(rules)].filter(Boolean).join(' ') || null} />
               </>
             )}
           </View>
@@ -1316,17 +1345,20 @@ const BookingSheet = memo(function BookingSheet({
                 </View>
               </View>
             )}
+            {tzUnset && (
+              <Text testID="booking-tz-unset" style={styles.bookingErrorText}>This community's time zone is not set yet, so reservations are not available. Ask a community administrator to set it.</Text>
+            )}
             {!!bookingError && (
               <Text testID="booking-error" style={styles.bookingErrorText}>{bookingError}</Text>
             )}
             {!!rules?.requires_admin_approval && !success && (
               <Text testID="booking-approval-notice" style={styles.approvalNoticeText}>
-                This amenity needs administrator approval. Your request is not confirmed until it is approved.
+                This amenity needs administrator approval. Your request will be pending (not confirmed), and the time is held for you while it waits.
               </Text>
             )}
             <TouchableOpacity testID="confirm-booking-btn"
               style={[styles.confirmBtn, (!selectedSlot || confirming) && styles.confirmBtnDisabled, (success || pending) && styles.confirmBtnSuccess]}
-              onPress={onConfirm} disabled={!selectedSlot || confirming || success || pending} activeOpacity={0.85}>
+              onPress={onConfirm} disabled={!selectedSlot || confirming || success || pending || tzUnset} activeOpacity={0.85}>
               {confirming ? <ActivityIndicator color={Colors.white} size="small" /> : (
                 <Text style={styles.confirmBtnText}>
                   {success ? '✓ Booked!' : pending ? '✓ Submitted — Pending Approval' : selectedSlot ? (rules?.requires_admin_approval ? 'Request Reservation' : 'Confirm Reservation') : 'Select a time slot'}
@@ -1342,15 +1374,17 @@ const BookingSheet = memo(function BookingSheet({
 
 // ─── ScheduleSheet ────────────────────────────────────────────────────────────
 
-function ScheduleSheet({ courtName, courtType, now, scheduleDate, onDateChange, rules, bookings, maintenance, loading, availabilityStatus, onRetryAvailability, userId, onBook, onClose, insets }: {
+function ScheduleSheet({ courtName, courtType, now, scheduleDate, onDateChange, rules, bookings, maintenance, loading, availabilityStatus, onRetryAvailability, degraded, userId, onBook, onClose, insets }: {
   courtName: string; courtType: string; now: Date; scheduleDate: Date;
   onDateChange: (d: Date) => void; rules: AmenityRules | null;
   bookings: TodayBooking[]; maintenance: MaintenanceBlock[]; loading: boolean;
-  availabilityStatus: 'loading' | 'ok' | 'stale' | 'error'; onRetryAvailability: () => void;
+  availabilityStatus: 'loading' | 'ok' | 'stale' | 'error'; onRetryAvailability: () => void; degraded: boolean;
   userId: string; onBook: (slot: string) => void; onClose: () => void; insets: { bottom: number };
 }) {
   const { theme } = useTheme();
   const styles = useStyles(theme);
+  const { timeZone: tz } = useCommunityTimeZone();
+  const tzNote = deviceZoneDiffers(tz, now) ? `All times shown in ${timeZoneLabel(tz, now)} (the community's local time).` : null;
   const [showSchedCalendar, setShowSchedCalendar] = useState(false);
 
   // Schedule calendar: 2 years back, advance_booking_days forward
@@ -1363,14 +1397,14 @@ function ScheduleSheet({ courtName, courtType, now, scheduleDate, onDateChange, 
 
   const schedCalMaxDate = useMemo(() => {
     const advDays = rules?.advance_booking_days ?? 7;
-    const d = communityDate(now);
+    const d = communityDate(now, tz);
     d.setDate(d.getDate() + advDays);
     return d;
   }, [rules, now]);
 
   // Past dates are view-only — suppress Reserve CTA
   const isPastDate = useMemo(() => {
-    return toDateKey(scheduleDate) < communityToday(now); // community calendar day, not the phone's
+    return toDateKey(scheduleDate) < communityToday(now, tz); // community calendar day, not the phone's
   }, [scheduleDate, now]);
 
   const dateLabel = scheduleDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
@@ -1381,7 +1415,7 @@ function ScheduleSheet({ courtName, courtType, now, scheduleDate, onDateChange, 
     bookings,
     maintenance,
     userId,
-    phase: { isPast: isPastDate, isToday: toDateKey(scheduleDate) === communityToday(now), nowMins: communityMinutesNow(now) },
+    phase: { isPast: isPastDate, isToday: toDateKey(scheduleDate) === communityToday(now, tz), nowMins: communityMinutesNow(now, tz) },
   }).map((r) => ({ slotStr: r.start, label: `${formatTime(r.start)} – ${formatTime(r.end)}`, type: r.type, onGrid: r.onGrid, past: r.past })),
   [bookings, maintenance, userId, rules, isPastDate, scheduleDate, now]);
 
@@ -1492,7 +1526,7 @@ function ScheduleSheet({ courtName, courtType, now, scheduleDate, onDateChange, 
                   );
                 })}
               </View>
-              <ReservationLegend theme={theme} variant="schedule" hoursNote={hoursNoteFor(rules)} />
+              <ReservationLegend theme={theme} variant="schedule" hoursNote={[degraded ? "Reservations and requests by other residents can't be shown yet, so a time may already be taken." : null, tzNote, hoursNoteFor(rules)].filter(Boolean).join(' ') || null} />
             </ScrollView>
             </>
           ))}

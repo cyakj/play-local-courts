@@ -19,7 +19,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: 'Why does my reservation say “Pending approval”?',
-    a: 'Your community decides, amenity by amenity, whether reservations need an administrator’s approval. If this amenity does, your request stays pending until an administrator approves or declines it, and the time is not held for you until it is approved. Amenities that don’t need approval are confirmed immediately.',
+    a: 'Your community decides, amenity by amenity, whether reservations need an administrator’s approval. If this amenity does, your request stays pending until an administrator approves or declines it. The time is held for you while it waits, and released if the request is declined, cancelled, or not approved before the start time. Amenities that don’t need approval are confirmed immediately.',
   },
   {
     q: 'Why can’t I book a particular time?',

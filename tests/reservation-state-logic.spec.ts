@@ -189,8 +189,8 @@ test.describe('profile photo error mapping', () => {
 test.describe('wiring (source patterns that fail on the previous implementation)', () => {
   test('Home selects the next reservation with the community clock, not a UTC date and limit(1)', () => {
     const h = src('app/(resident)/index.tsx');
-    expect(h).toMatch(/selectCurrentReservations\(bookingRows, now\)/);
-    expect(h).toMatch(/currentWindowStartDate\(\)/);
+    expect(h).toMatch(/selectCurrentReservations\(bookingRows, now,/);
+    expect(h).toMatch(/currentBookingsFilter\(new Date\(\)/);
     expect(h).not.toMatch(/\.gte\('date', today\)\s*\n\s*\.in\('status', \['confirmed', 'pending'\]\)/);
     expect(h).toMatch(/useNow\(/);
     expect(h).toMatch(/<ReservationBadge kind=\{nextBookingKind\}/);
@@ -232,8 +232,8 @@ test.describe('inspection round 1 follow-ups', () => {
     expect(c).toMatch(/loadGenRef\.current === myGen/);
     expect(c).toMatch(/loadCoursRefLatest\.current/);
     expect(c).toMatch(/sheetMaintenanceAll, now\]\)/);
-    expect(c).toMatch(/dateStr < communityToday\(freshNow\)\) return \[\]/);
-    expect(c).toMatch(/dateStr < communityToday\(nowD\) \? 'gone'/);
+    expect(c).toMatch(/dateStr < communityToday\(freshNow, tz\)\) return \[\]/);
+    expect(c).toMatch(/dateStr < communityToday\(nowD, tz\) \? 'gone'/);
     expect(src('hooks/useNow.ts')).toMatch(/if \(firstFocus\.current\)[^\n]*\s+refreshRef\.current\?\.\(\)/);
   });
 });

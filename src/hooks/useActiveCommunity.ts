@@ -3,11 +3,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { supabase } from '@/lib/supabase';
 import { createLatestGuard } from '@/lib/latestGuard';
+import { db } from '@/lib/untypedDb';
+import { COMMUNITY_TIME_ZONE, isValidTimeZone } from '@/lib/communityTime';
 
 export interface CommunityIdentity {
   hoaId: string;
   name: string;
   logoUrl: string | null;
+  /** IANA zone of the HOA (all reservation times are in it). null = the column exists but the community has not set one. */
+  timeZone: string | null;
+  /** True when hoas.timezone does not exist on this server yet (pre-migration): every community is then treated as Puerto Rico. */
+  timeZoneAssumed: boolean;
 }
 
 interface Snapshot {
@@ -62,10 +68,23 @@ async function load(): Promise<void> {
     const { data: hoas } = await supabase.from('hoas').select('id, name, logo_url').in('id', ids);
     if (isStale()) return;
     const byId = new Map((hoas ?? []).map((h: any) => [h.id as string, h]));
+    // The zone is read separately and tolerantly: a server without migration 20261031100000 has no hoas.timezone, and that must
+    // not break the community list. Missing column => legacy fallback (Puerto Rico); NULL value => "not set" (reservations off).
+    const tzRes = await db.from('hoas').select('id, timezone').in('id', ids);
+    if (isStale()) return;
+    const tzKnown = !tzRes.error;
+    const tzById = new Map<string, string | null>(((tzRes.data ?? []) as Array<{ id: string; timezone: string | null }>).map((r) => [r.id, r.timezone]));
     const communities: CommunityIdentity[] = ids
       .map((id) => byId.get(id))
       .filter(Boolean)
-      .map((h: any) => ({ hoaId: h.id, name: h.name, logoUrl: h.logo_url ?? null }));
+      .map((h: any) => {
+        const raw = tzById.get(h.id) ?? null;
+        return {
+          hoaId: h.id, name: h.name, logoUrl: h.logo_url ?? null,
+          timeZone: tzKnown ? (isValidTimeZone(raw) ? raw : null) : COMMUNITY_TIME_ZONE,
+          timeZoneAssumed: !tzKnown,
+        };
+      });
 
     let storedId: string | null = null;
     try { storedId = await AsyncStorage.getItem(`${ACTIVE_KEY}:${user.id}`); } catch { /* storage unavailable */ }
@@ -125,5 +144,18 @@ export function useActiveCommunity() {
     loading: !state.loaded,
     setActive: switchTo,
     refresh: refreshActiveCommunity,
+  };
+}
+
+/**
+ * The active community's reservation time zone. `unset` = the community has not configured one: reservation actions must be
+ * disabled with a message (never silently assume a zone). `timeZone` always holds a usable zone for pure display math.
+ */
+export function useCommunityTimeZone(): { timeZone: string; unset: boolean; assumed: boolean } {
+  const { community } = useActiveCommunity();
+  return {
+    timeZone: community?.timeZone ?? COMMUNITY_TIME_ZONE,
+    unset: !!community && community.timeZone === null,
+    assumed: !!community?.timeZoneAssumed,
   };
 }

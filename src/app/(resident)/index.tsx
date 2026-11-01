@@ -23,7 +23,8 @@ import {
 import { Header } from '@/components/ui/Header';
 import { ReservationBadge } from '@/components/ui/ReservationBadge';
 import { useNow } from '@/hooks/useNow';
-import { currentWindowStartDate, reservationKind, selectCurrentReservations } from '@/lib/reservationState';
+import { currentBookingsFilter, reservationKind, selectCurrentReservations } from '@/lib/reservationState';
+import { COMMUNITY_TIME_ZONE } from '@/lib/communityTime';
 import { useScrollToTopOnTabEnter } from '@/hooks/useScrollToTopOnTabEnter';
 import { useTheme } from '@/context/ThemeContext';
 import { useUpcomingMatches } from '@/hooks/useUpcomingMatches';
@@ -252,6 +253,7 @@ export default function HomeScreen() {
 
       // The ACTIVE community only (no first-membership fallback); switching community reloads everything below.
       const hId = activeHoaId ?? '';
+      const bookingFilter = currentBookingsFilter(new Date(), activeCommunity?.timeZone ?? COMMUNITY_TIME_ZONE);
 
       const [bookingsRes, announcementsRes, cancelledRes, challengeRes, upcomingRes, resultRes, eventsRes, courtsRes] = await Promise.all([
         // Bookings are scoped to the ACTIVE community through the court's HOA (a resident of A and B must not see A's
@@ -263,11 +265,13 @@ export default function HomeScreen() {
           .eq('courts.hoa_id', hId)
           // Community calendar (not the UTC date): from yesterday so a late booking is never missed; ended rows are
           // dropped by isCurrentReservation below, using the END time at the community.
-          .gte('date', currentWindowStartDate())
-          .in('status', ['confirmed', 'pending'])
+          // Server-side: only CURRENT reservations (confirmed not yet over / pending not yet started) in the HOA's zone,
+          // soonest first, so old rows can never push the next booking out of the page. The client re-checks.
+          .gte('date', bookingFilter.today)
+          .or(bookingFilter.or)
           .order('date', { ascending: true })
           .order('start_time', { ascending: true })
-          .limit(200) : Promise.resolve({ data: [] }),
+          .limit(5) : Promise.resolve({ data: [] }),
 
         hId ? supabase
           .from('hoa_announcements')
@@ -464,8 +468,8 @@ export default function HomeScreen() {
   const refreshBookings = useCallback(() => { loadRef.current(); }, []);
   // Ticks every 30 s, on focus and on app resume; also re-fetches (every 60 s / resume) so approvals show up by themselves.
   const now = useNow({ onRefresh: refreshBookings });
-  const nextBooking = useMemo(() => selectCurrentReservations(bookingRows, now)[0] ?? null, [bookingRows, now]);
-  const nextBookingKind = nextBooking ? reservationKind(nextBooking, now) : null;
+  const nextBooking = useMemo(() => selectCurrentReservations(bookingRows, now, activeCommunity?.timeZone ?? COMMUNITY_TIME_ZONE)[0] ?? null, [bookingRows, now, activeCommunity?.timeZone]);
+  const nextBookingKind = nextBooking ? reservationKind(nextBooking, now, activeCommunity?.timeZone ?? COMMUNITY_TIME_ZONE) : null;
 
   async function onRefresh() {
     setRefreshing(true);

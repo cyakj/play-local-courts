@@ -46,7 +46,7 @@ test.describe('shared community store (src/hooks/useActiveCommunity.ts)', () => 
   test('every await in load() is followed by a staleness check before anything is published', () => {
     const awaits = load.match(/await /g)?.length ?? 0;
     const checks = load.match(/if \(isStale\(\)\) return;/g)?.length ?? 0;
-    expect(awaits).toBe(4); // getSession, memberships, hoas, AsyncStorage
+    expect(awaits).toBe(5); // getSession, memberships, hoas, hoas.timezone (tolerant), AsyncStorage
     expect(checks).toBe(awaits);
   });
   test('boundUserId is only assigned after the first staleness check', () => {

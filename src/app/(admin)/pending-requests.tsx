@@ -1,3 +1,6 @@
+import { db } from '@/lib/untypedDb';
+import { COMMUNITY_TIME_ZONE, isValidTimeZone } from '@/lib/communityTime';
+import { reservationKind } from '@/lib/reservationState';
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -60,13 +63,32 @@ export default function ApprovalsScreen() {
       if (cErr) throw cErr;
       const courtById = new Map((courts ?? []).map((c) => [c.id, c]));
       const courtIds = (courts ?? []).map((c) => c.id);
-      const { data: bookings, error: bErr } = courtIds.length
-        ? await supabase.from('bookings')
-            .select('id, user_id, court_id, date, start_time, end_time, play_type, created_at')
-            .in('court_id', courtIds).eq('status', 'pending').gte('date', communityToday())
-            .order('date').order('start_time')
-        : { data: [], error: null };
+      // Each community's own zone decides whether a request has expired (its start has passed); a server without
+      // hoas.timezone (migration not applied) is treated as Puerto Rico.
+      const tzRes = await db.from('hoas').select('id, timezone');
+      const tzByHoa = new Map<string, string>(((tzRes.error ? [] : tzRes.data ?? []) as Array<{ id: string; timezone: string | null }>)
+        .filter((h) => isValidTimeZone(h.timezone)).map((h) => [h.id, h.timezone as string]));
+      // Wide server-side date bound (any zone is within 36 h of UTC); the exact per-community expiry is applied below.
+      const earliest = new Date(Date.now() - 36 * 3_600_000).toISOString().slice(0, 10);
+      // Paged until complete: a large community must never silently lose requests.
+      const allBookings: any[] = [];
+      let bErr: unknown = null;
+      for (let from = 0; courtIds.length && from < 5000; from += 500) {
+        const pg = await supabase.from('bookings')
+          .select('id, user_id, court_id, date, start_time, end_time, play_type, created_at')
+          .in('court_id', courtIds).eq('status', 'pending').gte('date', earliest)
+          .order('date').order('start_time').range(from, from + 499);
+        if (pg.error) { bErr = pg.error; break; }
+        allBookings.push(...(pg.data ?? []));
+        if ((pg.data ?? []).length < 500) break;
+      }
       if (bErr) throw bErr;
+      const nowD = new Date();
+      const bookings = allBookings.filter((b) => {
+        const court = courtById.get(b.court_id);
+        const tz = (court && tzByHoa.get(court.hoa_id)) || COMMUNITY_TIME_ZONE;
+        return reservationKind({ status: 'pending', date: b.date, start_time: b.start_time, end_time: b.end_time }, nowD, tz) === 'pending';
+      });
       const residentIds = [...new Set((bookings ?? []).map((b) => b.user_id))];
       const { data: residents, error: rErr } = residentIds.length
         ? await supabase.from('profiles').select('id, full_name').in('id', residentIds)
