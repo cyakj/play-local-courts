@@ -133,3 +133,12 @@ export function communityMinutesNow(now: Date = new Date(), timeZone = COMMUNITY
   const p = wallParts(now, timeZone);
   return p.h * 60 + p.mi;
 }
+
+/**
+ * The earliest "today" among several communities' zones (YYYY-MM-DD). Use it as a SAFE lower bound for a server-side `date >= x`
+ * filter across communities in different zones, then narrow each row with its own community's `communityToday(now, zone)`.
+ */
+export function earliestCommunityToday(zones: readonly string[], now: Date = new Date()): string {
+  if (zones.length === 0) return communityToday(now);
+  return zones.map((z) => communityToday(now, z)).reduce((a, b) => (a <= b ? a : b));
+}

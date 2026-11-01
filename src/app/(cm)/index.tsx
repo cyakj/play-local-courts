@@ -8,6 +8,7 @@ import {
 import { supabase } from '@/lib/supabase';
 import { errorMessage } from '@/lib/errors';
 import { communityToday } from '@/lib/communityTime';
+import { loadHoaZones } from '@/lib/hoaZones';
 import { A } from '@/constants/adminTheme';
 import { FontFamily } from '@/constants/design';
 import {
@@ -54,8 +55,9 @@ export default function PortfolioScreen() {
       const { data: hoas, error: hoaErr } = await supabase.from('hoas').select('id, name, logo_url').order('name');
       if (hoaErr) throw hoaErr;
 
-      const today = communityToday(); // community wall-clock date, not the device's
+      const zones = await loadHoaZones((hoas ?? []).map((h) => h.id)); // each community's own zone
       const stats = await Promise.all((hoas ?? []).map(async (hoa): Promise<CommunityStats> => {
+        const today = communityToday(new Date(), zones.get(hoa.id)); // THIS community's wall-clock date, not the device's
         const [members, issues, courts, joins] = await Promise.all([
           supabase.from('hoa_memberships').select('id', { count: 'exact', head: true })
             .eq('hoa_id', hoa.id).eq('status', 'approved'),

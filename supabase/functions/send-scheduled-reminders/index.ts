@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { bookingStartMs, candidateDates, inWindow } from "../_shared/reminderWindow.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -65,19 +66,32 @@ async function processBookingReminders(
   windowKey: string,
   hoursLabel: string,
 ) {
-  const today = windowStart.toISOString().split('T')[0];
-
+  // Booking date/start_time are wall-clock values at the COMMUNITY (hoas.timezone), not UTC. Fetch every date the start could fall
+  // on in any zone (UTC date -1..+1), then compare real instants computed with each HOA's own zone.
   const { data: bookings, error } = await supabase
     .from('bookings')
-    .select(`id, user_id, date, start_time, end_time, play_type, courts:court_id (name)`)
-    .eq('date', today)
+    .select(`id, user_id, date, start_time, end_time, play_type, courts:court_id (name, hoa_id)`)
+    .in('date', candidateDates(windowStart, windowEnd))
     .eq('status', 'confirmed');
 
   if (error) { console.error("Error fetching bookings:", error); return; }
 
+  // hoas.timezone exists only after migration 20261031100000. Without it every community is Puerto Rico (legacy fallback).
+  const hoaIds = [...new Set((bookings ?? []).map((b: any) => b.courts?.hoa_id).filter(Boolean))];
+  const zoneByHoa = new Map<string, string | null>();
+  let legacyServer = false;
+  if (hoaIds.length) {
+    const { data: hoas, error: zErr } = await supabase.from('hoas').select('id, timezone').in('id', hoaIds);
+    if (zErr) {
+      if (zErr.code === '42703' || /timezone/i.test(zErr.message ?? '')) legacyServer = true;
+      else { console.error("Error fetching HOA time zones:", zErr); return; } // never guess a zone
+    }
+    for (const h of hoas ?? []) zoneByHoa.set(h.id, h.timezone ?? null);
+  }
+
   for (const booking of bookings ?? []) {
-    const eventDateTime = new Date(`${booking.date}T${booking.start_time}`);
-    if (eventDateTime < windowStart || eventDateTime > windowEnd) continue;
+    const startMs = bookingStartMs(booking.date, booking.start_time, zoneByHoa.get(booking.courts?.hoa_id) ?? null, legacyServer);
+    if (!inWindow(startMs, windowStart, windowEnd)) continue;
 
     const eventType = `booking_${windowKey}`;
     const alreadySent = await checkReminderSent(supabase, eventType, booking.id, booking.user_id);

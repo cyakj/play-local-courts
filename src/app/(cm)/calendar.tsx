@@ -9,7 +9,8 @@ import { Ban, CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Gavel, Plu
 import { supabase } from '@/lib/supabase';
 import { errorMessage } from '@/lib/errors';
 import { platformAlert } from '@/lib/platformAlert';
-import { communityToday } from '@/lib/communityTime';
+import { COMMUNITY_TIME_ZONE, communityToday, earliestCommunityToday } from '@/lib/communityTime';
+import { loadHoaZones } from '@/lib/hoaZones';
 import {
   addDays, addMonths, buildMonthWeeks, communityWallToIso, dedupeEvents, EVENT_TYPE_LABEL, expandBlockout, filterEvents,
   formatClock, groupByDate, isoToCommunityWall, parseIso, weekOf, type CalendarEvent, type EventType,
@@ -48,12 +49,18 @@ const dateToIso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).pa
 
 export default function CalendarScreen() {
   const insets = useSafeAreaInsets();
-  const today = communityToday();
   const [view, setView] = useState<'month' | 'week'>('month');
-  const [selected, setSelected] = useState(today);
-  const [hoaFilter, setHoaFilter] = useState<string | 'all'>('all');
-  const [typeFilter, setTypeFilter] = useState<Set<EventType>>(new Set());
   const [hoas, setHoas] = useState<Hoa[]>([]);
+  // Each community's own reservation zone (hoas.timezone). "Today" follows the filtered community's zone; with all communities it is the earliest date among them.
+  const [zones, setZones] = useState<Map<string, string>>(new Map());
+  const [hoaFilter, setHoaFilter] = useState<string | 'all'>('all');
+  const today = useMemo(
+    () => (hoaFilter !== 'all' ? communityToday(new Date(), zones.get(hoaFilter) ?? COMMUNITY_TIME_ZONE) : earliestCommunityToday([...zones.values()])),
+    [hoaFilter, zones],
+  );
+  const [pickedDate, setSelected] = useState<string | null>(null);
+  const selected = pickedDate ?? today; // until the user picks a day, follow the community's own "today"
+  const [typeFilter, setTypeFilter] = useState<Set<EventType>>(new Set());
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -71,19 +78,22 @@ export default function CalendarScreen() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) setUserId(user.id);
       const { data, error: err } = await supabase.from('hoas').select('id, name').order('name');
-      if (err) setError(err.message); else setHoas(data ?? []);
+      if (err) { setError(err.message); return; }
+      setHoas(data ?? []);
+      try { setZones(await loadHoaZones((data ?? []).map((h) => h.id))); } catch (e) { setError(errorMessage(e, 'Could not load community time zones.')); }
     })();
   }, []);
 
   const fetchEvents = useCallback(async () => {
-    if (hoas.length === 0) { setLoading(false); return; }
+    if (hoas.length === 0 || zones.size === 0) { setLoading(false); return; }
     setError(null);
     try {
       const hoaIds = hoas.map((h) => h.id);
       const hoaName = new Map(hoas.map((h) => [h.id, h.name]));
       const { from, to } = windowRange;
-      const startIso = communityWallToIso(from, '00:00');
-      const endIso = communityWallToIso(addDays(to, 1), '00:00');
+      // Query a day wider on each side (communities sit in different zones), then keep only events whose OWN-zone date is in the window.
+      const startIso = communityWallToIso(addDays(from, -1), '00:00');
+      const endIso = communityWallToIso(addDays(to, 2), '00:00');
 
       const [evRes, courtRes] = await Promise.all([
         supabase.from('hoa_events').select('id, hoa_id, title, event_type, location, starts_at, ends_at, rsvp_enabled, description')
@@ -105,8 +115,10 @@ export default function CalendarScreen() {
         for (const r of rsvps ?? []) rsvpCounts.set(r.event_id, (rsvpCounts.get(r.event_id) ?? 0) + 1);
       }
       for (const e of evRes.data ?? []) {
-        const start = isoToCommunityWall(e.starts_at);
-        const end = e.ends_at ? isoToCommunityWall(e.ends_at) : null;
+        const zone = zones.get(e.hoa_id) ?? COMMUNITY_TIME_ZONE;
+        const start = isoToCommunityWall(e.starts_at, zone);
+        if (start.date < from || start.date > to) continue;
+        const end = e.ends_at ? isoToCommunityWall(e.ends_at, zone) : null;
         const type = (ALL_TYPES as string[]).includes(e.event_type) ? (e.event_type as EventType) : 'community_event';
         out.push({
           id: e.id, hoaId: e.hoa_id, community: hoaName.get(e.hoa_id) ?? '', type, title: e.title,
@@ -137,7 +149,7 @@ export default function CalendarScreen() {
     } finally {
       setLoading(false);
     }
-  }, [hoas, windowRange]);
+  }, [hoas, zones, windowRange]);
 
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
 
@@ -289,6 +301,7 @@ export default function CalendarScreen() {
         visible={showAdd}
         onClose={() => setShowAdd(false)}
         hoas={hoas}
+        zones={zones}
         userId={userId}
         defaultDate={selected}
         defaultHoa={hoaFilter === 'all' ? hoas[0]?.id ?? '' : hoaFilter}
@@ -299,9 +312,9 @@ export default function CalendarScreen() {
 }
 
 function AddEventSheet({
-  visible, onClose, hoas, userId, defaultDate, defaultHoa, onCreated,
+  visible, onClose, hoas, zones, userId, defaultDate, defaultHoa, onCreated,
 }: {
-  visible: boolean; onClose: () => void; hoas: Hoa[]; userId: string; defaultDate: string; defaultHoa: string;
+  visible: boolean; onClose: () => void; hoas: Hoa[]; zones: Map<string, string>; userId: string; defaultDate: string; defaultHoa: string;
   onCreated: (date: string) => void;
 }) {
   const insets = useSafeAreaInsets();
@@ -346,7 +359,8 @@ function AddEventSheet({
     const { error } = await supabase.from('hoa_events').insert({
       hoa_id: hoaId, created_by: userId, title: title.trim(), description: description.trim() || null,
       event_type: type, location: location.trim() || null,
-      starts_at: communityWallToIso(date, start), ends_at: end ? communityWallToIso(date, end) : null,
+      starts_at: communityWallToIso(date, start, zones.get(hoaId) ?? COMMUNITY_TIME_ZONE),
+      ends_at: end ? communityWallToIso(date, end, zones.get(hoaId) ?? COMMUNITY_TIME_ZONE) : null,
       rsvp_enabled: rsvp, status: 'active',
     });
     if (error) {
@@ -387,7 +401,7 @@ function AddEventSheet({
           <TextInput testID="event-title" value={title} onChangeText={setTitle} placeholder="Event title" placeholderTextColor={A.textMuted} style={s.input} accessibilityLabel="Title" />
           <Text style={s.label}>Date</Text>
           <CalendarPicker selectedDate={isoToDate(date)} onSelect={(d) => setDate(dateToIso(d))}
-            minDate={isoToDate(communityToday())} maxDate={isoToDate(addDays(communityToday(), 730))} theme={lightTheme} />
+            minDate={isoToDate(communityToday(new Date(), zones.get(hoaId)))} maxDate={isoToDate(addDays(communityToday(new Date(), zones.get(hoaId)), 730))} theme={lightTheme} />
           <View style={{ flexDirection: 'row', gap: 12 }}>
             <View style={{ flex: 1 }}><TimePicker label="START" value={start} onChange={setStart} theme={lightTheme} /></View>
             <View style={{ flex: 1 }}><TimePicker label="END (OPTIONAL)" value={end} onChange={setEnd} theme={lightTheme} /></View>

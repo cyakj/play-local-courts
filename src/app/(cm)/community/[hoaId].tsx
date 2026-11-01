@@ -18,6 +18,7 @@ import { ReportsPanel, useAdminReports, categoryLabel } from '@/components/admin
 import { CommunityLogo } from '@/components/branding/BrandLogos';
 import { bundledLogoFor } from '@/config/communityBranding';
 import { communityToday } from '@/lib/communityTime';
+import { loadHoaZones } from '@/lib/hoaZones';
 
 type Tab = 'overview' | 'reports' | 'amenities' | 'members';
 const TABS: { key: Tab; label: string }[] = [
@@ -74,6 +75,7 @@ export default function CommunityDetailScreen() {
       const { data: hoaRow, error: hErr } = await supabase.from('hoas').select('name, logo_url').eq('id', hoaId).maybeSingle();
       if (hErr) throw hErr;
       if (!hoaRow) throw new Error('This community was not found, or you do not have access to it.');
+      const zone = (await loadHoaZones([hoaId])).get(hoaId);
       setHoa({ name: hoaRow.name, logoUrl: hoaRow.logo_url ?? null });
 
       const [mRes, jRes, cRes] = await Promise.all([
@@ -101,7 +103,7 @@ export default function CommunityDetailScreen() {
           : { data: [], error: null },
         courtIds.length
           ? supabase.from('bookings').select('id', { count: 'exact', head: true })
-              .in('court_id', courtIds).gte('date', communityToday()).in('status', ['confirmed', 'pending'])
+              .in('court_id', courtIds).gte('date', communityToday(new Date(), zone)).in('status', ['confirmed', 'pending'])
           : { count: 0, error: null },
       ]);
       const secondErr = [rulesRes, bookingsRes, upcomingRes].find((r) => r.error)?.error;

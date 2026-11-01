@@ -6,7 +6,8 @@ import { Bell, CalendarClock, ChevronRight, Flame, UserCheck, Wrench, type Lucid
 
 import { supabase } from '@/lib/supabase';
 import { errorMessage } from '@/lib/errors';
-import { communityToday, hoursUntilStart } from '@/lib/communityTime';
+import { COMMUNITY_TIME_ZONE, communityToday, earliestCommunityToday, hoursUntilStart } from '@/lib/communityTime';
+import { loadHoaZones } from '@/lib/hoaZones';
 import { formatDateFull, formatTime12h } from '@/lib/format';
 import { A } from '@/constants/adminTheme';
 import { FontFamily } from '@/constants/design';
@@ -65,6 +66,7 @@ export default function AlertsScreen() {
       const hoaName = new Map((hoas ?? []).map((h) => [h.id, h.name]));
       const hoaIds = (hoas ?? []).map((h) => h.id);
       if (hoaIds.length === 0) { setItems([]); return; }
+      const zones = await loadHoaZones(hoaIds); // each community's own reservation zone
 
       const [joins, reports, courts] = await Promise.all([
         supabase.from('community_join_requests').select('id, hoa_id, user_id, created_at')
@@ -80,7 +82,7 @@ export default function AlertsScreen() {
       const courtIds = (courts.data ?? []).map((c) => c.id);
       const { data: pending, error: bErr } = courtIds.length
         ? await supabase.from('bookings').select('id, user_id, court_id, date, start_time, created_at')
-            .in('court_id', courtIds).eq('status', 'pending').gte('date', communityToday()).order('date').order('start_time')
+            .in('court_id', courtIds).eq('status', 'pending').gte('date', earliestCommunityToday([...zones.values()])).order('date').order('start_time')
         : { data: [], error: null };
       if (bErr) throw bErr;
 
@@ -101,11 +103,14 @@ export default function AlertsScreen() {
           go: () => router.push({ pathname: '/(admin)/pending-requests', params: { tab: 'members' } }),
         });
       }
+      const nowDate = new Date();
       for (const b of pending ?? []) {
         const court = courtById.get(b.court_id);
+        const zone = (court && zones.get(court.hoa_id)) || COMMUNITY_TIME_ZONE;
+        if (b.date < communityToday(nowDate, zone)) continue; // started in the past in ITS community's zone
         out.push({
           id: `booking:${b.id}`, kind: 'booking',
-          urgent: hoursUntilStart(b.date, b.start_time) <= BOOKING_URGENT_HOURS,
+          urgent: hoursUntilStart(b.date, b.start_time, nowDate, zone) <= BOOKING_URGENT_HOURS,
           community: court ? hoaName.get(court.hoa_id) ?? '' : '', title: `${court?.name ?? 'Amenity'} request`,
           summary: `${nameOf(b.user_id)} · ${formatDateFull(b.date)} at ${formatTime12h(b.start_time)}`,
           createdAt: b.created_at ?? `${b.date}T00:00:00`, actionLabel: 'Approve booking',
