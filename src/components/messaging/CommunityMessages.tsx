@@ -12,6 +12,7 @@ import { supabase } from '@/lib/supabase';
 import { errorMessage } from '@/lib/errors';
 import { A } from '@/constants/adminTheme';
 import { FontFamily } from '@/constants/design';
+import { fetchMemberNames } from '@/lib/memberNames';
 import {
   AdminHeader, Card, EmptyBlock, ErrorBlock, LoadingBlock, Pill,
 } from '@/components/admin/kit';
@@ -94,8 +95,7 @@ async function fetchContacts(uid: string, role: Role): Promise<Contact[]> {
   if (rows.length === 0) return [];
   if (role === 'resident') {
     const adminIds = [...new Set(rows.map((h) => h.admin_id).filter((x): x is string => !!x && x !== uid))];
-    const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', adminIds.length ? adminIds : ['__none__']);
-    const names = new Map((profiles ?? []).map((p) => [p.id, p.full_name ?? '']));
+    const names = await fetchMemberNames(adminIds).catch(() => new Map<string, string | null>()); // names only; a failed lookup falls back to the generic label
     return rows
       .filter((h) => h.admin_id && h.admin_id !== uid)
       .map((h) => ({
@@ -108,8 +108,7 @@ async function fetchContacts(uid: string, role: Role): Promise<Contact[]> {
     .from('hoa_memberships').select('user_id, hoa_id')
     .in('hoa_id', rows.map((h) => h.id)).eq('status', 'approved').neq('user_id', uid);
   const ids = [...new Set((members ?? []).map((m) => m.user_id))];
-  const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', ids.length ? ids : ['__none__']);
-  const names = new Map((profiles ?? []).map((p) => [p.id, p.full_name ?? '']));
+  const names = await fetchMemberNames(ids).catch(() => new Map<string, string | null>());
   const hoaName = new Map(rows.map((h) => [h.id, h.name]));
   return (members ?? []).map((m) => ({
     user_id: m.user_id, full_name: names.get(m.user_id) || 'Resident',
@@ -167,9 +166,7 @@ export default function CommunityMessages({ role, tabScreen = false }: { role: R
 
     const rows = (msgs ?? []) as Msg[];
     const partnerIds = [...new Set(rows.map((m) => (m.sender_id === uid ? m.receiver_id : m.sender_id)))];
-    const { data: profiles } = await supabase.from('profiles').select('id, full_name')
-      .in('id', partnerIds.length ? partnerIds : ['__none__']);
-    const names = new Map((profiles ?? []).map((p) => [p.id, p.full_name ?? '']));
+    const names = await fetchMemberNames(partnerIds).catch(() => new Map<string, string | null>());
 
     const map = new Map<string, Conversation>();
     rows.forEach((m) => {

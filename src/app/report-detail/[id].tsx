@@ -15,6 +15,7 @@ import { supabase } from '@/lib/supabase';
 import { FontFamily, FontSize, MaxWidth, Radius, Spacing } from '@/constants/design';
 import { Header } from '@/components/ui/Header';
 import { useTheme } from '@/context/ThemeContext';
+import { fetchMemberNames } from '@/lib/memberNames';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 import {
   categoryLabel, fmtDateTime, reportTitle, reportWhere, severityPill, showUpdated, statusPill,
@@ -93,12 +94,9 @@ export default function ReportDetailScreen() {
 
       if (noteRows && noteRows.length > 0) {
         const authorIds = [...new Set(noteRows.map((n: any) => n.author_id))];
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, full_name')
-          .in('id', authorIds);
+        const names = await fetchMemberNames(authorIds as string[]).catch(() => new Map<string, string | null>());
         const profileMap: Record<string, string> = {};
-        (profiles ?? []).forEach((p: any) => { profileMap[p.id] = p.full_name ?? 'Staff'; });
+        names.forEach((name, id) => { profileMap[id] = name ?? 'Staff'; });
         setNotes(noteRows.map((n: any) => ({
           id: n.id,
           body: n.body,
