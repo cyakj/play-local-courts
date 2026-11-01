@@ -29,3 +29,12 @@ No isolated Supabase Storage service (Storage API) is available locally, so an a
 3. Verify: `select id, public, file_size_limit, allowed_mime_types from storage.buckets where id='profile-photos'` -> private, 5242880, three types; `select column_name from information_schema.columns where table_name='profiles' and column_name='avatar_path'`; four policies named "Owners can ... their profile photo".
 4. Smoke test with a TEST resident: add a JPEG (header avatar, account menu and Me update); replace it (old object gone, new one shown); remove it (initials return); try a 6 MB file and a PDF (both refused with clear text); confirm a second account cannot read the first account's object path.
 5. Roll back if needed: clear `avatar_path` values, drop the four policies and the bucket (only if empty), drop the column and CHECK - none of this affects `avatar_url`.
+
+## Update 2026-10-31 (reservation integrity round)
+- The migration order is now in `docs/MIGRATION-PLAN-2026-10-31.md`: profile photos are Stage D, independent of the reservation migrations (E, F). They can be
+  applied on their own; if you apply D alone, the profile screen's "not enabled" message disappears and uploads start working.
+- Re-verified: the migration still has no dependency on any other pending migration; it applied cleanly in the full-chain rehearsal (10 earlier migrations + E + F) on the
+  restore of the 2026-10-29 backup, and none of the new functions are executable by anon. Storage-API behaviour (MIME/size) is still untestable locally.
+- YOUR exact steps: (1) Gate 0 fresh backup + restore verification; (2) tell me to apply Stage D, or run it yourself from the SQL editor; (3) run the verification
+  queries in step 3 above; (4) with a TEST resident: add a JPEG, replace it, remove it, try a 6 MB file and a PDF (both refused), and check the avatar updates in the header and the Me tab.
+- Separate and still open: the profile READ exposure (Stage G in the migration plan).
