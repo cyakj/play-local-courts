@@ -357,7 +357,10 @@ export default function CourtsScreen() {
   // The account the most recent loadCourts() ran for. A slower load for a PREVIOUS account must not publish over the current one
   // (signed out / switched account while its requests were in flight).
   const loadingUserRef = useRef<string | null>(null);
+  // One generation per load (account AND community): an older load can never publish over a newer one.
+  const loadGenRef = useRef(0);
   async function loadCourts() {
+    const myGen = ++loadGenRef.current;
     let uid: string | null = null;
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -365,7 +368,7 @@ export default function CourtsScreen() {
       if (!user) { loadingUserRef.current = null; setCourtsLoading(false); return; }
       uid = user.id;
       loadingUserRef.current = uid;
-      const current = () => loadingUserRef.current === uid;
+      const current = () => loadingUserRef.current === uid && loadGenRef.current === myGen;
       setUserId(user.id);
 
       const { data: memberships } = await supabase.from('hoa_memberships').select('hoa_id').eq('user_id', user.id).eq('status', 'approved');
@@ -387,7 +390,7 @@ export default function CourtsScreen() {
         await fetchBookingsForDate(communityToday(now), fetchedCourts.map(c => c.id));
       }
     } catch { /* silently fail */ }
-    finally { if (uid === null || loadingUserRef.current === uid) setCourtsLoading(false); }
+    finally { if (loadGenRef.current === myGen && (uid === null || loadingUserRef.current === uid)) setCourtsLoading(false); }
   }
 
   // Which (date, court) pairs have actually been fetched. A date key can be cached for court A only; court B on the same
@@ -431,7 +434,10 @@ export default function CourtsScreen() {
   }, [userId, activeCommunity?.hoaId]);
 
   useEffect(() => { loadCourts(); }, [activeCommunity?.hoaId]);
-  useFocusEffect(useCallback(() => { loadCourts(); }, []));
+  // Always the LATEST loadCourts (it depends on the active community and the clock), never the first render's.
+  const loadCoursRefLatest = useRef(loadCourts);
+  loadCoursRefLatest.current = loadCourts;
+  useFocusEffect(useCallback(() => { void loadCoursRefLatest.current(); }, []));
   refreshQuietRef.current = () => { void loadCourts(); };
 
   async function onRefresh() {
@@ -576,6 +582,7 @@ export default function CourtsScreen() {
     if (!bookingSheet) return [];
     const freshNow = new Date();
     const dateStr = toDateKey(sheetDate);
+    if (dateStr < communityToday(freshNow)) return []; // a past day (e.g. the sheet stayed open across community midnight) offers nothing
 
     // Reservations from two sources: every resident's bookings fetched per date (may be empty if that query failed),
     // plus the current resident's own bookings (always present from the main load). Ownership, approval (pending) and
@@ -603,7 +610,7 @@ export default function CourtsScreen() {
       blocks,
       limits: { maxPerDay: sheetRules?.max_reservations_per_day ?? null, maxDurationMins: sheetDurationCap },
     });
-  }, [bookingSheet, sheetDate, bookingsByDate, sheetDuration, sheetDurationCap, sheetRules, userBookings, userId, sheetMaintenanceAll]);
+  }, [bookingSheet, sheetDate, bookingsByDate, sheetDuration, sheetDurationCap, sheetRules, userBookings, userId, sheetMaintenanceAll, now]);
 
   // ── Confirm booking ─────────────────────────────────────────────────────────
   // Synchronous re-entrancy guard: React state (`confirming`) updates after the tap, so a fast double tap could
@@ -642,7 +649,7 @@ export default function CourtsScreen() {
       if (isStale()) { setConfirming(false); return; }
       if (!bk.error && !mt.error) {
         const nowD = new Date();
-        const fresh = revalidateSelection(sheetSelectedSlot, {
+        const fresh = dateStr < communityToday(nowD) ? 'gone' : revalidateSelection(sheetSelectedSlot, {
           openMins: sheetRules?.booking_start_time ? toMins(sheetRules.booking_start_time) : 7 * 60,
           closeMins: sheetRules?.booking_end_time ? toMins(sheetRules.booking_end_time) : 21 * 60,
           limits: { maxPerDay: sheetRules?.max_reservations_per_day ?? null, maxDurationMins: sheetDurationCap },

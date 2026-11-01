@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 
@@ -12,6 +12,10 @@ import { useFocusEffect } from 'expo-router';
 export function useNow(opts: { tickMs?: number; refetchMs?: number; onRefresh?: () => void } = {}): Date {
   const { tickMs = 30_000, refetchMs = 60_000, onRefresh } = opts;
   const [now, setNow] = useState(() => new Date());
+  // Always call the latest callback without re-subscribing every render.
+  const refreshRef = useRef(onRefresh);
+  refreshRef.current = onRefresh;
+  const hasRefresh = !!onRefresh;
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), tickMs);
@@ -19,18 +23,25 @@ export function useNow(opts: { tickMs?: number; refetchMs?: number; onRefresh?: 
   }, [tickMs]);
 
   useEffect(() => {
-    if (!onRefresh) return;
-    const t = setInterval(onRefresh, refetchMs);
+    if (!hasRefresh) return;
+    const t = setInterval(() => refreshRef.current?.(), refetchMs);
     return () => clearInterval(t);
-  }, [onRefresh, refetchMs]);
+  }, [hasRefresh, refetchMs]);
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (s) => {
-      if (s === 'active') { setNow(new Date()); onRefresh?.(); }
+      if (s === 'active') { setNow(new Date()); refreshRef.current?.(); }
     });
     return () => sub.remove();
-  }, [onRefresh]);
+  }, []);
 
-  useFocusEffect(useCallback(() => { setNow(new Date()); }, []));
+  // On focus: advance the clock and re-fetch (a status changed elsewhere shows up when the user comes back).
+  // The first focus is skipped for the refetch because the screen is loading its data on mount anyway.
+  const firstFocus = useRef(true);
+  useFocusEffect(useCallback(() => {
+    setNow(new Date());
+    if (firstFocus.current) { firstFocus.current = false; return; }
+    refreshRef.current?.();
+  }, []));
   return now;
 }

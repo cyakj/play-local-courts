@@ -126,7 +126,7 @@ test.describe('Reservation ownership, date loading and View Schedule (mocked ava
     // 11:30 starts exactly when my reservation ends: it must exist and must not be labelled "Yours"
     await expect(page.locator('[data-testid="wheel-row-11:30"]')).toHaveCount(1);
     await expect(page.locator('[data-testid="wheel-row-11:30"]')).not.toContainText('Yours');
-    await expect(page.locator('[data-testid="availability-legend"]')).toContainText('Yours');
+    await expect(page.locator('[data-testid="availability-legend"]')).toContainText('My reservation');
   });
 
   test('REGRESSION: a date whose reservations fail to load shows an error and retry, never "everything free"', async ({ page }) => {
@@ -145,10 +145,12 @@ test.describe('Reservation ownership, date loading and View Schedule (mocked ava
   test('View Schedule: my 90 minute reservation is ONE "My Reservation" row, and the legend names it', async ({ page }) => {
     await page.locator('[data-testid^="view-schedule-"]').first().click({ timeout: 30000 });
     await expect(page.locator('[data-testid="schedule-sheet"]')).toBeVisible({ timeout: 20000 });
-    await expect(page.locator('[data-testid="schedule-block-mine"]')).toHaveCount(1, { timeout: 20000 });
-    await expect(page.locator('[data-testid="schedule-block-mine"]')).toContainText('MY RESERVATION');
-    await expect(page.locator('[data-testid="schedule-block-mine"]')).toContainText('10:00 AM');
-    await expect(page.locator('[data-testid="schedule-block-mine"]')).toContainText('11:30 AM');
-    await expect(page.locator('[data-testid="schedule-legend"]')).toContainText('My Reservation');
+    // The mocked 10:00-11:30 booking is "today": before 11:30 it is a current reservation, afterwards it is a muted completed row.
+    const mine = page.locator('[data-testid^="schedule-block-mine"]');
+    await expect(mine).toHaveCount(1, { timeout: 20000 });
+    await expect(mine).toContainText(/MY RESERVATION|COMPLETED/);
+    await expect(mine).toContainText('10:00 AM');
+    await expect(mine).toContainText('11:30 AM');
+    await expect(page.locator('[data-testid="schedule-legend"]')).toContainText('My reservation');
   });
 });

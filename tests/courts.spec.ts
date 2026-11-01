@@ -332,7 +332,7 @@ test.describe('Courts Screen — Phase 3 Refined', () => {
       await expect(legend).toBeVisible({ timeout: 5000 });
       // Scope all text searches to legend to avoid matching off-screen status text
       await expect(legend.getByText('Available', { exact: true })).toBeVisible();
-      await expect(legend.getByText('Booked', { exact: true })).toBeVisible();
+      await expect(legend.getByText('Reserved by someone else', { exact: true })).toBeVisible();
       await expect(legend.getByText('Maintenance', { exact: true })).toBeVisible();
     }
   });

@@ -65,8 +65,10 @@ export function buildScheduleRows(input: {
     if (maint) { type = 'maintenance'; key = `m:${toMins(maint.start_time)}-${toMins(maint.end_time)}`; }
     else if (mine) { type = mine.status === 'pending' ? 'mine_pending' : 'mine'; key = `i:${toMins(mine.start_time)}-${toMins(mine.end_time)}`; }
     else if (other) { type = 'booked'; key = `b:${toMins(other.start_time)}-${toMins(other.end_time)}`; }
-    const past = type === 'maintenance' ? false : isPastAt(b);
-    key = `${key}|${past ? 'p' : 'f'}`;
+    // Lifecycle comes from the reservation's OWN end, never from the cut at "now": a booking in progress stays one row
+    // and is not labelled completed/expired early. Open time is past once its interval is over.
+    const owner = type === 'mine' || type === 'mine_pending' ? mine : type === 'booked' ? other : undefined;
+    const past = type === 'maintenance' ? false : isPastAt(owner ? toMins(owner.end_time) : b);
     const last = segs[segs.length - 1];
     if (last && last.key === key && type !== 'available') { last.b = b; continue; } // one row per reservation / blockout
     segs.push({ a, b, type, key, past });

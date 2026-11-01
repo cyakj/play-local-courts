@@ -161,12 +161,12 @@ test.describe('View Schedule rows', () => {
     expect(rows.find((r) => r.start === '19:00')?.past).toBe(false);
     expect(rows.find((r) => r.start === '09:00')?.past).toBe(true); // an unused hour that already passed
   });
-  test('pending booking of mine is its own row type; in progress splits at now', () => {
+  test('pending booking of mine is its own row type; an in-progress booking stays ONE row and is not expired early', () => {
     const rows = buildScheduleRows({ openMins: open, closeMins: close, userId: 'me', maintenance: [],
       bookings: [{ start_time: '16:00', end_time: '17:30', user_id: 'me', status: 'pending' }],
       phase: { isPast: false, isToday: true, nowMins: 16 * 60 + 45 } });
     const mine = rows.filter((r) => r.type === 'mine_pending');
-    expect(mine.map((r) => [r.start, r.end, r.past])).toEqual([['16:00', '16:45', true], ['16:45', '17:30', false]]);
+    expect(mine.map((r) => [r.start, r.end, r.past])).toEqual([['16:00', '17:30', false]]);
   });
   test('a 90 minute future booking is one row; a past date is entirely past; maintenance is never "past"', () => {
     const future = buildScheduleRows({ openMins: open, closeMins: close, userId: 'me', maintenance: [], bookings: [{ start_time: '10:00', end_time: '11:30', user_id: 'me', status: 'confirmed' }] });
@@ -217,5 +217,23 @@ test.describe('wiring (source patterns that fail on the previous implementation)
     const b = src('components/ui/BackButton.tsx');
     expect(b).toMatch(/\{label\}<\/Text>/);
     expect(src('constants/headerBrand.ts')).toMatch(/size: 48/);
+  });
+});
+
+test.describe('inspection round 1 follow-ups', () => {
+  test('R2-F01: the wheel renders pending slots amber with explicit wording', () => {
+    const w = src('components/ui/TimeSlotWheel.tsx');
+    expect(w).toMatch(/slot\.mine && slot\.pending \? 'your request, pending approval'/);
+    expect(w).toMatch(/'Pending'/);
+    expect(w).toMatch(/statePillPending/);
+  });
+  test('R2-F03/F04/F05: latest loader on focus, load generations, clock in slot derivation, refetch on focus', () => {
+    const c = src('app/(resident)/courts.tsx');
+    expect(c).toMatch(/loadGenRef\.current === myGen/);
+    expect(c).toMatch(/loadCoursRefLatest\.current/);
+    expect(c).toMatch(/sheetMaintenanceAll, now\]\)/);
+    expect(c).toMatch(/dateStr < communityToday\(freshNow\)\) return \[\]/);
+    expect(c).toMatch(/dateStr < communityToday\(nowD\) \? 'gone'/);
+    expect(src('hooks/useNow.ts')).toMatch(/if \(firstFocus\.current\)[^\n]*\s+refreshRef\.current\?\.\(\)/);
   });
 });

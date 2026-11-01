@@ -229,7 +229,7 @@ function a11yLabel(slot: SlotInfo, isSelected: boolean): string {
   if (slot.state === 'available') return `${t}, available`;
   if (slot.state === 'blocked') return `${t}, blocked by management, unavailable`;
   if (slot.state === 'limit') return `${t}, reservation limit reached, unavailable`;
-  return `${t}, ${slot.mine ? 'reserved by you' : slot.inside === false ? 'would overlap a reservation' : 'reserved'}, unavailable`;
+  return `${t}, ${slot.mine && slot.pending ? 'your request, pending approval' : slot.mine ? 'reserved by you' : slot.inside === false ? 'would overlap a reservation' : 'reserved'}, unavailable`;
 }
 
 /**
@@ -327,14 +327,15 @@ export const TimeSlotWheel = memo(function TimeSlotWheel({
                 s.row,
                 { opacity },
                 slot.state === 'reserved' && !slot.mine && s.rowReserved,
-                slot.state === 'reserved' && slot.mine && s.rowMine,
+                slot.state === 'reserved' && slot.mine && !slot.pending && s.rowMine,
+                slot.state === 'reserved' && slot.mine && slot.pending && s.rowPending,
                 slot.state === 'blocked' && s.rowBlocked,
                 open && isCentered && s.rowFocused,
                 isSelected && s.rowSelected,
               ]}
             >
               <View style={[s.rowInner, { transform: [{ scaleY }] }]}>
-                <View style={[s.dot, { backgroundColor: open ? Availability.available : slot.state === 'blocked' ? Availability.blocked : slot.mine ? Availability.mine : Availability.reserved }]} />
+                <View style={[s.dot, { backgroundColor: open ? Availability.available : slot.state === 'blocked' ? Availability.blocked : slot.mine && slot.pending ? Availability.minePending : slot.mine ? Availability.mine : Availability.reserved }]} />
                 <Text
                   testID={`wheel-time-${slot.start}`}
                   style={[s.time, open && isCentered && s.timeFocused, !open && s.timeDisabled]}
@@ -377,10 +378,10 @@ export const TimeSlotWheel = memo(function TimeSlotWheel({
                     accessible
                     accessibilityLabel={a11yLabel(slot, false)}
                     accessibilityState={{ disabled: true }}
-                    style={[s.statePill, slot.state === 'blocked' ? s.statePillBlocked : slot.mine ? s.statePillMine : s.statePillReserved]}
+                    style={[s.statePill, slot.state === 'blocked' ? s.statePillBlocked : slot.mine && slot.pending ? s.statePillPending : slot.mine ? s.statePillMine : s.statePillReserved]}
                   >
-                    <Text style={[s.statePillText, { color: slot.state === 'blocked' ? Availability.blocked : slot.mine ? theme.textPrimary : theme.textMuted }]}>
-                      {slot.state === 'reserved' && slot.mine ? 'Yours' : slot.state === 'reserved' && slot.inside === false ? 'Overlaps' : STATE_LABEL[slot.state as 'reserved' | 'blocked' | 'limit']}
+                    <Text style={[s.statePillText, { color: slot.state === 'blocked' ? Availability.blocked : slot.mine && slot.pending ? Availability.minePending : slot.mine ? theme.textPrimary : theme.textMuted }]}>
+                      {slot.state === 'reserved' && slot.mine && slot.pending ? 'Pending' : slot.state === 'reserved' && slot.mine ? 'Yours' : slot.state === 'reserved' && slot.inside === false ? 'Overlaps' : STATE_LABEL[slot.state as 'reserved' | 'blocked' | 'limit']}
                     </Text>
                   </View>
                 )}
@@ -443,6 +444,7 @@ function useWheelStyles(theme: ThemeTokens) {
       rowReserved: { backgroundColor: Availability.reservedBg },
       rowBlocked: { backgroundColor: Availability.blockedBg },
       rowMine: { backgroundColor: Availability.mineBg },
+      rowPending: { backgroundColor: Availability.minePendingBg },
       rowInner: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -483,7 +485,8 @@ function useWheelStyles(theme: ThemeTokens) {
         alignItems: 'center', justifyContent: 'center', borderWidth: 1,
       },
       statePillReserved: { borderColor: 'rgba(122,131,154,0.35)' },
-      statePillBlocked: { borderColor: 'rgba(208,138,91,0.45)' },
+      statePillBlocked: { borderColor: Availability.blocked, backgroundColor: Availability.blockedBg },
+      statePillPending: { borderColor: Availability.minePending, backgroundColor: Availability.minePendingBg },
       statePillMine: { borderColor: Availability.mine, backgroundColor: Availability.mineBg },
       statePillText: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: 11, letterSpacing: 0.4 },
     });
