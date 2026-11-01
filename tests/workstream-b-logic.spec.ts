@@ -61,12 +61,13 @@ test.describe('V1-012 unavailable slots stay visible but disabled', () => {
     expect(wheel).toMatch(/\{open \? \(\s*<TouchableOpacity/);
   });
   test('legend is rendered next to the wheel with all four states', () => {
-    expect(sheet).toMatch(/<AvailabilityLegend theme=\{theme\} \/>/);
-    for (const label of ['Available', 'Reserved', 'Blocked', 'Selected']) expect(wheel).toContain(`label: '${label}'`);
+    expect(sheet).toMatch(/<ReservationLegend theme=\{theme\} variant="picker"/);
+    const legend = readFileSync('src/components/ui/ReservationLegend.tsx', 'utf8');
+    for (const label of ['Available', 'Reserved by someone else', 'Blocked by management', 'Selected', 'My reservation', 'pending approval']) expect(legend).toContain(label);
   });
   test('slot list comes from the pure computeSlots with reservations and blocks kept separate', () => {
     expect(courts).toMatch(/return computeSlots\(\{/);
-    expect(courts).toMatch(/isMine: !!userId && b\.user_id === userId/);
+    expect(courts).toMatch(/toSlotReservation\(b, dateStr, userId, freshNow\)/);
     expect(courts).not.toMatch(/if \(!hasConflict\) slots\.push/);
   });
   test('a wheel selection of a reserved/blocked time is impossible (selectable check shared with the pure module)', () => {

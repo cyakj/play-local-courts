@@ -16,7 +16,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   MapPin, Clock, Sun, Cloud, CloudRain, Zap, X, ChevronRight,
-  CalendarDays, Check, ChevronDown,
+  CalendarDays, Check, ChevronDown, Lock, History,
 } from 'lucide-react-native';
 import * as Location from 'expo-location';
 
@@ -26,8 +26,13 @@ import {
   Availability, Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing,
 } from '@/constants/design';
 import { Header } from '@/components/ui/Header';
-import { AvailabilityLegend, TimeSlotWheel } from '@/components/ui/TimeSlotWheel';
+import { TimeSlotWheel } from '@/components/ui/TimeSlotWheel';
 import { buildScheduleRows } from '@/lib/scheduleRows';
+import { communityMinutesNow, communityToday } from '@/lib/communityTime';
+import { communityDate, currentWindowStartDate, ownLabel, reservationKind, selectCurrentReservations, toSlotReservation } from '@/lib/reservationState';
+import { ReservationBadge } from '@/components/ui/ReservationBadge';
+import { ReservationLegend } from '@/components/ui/ReservationLegend';
+import { useNow } from '@/hooks/useNow';
 import { RequestLedger } from '@/lib/requestLedger';
 import { gateAvailability } from '@/lib/availabilityGate';
 import { computeSlots, isSelectable, revalidateSelection, toDateKey, toMins, type SlotInfo } from '@/lib/slotAvailability';
@@ -68,6 +73,7 @@ interface TodayBooking {
   start_time: string;
   end_time: string;
   user_id?: string;
+  status?: string;
 }
 
 interface MaintenanceBlock {
@@ -84,7 +90,8 @@ interface UserBooking {
   date: string;
   start_time: string;
   end_time: string;
-  courts: { name: string } | null;
+  status: string;
+  courts: { name: string; hoa_id?: string } | null;
 }
 
 interface AmenityRules {
@@ -96,6 +103,7 @@ interface AmenityRules {
   min_cancellation_hours: number | null;
   max_duration_minutes?: number | null;
   max_reservations_per_day?: number | null;
+  requires_admin_approval?: boolean | null;
 }
 
 interface CourtStatus {
@@ -125,6 +133,12 @@ type ActiveTab = 'tennis' | 'amenities';
 type TopLevelTab = 'hoa' | 'other';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** "Times outside 7 AM - 9 PM are not offered" - closed hours are not 'blocked'. */
+function hoursNoteFor(rules: AmenityRules | null): string | null {
+  if (!rules?.booking_start_time || !rules?.booking_end_time) return null;
+  return `Open for booking ${formatTime(rules.booking_start_time)} - ${formatTime(rules.booking_end_time)}. Times outside these hours are not offered.`;
+}
 
 function formatTime(t: string): string {
   const [h, m] = t.split(':').map(Number);
@@ -191,9 +205,11 @@ function getSlotWeatherIcon(hour: number, selectedDate: Date, now: Date, weather
 }
 
 function computeCourtStatus(courtId: string, now: Date, bookingsByDate: Record<string, TodayBooking[]>): CourtStatus {
-  const dateStr = toDateKey(now);
-  const bookings = (bookingsByDate[dateStr] ?? []).filter(b => b.court_id === courtId);
-  const nowStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:00`;
+  // Community clock, not the phone's. Only reservations that are not over occupy time.
+  const dateStr = communityToday(now);
+  const nowMinsC = communityMinutesNow(now);
+  const bookings = (bookingsByDate[dateStr] ?? []).filter(b => b.court_id === courtId && !toSlotReservation(b, dateStr, null, now).ended);
+  const nowStr = `${Math.floor(nowMinsC / 60).toString().padStart(2, '0')}:${(nowMinsC % 60).toString().padStart(2, '0')}:00`;
 
   const active = bookings.find(b => b.start_time <= nowStr && b.end_time > nowStr);
   if (active) {
@@ -211,7 +227,7 @@ function computeCourtStatus(courtId: string, now: Date, bookingsByDate: Record<s
   const next = bookings.filter(b => b.start_time > nowStr).sort((a, b) => a.start_time.localeCompare(b.start_time))[0];
   if (next) {
     const [nh, nm] = next.start_time.split(':').map(Number);
-    const minsUntil = (nh * 60 + nm) - (now.getHours() * 60 + now.getMinutes());
+    const minsUntil = (nh * 60 + nm) - nowMinsC;
     if (minsUntil <= 30) return { status: 'soon', statusText: 'OPEN', detailText: `Booked at ${formatTime(next.start_time)}` };
     return { status: 'open', statusText: 'OPEN NOW', detailText: `Available until ${formatTime(next.start_time)}` };
   }
@@ -274,7 +290,11 @@ export default function CourtsScreen() {
   const styles = useStyles(theme);
   const insets = useSafeAreaInsets();
   const communityName = useCommunityName();
-  const now = useMemo(() => new Date(), []);
+  // Ticking community clock (30 s, focus, app resume) + quiet refetch (60 s / resume): court status, "My Reservation" badges and
+  // approvals never freeze at the time the screen mounted.
+  const refreshQuietRef = useRef<() => void>(() => undefined);
+  const refreshQuiet = useCallback(() => refreshQuietRef.current(), []);
+  const now = useNow({ onRefresh: refreshQuiet });
 
   // ── Core state ──────────────────────────────────────────────────────────────
   const [userId, setUserId] = useState('');
@@ -291,7 +311,7 @@ export default function CourtsScreen() {
 
   // ── Booking sheet state ──────────────────────────────────────────────────────
   const [bookingSheet, setBookingSheet] = useState<{ courtId: string; courtName: string; courtType: string } | null>(null);
-  const [sheetDate, setSheetDate] = useState<Date>(new Date());
+  const [sheetDate, setSheetDate] = useState<Date>(() => communityDate());
   const [sheetRules, setSheetRules] = useState<AmenityRules | null>(null);
   const [sheetRulesLoading, setSheetRulesLoading] = useState(false);
   const [sheetPlayType, setSheetPlayType] = useState<'singles' | 'doubles'>('singles');
@@ -313,7 +333,7 @@ export default function CourtsScreen() {
     setScheduleSheet(null);
     setSheetSelectedSlot(null);
   }, [activeCommunity?.hoaId]);
-  const [scheduleDate, setScheduleDate] = useState<Date>(new Date());
+  const [scheduleDate, setScheduleDate] = useState<Date>(() => communityDate());
   const [maintenanceBlocks, setMaintenanceBlocks] = useState<MaintenanceBlock[]>([]);
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [scheduleRules, setScheduleRules] = useState<AmenityRules | null>(null);
@@ -355,7 +375,7 @@ export default function CourtsScreen() {
 
       const [courtsRes, userBookingsRes] = await Promise.all([
         supabase.from('courts').select('id, name, court_type, hoa_id').in('hoa_id', hoaIds),
-        supabase.from('bookings').select('id, court_id, date, start_time, end_time, courts(name)').eq('user_id', user.id).gte('date', toDateKey(now)).in('status', ACTIVE_BOOKING_STATUSES).order('date').order('start_time').limit(10),
+        supabase.from('bookings').select('id, court_id, date, start_time, end_time, status, courts!inner(name, hoa_id)').eq('user_id', user.id).in('courts.hoa_id', activeCommunity ? [activeCommunity.hoaId] : hoaIds).gte('date', currentWindowStartDate(now)).in('status', ACTIVE_BOOKING_STATUSES).order('date').order('start_time').limit(50),
       ]);
       if (!current()) return;
 
@@ -364,7 +384,7 @@ export default function CourtsScreen() {
       setUserBookings((userBookingsRes.data ?? []) as UserBooking[]);
 
       if (fetchedCourts.length > 0) {
-        await fetchBookingsForDate(toDateKey(now), fetchedCourts.map(c => c.id));
+        await fetchBookingsForDate(communityToday(now), fetchedCourts.map(c => c.id));
       }
     } catch { /* silently fail */ }
     finally { if (uid === null || loadingUserRef.current === uid) setCourtsLoading(false); }
@@ -386,7 +406,7 @@ export default function CourtsScreen() {
     const ticket = bookingLedger.current.begin(ids.map(id => `${dateStr}:${id}`));
     // Only reservations that occupy time: the DB trigger and exclusion constraint count confirmed + pending (a
     // rejected or cancelled request frees its interval and does not count toward the daily limit).
-    const { data, error } = await supabase.from('bookings').select('court_id, start_time, end_time, user_id').in('court_id', ids).eq('date', dateStr).in('status', ACTIVE_BOOKING_STATUSES);
+    const { data, error } = await supabase.from('bookings').select('court_id, start_time, end_time, user_id, status').in('court_id', ids).eq('date', dateStr).in('status', ACTIVE_BOOKING_STATUSES);
     const liveKeys = bookingLedger.current.live(ticket);
     if (liveKeys.length === 0) return; // superseded or belongs to a previous account/community
     const liveIds = ids.filter(id => liveKeys.includes(`${dateStr}:${id}`));
@@ -410,8 +430,9 @@ export default function CourtsScreen() {
     fetchedBookings.current.clear();
   }, [userId, activeCommunity?.hoaId]);
 
-  useEffect(() => { loadCourts(); }, []);
+  useEffect(() => { loadCourts(); }, [activeCommunity?.hoaId]);
   useFocusEffect(useCallback(() => { loadCourts(); }, []));
+  refreshQuietRef.current = () => { void loadCourts(); };
 
   async function onRefresh() {
     setRefreshing(true);
@@ -435,7 +456,7 @@ export default function CourtsScreen() {
     // Opening another sheet, closing, or switching community supersedes every outstanding sheet load.
     const myGen = ++sheetGen.current;
     const isStale = () => sheetGen.current !== myGen;
-    const today = new Date();
+    const today = communityDate();
     setSheetDate(today);
     setBookingSheet({ courtId: court.id, courtName: court.name, courtType: court.court_type });
     setSheetSelectedSlot(preselectedSlot ?? null);
@@ -452,7 +473,7 @@ export default function CourtsScreen() {
       fetchBookingsForDate(dateStr, [court.id]),
       (async () => {
         try {
-          const { data } = await supabase.from('amenity_rules').select('booking_start_time, booking_end_time, singles_duration_minutes, doubles_duration_minutes, advance_booking_days, min_cancellation_hours, max_duration_minutes, max_reservations_per_day').eq('amenity_id', court.id).maybeSingle();
+          const { data } = await supabase.from('amenity_rules').select('booking_start_time, booking_end_time, singles_duration_minutes, doubles_duration_minutes, advance_booking_days, min_cancellation_hours, max_duration_minutes, max_reservations_per_day, requires_admin_approval').eq('amenity_id', court.id).maybeSingle();
           if (!isStale()) setSheetRules(data ?? null);
         } catch { if (!isStale()) setSheetRules(null); }
       })(),
@@ -476,7 +497,7 @@ export default function CourtsScreen() {
   async function openScheduleSheet(court: Court) {
     const myGen = ++sheetGen.current;
     const isStale = () => sheetGen.current !== myGen;
-    const today = new Date();
+    const today = communityDate();
     setScheduleDate(today);
     setScheduleSheet({ courtId: court.id, courtName: court.name, courtType: court.court_type });
     setMaintenanceBlocks([]);
@@ -557,13 +578,15 @@ export default function CourtsScreen() {
     const dateStr = toDateKey(sheetDate);
 
     // Reservations from two sources: every resident's bookings fetched per date (may be empty if that query failed),
-    // plus the current resident's own bookings (always present from the main load).
+    // plus the current resident's own bookings (always present from the main load). Ownership, approval (pending) and
+    // time (ended) are separate: an ended booking is never "yours" here, a pending one is amber, and both still count
+    // toward the database daily cap.
     const fromCache = (bookingsByDate[dateStr] ?? []).filter(b => b.court_id === bookingSheet.courtId);
-    const reservations = fromCache.map(b => ({ start_time: b.start_time, end_time: b.end_time, isMine: !!userId && b.user_id === userId }));
+    const reservations = fromCache.map(b => toSlotReservation(b, dateStr, userId, freshNow));
     for (const ob of userBookings.filter(b => b.court_id === bookingSheet.courtId && b.date === dateStr)) {
-      if (!reservations.some(r => r.start_time === ob.start_time && r.end_time === ob.end_time)) {
-        reservations.push({ start_time: ob.start_time, end_time: ob.end_time, isMine: true });
-      }
+      const own = toSlotReservation({ ...ob, user_id: userId }, dateStr, userId, freshNow);
+      const i = reservations.findIndex(r => r.start_time === ob.start_time && r.end_time === ob.end_time && r.ownForCap);
+      if (i < 0) reservations.push(own); else reservations[i] = own; // the own-bookings load is authoritative for status
     }
     // Admin-scheduled maintenance/blockouts block the slot too (also enforced server-side by a trigger).
     const blocks = sheetMaintenanceAll
@@ -574,8 +597,8 @@ export default function CourtsScreen() {
       openMins: sheetRules?.booking_start_time ? toMins(sheetRules.booking_start_time) : 7 * 60,
       closeMins: sheetRules?.booking_end_time ? toMins(sheetRules.booking_end_time) : 21 * 60,
       durationMins: sheetDuration,
-      isToday: toDateKey(freshNow) === dateStr,
-      nowMins: freshNow.getHours() * 60 + freshNow.getMinutes(),
+      isToday: communityToday(freshNow) === dateStr,
+      nowMins: communityMinutesNow(freshNow),
       reservations,
       blocks,
       limits: { maxPerDay: sheetRules?.max_reservations_per_day ?? null, maxDurationMins: sheetDurationCap },
@@ -613,7 +636,7 @@ export default function CourtsScreen() {
     let freshOutcome: string | null = null;
     try {
       const [bk, mt] = await Promise.all([
-        supabase.from('bookings').select('start_time, end_time, user_id').eq('court_id', bookingSheet.courtId).eq('date', dateStr).in('status', ACTIVE_BOOKING_STATUSES),
+        supabase.from('bookings').select('start_time, end_time, user_id, status').eq('court_id', bookingSheet.courtId).eq('date', dateStr).in('status', ACTIVE_BOOKING_STATUSES),
         supabase.from('court_maintenance').select('date, end_date, start_time, end_time').eq('court_id', bookingSheet.courtId),
       ]);
       if (isStale()) { setConfirming(false); return; }
@@ -624,9 +647,9 @@ export default function CourtsScreen() {
           closeMins: sheetRules?.booking_end_time ? toMins(sheetRules.booking_end_time) : 21 * 60,
           limits: { maxPerDay: sheetRules?.max_reservations_per_day ?? null, maxDurationMins: sheetDurationCap },
           durationMins: sheetDuration,
-          isToday: toDateKey(nowD) === dateStr,
-          nowMins: nowD.getHours() * 60 + nowD.getMinutes(),
-          reservations: (bk.data ?? []).map((b: any) => ({ start_time: b.start_time, end_time: b.end_time, isMine: b.user_id === userId })),
+          isToday: communityToday(nowD) === dateStr,
+          nowMins: communityMinutesNow(nowD),
+          reservations: (bk.data ?? []).map((b: any) => toSlotReservation(b, dateStr, userId, nowD)),
           blocks: ((mt.data ?? []) as MaintenanceBlock[]).filter(b => isMaintenanceActiveOnDate(b, dateStr)).map(b => ({ start_time: b.start_time, end_time: b.end_time })),
         });
         if (fresh !== 'available') freshOutcome = fresh;
@@ -706,7 +729,7 @@ export default function CourtsScreen() {
     for (const court of courts) {
       // Never present an unloaded or failed day as "open all day": no entry renders as CHECKING, a failure as UNKNOWN.
       const gated = gateAvailability(
-        bookingLoad[`${toDateKey(now)}:${court.id}`],
+        bookingLoad[`${communityToday(now)}:${court.id}`],
         () => computeCourtStatus(court.id, now, bookingsByDate),
         { status: 'booked', statusText: 'UNKNOWN', detailText: 'Availability could not be loaded' } as CourtStatus,
       );
@@ -735,8 +758,14 @@ export default function CourtsScreen() {
     return maintenanceBlocks.filter(b => isMaintenanceActiveOnDate(b, dateStr));
   }, [maintenanceBlocks, scheduleDate]);
 
-  const todayUserBooking = useMemo(() => userBookings.find(b => b.date === toDateKey(now)) ?? null, [userBookings, now]);
-  const upcomingCount = useMemo(() => userBookings.filter(b => b.date >= toDateKey(now)).length, [userBookings, now]);
+  // Only reservations that are not over, in the ACTIVE community, count as the resident's current ones.
+  const currentUserBookings = useMemo(() => {
+    const scoped = new Set(scopedCourts.map(c => c.id));
+    return selectCurrentReservations(userBookings.filter(b => scoped.has(b.court_id)), now);
+  }, [userBookings, scopedCourts, now]);
+  // The booking to flag on a court card: today's (community date) current booking; one that has ended is history.
+  const todayUserBookings = useMemo(() => currentUserBookings.filter(b => b.date === communityToday(now)), [currentUserBookings, now]);
+  const upcomingCount = currentUserBookings.length;
   const playability = useMemo(() => weather ? getPlayability(weather) : null, [weather]);
   const showWeatherOnMain = isTennisMode && topLevelTab === 'hoa' && activeTab === 'tennis';
 
@@ -861,7 +890,7 @@ export default function CourtsScreen() {
                   </View>
                   {sortedCourts.map(court => (
                     <CourtCard key={court.id} court={court} status={courtStatuses[court.id]}
-                      isMyBooking={todayUserBooking?.court_id === court.id ? todayUserBooking : null}
+                      isMyBooking={todayUserBookings.find(b => b.court_id === court.id) ?? null} now={now}
                       onBook={() => openBookingSheet(court)}
                       onSchedule={() => openScheduleSheet(court)}
                       onReport={() => router.push({ pathname: '/report', params: { courtId: court.id, courtName: court.name, facilityType: court.court_type, returnTo: '/(resident)/courts' } } as any)} />
@@ -870,14 +899,14 @@ export default function CourtsScreen() {
               ) : (
                 sortedCourts.map(court => (
                   <CourtCard key={court.id} court={court} status={courtStatuses[court.id]}
-                    isMyBooking={todayUserBooking?.court_id === court.id ? todayUserBooking : null}
+                    isMyBooking={todayUserBookings.find(b => b.court_id === court.id) ?? null} now={now}
                     onBook={() => openBookingSheet(court)}
                     onSchedule={() => openScheduleSheet(court)}
                     onReport={() => router.push({ pathname: '/report', params: { courtId: court.id, courtName: court.name, facilityType: court.court_type, returnTo: '/(resident)/courts' } } as any)} />
                 ))
               )}
 
-              {!courtsLoading && userBookings.length > 0 && (
+              {!courtsLoading && currentUserBookings.length > 0 && (
                 <TouchableOpacity testID="upcoming-link" style={styles.upcomingCard} onPress={() => router.push('/my-reservations')} activeOpacity={0.8}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.upcomingCardEyebrow}>RESERVATIONS</Text>
@@ -951,8 +980,8 @@ export default function CourtsScreen() {
 
 // ─── CourtCard ────────────────────────────────────────────────────────────────
 
-function CourtCard({ court, status, isMyBooking, onBook, onSchedule, onReport }: {
-  court: Court; status: CourtStatus | undefined; isMyBooking: UserBooking | null;
+function CourtCard({ court, status, isMyBooking, now, onBook, onSchedule, onReport }: {
+  court: Court; status: CourtStatus | undefined; isMyBooking: UserBooking | null; now: Date;
   onBook: () => void; onSchedule: () => void; onReport: () => void;
 }) {
   const { theme } = useTheme();
@@ -960,7 +989,8 @@ function CourtCard({ court, status, isMyBooking, onBook, onSchedule, onReport }:
   const s = status ?? { status: 'booked' as const, statusText: 'CHECKING', detailText: '' };
   const isOpen = s.status === 'open';
   const isMine = !!isMyBooking;
-  const borderColor = isMine ? Colors.volt : isOpen ? Colors.cyan : theme.border;
+  const myKind = isMyBooking ? reservationKind(isMyBooking, now) : null;
+  const borderColor = isMine ? (myKind === 'pending' ? Availability.minePending : Availability.mine) : isOpen ? Colors.cyan : theme.border;
 
   return (
     <TouchableOpacity testID={`court-card-${court.id}`} style={[styles.courtCard, { borderLeftColor: borderColor }]} onPress={onBook} activeOpacity={0.8}>
@@ -977,8 +1007,8 @@ function CourtCard({ court, status, isMyBooking, onBook, onSchedule, onReport }:
       </View>
       {isMine ? (
         <View style={styles.myResBadgeRow}>
-          <View style={styles.myResBadgePill}>
-            <Text style={styles.myResBadgeText}>MY RESERVATION</Text>
+          <View testID="court-my-reservation" style={styles.myResBadgePill}>
+            <ReservationBadge kind={myKind!} label={ownLabel(myKind!)} testID="court-reservation-badge" />
           </View>
           <Text style={styles.myResBadgeTime}>
             {formatTime(isMyBooking!.start_time)}–{formatTime(isMyBooking!.end_time)}
@@ -1052,19 +1082,19 @@ const BookingSheet = memo(function BookingSheet({
 
   // Primary date buttons: Today + Tomorrow
   const primaryDates = useMemo(() => {
-    const t = new Date(now); t.setHours(0, 0, 0, 0);
+    const t = communityDate(now);
     const tom = new Date(t); tom.setDate(t.getDate() + 1);
     return [t, tom];
   }, [now]);
 
   // Calendar bounds: today → advance_booking_days from admin rules
   const calMinDate = useMemo(() => {
-    const d = new Date(now); d.setHours(0, 0, 0, 0); return d;
+    return communityDate(now);
   }, [now]);
 
   const calMaxDate = useMemo(() => {
     const advDays = rules?.advance_booking_days ?? 7;
-    const d = new Date(now); d.setHours(0, 0, 0, 0);
+    const d = communityDate(now);
     d.setDate(d.getDate() + advDays);
     return d;
   }, [rules, now]);
@@ -1075,7 +1105,7 @@ const BookingSheet = memo(function BookingSheet({
     [sheetDate, primaryDates]
   );
 
-  const sheetIsToday = sheetDate.toDateString() === new Date().toDateString();
+  const sheetIsToday = toDateKey(sheetDate) === communityToday(now);
 
   // Weather data for the selected slot — shown in summary row
   const selectedSlotWx = useMemo(() => {
@@ -1235,7 +1265,7 @@ const BookingSheet = memo(function BookingSheet({
                   now={now}
                   theme={theme}
                 />
-                <AvailabilityLegend theme={theme} />
+                <ReservationLegend theme={theme} variant="picker" hoursNote={hoursNoteFor(rules)} />
               </>
             )}
           </View>
@@ -1265,12 +1295,17 @@ const BookingSheet = memo(function BookingSheet({
             {!!bookingError && (
               <Text testID="booking-error" style={styles.bookingErrorText}>{bookingError}</Text>
             )}
+            {!!rules?.requires_admin_approval && !success && (
+              <Text testID="booking-approval-notice" style={styles.approvalNoticeText}>
+                This amenity needs administrator approval. Your request is not confirmed until it is approved.
+              </Text>
+            )}
             <TouchableOpacity testID="confirm-booking-btn"
               style={[styles.confirmBtn, (!selectedSlot || confirming) && styles.confirmBtnDisabled, (success || pending) && styles.confirmBtnSuccess]}
               onPress={onConfirm} disabled={!selectedSlot || confirming || success || pending} activeOpacity={0.85}>
               {confirming ? <ActivityIndicator color={Colors.white} size="small" /> : (
                 <Text style={styles.confirmBtnText}>
-                  {success ? '✓ Booked!' : pending ? '✓ Submitted — Pending Approval' : selectedSlot ? 'Confirm Reservation' : 'Select a time slot'}
+                  {success ? '✓ Booked!' : pending ? '✓ Submitted — Pending Approval' : selectedSlot ? (rules?.requires_admin_approval ? 'Request Reservation' : 'Confirm Reservation') : 'Select a time slot'}
                 </Text>
               )}
             </TouchableOpacity>
@@ -1304,16 +1339,14 @@ function ScheduleSheet({ courtName, courtType, now, scheduleDate, onDateChange, 
 
   const schedCalMaxDate = useMemo(() => {
     const advDays = rules?.advance_booking_days ?? 7;
-    const d = new Date(now); d.setHours(0, 0, 0, 0);
+    const d = communityDate(now);
     d.setDate(d.getDate() + advDays);
     return d;
   }, [rules, now]);
 
   // Past dates are view-only — suppress Reserve CTA
   const isPastDate = useMemo(() => {
-    const midnight = new Date(now); midnight.setHours(0, 0, 0, 0);
-    const sel = new Date(scheduleDate); sel.setHours(0, 0, 0, 0);
-    return sel < midnight;
+    return toDateKey(scheduleDate) < communityToday(now); // community calendar day, not the phone's
   }, [scheduleDate, now]);
 
   const dateLabel = scheduleDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
@@ -1324,8 +1357,9 @@ function ScheduleSheet({ courtName, courtType, now, scheduleDate, onDateChange, 
     bookings,
     maintenance,
     userId,
-  }).map((r) => ({ slotStr: r.start, label: `${formatTime(r.start)} – ${formatTime(r.end)}`, type: r.type, onGrid: r.onGrid })),
-  [bookings, maintenance, userId, rules]);
+    phase: { isPast: isPastDate, isToday: toDateKey(scheduleDate) === communityToday(now), nowMins: communityMinutesNow(now) },
+  }).map((r) => ({ slotStr: r.start, label: `${formatTime(r.start)} – ${formatTime(r.end)}`, type: r.type, onGrid: r.onGrid, past: r.past })),
+  [bookings, maintenance, userId, rules, isPastDate, scheduleDate, now]);
 
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
@@ -1394,51 +1428,47 @@ function ScheduleSheet({ courtName, courtType, now, scheduleDate, onDateChange, 
                   const isAvail = block.type === 'available';
                   const isMaint = block.type === 'maintenance';
                   const isMine = block.type === 'mine';
+                  const isPendingMine = block.type === 'mine_pending';
                   const isBooked = block.type === 'booked';
+                  const past = block.past && !isMaint;
+                  // Text + icon + colour for every state (colour is never the only cue). Past rows are muted history.
+                  const accent = past ? Availability.past : isMaint ? Availability.blocked : isMine ? Availability.mine : isPendingMine ? Availability.minePending : isBooked ? Availability.reserved : Availability.available;
+                  const bg = past ? Availability.pastBg : isMaint ? Availability.blockedBg : isMine ? Availability.mineBg : isPendingMine ? Availability.minePendingBg : isBooked ? Availability.reservedBg : 'transparent';
+                  const statusText = isAvail ? (past ? 'PASSED' : 'OPEN')
+                    : isMaint ? 'BLOCKED'
+                    : isMine ? (past ? 'COMPLETED' : 'MY RESERVATION')
+                    : isPendingMine ? (past ? 'REQUEST EXPIRED' : 'PENDING APPROVAL')
+                    : (past ? 'PAST' : 'RESERVED');
+                  const Icon = isMaint ? Lock : isMine ? Check : isPendingMine ? Clock : past ? History : null;
                   return (
-                    <View key={i} testID={`schedule-block-${block.type}`}
+                    <View key={i} testID={`schedule-block-${block.type}${past ? '-past' : ''}`}
                       style={[
                         styles.scheduleRow,
-                        isAvail && styles.scheduleRowAvail,
-                        isBooked && styles.scheduleRowBooked,
-                        isMaint && styles.scheduleRowMaint,
-                        isMine && styles.scheduleRowMine,
+                        isAvail && !past && styles.scheduleRowAvail,
+                        !isAvail && { borderLeftWidth: 4, borderLeftColor: accent, paddingLeft: 10, backgroundColor: bg },
                       ]}>
                       <Text style={[
                         styles.scheduleRowLabel,
-                        isAvail && styles.scheduleRowLabelAvail,
-                        isMaint && styles.scheduleRowLabelMaint,
-                        isMine && styles.scheduleRowLabelMine,
+                        isAvail && !past && styles.scheduleRowLabelAvail,
+                        (past || isBooked) && { color: theme.textMuted },
+                        (isMine || isPendingMine) && !past && { color: theme.textPrimary },
                       ]}>{block.label}</Text>
-                      {isAvail ? (
-                        isPastDate || !block.onGrid ? (
-                          <Text style={styles.scheduleBlockStatus}>OPEN</Text>
-                        ) : (
-                          <TouchableOpacity testID={`schedule-book-${block.slotStr}`} style={styles.scheduleBookBtn}
-                            onPress={() => onBook(block.slotStr)} activeOpacity={0.7}>
-                            <Text style={styles.scheduleBookBtnText}>Reserve →</Text>
-                          </TouchableOpacity>
-                        )
+                      {isAvail && !past && !isPastDate && block.onGrid ? (
+                        <TouchableOpacity testID={`schedule-book-${block.slotStr}`} style={styles.scheduleBookBtn}
+                          onPress={() => onBook(block.slotStr)} activeOpacity={0.7}>
+                          <Text style={styles.scheduleBookBtnText}>Reserve →</Text>
+                        </TouchableOpacity>
                       ) : (
-                        <Text style={[
-                          styles.scheduleBlockStatus,
-                          isMaint && { color: Colors.negative },
-                          isMine && { color: theme.textPrimary, fontFamily: FontFamily.jetbrainsMonoSemiBold },
-                        ]}>
-                          {isMaint ? 'MAINTENANCE' : isMine ? 'MY RESERVATION' : 'BOOKED'}
-                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                          {Icon ? <Icon size={12} color={past ? theme.textMuted : accent} strokeWidth={2.5} /> : null}
+                          <Text style={[styles.scheduleBlockStatus, { color: past ? theme.textMuted : isAvail ? theme.textMuted : accent === Availability.reserved ? theme.textMuted : accent }]}>{statusText}</Text>
+                        </View>
                       )}
                     </View>
                   );
                 })}
               </View>
-              {/* Legend */}
-              <View testID="schedule-legend" style={styles.scheduleLegend}>
-                <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: Colors.positive }]} /><Text style={styles.legendText}>Available</Text></View>
-                <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: Availability.mine }]} /><Text style={styles.legendText}>My Reservation</Text></View>
-                <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: theme.borderStrong }]} /><Text style={styles.legendText}>Booked</Text></View>
-                <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: Colors.negative }]} /><Text style={styles.legendText}>Maintenance</Text></View>
-              </View>
+              <ReservationLegend theme={theme} variant="schedule" hoursNote={hoursNoteFor(rules)} />
             </ScrollView>
             </>
           ))}
@@ -1492,14 +1522,7 @@ function useStyles(theme: ThemeTokens) {
   courtStatusText: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: FontSize.eyebrow, color: theme.textSecondary, letterSpacing: 1.2 },
   courtDetailText: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: FontSize.eyebrow, color: theme.textMuted, letterSpacing: 0.4, marginTop: 2 },
   myResBadgeRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 8, flexWrap: 'wrap' as const },
-  myResBadgePill: {
-    backgroundColor: Colors.positive + '22',
-    borderWidth: 1,
-    borderColor: Colors.positive + '60',
-    borderRadius: 99,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
+  myResBadgePill: {},
   myResBadgeText: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: FontSize.eyebrow, color: Colors.positive, letterSpacing: 1.2, overflow: 'hidden' as const },
   myResBadgeTime: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: FontSize.eyebrow, color: theme.textMuted, letterSpacing: 0.4 },
   courtSecondaryDivider: { height: 1, backgroundColor: theme.border, marginTop: 10, marginBottom: 8 },
@@ -1531,6 +1554,7 @@ function useStyles(theme: ThemeTokens) {
   sheetBody: { flex: 1, minHeight: 0, paddingHorizontal: Spacing.pagePx },
   allUnavailableText: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label, color: theme.textMuted, textAlign: 'center', marginBottom: 8 },
   sheetConfirmArea: { paddingHorizontal: Spacing.pagePx, paddingTop: 12, borderTopWidth: 1, borderTopColor: theme.border, gap: 8 },
+  approvalNoticeText: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.label, color: Availability.minePending, textAlign: 'center' as const },
   bookingErrorText: { fontFamily: FontFamily.manropeMedium, fontSize: FontSize.body, color: Colors.negative, textAlign: 'center' as const },
   scheduleSheetContainer: { maxHeight: '85%' },
   sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: theme.border, alignSelf: 'center', marginBottom: 16 },

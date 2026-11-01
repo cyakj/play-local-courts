@@ -9,17 +9,11 @@ import {
   PROFILE_PHOTO_BUCKET,
   avatarObjectPath,
   checkProfilePhoto,
+  friendlyStorageError,
   isOwnPhotoPath,
 } from '@/lib/profilePhoto';
 
 export type PhotoResult = { status: 'ok' } | { status: 'cancelled' } | { status: 'error'; message: string };
-
-function friendlyStorageError(message: string): string {
-  if (/bucket not found|not found/i.test(message)) return 'Profile photos are not enabled on this server yet. Please try again later.';
-  if (/row-level security|not authorized|unauthorized|permission/i.test(message)) return 'You are not allowed to change this photo.';
-  if (/payload too large|too large|exceeded/i.test(message)) return 'That photo is larger than 5 MB. Please choose a smaller one.';
-  return `Photo upload failed: ${message}`;
-}
 
 async function currentAvatarPath(userId: string): Promise<string | null> {
   const { data, error } = await db.from('profiles').select('avatar_path').eq('id', userId).maybeSingle();

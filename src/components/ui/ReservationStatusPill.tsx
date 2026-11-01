@@ -1,15 +1,16 @@
-import { StatusPill } from '@/components/ui/StatusPill';
-import { statusDisplay } from '@/lib/reservations';
+import { ReservationBadge } from '@/components/ui/ReservationBadge';
+import { reservationKind } from '@/lib/reservationState';
 
-// One mapping from booking status → pill so the list, detail and admin screens agree.
-const VARIANT = {
-  pending: 'pending',
-  confirmed: 'optimal',
-  rejected: 'declined',
-  cancelled: 'expired',
-} as const;
-
-export function ReservationStatusPill({ status }: { status: string }) {
-  const variant = VARIANT[status as keyof typeof VARIANT] ?? 'needs-attention';
-  return <StatusPill status={variant} label={statusDisplay(status).label} />;
+/**
+ * Status badge for a stored booking row. Pass the row's date/times so a confirmed booking that is over reads
+ * "Completed" and a never-approved request that has passed reads "Request expired"; without times only the stored
+ * approval status is shown.
+ */
+export function ReservationStatusPill({ status, date, start_time, end_time, now }: {
+  status: string; date?: string; start_time?: string; end_time?: string; now?: Date;
+}) {
+  const kind = date && start_time && end_time
+    ? reservationKind({ status, date, start_time, end_time }, now)
+    : reservationKind({ status, date: '2999-01-01', start_time: '00:00', end_time: '01:00' });
+  return <ReservationBadge kind={kind} />;
 }

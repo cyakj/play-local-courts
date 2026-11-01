@@ -94,17 +94,24 @@ export const FontSize = {
 
 // ─── Border Radius ────────────────────────────────────────────────────────────
 
-// Semantic availability colors for time-slot pickers. Deliberately NOT reused from calendar event colors:
-// a blocked court is not a "Community Event" or a "Maintenance" calendar item.
+// Semantic reservation colors, shared by the picker, court cards, View Schedule, reservation lists and Home.
+// Every state is also carried by a label and an icon (never colour alone). `*Bg` are soft tints; the plain value is the accent.
+//   available - mint | reserved (someone else) - neutral gray | blocked/maintenance - coral + lock
+//   mine - blue (confirmed) | minePending - amber (awaiting approval) | selected - solid blue | past - muted
 export const Availability = {
-  available:   '#2FD98B', // open to book (same meaning as positive/confirmed)
-  reserved:    '#7A839A', // already reserved by someone (muted gray)
+  available:   '#2FD98B',
+  availableBg: 'rgba(47,217,139,0.10)',
+  reserved:    '#7A839A',
   reservedBg:  'rgba(122,131,154,0.10)',
-  blocked:     '#D08A5B', // closed by management (muted copper, distinct from reserved)
-  blockedBg:   'rgba(208,138,91,0.12)',
-  mine:        '#9BC400', // the resident's OWN reservation (volt family, dark enough for light backgrounds)
-  mineBg:      'rgba(214,255,61,0.22)',
-  selected:    '#2D6BFF', // the resident's current choice (Intelligent Blue)
+  blocked:     '#FF5C6B',
+  blockedBg:   'rgba(255,92,107,0.12)',
+  mine:        '#2D6BFF',
+  mineBg:      'rgba(45,107,255,0.14)',
+  minePending: '#F5B63D',
+  minePendingBg: 'rgba(245,182,61,0.16)',
+  selected:    '#2D6BFF',
+  past:        '#5A6379',
+  pastBg:      'rgba(90,99,121,0.10)',
 } as const;
 
 export const Radius = {

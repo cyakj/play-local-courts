@@ -7,7 +7,7 @@
 // maintenance > the resident's own reservation > someone else's reservation > available.
 import { toMins, fmtHHMM } from '@/lib/slotAvailability';
 
-export type ScheduleRowType = 'available' | 'booked' | 'mine' | 'maintenance';
+export type ScheduleRowType = 'available' | 'booked' | 'mine' | 'mine_pending' | 'maintenance';
 
 export interface ScheduleRow {
   /** HH:MM */
@@ -17,10 +17,15 @@ export interface ScheduleRow {
   type: ScheduleRowType;
   /** Starts on the booking wheel's grid (opening time + n x 30 min), so the wheel offers it (an off-grid open gap cannot be pre-selected). */
   onGrid: boolean;
+  /** The row's time has already passed (history). Never true for a future row. Ownership/type are unchanged. */
+  past: boolean;
 }
 
 interface Span { start_time: string; end_time: string }
-interface BookingSpan extends Span { user_id?: string | null }
+interface BookingSpan extends Span { user_id?: string | null; status?: string | null }
+
+/** Where the displayed day sits relative to the community clock. `nowMins` only matters when isToday. */
+export interface DayPhase { isPast: boolean; isToday: boolean; nowMins: number }
 
 const GRID = 30;
 
@@ -30,8 +35,11 @@ export function buildScheduleRows(input: {
   bookings: BookingSpan[];
   maintenance: Span[];
   userId: string | null | undefined;
+  phase?: DayPhase;
 }): ScheduleRow[] {
   const { openMins, closeMins, bookings, maintenance, userId } = input;
+  const phase = input.phase ?? { isPast: false, isToday: false, nowMins: 0 };
+  const isPastAt = (endMin: number) => phase.isPast || (phase.isToday && endMin <= phase.nowMins);
   if (closeMins <= openMins) return [];
   const clamp = (m: number) => Math.min(Math.max(m, openMins), closeMins);
 
@@ -39,25 +47,29 @@ export function buildScheduleRows(input: {
   // The booking wheel offers starts at opening time and every 30 minutes after it (computeSlots), so the grid is relative to opening.
   for (let m = openMins; m < closeMins; m += GRID) points.add(m);
   for (const r of [...bookings, ...maintenance]) { points.add(clamp(toMins(r.start_time))); points.add(clamp(toMins(r.end_time))); }
+  if (phase.isToday && phase.nowMins > openMins && phase.nowMins < closeMins) points.add(phase.nowMins); // split a row at "now"
   const cuts = [...points].sort((a, b) => a - b);
 
-  type Seg = { a: number; b: number; type: ScheduleRowType; key: string };
+  type Seg = { a: number; b: number; type: ScheduleRowType; key: string; past: boolean };
   const segs: Seg[] = [];
   for (let i = 0; i + 1 < cuts.length; i++) {
     const a = cuts[i];
     const b = cuts[i + 1];
     const covers = (r: Span) => toMins(r.start_time) < b && toMins(r.end_time) > a;
     const maint = maintenance.find(covers);
-    const mine = !!userId ? bookings.find((x) => covers(x) && x.user_id === userId) : undefined;
+    const own = !!userId ? bookings.filter((x) => covers(x) && x.user_id === userId) : [];
+    const mine = own.find((x) => x.status !== 'pending') ?? own[0];
     const other = bookings.find(covers);
     let type: ScheduleRowType = 'available';
     let key = `a:${a}`;
     if (maint) { type = 'maintenance'; key = `m:${toMins(maint.start_time)}-${toMins(maint.end_time)}`; }
-    else if (mine) { type = 'mine'; key = `i:${toMins(mine.start_time)}-${toMins(mine.end_time)}`; }
+    else if (mine) { type = mine.status === 'pending' ? 'mine_pending' : 'mine'; key = `i:${toMins(mine.start_time)}-${toMins(mine.end_time)}`; }
     else if (other) { type = 'booked'; key = `b:${toMins(other.start_time)}-${toMins(other.end_time)}`; }
+    const past = type === 'maintenance' ? false : isPastAt(b);
+    key = `${key}|${past ? 'p' : 'f'}`;
     const last = segs[segs.length - 1];
     if (last && last.key === key && type !== 'available') { last.b = b; continue; } // one row per reservation / blockout
-    segs.push({ a, b, type, key });
+    segs.push({ a, b, type, key, past });
   }
-  return segs.map(({ a, b, type }) => ({ start: fmtHHMM(a), end: fmtHHMM(b), type, onGrid: (a - openMins) % GRID === 0 }));
+  return segs.map(({ a, b, type, past }) => ({ start: fmtHHMM(a), end: fmtHHMM(b), type, onGrid: (a - openMins) % GRID === 0, past }));
 }

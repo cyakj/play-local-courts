@@ -21,6 +21,9 @@ import {
   Colors, FontFamily, FontSize, MaxWidth, Radius, Spacing,
 } from '@/constants/design';
 import { Header } from '@/components/ui/Header';
+import { ReservationBadge } from '@/components/ui/ReservationBadge';
+import { useNow } from '@/hooks/useNow';
+import { currentWindowStartDate, reservationKind, selectCurrentReservations } from '@/lib/reservationState';
 import { useScrollToTopOnTabEnter } from '@/hooks/useScrollToTopOnTabEnter';
 import { useTheme } from '@/context/ThemeContext';
 import { useUpcomingMatches } from '@/hooks/useUpcomingMatches';
@@ -32,6 +35,7 @@ import type { ThemeTokens } from '@/constants/theme-tokens';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface NextBooking {
+  status: string;
   id: string;
   courtName: string;
   date: string;
@@ -188,7 +192,8 @@ export default function HomeScreen() {
   const styles = useStyles(theme);
   const communityName = useCommunityName();
   const [name, setName] = useState('');
-  const [nextBooking, setNextBooking] = useState<NextBooking | null>(null);
+  // Raw reservation rows; the visible "next" one is derived from them with a ticking community clock (see nextBooking below).
+  const [bookingRows, setBookingRows] = useState<NextBooking[]>([]);
   const [pendingChallenge, setPendingChallenge] = useState<PendingChallenge | null>(null);
   const [upcomingMatches, setUpcomingMatches] = useState<UpcomingMatch[]>([]);
   const [recentResult, setRecentResult] = useState<RecentResult | null>(null);
@@ -253,14 +258,16 @@ export default function HomeScreen() {
         // booking under B's identity).
         hId ? supabase
           .from('bookings')
-          .select('id, date, start_time, end_time, courts!inner(name, hoa_id)')
+          .select('id, date, start_time, end_time, status, courts!inner(name, hoa_id)')
           .eq('user_id', userId)
           .eq('courts.hoa_id', hId)
-          .gte('date', today)
+          // Community calendar (not the UTC date): from yesterday so a late booking is never missed; ended rows are
+          // dropped by isCurrentReservation below, using the END time at the community.
+          .gte('date', currentWindowStartDate())
           .in('status', ['confirmed', 'pending'])
           .order('date', { ascending: true })
           .order('start_time', { ascending: true })
-          .limit(1) : Promise.resolve({ data: [] }),
+          .limit(50) : Promise.resolve({ data: [] }),
 
         hId ? supabase
           .from('hoa_announcements')
@@ -320,14 +327,14 @@ export default function HomeScreen() {
 
       if (isStale()) return; // community/account changed while these were loading
 
-      const firstBooking = (bookingsRes.data ?? [])[0];
-      setNextBooking(firstBooking ? {
-        id: firstBooking.id,
-        courtName: (firstBooking as any).courts?.name ?? 'Court',
-        date: firstBooking.date,
-        start_time: firstBooking.start_time,
-        end_time: firstBooking.end_time,
-      } : null);
+      setBookingRows(((bookingsRes.data ?? []) as any[]).map((r) => ({
+        id: r.id,
+        courtName: r.courts?.name ?? 'Court',
+        date: r.date,
+        start_time: r.start_time,
+        end_time: r.end_time,
+        status: r.status,
+      })));
 
       setAnnouncements((announcementsRes.data ?? []) as Announcement[]);
 
@@ -449,11 +456,16 @@ export default function HomeScreen() {
   loadRef.current = load;
   useEffect(() => {
     // Community-bound content is cleared immediately; it is repopulated from the new community's load.
-    setNextBooking(null); setCancelledBookings([]); setAnnouncements([]); setUpcomingEvents([]); setUpcomingMaintenance([]);
+    setBookingRows([]); setCancelledBookings([]); setAnnouncements([]); setUpcomingEvents([]); setUpcomingMaintenance([]);
     setLoading(true);
     loadRef.current();
   }, [activeHoaId, communityLoading]);
   useFocusEffect(useCallback(() => { loadRef.current(); }, []));
+  const refreshBookings = useCallback(() => { loadRef.current(); }, []);
+  // Ticks every 30 s, on focus and on app resume; also re-fetches (every 60 s / resume) so approvals show up by themselves.
+  const now = useNow({ onRefresh: refreshBookings });
+  const nextBooking = useMemo(() => selectCurrentReservations(bookingRows, now)[0] ?? null, [bookingRows, now]);
+  const nextBookingKind = nextBooking ? reservationKind(nextBooking, now) : null;
 
   async function onRefresh() {
     setRefreshing(true);
@@ -627,6 +639,7 @@ export default function HomeScreen() {
                     <Text style={styles.nextCourtTime}>
                       {formatDate(nextBooking.date)} · {formatTime(nextBooking.start_time)} – {formatTime(nextBooking.end_time)}
                     </Text>
+                    {nextBookingKind && <View style={{ marginTop: 6 }}><ReservationBadge kind={nextBookingKind} testID="home-reservation-badge" /></View>}
                   </View>
                   <ChevronRight color={Colors.fg3} size={18} strokeWidth={1.5} />
                 </TouchableOpacity>
@@ -672,6 +685,7 @@ export default function HomeScreen() {
                     <Text style={styles.nextCourtTime}>
                       {formatDate(nextBooking.date)} · {formatTime(nextBooking.start_time)} – {formatTime(nextBooking.end_time)}
                     </Text>
+                    {nextBookingKind && <View style={{ marginTop: 6 }}><ReservationBadge kind={nextBookingKind} testID="home-reservation-badge" /></View>}
                   </View>
                   <ChevronRight color={Colors.fg3} size={18} strokeWidth={1.5} />
                 </TouchableOpacity>

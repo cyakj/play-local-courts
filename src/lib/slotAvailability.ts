@@ -19,6 +19,8 @@ export interface SlotInfo {
   mine?: boolean;
   /** state === 'reserved' only. True when this start time lies inside a reservation; false when it only overlaps one. */
   inside?: boolean;
+  /** state === 'reserved' && mine only. True when the resident's own reservation here is still awaiting approval. */
+  pending?: boolean;
 }
 
 export interface TimeRange {
@@ -26,6 +28,13 @@ export interface TimeRange {
   end_time: string;
   /** reservations only */
   isMine?: boolean;
+  /** reservations only. The booking is awaiting administrator approval (shown amber, never as confirmed). */
+  pending?: boolean;
+  /** reservations only. The booking is already over: it no longer occupies time or counts as "mine" in the picker. */
+  ended?: boolean;
+  /** reservations only. One of the resident's own pending/confirmed bookings for the date, ended or not: the database
+   *  daily-cap trigger counts every one of them, so the picker must too. Implied by isMine. */
+  ownForCap?: boolean;
 }
 
 export interface ComputeSlotsInput {
@@ -55,7 +64,7 @@ export function limitReason(input: Pick<ComputeSlotsInput, 'durationMins' | 'res
   const { limits, durationMins, reservations } = input;
   if (!limits) return null;
   if (limits.maxDurationMins != null && durationMins > limits.maxDurationMins) return 'duration';
-  if (limits.maxPerDay != null && reservations.filter((r) => r.isMine === true).length >= limits.maxPerDay) return 'daily';
+  if (limits.maxPerDay != null && reservations.filter((r) => r.isMine === true || r.ownForCap === true).length >= limits.maxPerDay) return 'daily';
   return null;
 }
 
@@ -73,7 +82,9 @@ function overlaps(aStart: number, aEnd: number, r: TimeRange): boolean {
 }
 
 export function computeSlots(input: ComputeSlotsInput): SlotInfo[] {
-  const { openMins: open, closeMins: close, durationMins, isToday, nowMins, reservations, blocks, stepMins = 30 } = input;
+  const { openMins: open, closeMins: close, durationMins, isToday, nowMins, blocks, stepMins = 30 } = input;
+  // Ended reservations no longer occupy time (they still count toward the daily cap via limitReason).
+  const reservations = input.reservations.filter((r) => !r.ended);
   const limited = limitReason(input) !== null;
   const out: SlotInfo[] = [];
   for (let s = open; s < close; s += stepMins) {
@@ -86,7 +97,7 @@ export function computeSlots(input: ComputeSlotsInput): SlotInfo[] {
     const hit = reservations.filter((r) => overlaps(s, e, r));
     if (hit.length > 0) {
       const containing = reservations.filter((r) => s >= toMins(r.start_time) && s < toMins(r.end_time));
-      out.push({ start, state: 'reserved', inside: containing.length > 0, mine: containing.some((r) => r.isMine === true) });
+      out.push({ start, state: 'reserved', inside: containing.length > 0, mine: containing.some((r) => r.isMine === true), pending: containing.some((r) => r.isMine === true && r.pending === true) && !containing.some((r) => r.isMine === true && !r.pending) });
       continue;
     }
     out.push({ start, state: limited ? 'limit' : 'available' });

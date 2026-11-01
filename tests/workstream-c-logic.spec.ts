@@ -133,7 +133,7 @@ test.describe('account menu decisions (V1-010)', () => {
     expect(m).toMatch(/from\('user_roles'\)\.select\('role'\)/);
     expect(m).toMatch(/const ok = await setActive\(hoaId\)/);
     expect(m).toMatch(/confirmAndSignOut\(/);
-    expect(m).toMatch(/router\.push\('\/settings-account'/);
+    expect(m).not.toMatch(/settings-account/); // Account Settings lives in the Me tab only
     expect(m).toMatch(/canSwitchCommunity && \(/);
     expect(m).toMatch(/canSwitchRole && \(/);
     expect(m).toMatch(/testID="account-menu-name"/);
@@ -274,7 +274,7 @@ test.describe('fresh-inspection follow-ups (C)', () => {
   });
   test('C-R302: Home clears community-bound previews (including cancellation banners) on community change', () => {
     const h = src('app/(resident)/index.tsx');
-    expect(h).toMatch(/setNextBooking\(null\); setCancelledBookings\(\[\]\); setAnnouncements\(\[\]\); setUpcomingEvents\(\[\]\); setUpcomingMaintenance\(\[\]\);/);
+    expect(h).toMatch(/setBookingRows\(\[\]\); setCancelledBookings\(\[\]\); setAnnouncements\(\[\]\); setUpcomingEvents\(\[\]\); setUpcomingMaintenance\(\[\]\);/);
   });
   test('C-R303: the signed photo URL is refreshed on a timer shortly before it expires', () => {
     const id = src('hooks/useProfileIdentity.ts');

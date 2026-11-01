@@ -55,3 +55,11 @@ export function initialsFor(fullName: string | null | undefined): string {
   if (parts.length === 0) return '';
   return (parts[0][0] + (parts[1]?.[0] ?? '')).toUpperCase();
 }
+
+/** Maps a storage error to resident wording. Only a missing BUCKET means "not enabled on this server"; other "not found" errors are not misreported as that. */
+export function friendlyStorageError(message: string): string {
+  if (/bucket not found/i.test(message)) return 'Profile photos are not enabled on this server yet. Please try again later.';
+  if (/row-level security|not authorized|unauthorized|permission/i.test(message)) return 'You are not allowed to change this photo.';
+  if (/payload too large|too large|exceeded/i.test(message)) return 'That photo is larger than 5 MB. Please choose a smaller one.';
+  return `Photo upload failed: ${message}`;
+}

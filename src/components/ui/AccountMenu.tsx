@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { router, useSegments } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Check, ChevronDown, ChevronRight, LogOut, Repeat, Settings, Users } from 'lucide-react-native';
+import { Check, ChevronDown, LogOut, Repeat, Users } from 'lucide-react-native';
 
 import { supabase } from '@/lib/supabase';
 import { Colors, FontFamily, FontSize, Radius } from '@/constants/design';
@@ -17,7 +17,7 @@ import {
 
 /**
  * Top-right avatar menu: who is signed in, the active community, community / role switching (only when the backend
- * grants more than one), account settings and sign out. The bottom "Me" tab stays the profile & settings destination.
+ * grants more than one) and sign out. Account settings are NOT repeated here: the bottom "Me" tab is the one destination.
  */
 export function AccountMenu({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { theme } = useTheme();
@@ -68,11 +68,6 @@ export function AccountMenu({ visible, onClose }: { visible: boolean; onClose: (
     if (shell.key !== here) router.replace(shell.href as never);
   }
 
-  function goAccount() {
-    onClose();
-    router.push('/settings-account' as never);
-  }
-
   function signOut() {
     setError('');
     confirmAndSignOut((m) => setError(`Sign out failed: ${m}`));
@@ -82,8 +77,8 @@ export function AccountMenu({ visible, onClose }: { visible: boolean; onClose: (
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={s.backdrop} onPress={onClose} accessibilityLabel="Close menu" />
-      {/* Bounded to the visible window: a long community list scrolls inside the panel so Account Settings and Sign Out
-          always stay reachable, even on short or landscape screens. */}
+      {/* Bounded to the visible window: a long community list scrolls inside the panel so Sign Out
+          always stays reachable, even on short or landscape screens. */}
       <View testID="account-menu" style={[s.panel, { top: Math.max(insets.top, 24) + 52, maxHeight: Math.max(220, winH - (Math.max(insets.top, 24) + 52) - Math.max(insets.bottom, 12) - 12) }]}>
         <ScrollView bounces={false} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={s.identityRow}>
@@ -148,14 +143,6 @@ export function AccountMenu({ visible, onClose }: { visible: boolean; onClose: (
           </>
         )}
 
-        <MenuRow
-          testID="menu-account-settings"
-          s={s} theme={theme}
-          icon={<Settings size={18} color={theme.textSecondary} strokeWidth={1.5} />}
-          label="Account Settings"
-          trailing={<ChevronRight size={16} color={theme.textMuted} strokeWidth={1.5} />}
-          onPress={goAccount}
-        />
         <MenuRow
           testID="menu-sign-out"
           s={s} theme={theme}

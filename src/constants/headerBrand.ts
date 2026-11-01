@@ -6,4 +6,4 @@ export const HEADER_BRAND = {
 } as const;
 
 /** Minimum 44pt touch target (Apple HIG); 48 gives a visible, comfortable chip. */
-export const BACK_BUTTON = { size: 48, icon: 22, stroke: 2.25 } as const;
+export const BACK_BUTTON = { size: 48, icon: 22, stroke: 2.25, labelMinWindowWidth: 360 } as const;

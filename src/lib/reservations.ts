@@ -1,6 +1,7 @@
 // Reservation presentation + cancellation rules shared by My Reservations, the
 // reservation detail screen and the admin approval list. Pure (Node-testable).
-import { formatDuration, hoursUntilStart } from '@/lib/communityTime';
+import { COMMUNITY_TIME_ZONE, communityToday, formatDuration, hoursUntilStart } from '@/lib/communityTime';
+import type { ReservationKind } from '@/lib/reservationState';
 
 export type ReservationStatus = 'pending' | 'confirmed' | 'rejected' | 'cancelled';
 
@@ -68,8 +69,9 @@ export function cancellationState(input: {
   return { canCancel: true };
 }
 
+/** Pending/confirmed and not yet over, by END time at the community. Prefer reservationState.isCurrentReservation. */
 export function isUpcoming(status: string, date: string, endTime: string, now?: Date): boolean {
-  if (status === 'cancelled' || status === 'rejected') return false;
+  if (status !== 'pending' && status !== 'confirmed') return false;
   return hoursUntilStart(date, endTime, now) > 0;
 }
 
@@ -87,12 +89,10 @@ export function formatLongDate(isoDate: string): string {
   return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 }
 
-/** "Today" / "Tomorrow" / "In 3 days" for a reservation date (device-local calendar days); null when further away or past. */
-export function relativeDay(isoDate: string, now: Date = new Date()): string | null {
-  const [y, m, d] = isoDate.split('-').map(Number);
-  const target = new Date(y, m - 1, d).getTime();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const days = Math.round((target - today) / 86400000);
+/** "Today" / "Tomorrow" / "In 3 days" by COMMUNITY calendar day (not the phone's); null when further away or past. */
+export function relativeDay(isoDate: string, now: Date = new Date(), timeZone = COMMUNITY_TIME_ZONE): string | null {
+  const day = (iso: string) => { const [y, m, d] = iso.split('-').map(Number); return Date.UTC(y, m - 1, d); };
+  const days = Math.round((day(isoDate) - day(communityToday(now, timeZone))) / 86400000);
   if (days === 0) return 'Today';
   if (days === 1) return 'Tomorrow';
   if (days > 1 && days <= 6) return `In ${days} days`;
@@ -107,4 +107,19 @@ export function durationLabel(start: string, end: string): string {
   const m = total % 60;
   if (h === 0) return `${m} min`;
   return m ? `${h} h ${m} min` : `${h} h`;
+}
+
+/** Plain-language explanation for a derived kind (pending vs confirmed vs over). Never says "confirmed" for a request. */
+export function kindDescription(kind: ReservationKind, communityName?: string): string {
+  const by = communityName ? `${communityName}'s administrator` : 'your community administrator';
+  switch (kind) {
+    case 'pending': return `This amenity requires approval. Your request is waiting for ${by}. It is NOT confirmed, and the time is not held for you until it is approved.`;
+    case 'confirmed': return 'Your reservation is confirmed.';
+    case 'in_progress': return 'Your reservation is happening now.';
+    case 'completed': return 'This reservation has ended.';
+    case 'request_expired': return 'This request was never approved before its time passed.';
+    case 'rejected': return `${by.charAt(0).toUpperCase()}${by.slice(1)} declined this request.`;
+    case 'cancelled': return 'This reservation was cancelled.';
+    default: return '';
+  }
 }

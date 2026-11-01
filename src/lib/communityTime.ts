@@ -60,3 +60,9 @@ export function formatDuration(hours: number): string {
   if (h > 0) return `${h} h${m ? ` ${m} min` : ''}`;
   return `${m} min`;
 }
+
+/** Minutes since midnight at the community (not the device). */
+export function communityMinutesNow(now: Date = new Date(), timeZone = COMMUNITY_TIME_ZONE): number {
+  const p = wallParts(now, timeZone);
+  return p.h * 60 + p.mi;
+}

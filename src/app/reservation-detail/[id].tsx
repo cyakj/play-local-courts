@@ -11,7 +11,9 @@ import { Header } from '@/components/ui/Header';
 import { ReservationStatusPill } from '@/components/ui/ReservationStatusPill';
 import { useTheme } from '@/context/ThemeContext';
 import type { ThemeTokens } from '@/constants/theme-tokens';
-import { cancellationState, formatLongDate, formatTime12, statusDisplay } from '@/lib/reservations';
+import { cancellationState, formatLongDate, formatTime12, kindDescription } from '@/lib/reservations';
+import { reservationKind } from '@/lib/reservationState';
+import { useNow } from '@/hooks/useNow';
 
 interface Detail {
   id: string;
@@ -77,6 +79,8 @@ export default function ReservationDetailScreen() {
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+  // Ticking clock + periodic/focus refresh: an approval, rejection or the booking ending shows up without leaving the screen.
+  const now = useNow({ onRefresh: load });
 
   const cancel = detail
     ? cancellationState({
@@ -84,6 +88,7 @@ export default function ReservationDetailScreen() {
         date: detail.date,
         startTime: detail.start_time,
         minHours: detail.minCancellationHours ?? 0,
+        now,
       })
     : { canCancel: false };
 
@@ -123,7 +128,8 @@ export default function ReservationDetailScreen() {
     ]);
   }
 
-  const display = detail ? statusDisplay(detail.status, detail.communityName ?? undefined) : null;
+  const kind = detail ? reservationKind(detail, now) : null;
+  const display = detail && kind ? { description: kindDescription(kind, detail.communityName ?? undefined) } : null;
 
   return (
     <View style={styles.screen}>
@@ -142,7 +148,7 @@ export default function ReservationDetailScreen() {
             <>
               <View style={styles.heroCard}>
                 <Text testID="reservation-court" style={styles.title} numberOfLines={2}>{detail.courtName}</Text>
-                <View style={{ marginTop: 10 }}><ReservationStatusPill status={detail.status} /></View>
+                <View style={{ marginTop: 10 }}><ReservationStatusPill status={detail.status} date={detail.date} start_time={detail.start_time} end_time={detail.end_time} now={now} /></View>
                 <Text testID="reservation-status-description" style={[styles.body, { marginTop: 12 }]}>
                   {display.description}
                 </Text>

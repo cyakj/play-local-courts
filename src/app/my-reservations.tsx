@@ -15,7 +15,9 @@ import { useTheme } from '@/context/ThemeContext';
 import { useActiveCommunity } from '@/hooks/useActiveCommunity';
 import { createLatestGuard } from '@/lib/latestGuard';
 import type { ThemeTokens } from '@/constants/theme-tokens';
-import { cancellationState, durationLabel, formatTime12, isUpcoming, relativeDay } from '@/lib/reservations';
+import { cancellationState, durationLabel, formatTime12, relativeDay } from '@/lib/reservations';
+import { isCurrentReservation, reservationBadge, reservationKind } from '@/lib/reservationState';
+import { useNow } from '@/hooks/useNow';
 
 interface Booking {
   id: string;
@@ -32,6 +34,10 @@ interface Booking {
 
 const DEFAULT_MIN_CANCELLATION_HOURS = 2;
 const HISTORY_PAGE = 5;
+
+function reservationBadgeLabel(b: { status: string; date: string; start_time: string; end_time: string }, now: Date): string {
+  return reservationBadge(reservationKind(b, now)).label;
+}
 
 function formatShortDate(iso: string): string {
   const d = new Date(`${iso}T00:00:00Z`);
@@ -105,14 +111,17 @@ export default function MyReservationsScreen() {
   useEffect(() => { setBookings([]); setLoading(true); load(); return () => { loadGuard.invalidate(); }; }, [load]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
+  // Ticking community clock + periodic/focus/resume refetch: a booking moves to History by itself when it ends, and an
+  // approval or rejection by an administrator appears without a manual refresh.
+  const now = useNow({ onRefresh: load });
+
   const { upcoming, history } = useMemo(() => {
-    const now = new Date();
     const up = bookings
-      .filter((b) => isUpcoming(b.status, b.date, b.end_time, now))
+      .filter((b) => isCurrentReservation(b, now))
       .sort((a, b) => (a.date + a.start_time).localeCompare(b.date + b.start_time));
     const upIds = new Set(up.map((b) => b.id));
     return { upcoming: up, history: bookings.filter((b) => !upIds.has(b.id)) };
-  }, [bookings]);
+  }, [bookings, now]);
 
   async function cancelBooking(booking: Booking) {
     platformAlert('Cancel Reservation', `Cancel your ${booking.courtName} reservation?`, [
@@ -153,9 +162,9 @@ export default function MyReservationsScreen() {
     const dayName = d.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
     const dayNum = d.getUTCDate();
     const cancel = up
-      ? cancellationState({ status: b.status, date: b.date, startTime: b.start_time, minHours: b.minCancellationHours })
+      ? cancellationState({ status: b.status, date: b.date, startTime: b.start_time, minHours: b.minCancellationHours, now })
       : { canCancel: false } as ReturnType<typeof cancellationState>;
-    const when = up ? relativeDay(b.date) : null;
+    const when = up ? relativeDay(b.date, now) : null;
 
     return (
       <TouchableOpacity
@@ -164,7 +173,7 @@ export default function MyReservationsScreen() {
         activeOpacity={0.85}
         onPress={() => router.push(`/reservation-detail/${b.id}` as any)}
         accessibilityRole="button"
-        accessibilityLabel={`${b.courtName}, ${formatShortDate(b.date)}, ${b.status}. Opens reservation details`}>
+        accessibilityLabel={`${b.courtName}, ${formatShortDate(b.date)}, ${reservationBadgeLabel(b, now)}. Opens reservation details`}>
         <View style={styles.cardRow}>
           <View style={[styles.dateChip, up ? styles.dateChipUpcoming : styles.dateChipPast]}>
             <Text style={[styles.dateDayName, up ? styles.dateTextUpcoming : styles.dateTextPast]}>{dayName.toUpperCase()}</Text>
@@ -175,7 +184,7 @@ export default function MyReservationsScreen() {
           <View style={styles.cardBody}>
             <View style={styles.cardTitleRow}>
               <Text style={[styles.cardCourt, !up && { color: theme.textMuted }]} numberOfLines={1}>{b.courtName}</Text>
-              <ReservationStatusPill status={b.status} />
+              <ReservationStatusPill status={b.status} date={b.date} start_time={b.start_time} end_time={b.end_time} now={now} />
             </View>
             <Text style={styles.cardTime} numberOfLines={1}>
               {when ? <Text style={styles.cardWhen}>{when} · </Text> : `${formatShortDate(b.date)} · `}{formatTime12(b.start_time)} – {formatTime12(b.end_time)} · {durationLabel(b.start_time, b.end_time)}
