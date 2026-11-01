@@ -265,3 +265,28 @@ test.describe('inspection round 1 follow-ups (RI-06..RI-11)', () => {
     expect(a).not.toMatch(/\.limit\(10\)\s*,\s*\n\s*supabase\s*\n\s*\.from\('bookings'\)/);
   });
 });
+
+test.describe('inspection round 2 follow-ups (RI-12..RI-15)', () => {
+  const rd = (p: string) => readFileSync(p, 'utf8');
+  test('RI-12: history is the exact complement of current, and its loader stays reachable', async () => {
+    const { historyBookingsFilter } = await import('../src/lib/reservationState');
+    const now = z('2026-10-31T23:00:00Z'); // 19:00 PR
+    const h = historyBookingsFilter(now, PR);
+    expect(h.or).toContain('status.in.(cancelled,rejected,expired)');
+    expect(h.or).toContain('date.lt.2026-10-31');
+    expect(h.or).toContain('and(status.eq.confirmed,date.eq.2026-10-31,end_time.lte.19:00:00)');
+    expect(h.or).toContain('and(status.eq.pending,date.eq.2026-10-31,start_time.lte.19:00:00)');
+    expect(h.or).not.toMatch(/date\.lte\.2026-10-31(,|$)/); // the old filter that swept in today's upcoming rows
+    const m = rd('src/app/my-reservations.tsx');
+    expect(m).toMatch(/history\.length > 0 \|\| !historyDone/);
+    expect(m).not.toMatch(/date\.lte\./);
+  });
+  test('RI-13/14: the cap check is serialised per resident/court/day and approval cannot move the booking', () => {
+    expect(rd('supabase/migrations/20261031100000_hoa_timezones.sql')).toMatch(/pg_advisory_xact_lock\(hashtextextended\('booking-cap:'/);
+    expect(rd('supabase/migrations/20261031110000_exclusive_pending_reservations.sql')).toMatch(/An approval cannot change the reserved time/);
+  });
+  test('RI-15: the schedule sheet initialises its date only after the HOA zone has loaded', () => {
+    expect(rd('src/components/admin/AmenityScheduleSheet.tsx')).toMatch(/visible && tzLoaded\) setDate\(communityToday\(new Date\(\), tz\)\)/);
+    expect(rd('src/hooks/useHoaTimeZone.ts')).toMatch(/must not inherit the previous community/);
+  });
+});

@@ -81,7 +81,7 @@ function friendlyRpcError(e: { message: string; code?: string }): string {
 export function AmenityScheduleSheet({ visible, onClose, court, openTime, closeTime, onChanged }: Props) {
   const insets = useSafeAreaInsets();
   // Every time on this sheet is in the amenity's own HOA zone (not Puerto Rico, not the phone's).
-  const { timeZone: tz } = useHoaTimeZone(court?.hoa_id);
+  const { timeZone: tz, loaded: tzLoaded } = useHoaTimeZone(court?.hoa_id);
   const today = communityToday(new Date(), tz);
   const [date, setDate] = useState(today);
   const [step, setStep] = useState<Step>('schedule');
@@ -174,6 +174,11 @@ export function AmenityScheduleSheet({ visible, onClose, court, openTime, closeT
     if (!visible) return;
     setStep('schedule'); setSelected(new Set()); setBanner(null); setDate(communityToday(new Date(), tz));
   }, [visible, courtId]);
+  // The opening date is taken in the HOA's own zone, so it is (re)initialised once that zone has actually loaded - and only then.
+  useEffect(() => {
+    if (visible && tzLoaded) setDate(communityToday(new Date(), tz));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, courtId, tzLoaded, tz]);
 
   // Keep the grid honest if a resident books/cancels (or another admin blocks) while it is open.
   useEffect(() => {

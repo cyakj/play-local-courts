@@ -285,6 +285,9 @@ BEGIN
       END IF;
 
       IF r.max_reservations_per_day IS NOT NULL THEN
+        -- Serialise concurrent requests by the SAME resident for this amenity and day: without it two non-overlapping requests could both
+        -- count zero and both commit above the cap (the exclusion constraint only separates overlapping intervals).
+        PERFORM pg_advisory_xact_lock(hashtextextended('booking-cap:' || NEW.user_id::text || ':' || NEW.court_id::text || ':' || NEW.date::text, 0));
         SELECT count(*) INTO existing_count
         FROM public.bookings
         WHERE court_id = NEW.court_id

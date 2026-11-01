@@ -16,7 +16,7 @@ import { useActiveCommunity } from '@/hooks/useActiveCommunity';
 import { createLatestGuard } from '@/lib/latestGuard';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 import { cancellationState, durationLabel, formatTime12, relativeDay } from '@/lib/reservations';
-import { currentBookingsFilter, isCurrentReservation, reservationBadge, reservationKind } from '@/lib/reservationState';
+import { currentBookingsFilter, historyBookingsFilter, isCurrentReservation, reservationBadge, reservationKind } from '@/lib/reservationState';
 import { COMMUNITY_TIME_ZONE } from '@/lib/communityTime';
 import { useNow } from '@/hooks/useNow';
 
@@ -96,7 +96,7 @@ export default function MyReservationsScreen() {
     }
     const want = Math.max(HISTORY_FETCH, historyLoaded.current);
     const { data: hist } = await base()
-      .or(`status.in.(cancelled,rejected,expired),date.lte.${f.today}`)
+      .or(historyBookingsFilter(new Date(), timeZone).or)
       .order('date', { ascending: false }).order('start_time', { ascending: false })
       .range(0, want - 1);
     if (isStale()) return;
@@ -155,7 +155,7 @@ export default function MyReservationsScreen() {
     setLoadingMore(true);
     const from = historyLoaded.current;
     const { data: more } = await supabase.from('bookings').select(BOOKING_SELECT).eq('user_id', userId).eq('courts.hoa_id', hoaId)
-      .or(`status.in.(cancelled,rejected,expired),date.lte.${currentBookingsFilter(new Date(), timeZone).today}`)
+      .or(historyBookingsFilter(new Date(), timeZone).or)
       .order('date', { ascending: false }).order('start_time', { ascending: false }).range(from, from + HISTORY_FETCH - 1);
     if (scopeKey.current !== myScope) { setLoadingMore(false); return; } // account or community changed while loading
     const rows = (more ?? []) as any[];
@@ -290,7 +290,7 @@ export default function MyReservationsScreen() {
                 upcoming.map((b) => <BookingCard key={b.id} b={b} isUpcoming />)
               )}
 
-              {history.length > 0 && (
+              {(history.length > 0 || !historyDone) && (
                 <>
                   <Text style={[styles.sectionTitle, { marginTop: 28 }]}>History ({history.length}{historyDone ? '' : '+'})</Text>
                   {history.slice(0, historyShown).map((b) => <BookingCard key={b.id} b={b} isUpcoming={false} />)}

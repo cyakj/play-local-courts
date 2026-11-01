@@ -126,6 +126,21 @@ BEGIN
   PERFORM pg_temp.as_owner();
 END $$;
 
+-- 6b. An approval cannot move the reservation
+DO $$
+DECLARE c t_ctx; bid uuid;
+BEGIN
+  SELECT * INTO c FROM t_ctx;
+  DELETE FROM public.bookings WHERE user_id IN (c.a, c.b) AND court_id = c.court AND date = c.d;
+  PERFORM pg_temp.as_user(c.a);
+  PERFORM pg_temp.expect_ok('A pending for the approval test', pg_temp.ins(c.a, c.court, c.d, '10:00', '11:00'));
+  PERFORM pg_temp.as_owner();
+  SELECT b.id INTO bid FROM public.bookings b WHERE b.user_id = c.a AND b.court_id = c.court AND b.date = c.d;
+  PERFORM pg_temp.as_user(c.b);
+  PERFORM pg_temp.expect_fail('approval cannot also change the time', format('UPDATE public.bookings SET status = %L, start_time = %L, end_time = %L WHERE id = %L', 'confirmed', '14:00', '15:00', bid), '23514', 'cannot change the reserved time');
+  PERFORM pg_temp.as_owner();
+END $$;
+
 -- 7. Rejection releases the hold ---------------------------------------------------------------------------------------------------
 DO $$
 DECLARE c t_ctx; bid uuid;

@@ -82,6 +82,27 @@ export function currentWindowStartDate(now: Date = new Date(), timeZone = COMMUN
   return new Date(Date.UTC(y, m - 1, d - 1)).toISOString().slice(0, 10);
 }
 
+/**
+ * PostgREST `or=` filter for HISTORY: the exact complement of currentBookingsFilter over the resident's own rows - every row that
+ * is not a current reservation (cancelled/rejected/expired of any date, anything before today, and today's confirmed rows that have
+ * ended / pending rows that have started). Never includes a current reservation, so a page of history cannot be filled with
+ * upcoming rows.
+ */
+export function historyBookingsFilter(now: Date = new Date(), timeZone = COMMUNITY_TIME_ZONE): { today: string; or: string } {
+  const f = currentBookingsFilter(now, timeZone);
+  const mins = communityMinutesNow(now, timeZone);
+  const t = `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}:00`;
+  return {
+    today: f.today,
+    or: [
+      'status.in.(cancelled,rejected,expired)',
+      `date.lt.${f.today}`,
+      `and(status.eq.confirmed,date.eq.${f.today},end_time.lte.${t})`,
+      `and(status.eq.pending,date.eq.${f.today},start_time.lte.${t})`,
+    ].join(','),
+  };
+}
+
 export type BadgeTone = 'positive' | 'info' | 'warning' | 'negative' | 'muted';
 export type BadgeIcon = 'check' | 'clock' | 'play' | 'x' | 'history';
 

@@ -17,6 +17,9 @@ export function useHoaTimeZone(hoaId: string | null | undefined): { timeZone: st
   });
 
   useEffect(() => {
+    // A different community must not inherit the previous community's zone while its own is loading.
+    const known = hoaId ? cache.get(hoaId) : undefined;
+    setState(known ? { ...known, loaded: true } : { timeZone: COMMUNITY_TIME_ZONE, assumed: true, unavailable: false, loaded: false });
     if (!hoaId) { setState({ timeZone: COMMUNITY_TIME_ZONE, assumed: true, unavailable: false, loaded: true }); return; }
     let cancelled = false;
     (async () => {

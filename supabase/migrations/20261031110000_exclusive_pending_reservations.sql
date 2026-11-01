@@ -154,6 +154,12 @@ BEGIN
       END IF;
 
       IF NEW.status = 'confirmed' THEN
+        -- Approving keeps the held interval exactly: no court / date / time change may ride along with an approval.
+        IF NEW.court_id IS DISTINCT FROM OLD.court_id OR NEW.date IS DISTINCT FROM OLD.date
+           OR NEW.start_time IS DISTINCT FROM OLD.start_time OR NEW.end_time IS DISTINCT FROM OLD.end_time THEN
+          RAISE EXCEPTION 'An approval cannot change the reserved time; decline the request instead'
+            USING ERRCODE = '23514';
+        END IF;
         local_now := public.hoa_local_now_for_court(OLD.court_id, false);
         IF local_now IS NOT NULL AND (OLD.date + OLD.start_time) <= local_now THEN
           RAISE EXCEPTION 'This request has expired: its start time has passed, so it can no longer be approved'

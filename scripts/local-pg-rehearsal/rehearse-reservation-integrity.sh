@@ -62,6 +62,15 @@ sleep 1
 wait
 n="$(pq -d "${DB}c" -At -c "select count(*) from bookings where user_id='$B' and date=$DAY and status in ('pending','confirmed')")"
 if [ "$n" = "1" ]; then echo "PASS rejection racing a competing request: hold released, competitor succeeds"; else echo "FAIL reject race rows=$n"; cat /tmp/s6.$$; rc=1; fi
+
+# 3d. the SAME resident sends two NON-overlapping requests at the same moment (daily cap 1): exactly one may commit
+pq -d "${DB}c" -c "delete from bookings where date=$DAY" >/dev/null
+( pq -d "${DB}c" -c "$(as $A) begin; $(ins $A 09:00 10:00) select pg_sleep(3); commit;" >/tmp/s7.$$ 2>&1 ) &
+sleep 1
+( pq -d "${DB}c" -c "$(as $A) $(ins $A 15:00 16:00)" >/tmp/s8.$$ 2>&1 ) &
+wait
+n="$(pq -d "${DB}c" -At -c "select count(*) from bookings where user_id='$A' and date=$DAY and status in ('pending','confirmed')")"
+if [ "$n" = "1" ] && grep -q 'per day limit' /tmp/s8.$$; then echo "PASS concurrent non-overlapping requests by one resident cannot exceed the daily cap"; else echo "FAIL daily cap race: rows=$n"; cat /tmp/s8.$$; rc=1; fi
 rm -f /tmp/s?.$$
 
 echo "== 4. pre-flight: existing overlapping pending/confirmed rows abort M2 and change nothing"
