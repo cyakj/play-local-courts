@@ -320,7 +320,7 @@ test.describe('Courts Screen — Phase 3 Refined', () => {
     }
   });
 
-  test('Schedule sheet has legend with Available / Booked / Maintenance', async ({ page }) => {
+  test('Schedule sheet has legend with Available / Reserved / Blocked', async ({ page }) => {
     // Legend label is "Booked", not "Reserved" (courts.tsx ScheduleSheet
     // legend also adds a 4th "My Reservation" entry not asserted here).
     await page.waitForTimeout(4000);
@@ -333,7 +333,7 @@ test.describe('Courts Screen — Phase 3 Refined', () => {
       // Scope all text searches to legend to avoid matching off-screen status text
       await expect(legend.getByText('Available', { exact: true })).toBeVisible();
       await expect(legend.getByText('Reserved by someone else', { exact: true })).toBeVisible();
-      await expect(legend.getByText('Maintenance', { exact: true })).toBeVisible();
+      await expect(legend.getByText('Blocked by management', { exact: true })).toBeVisible();
     }
   });
 

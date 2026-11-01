@@ -376,9 +376,20 @@ export default function CourtsScreen() {
       const hoaIds = (memberships ?? []).map((m: { hoa_id: string }) => m.hoa_id);
       if (hoaIds.length === 0) { setCourts([]); setCourtsLoading(false); return; }
 
+      // Own bookings are paged until the result is complete (the count shown to the resident must not be truncated).
+      const loadOwnBookings = async () => {
+        const rows: unknown[] = [];
+        for (let from = 0; from < 1000; from += 100) {
+          const page = await supabase.from('bookings').select('id, court_id, date, start_time, end_time, status, courts!inner(name, hoa_id)').eq('user_id', user.id).in('courts.hoa_id', activeCommunity ? [activeCommunity.hoaId] : hoaIds).gte('date', currentWindowStartDate(now)).in('status', ACTIVE_BOOKING_STATUSES).order('date').order('start_time').range(from, from + 99);
+          if (page.error) return { data: rows.length ? rows : null, error: page.error };
+          rows.push(...(page.data ?? []));
+          if ((page.data ?? []).length < 100) break;
+        }
+        return { data: rows, error: null };
+      };
       const [courtsRes, userBookingsRes] = await Promise.all([
         supabase.from('courts').select('id, name, court_type, hoa_id').in('hoa_id', hoaIds),
-        supabase.from('bookings').select('id, court_id, date, start_time, end_time, status, courts!inner(name, hoa_id)').eq('user_id', user.id).in('courts.hoa_id', activeCommunity ? [activeCommunity.hoaId] : hoaIds).gte('date', currentWindowStartDate(now)).in('status', ACTIVE_BOOKING_STATUSES).order('date').order('start_time').limit(50),
+        loadOwnBookings(),
       ]);
       if (!current()) return;
 
@@ -438,7 +449,13 @@ export default function CourtsScreen() {
   const loadCoursRefLatest = useRef(loadCourts);
   loadCoursRefLatest.current = loadCourts;
   useFocusEffect(useCallback(() => { void loadCoursRefLatest.current(); }, []));
-  refreshQuietRef.current = () => { void loadCourts(); };
+  // Periodic / resume refresh: besides today's data, re-fetch the date and court a sheet is showing, so a request that an
+  // administrator approved or rejected is reconciled on a future date too (the fetch replaces that court's cached rows).
+  refreshQuietRef.current = () => {
+    void loadCourts();
+    if (bookingSheet) void fetchBookingsForDate(toDateKey(sheetDate), [bookingSheet.courtId]);
+    if (scheduleSheet) void fetchBookingsForDate(toDateKey(scheduleDate), [scheduleSheet.courtId]);
+  };
 
   async function onRefresh() {
     setRefreshing(true);

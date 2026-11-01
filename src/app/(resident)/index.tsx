@@ -267,7 +267,7 @@ export default function HomeScreen() {
           .in('status', ['confirmed', 'pending'])
           .order('date', { ascending: true })
           .order('start_time', { ascending: true })
-          .limit(50) : Promise.resolve({ data: [] }),
+          .limit(200) : Promise.resolve({ data: [] }),
 
         hId ? supabase
           .from('hoa_announcements')

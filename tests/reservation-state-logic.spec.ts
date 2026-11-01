@@ -237,3 +237,12 @@ test.describe('inspection round 1 follow-ups', () => {
     expect(src('hooks/useNow.ts')).toMatch(/if \(firstFocus\.current\)[^\n]*\s+refreshRef\.current\?\.\(\)/);
   });
 });
+
+test.describe('inspection round 2 follow-ups', () => {
+  test('R2-101/102: open sheets are re-fetched on refresh; own bookings are paged to completion', () => {
+    const c = src('app/(resident)/courts.tsx');
+    expect(c).toMatch(/fetchBookingsForDate\(toDateKey\(sheetDate\), \[bookingSheet\.courtId\]\);\s*\n\s*if \(scheduleSheet\)/);
+    expect(c).toMatch(/\.range\(from, from \+ 99\)/);
+    expect(c).not.toMatch(/ACTIVE_BOOKING_STATUSES\)\.order\('date'\)\.order\('start_time'\)\.limit\(50\)/);
+  });
+});
