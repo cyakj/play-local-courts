@@ -20,7 +20,7 @@ export function availableToBookLine(rules: { booking_start_time?: string | null;
 export function approvalNotice(requiresApproval: boolean, holdsEnforced: boolean): string | null {
   if (!requiresApproval) return null;
   return holdsEnforced
-    ? 'Approval required · Your requested time is held until reviewed.'
+    ? 'Approval required · Your time is held until reviewed or it starts.'
     : 'Approval required · An administrator will review your request.';
 }
 

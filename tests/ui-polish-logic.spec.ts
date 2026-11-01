@@ -99,7 +99,7 @@ test.describe('wheel wiring (static)', () => {
     expect(handler).not.toMatch(/hapticTick|soundTick|Haptics\./);
     expect(handler).toContain('scheduleOnRN(onCentreChange');
     expect(w.match(/hapticTick\(\)/g)?.length).toBe(1);
-    expect(w).toContain('hapticConfirm();'); // the firmer confirmation on intentional selection
+    expect(w).toContain('if (prefsRef.current.haptics) hapticConfirm();'); // firmer confirmation on intentional selection, only if haptics are on
   });
 });
 
@@ -126,14 +126,18 @@ test.describe('Expo Go compatibility (static)', () => {
 
 test.describe('reservation sheet copy', () => {
   test('approval notice promises a hold ONLY when the server enforces exclusive pending holds', () => {
-    expect(approvalNotice(true, true)).toBe('Approval required · Your requested time is held until reviewed.');
+    expect(approvalNotice(true, true)).toBe('Approval required · Your time is held until reviewed or it starts.');
     expect(approvalNotice(true, false)).toBe('Approval required · An administrator will review your request.');
     expect(approvalNotice(true, false)).not.toMatch(/held/i);
     expect(approvalNotice(false, true)).toBeNull();
   });
   test('the hold wording is tied to the busy-times function being present (degraded = not enforced)', () => {
     const c = read('src/app/(resident)/courts.tsx');
-    expect(c).toContain('approvalNotice(!!rules?.requires_admin_approval, !degraded)');
+    expect(c).toContain('approvalNotice(!!rules?.requires_admin_approval, holdsEnforced)');
+    // only a SUCCESSFUL busy-times answer proves enforcement; a network/permission failure must not promise a hold
+    expect(c).toMatch(/holds: true, data: rows\.map/);
+    expect(c.match(/holds: false/g)?.length).toBe(2);
+    expect(c).toContain('const [busyHolds, setBusyHolds] = useState(false);');
   });
   test('available-to-book line uses the amenity\'s own hours', () => {
     expect(availableToBookLine({ booking_start_time: '07:00:00', booking_end_time: '19:00:00' })).toBe('Available to book: 7 AM–7 PM');
@@ -237,5 +241,12 @@ test.describe('hosted safety', () => {
   test('this sprint adds only an additive, un-applied migration and a rollback; no hosted write code', () => {
     expect(existsSync('supabase/rollbacks/20261101100000_rollback_announcement_urgency_and_category.sql')).toBe(true);
     for (const f of ['src/lib/pickerFeedbackRuntime.ts', 'src/lib/reservationCopy.ts', 'src/components/ui/TimeSlotWheel.tsx']) expect(read(f), f).not.toMatch(/supabase/);
+  });
+});
+
+test.describe('Codex review follow-ups', () => {
+  test('the helper called from the UI-thread scroll handler is a worklet', () => {
+    const s = readFileSync('src/lib/pickerFeedback.ts', 'utf8');
+    expect(s).toMatch(/export function centeredIndex\([^)]*\): number \{\s*'worklet';/);
   });
 });

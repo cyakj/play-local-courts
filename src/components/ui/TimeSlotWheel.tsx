@@ -381,7 +381,7 @@ export const TimeSlotWheel = memo(function TimeSlotWheel({
       const next = slot.start === selectedSlot ? null : slot.start;
       onSelectSlot(next);
       if (next !== null) {
-        hapticConfirm();
+        if (prefsRef.current.haptics) hapticConfirm();
         scrollToIndex(idx, true);
       }
     },

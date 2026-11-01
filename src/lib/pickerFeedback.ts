@@ -2,6 +2,7 @@
 
 /** Slot height-independent: which row is centred for a scroll offset (clamped to the list). */
 export function centeredIndex(offsetY: number, itemHeight: number, count: number): number {
+  'worklet'; // called from the UI-thread scroll handler in TimeSlotWheel
   if (count <= 0 || itemHeight <= 0) return 0;
   const raw = Math.round(offsetY / itemHeight);
   return Math.max(0, Math.min(raw, count - 1));

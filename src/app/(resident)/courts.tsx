@@ -212,17 +212,17 @@ function getSlotWeatherIcon(hour: number, selectedDate: Date, now: Date, weather
  * from get_amenity_busy_times (migration 20261031110000): intervals + status, never user ids. If that function does not exist
  * yet (migration not applied) we fall back to the resident's own bookings and say so - never "everything is free".
  */
-async function loadBusyTimes(ids: string[], dateStr: string, userId: string): Promise<{ data: TodayBooking[]; error: { message: string } | null; degraded: boolean }> {
+async function loadBusyTimes(ids: string[], dateStr: string, userId: string): Promise<{ data: TodayBooking[]; error: { message: string } | null; degraded: boolean; holds: boolean }> {
   const rpc = await db.rpc('get_amenity_busy_times', { p_court_ids: ids, p_date: dateStr });
   if (!rpc.error) {
     const rows = (rpc.data ?? []) as Array<{ court_id: string; start_time: string; end_time: string; status: string; is_mine: boolean }>;
-    return { error: null, degraded: false, data: rows.map(r => ({ court_id: r.court_id, start_time: r.start_time, end_time: r.end_time, status: r.status, user_id: r.is_mine ? userId : 'another-resident' })) };
+    return { error: null, degraded: false, holds: true, data: rows.map(r => ({ court_id: r.court_id, start_time: r.start_time, end_time: r.end_time, status: r.status, user_id: r.is_mine ? userId : 'another-resident' })) };
   }
   if (rpc.error.code === 'PGRST202' || rpc.error.code === '42883' || /could not find the function/i.test(rpc.error.message ?? '')) {
     const own = await supabase.from('bookings').select('court_id, start_time, end_time, user_id, status').in('court_id', ids).eq('date', dateStr).in('status', ACTIVE_BOOKING_STATUSES);
-    return { error: own.error ? { message: own.error.message } : null, degraded: true, data: (own.data ?? []) as TodayBooking[] };
+    return { error: own.error ? { message: own.error.message } : null, degraded: true, holds: false, data: (own.data ?? []) as TodayBooking[] };
   }
-  return { error: { message: rpc.error.message }, degraded: false, data: [] };
+  return { error: { message: rpc.error.message }, degraded: false, holds: false, data: [] };
 }
 
 function computeCourtStatus(courtId: string, now: Date, bookingsByDate: Record<string, TodayBooking[]>, tz: string): CourtStatus {
@@ -434,6 +434,8 @@ export default function CourtsScreen() {
   // Per date+court outcome of the booking fetch: 'ok' loaded; 'stale' loaded earlier but the latest refresh failed (data kept,
   // flagged); 'error' never loaded. A date with nothing loaded must NOT be drawn as "all free".
   const [busyDegraded, setBusyDegraded] = useState(false);
+  // True ONLY after the busy-times function answered: that function ships with the exclusive-pending-holds migration. Unknown = false.
+  const [busyHolds, setBusyHolds] = useState(false);
   const [bookingLoad, setBookingLoad] = useState<Record<string, 'ok' | 'stale' | 'error'>>({});
   // Decides whether a response may still be applied (account/community changed, or a newer request for the key started).
   const bookingLedger = useRef(new RequestLedger());
@@ -443,8 +445,9 @@ export default function CourtsScreen() {
     const ticket = bookingLedger.current.begin(ids.map(id => `${dateStr}:${id}`));
     // Only reservations that occupy time: the DB trigger and exclusion constraint count confirmed + pending (a
     // rejected or cancelled request frees its interval and does not count toward the daily limit).
-    const { data, error, degraded } = await loadBusyTimes(ids, dateStr, userId);
+    const { data, error, degraded, holds } = await loadBusyTimes(ids, dateStr, userId);
     setBusyDegraded(degraded);
+    setBusyHolds(holds);
     const liveKeys = bookingLedger.current.live(ticket);
     if (liveKeys.length === 0) return; // superseded or belongs to a previous account/community
     const liveIds = ids.filter(id => liveKeys.includes(`${dateStr}:${id}`));
@@ -985,6 +988,7 @@ export default function CourtsScreen() {
           rules={sheetRules}
           rulesLoading={sheetRulesLoading}
           degraded={busyDegraded}
+          holdsEnforced={busyHolds}
           availabilityStatus={bookingSheet ? (bookingLoad[`${toDateKey(sheetDate)}:${bookingSheet.courtId}`] ?? 'loading') : 'loading'}
           onRetryAvailability={() => { if (bookingSheet) void fetchBookingsForDate(toDateKey(sheetDate), [bookingSheet.courtId]); }}
           timeSlots={sheetTimeSlots}
@@ -1092,7 +1096,7 @@ function CourtCard({ court, status, isMyBooking, now, onBook, onSchedule, onRepo
 
 const BookingSheet = memo(function BookingSheet({
   courtName, courtType, now, sheetDate, onSheetDateChange,
-  playType, onPlayTypeChange, rules, rulesLoading, availabilityStatus, onRetryAvailability, degraded,
+  playType, onPlayTypeChange, rules, rulesLoading, availabilityStatus, onRetryAvailability, degraded, holdsEnforced,
   timeSlots, selectedSlot, onSelectSlot,
   duration, availableDurations, isTennis, onDurationChange,
   weather, confirming, success, pending, bookingError, onConfirm, onClose, insets,
@@ -1101,7 +1105,7 @@ const BookingSheet = memo(function BookingSheet({
   sheetDate: Date; onSheetDateChange: (d: Date) => void;
   playType: 'singles' | 'doubles'; onPlayTypeChange: (t: 'singles' | 'doubles') => void;
   rules: AmenityRules | null; rulesLoading: boolean;
-  availabilityStatus: 'loading' | 'ok' | 'stale' | 'error'; onRetryAvailability: () => void; degraded: boolean;
+  availabilityStatus: 'loading' | 'ok' | 'stale' | 'error'; onRetryAvailability: () => void; degraded: boolean; holdsEnforced: boolean;
   timeSlots: SlotInfo[]; selectedSlot: string | null; onSelectSlot: (s: string | null) => void;
   duration: number; availableDurations: number[]; isTennis: boolean; onDurationChange: (d: number) => void;
   weather: WeatherData | null;
@@ -1349,9 +1353,9 @@ const BookingSheet = memo(function BookingSheet({
             {!!bookingError && (
               <Text testID="booking-error" style={styles.bookingErrorText}>{bookingError}</Text>
             )}
-            {!success && !!approvalNotice(!!rules?.requires_admin_approval, !degraded) && (
+            {!success && !!approvalNotice(!!rules?.requires_admin_approval, holdsEnforced) && (
               <Text testID="booking-approval-notice" style={styles.approvalNoticeText}>
-                {approvalNotice(!!rules?.requires_admin_approval, !degraded)}
+                {approvalNotice(!!rules?.requires_admin_approval, holdsEnforced)}
               </Text>
             )}
             <TouchableOpacity testID="confirm-booking-btn"
