@@ -68,13 +68,20 @@ async function processBookingReminders(
 ) {
   // Booking date/start_time are wall-clock values at the COMMUNITY (hoas.timezone), not UTC. Fetch every date the start could fall
   // on in any zone (UTC date -1..+1), then compare real instants computed with each HOA's own zone.
-  const { data: bookings, error } = await supabase
-    .from('bookings')
-    .select(`id, user_id, date, start_time, end_time, play_type, courts:court_id (name, hoa_id)`)
-    .in('date', candidateDates(windowStart, windowEnd))
-    .eq('status', 'confirmed');
-
-  if (error) { console.error("Error fetching bookings:", error); return; }
+  // Page through the result: the API caps one response (1000 rows), and a truncated list would silently drop due reminders.
+  const bookings: any[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data: page, error } = await supabase
+      .from('bookings')
+      .select(`id, user_id, date, start_time, end_time, play_type, courts:court_id (name, hoa_id)`)
+      .in('date', candidateDates(windowStart, windowEnd))
+      .eq('status', 'confirmed')
+      .order('id')
+      .range(from, from + 999);
+    if (error) { console.error("Error fetching bookings:", error); return; }
+    bookings.push(...(page ?? []));
+    if ((page ?? []).length < 1000) break;
+  }
 
   // hoas.timezone exists only after migration 20261031100000. Without it every community is Puerto Rico (legacy fallback).
   const hoaIds = [...new Set((bookings ?? []).map((b: any) => b.courts?.hoa_id).filter(Boolean))];
@@ -91,6 +98,7 @@ async function processBookingReminders(
 
   for (const booking of bookings ?? []) {
     const startMs = bookingStartMs(booking.date, booking.start_time, zoneByHoa.get(booking.courts?.hoa_id) ?? null, legacyServer);
+    if (startMs === null) { console.warn(`Reminder skipped: community ${booking.courts?.hoa_id} has no valid time zone (booking ${booking.id}). Set it with set_hoa_timezone().`); continue; }
     if (!inWindow(startMs, windowStart, windowEnd)) continue;
 
     const eventType = `booking_${windowKey}`;

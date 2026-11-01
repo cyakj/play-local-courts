@@ -54,9 +54,12 @@ export default function CalendarScreen() {
   // Each community's own reservation zone (hoas.timezone). "Today" follows the filtered community's zone; with all communities it is the earliest date among them.
   const [zones, setZones] = useState<Map<string, string>>(new Map());
   const [hoaFilter, setHoaFilter] = useState<string | 'all'>('all');
+  // Re-evaluated every minute so a screen left open past midnight (in the community's zone) moves to the new day.
+  const [clock, setClock] = useState(() => Date.now());
+  useEffect(() => { const t = setInterval(() => setClock(Date.now()), 60_000); return () => clearInterval(t); }, []);
   const today = useMemo(
-    () => (hoaFilter !== 'all' ? communityToday(new Date(), zones.get(hoaFilter) ?? COMMUNITY_TIME_ZONE) : earliestCommunityToday([...zones.values()])),
-    [hoaFilter, zones],
+    () => (hoaFilter !== 'all' ? communityToday(new Date(clock), zones.get(hoaFilter) ?? COMMUNITY_TIME_ZONE) : earliestCommunityToday([...zones.values()], new Date(clock))),
+    [hoaFilter, zones, clock],
   );
   const [pickedDate, setSelected] = useState<string | null>(null);
   const selected = pickedDate ?? today; // until the user picks a day, follow the community's own "today"
@@ -354,13 +357,15 @@ function AddEventSheet({
     if (!start) { setErr('Choose a start time.'); return; }
     if (end && end <= start) { setErr('End time must be after the start time.'); return; }
     if (!userId) { setErr('You are signed out.'); return; }
+    const zone = zones.get(hoaId);
+    if (!zone) { setErr("This community's time zone could not be loaded. Close and reopen the calendar, then try again."); return; }
     setSaving(true);
     setErr(null);
     const { error } = await supabase.from('hoa_events').insert({
       hoa_id: hoaId, created_by: userId, title: title.trim(), description: description.trim() || null,
       event_type: type, location: location.trim() || null,
-      starts_at: communityWallToIso(date, start, zones.get(hoaId) ?? COMMUNITY_TIME_ZONE),
-      ends_at: end ? communityWallToIso(date, end, zones.get(hoaId) ?? COMMUNITY_TIME_ZONE) : null,
+      starts_at: communityWallToIso(date, start, zone),
+      ends_at: end ? communityWallToIso(date, end, zone) : null,
       rsvp_enabled: rsvp, status: 'active',
     });
     if (error) {

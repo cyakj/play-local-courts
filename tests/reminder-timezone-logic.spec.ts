@@ -80,3 +80,18 @@ test.describe('manager portfolio uses each community zone', () => {
     expect(readFileSync('src/app/(cm)/alerts.tsx', 'utf8')).not.toMatch(/hoursUntilStart\(b\.date, b\.start_time\)/);
   });
 });
+
+test.describe('Codex follow-ups', () => {
+  test('reminder query pages through results and logs skipped NULL-zone bookings', () => {
+    const src = readFileSync('supabase/functions/send-scheduled-reminders/index.ts', 'utf8');
+    const fn = src.slice(src.indexOf('async function processBookingReminders'), src.indexOf('async function processLessonReminders'));
+    expect(fn).toContain('.range(from, from + 999)');
+    expect(fn).toContain('Reminder skipped');
+  });
+  test('calendar refuses to save an event when the community zone is unknown and keeps "today" fresh', () => {
+    const src = readFileSync('src/app/(cm)/calendar.tsx', 'utf8');
+    expect(src).toContain('const zone = zones.get(hoaId);');
+    expect(src).toContain('if (!zone)');
+    expect(src).toContain('setInterval(() => setClock');
+  });
+});
