@@ -27,6 +27,28 @@ const DRUM_PERSPECTIVE = 520;
 const DRUM_DEG_PER_ROW = 21;
 const DRUM_MAX_DEG = 62;
 
+// Cylinder silhouette: two mirrored parabolic contours, widest at the centre row and pinched toward the top/bottom. Row width
+// follows the same parabola, so the rows sit inside the contours instead of beside them.
+const CONTOUR_EDGE = 3;                    // contour x at the widest point (inside the wheel border)
+const ROW_MARGIN = 8;                      // 2 x row marginHorizontal
+
+interface Cylinder { bow: number; rowW: number; half: number }
+
+/** Horizontal pinch at the wheel ends, in px per side; scales with the measured width so it fits any iPhone. */
+function cylinderFor(width: number, height: number): Cylinder {
+  const bow = Math.max(6, Math.min(26, width * 0.06));
+  return { bow, rowW: Math.max(1, width - ROW_MARGIN), half: Math.max(ITEM_H, height / 2) };
+}
+
+function contourPath(width: number, height: number, bow: number, side: 'left' | 'right'): string {
+  const mid = height / 2;
+  const edge = side === 'left' ? CONTOUR_EDGE : width - CONTOUR_EDGE;
+  const dir = side === 'left' ? 1 : -1;
+  const endX = edge + dir * bow;
+  const ctrlX = edge - dir * bow;           // quadratic midpoint lands exactly on `edge`
+  return `M ${endX} 0 Q ${ctrlX} ${mid} ${endX} ${height}`;
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface WheelWeatherSource {
@@ -227,10 +249,11 @@ function a11yLabel(slot: SlotInfo, isSelected: boolean): string {
 interface WheelRowProps {
   slot: SlotInfo; index: number; scrollY: SharedValue<number>; isSelected: boolean;
   wx: SlotWx | null; theme: ThemeTokens; s: ReturnType<typeof useWheelStyles>; onSelect: (slot: SlotInfo, idx: number) => void;
+  cyl: Cylinder;
 }
 
 /** One drum row. Its curvature, scale, opacity and text colour are driven by the scroll offset on the UI thread. */
-const WheelRow = memo(function WheelRow({ slot, index, scrollY, isSelected, wx, theme, s, onSelect }: WheelRowProps) {
+const WheelRow = memo(function WheelRow({ slot, index, scrollY, isSelected, wx, theme, s, onSelect, cyl }: WheelRowProps) {
   const open = slot.state === 'available';
   const focusColor = theme.textPrimary;
   const restColor = theme.textMuted;
@@ -243,7 +266,8 @@ const WheelRow = memo(function WheelRow({ slot, index, scrollY, isSelected, wx, 
       transform: [
         { perspective: DRUM_PERSPECTIVE },
         { rotateX: `${Math.max(-DRUM_MAX_DEG, Math.min(DRUM_MAX_DEG, -d * DRUM_DEG_PER_ROW))}deg` },
-        { scale: interpolate(ad, [0, 3], [1, 0.88], Extrapolation.CLAMP) },
+        // same parabola as the side contours: row width at distance ad matches the contour's x at that height
+        { scale: 1 - ((2 * cyl.bow) / cyl.rowW) * Math.min(1, (ad * ITEM_H) / cyl.half) ** 2 },
       ],
     };
   });
@@ -328,7 +352,10 @@ export const TimeSlotWheel = memo(function TimeSlotWheel({
   const scrollY = useSharedValue(0);
   const lastIdx = useSharedValue(-1);
   const [wheelH, setWheelH] = useState(WHEEL_H);
+  const [wheelW, setWheelW] = useState(0);
   const s = useWheelStyles(theme);
+  const boxH = fill ? wheelH : WHEEL_H;
+  const cyl = useMemo(() => cylinderFor(wheelW || 340, boxH), [wheelW, boxH]);
   const pad = Math.max(0, (wheelH - ITEM_H) / 2);
   const starts = useMemo(() => slots.map((x) => x.start), [slots]);
 
@@ -391,10 +418,13 @@ export const TimeSlotWheel = memo(function TimeSlotWheel({
   return (
     <View
       style={[s.wheel, fill ? { flex: 1, minHeight: MIN_H } : { height: WHEEL_H, marginBottom: 12 }]}
-      onLayout={fill ? (e) => {
-        const h = Math.round(e.nativeEvent.layout.height);
-        if (h > 0 && Math.abs(h - wheelH) > 1) setWheelH(h);
-      } : undefined}>
+      onLayout={(e) => {
+        const { width: w, height: h0 } = e.nativeEvent.layout;
+        const w1 = Math.round(w);
+        if (w1 > 0 && Math.abs(w1 - wheelW) > 1) setWheelW(w1);
+        const h = Math.round(h0);
+        if (fill && h > 0 && Math.abs(h - wheelH) > 1) setWheelH(h);
+      }}>
       {/* Fixed centre band: the focus indicator never moves; the drum rolls under it. */}
       <View pointerEvents="none" style={[s.band, { top: pad, height: ITEM_H }]} />
       <Animated.ScrollView
@@ -421,9 +451,21 @@ export const TimeSlotWheel = memo(function TimeSlotWheel({
             theme={theme}
             s={s}
             onSelect={handleSelect}
+            cyl={cyl}
           />
         ))}
       </Animated.ScrollView>
+      {/* Selection band in front of the drum: tinted so the focused row reads through it, spanning the widest part */}
+      <View pointerEvents="none" style={[s.bandFront, { top: pad, height: ITEM_H }]} />
+      {/* Cylinder silhouette: static vector (the drum shape never moves, rows roll inside it), so no per-frame work */}
+      {wheelW > 0 ? (
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          <Svg width={wheelW - 2} height={boxH - 2}>
+            <Path d={contourPath(wheelW - 2, boxH - 2, cyl.bow, 'left')} stroke={theme.textMuted} strokeOpacity={0.4} strokeWidth={1} fill="none" strokeLinecap="round" />
+            <Path d={contourPath(wheelW - 2, boxH - 2, cyl.bow, 'right')} stroke={theme.textMuted} strokeOpacity={0.4} strokeWidth={1} fill="none" strokeLinecap="round" />
+          </Svg>
+        </View>
+      ) : null}
       {/* Soft top/bottom fade so the wheel reads as continuous, not clipped */}
       <FadeMask position="top" color={theme.sheetBg} height={Math.max(ITEM_H, pad * 0.9)} />
       <FadeMask position="bottom" color={theme.sheetBg} height={Math.max(ITEM_H, pad * 0.9)} />
@@ -497,6 +539,11 @@ function useWheelStyles(theme: ThemeTokens) {
         position: 'absolute', left: 6, right: 6, borderRadius: Radius.sm,
         backgroundColor: theme.surface2, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth,
         borderColor: theme.border,
+      },
+      bandFront: {
+        position: 'absolute', left: 2, right: 2, borderRadius: Radius.sm,
+        backgroundColor: 'rgba(45,107,255,0.04)', borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth,
+        borderColor: 'rgba(45,107,255,0.35)',
       },
       rowSelected: { borderColor: selBlue, backgroundColor: selBlueBg },
       rowReserved: { backgroundColor: Availability.reservedBg },
