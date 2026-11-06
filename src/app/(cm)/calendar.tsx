@@ -13,7 +13,7 @@ import { COMMUNITY_TIME_ZONE, communityToday, earliestCommunityToday } from '@/l
 import { loadHoaZones } from '@/lib/hoaZones';
 import {
   addDays, addMonths, buildMonthWeeks, communityWallToIso, dedupeEvents, EVENT_TYPE_LABEL, expandBlockout, filterEvents,
-  formatClock, groupByDate, isoToCommunityWall, parseIso, weekOf, type CalendarEvent, type EventType,
+  canCancelEvent, formatClock, groupByDate, isoToCommunityWall, parseIso, weekOf, type CalendarEvent, type EventType,
 } from '@/lib/adminCalendar';
 import { formatDateFull } from '@/lib/format';
 import { A } from '@/constants/adminTheme';
@@ -70,6 +70,8 @@ export default function CalendarScreen() {
   const [userId, setUserId] = useState('');
   const [detail, setDetail] = useState<CalendarEvent | null>(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   const sel = parseIso(selected);
   const weeks = useMemo(() => buildMonthWeeks(sel.y, sel.m), [sel.y, sel.m]);
@@ -124,7 +126,7 @@ export default function CalendarScreen() {
         const end = e.ends_at ? isoToCommunityWall(e.ends_at, zone) : null;
         const type = (ALL_TYPES as string[]).includes(e.event_type) ? (e.event_type as EventType) : 'community_event';
         out.push({
-          id: e.id, hoaId: e.hoa_id, community: hoaName.get(e.hoa_id) ?? '', type, title: e.title,
+          id: e.id, hoaEventId: e.id, hoaId: e.hoa_id, community: hoaName.get(e.hoa_id) ?? '', type, title: e.title,
           date: start.date, startTime: start.time, endTime: end && end.date === start.date ? end.time : null,
           location: e.location ?? '',
           detail: [e.description, e.rsvp_enabled ? `${rsvpCounts.get(e.id) ?? 0} going` : null].filter(Boolean).join(' · ') || undefined,
@@ -155,6 +157,25 @@ export default function CalendarScreen() {
   }, [hoas, zones, windowRange]);
 
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
+
+  function confirmCancel(e: CalendarEvent) {
+    platformAlert('Cancel this event?', `"${e.title}" will disappear from residents' Schedule. Residents are not notified automatically.`, [
+      { text: 'Keep it', style: 'cancel' },
+      { text: 'Cancel event', style: 'destructive', onPress: () => { void cancelEvent(e); } },
+    ]);
+  }
+
+  async function cancelEvent(e: CalendarEvent) {
+    if (cancelling || !e.hoaEventId) return;
+    setCancelling(true);
+    setCancelError(null);
+    const { data, error: err } = await supabase.from('hoa_events').update({ status: 'cancelled' }).eq('id', e.hoaEventId).eq('status', 'active').select('id');
+    setCancelling(false);
+    if (err) { setCancelError(/row-level security|permission/i.test(err.message) ? 'You do not have permission to cancel events in this community.' : err.message); return; }
+    if (!data?.length) { setCancelError('That event is no longer active.'); void fetchEvents(); return; }
+    setDetail(null);
+    void fetchEvents();
+  }
 
   const filtered = useMemo(
     () => filterEvents(events, { hoaId: hoaFilter, types: typeFilter.size === 0 ? 'all' : typeFilter }),
@@ -256,7 +277,7 @@ export default function CalendarScreen() {
             ) : list.map((e) => {
               const { Icon, color } = TYPE_META[e.type];
               return (
-                <Card key={e.id} testID={`event-${e.id}`} onPress={() => setDetail(e)} accessibilityLabel={`${EVENT_TYPE_LABEL[e.type]}: ${e.title}`} style={{ padding: 12 }}>
+                <Card key={e.id} testID={`event-${e.id}`} onPress={() => { setCancelError(null); setDetail(e); }} accessibilityLabel={`${EVENT_TYPE_LABEL[e.type]}: ${e.title}`} style={{ padding: 12 }}>
                   <View style={s.eventRow}>
                     <View style={[s.eventIcon, { backgroundColor: `${color}1A` }]}><Icon size={18} color={color} /></View>
                     <View style={{ flex: 1 }}>
@@ -291,6 +312,10 @@ export default function CalendarScreen() {
               {detail.location ? <Text style={s.body}>{detail.location}</Text> : null}
               {detail.status ? <Text style={s.body}>Status: {detail.status}</Text> : null}
               {detail.detail ? <Text style={s.body}>{detail.detail}</Text> : null}
+              {cancelError ? <Text style={[s.body, { color: A.errorText }]} accessibilityLiveRegion="polite">{cancelError}</Text> : null}
+              {canCancelEvent(detail) ? (
+                <Button testID="cancel-event" label="Cancel event" variant="danger" loading={cancelling} onPress={() => confirmCancel(detail)} />
+              ) : null}
               {detail.type === 'blockout' ? (
                 <Button label="Open amenity management" variant="secondary"
                   onPress={() => { setDetail(null); router.push({ pathname: '/(admin)/manage-amenities', params: { hoaId: detail.hoaId } }); }} />

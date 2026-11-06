@@ -17,6 +17,8 @@ export interface CalendarEvent {
   location: string;
   detail?: string;
   status?: string;
+  /** Set only for rows read from hoa_events: those can be cancelled (taken down) by a community administrator. */
+  hoaEventId?: string;
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -169,3 +171,6 @@ export function formatClock(hhmm: string): string {
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return `${h12}:${pad(m || 0)} ${suffix}`;
 }
+
+/** Only real community events (hoa_events rows) can be cancelled from the calendar; reservations and closures have their own screens. */
+export const canCancelEvent = (e: CalendarEvent): boolean => !!e.hoaEventId && e.type !== 'reservation' && e.type !== 'blockout';

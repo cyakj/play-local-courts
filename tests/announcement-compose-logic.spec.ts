@@ -65,3 +65,21 @@ test.describe('wiring', () => {
     expect(m).toMatch(/REVOKE ALL ON FUNCTION public\.archive_announcement\(uuid\) FROM PUBLIC, anon/);
   });
 });
+
+import { canCancelEvent } from '../src/lib/adminCalendar';
+test.describe('event cancellation (admin calendar)', () => {
+  const base = { id: 'x', hoaId: 'h', community: 'C', title: 'T', date: '2026-11-10', startTime: '10:00', endTime: null, location: '' };
+  test('only real community events can be cancelled from the calendar', () => {
+    expect(canCancelEvent({ ...base, type: 'community_event', hoaEventId: 'x' })).toBe(true);
+    expect(canCancelEvent({ ...base, type: 'board_meeting', hoaEventId: 'x' })).toBe(true);
+    expect(canCancelEvent({ ...base, type: 'blockout' })).toBe(false);
+    expect(canCancelEvent({ ...base, type: 'reservation' })).toBe(false);
+    expect(canCancelEvent({ ...base, type: 'community_event' })).toBe(false);
+  });
+  test('cancel is a status update guarded by the active status and confirmed first', () => {
+    const c = readFileSync('src/app/(cm)/calendar.tsx', 'utf8');
+    expect(c).toContain(".update({ status: 'cancelled' }).eq('id', e.hoaEventId).eq('status', 'active')");
+    expect(c).toContain("platformAlert('Cancel this event?'");
+    expect(c).not.toMatch(/from\('hoa_events'\)\.delete/);
+  });
+});

@@ -77,6 +77,23 @@ BEGIN
     PERFORM pg_temp.rec('cross-HOA: cannot publish into another community', true, 'refused');
   END;
 
+  -- cancelling (taking an event down) is an administrator action and removes it from the resident Schedule
+  PERFORM pg_temp.as_owner(); PERFORM pg_temp.as_user(a);
+  UPDATE public.hoa_events SET status = 'cancelled' WHERE title = 'T-open social';
+  GET DIAGNOSTICS n = ROW_COUNT;
+  PERFORM pg_temp.rec('a resident cannot cancel an event', n = 0, 'rows=' || n);
+  PERFORM pg_temp.as_owner(); PERFORM pg_temp.as_user(c);
+  UPDATE public.hoa_events SET status = 'cancelled' WHERE title = 'T-open social';
+  GET DIAGNOSTICS n = ROW_COUNT;
+  PERFORM pg_temp.rec('cross-HOA: another community administrator cannot cancel it', n = 0, 'rows=' || n);
+  PERFORM pg_temp.as_owner(); PERFORM pg_temp.as_user(b);
+  UPDATE public.hoa_events SET status = 'cancelled' WHERE title = 'T-open social' AND status = 'active';
+  GET DIAGNOSTICS n = ROW_COUNT;
+  PERFORM pg_temp.rec('the community administrator can cancel an event', n = 1, 'rows=' || n);
+  PERFORM pg_temp.as_owner(); PERFORM pg_temp.as_user(a);
+  SELECT count(*) INTO n FROM public.hoa_events WHERE title = 'T-open social';
+  PERFORM pg_temp.rec('a cancelled event disappears for residents', n = 0, 'rows=' || n);
+
   -- the audience constraint
   PERFORM pg_temp.as_owner(); PERFORM pg_temp.as_user(b);
   BEGIN
