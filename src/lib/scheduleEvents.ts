@@ -55,14 +55,16 @@ function addDays(date: string, n: number): string {
  * Planned closures / maintenance windows (court_maintenance, which the booking system already enforces as blockouts) as Schedule
  * items, one per calendar day so each day of a multi-day closure is marked. This is the SHARED model: the same row blocks booking
  * and appears here. Individual maintenance REPORTS (maintenance_reports) are private to the reporter and never appear.
- * `fromDate` (YYYY-MM-DD) drops days that ended before it.
+ * `fromDate` (YYYY-MM-DD, or a function of the community id) drops days that ended before it: communities sit in different zones, so
+ * the cutoff is that community's own today.
  */
-export function maintenanceToItems(rows: MaintenanceRow[], hoaNames: Map<string, string>, fromDate: string): ScheduleItem[] {
+export function maintenanceToItems(rows: MaintenanceRow[], hoaNames: Map<string, string>, fromDate: string | ((hoaId: string) => string)): ScheduleItem[] {
   const out: ScheduleItem[] = [];
   for (const r of rows) {
     if (!r.courts || !r.date) continue;
     const last = r.end_date && r.end_date >= r.date ? r.end_date : r.date;
-    const first = r.date < fromDate ? fromDate : r.date;
+    const cutoff = typeof fromDate === 'function' ? fromDate(r.courts.hoa_id) : fromDate; // each community's own "today"
+    const first = r.date < cutoff ? cutoff : r.date;
     for (let i = 0, day = first; day <= last && i < MAX_CLOSURE_DAYS; i++, day = addDays(first, i)) {
       const start = r.start_time.slice(0, 5);
       const end = r.end_time.slice(0, 5);

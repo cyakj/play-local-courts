@@ -106,3 +106,20 @@ test.describe('board-only events (migration 20261106110000, not applied)', () =>
     expect(read('src/app/(resident)/calendar.tsx')).not.toContain('audience');
   });
 });
+
+test.describe('Codex round 3 fixes', () => {
+  test('R3-2: each community uses its own "today" as the closure cutoff', () => {
+    const rows = [
+      { id: 'a', date: '2026-11-06', end_date: '2026-11-06', start_time: '08:00', end_time: '12:00', description: null, courts: { name: 'Pool A', hoa_id: 'ahead' } },
+      { id: 'b', date: '2026-11-06', end_date: '2026-11-06', start_time: '08:00', end_time: '12:00', description: null, courts: { name: 'Pool B', hoa_id: 'behind' } },
+    ];
+    const names = new Map([['ahead', 'Ahead'], ['behind', 'Behind']]);
+    const items = maintenanceToItems(rows, names, (h) => (h === 'ahead' ? '2026-11-07' : '2026-11-06'));
+    expect(items.map((i) => i.hoa_id)).toEqual(['behind']); // the community already on Nov 7 drops Nov 6; the one still on Nov 6 keeps it
+  });
+  test('R3-2: closures are converted at render from raw rows, with the per-community zones', () => {
+    const c = read('src/app/(resident)/calendar.tsx');
+    expect(c).toContain('setClosureRows(');
+    expect(c).toMatch(/zonesByHoa\.get\(hoaId\)/);
+  });
+});

@@ -15,6 +15,11 @@ SRV_BIN="${PG_SERVER_BIN:-$PG_BIN}"
 mkdir -p "$SCR"
 "$SRV_BIN/initdb.exe" -D "$SCR/data" -U postgres -A trust -E UTF8 --locale=C >"$SCR/initdb.out" 2>&1
 "$SRV_BIN/pg_ctl.exe" -D "$SCR/data" -o "-p $PORT -c listen_addresses=127.0.0.1" -l "$SCR/server.log" -w start >"$SCR/start.out" 2>&1
+# Fail loudly if the server is not the requested major version (PG_EXPECT_MAJOR, e.g. 15).
+if [ -n "${PG_EXPECT_MAJOR:-}" ]; then
+  got="$("$PG_BIN/psql.exe" -X -h 127.0.0.1 -p "$PORT" -U postgres -At -d postgres -c "show server_version_num" | cut -c1-2)"
+  [ "$got" = "$PG_EXPECT_MAJOR" ] || { echo "server major version is $got, expected $PG_EXPECT_MAJOR" >&2; exit 1; }
+fi
 pq -d postgres -c "create database restore_ref"
 # roles recorded from the live project (names only)
 while IFS='|' read -r name _; do

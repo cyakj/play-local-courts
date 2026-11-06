@@ -101,3 +101,15 @@ test.describe('amenity rules integrity migration (20261106130000)', () => {
     expect(m.indexOf('DROP CONSTRAINT IF EXISTS amenity_rules_amenity_hoa_fkey')).toBeLessThan(m.indexOf('DROP CONSTRAINT IF EXISTS courts_id_hoa_id_key'));
   });
 });
+
+test.describe('Codex round 3: announcements screen cannot act on a stale community', () => {
+  const screen = readFileSync('src/app/(admin)/announcements.tsx', 'utf8');
+  test('a newer list request supersedes an older one and rows are cleared on switch', () => {
+    expect(screen).toContain('const gen = ++listGen.current;');
+    expect(screen).toContain('if (gen !== listGen.current) return;');
+    expect(screen).toContain('setRows([]);');
+  });
+  test('removal only acts on a row of the community currently displayed', () => {
+    expect(screen).toContain('if (!rows.some((r) => r.id === row.id)) return;');
+  });
+});

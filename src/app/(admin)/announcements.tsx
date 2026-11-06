@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Megaphone, Trash2 } from 'lucide-react-native';
@@ -34,6 +34,7 @@ export default function AnnouncementsAdminScreen() {
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<AnnouncementRow[]>([]);
   const [listLoading, setListLoading] = useState(false);
+  const listGen = useRef(0); // only the newest list request may update the screen
 
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
@@ -68,9 +69,12 @@ export default function AnnouncementsAdminScreen() {
   }, [params.hoaId]);
 
   const loadList = useCallback(async () => {
-    if (!hoaId) { setRows([]); return; }
+    const gen = ++listGen.current;
+    setRows([]); // never show (or act on) another community's rows while this one loads
+    if (!hoaId) return;
     setListLoading(true);
     const res = await fetchAnnouncements(hoaId, 20);
+    if (gen !== listGen.current) return; // the community changed (or a newer load started) while this request was in flight
     setListLoading(false);
     if (res.error) { setError(res.error.message); return; }
     setError(null);
@@ -81,6 +85,7 @@ export default function AnnouncementsAdminScreen() {
 
   async function post() {
     if (posting || !userId || !hoaId) return;
+    const postedTo = hoaId;
     setNotice(null);
     const draft = { title, body, urgent, category };
     const problem = validateDraft(draft);
@@ -92,7 +97,7 @@ export default function AnnouncementsAdminScreen() {
     if (err) { setFormError(postErrorMessage(err, draft)); return; }
     setTitle(''); setBody(''); setUrgent(false); setCategory('general');
     setNotice('Posted. Residents will see it in Community Pulse.');
-    void loadList();
+    if (postedTo === hoaId) void loadList();
   }
 
   function confirmRemove(row: AnnouncementRow) {
@@ -104,6 +109,7 @@ export default function AnnouncementsAdminScreen() {
 
   async function remove(row: AnnouncementRow) {
     if (removingId) return;
+    if (!rows.some((r) => r.id === row.id)) return; // only a row of the community currently displayed can be removed
     setRemovingId(row.id);
     setNotice(null);
     const { data, error: err } = await db.rpc('archive_announcement', { p_id: row.id });
@@ -129,7 +135,7 @@ export default function AnnouncementsAdminScreen() {
 
       {hoas.length > 1 ? (
         <ChipRow>
-          {hoas.map((h) => <Chip key={h.id} testID={`announce-hoa-${h.id}`} label={h.name} selected={hoaId === h.id} onPress={() => setHoaId(h.id)} />)}
+          {hoas.map((h) => <Chip key={h.id} testID={`announce-hoa-${h.id}`} label={h.name} selected={hoaId === h.id} onPress={() => { setFormError(null); setNotice(null); setHoaId(h.id); }} />)}
         </ChipRow>
       ) : null}
 

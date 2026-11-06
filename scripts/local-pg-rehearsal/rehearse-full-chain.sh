@@ -60,6 +60,6 @@ for f in "${LIST[@]}"; do
 done
 echo "-- re-apply (idempotency)"
 for f in "${LIST[@]}"; do
-  out="$(pq -d "$DB" -1 -f "$M/$f.sql" 2>&1)" && echo "PASS re-apply $f" || { echo "NOTE re-apply fails (not idempotent) $f"; echo "$out" | grep -v NOTICE | head -3; }
+  out="$(pq -d "$DB" -1 -f "$M/$f.sql" 2>&1)" && echo "PASS re-apply $f" || { echo "FAIL re-apply (not idempotent) $f"; echo "$out" | grep -v NOTICE | head -3; rc=1; }
 done
 exit $rc
