@@ -7,6 +7,7 @@ import Animated, {
 import { scheduleOnRN } from 'react-native-worklets';
 import Svg, { Circle, Defs, G, Line, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
+import { DRUM_OPACITY_STOPS, ghostIndexes, ghostLayout, wheelPad } from '@/lib/wheelLayout';
 import { centeredIndex, decideFeedback, newGate, type FeedbackGate } from '@/lib/pickerFeedback';
 import {
   getPickerPrefs, hapticConfirm, hapticTick, loadPickerPrefs, soundTick, subscribePickerPrefs, warmPickerSound,
@@ -235,14 +236,14 @@ function WxIcon({ type, size }: { type: SlotWx['iconType']; size: number }) {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-const STATE_LABEL = { reserved: 'Reserved', blocked: 'Blocked', limit: 'Limit' } as const;
+const STATE_LABEL = { reserved: 'Reserved', blocked: 'Blocked', limit: 'Daily limit' } as const;
 
 function a11yLabel(slot: SlotInfo, isSelected: boolean): string {
   const t = fmtSlot(slot.start);
   if (isSelected) return `${t}, selected`;
   if (slot.state === 'available') return `${t}, available`;
   if (slot.state === 'blocked') return `${t}, blocked by management, unavailable`;
-  if (slot.state === 'limit') return `${t}, reservation limit reached, unavailable`;
+  if (slot.state === 'limit') return `${t}, daily reservation limit reached, unavailable`;
   return `${t}, ${slot.mine && slot.pending ? 'your request, pending approval' : slot.mine ? 'reserved by you' : slot.inside === false ? 'would overlap a reservation' : 'reserved'}, unavailable`;
 }
 
@@ -261,7 +262,7 @@ const WheelRow = memo(function WheelRow({ slot, index, scrollY, isSelected, wx, 
     const d = (index * ITEM_H - scrollY.value) / ITEM_H;   // signed distance from the centre, in rows
     const ad = Math.abs(d);
     return {
-      opacity: interpolate(ad, [0, 1, 2, 3, 4], [1, 0.82, 0.55, 0.3, 0.1], Extrapolation.CLAMP),
+      opacity: interpolate(ad, DRUM_OPACITY_STOPS.distance as unknown as number[], DRUM_OPACITY_STOPS.opacity as unknown as number[], Extrapolation.CLAMP),
       // the top edge of rows above the centre tilts away, the bottom edge of rows below does: a cylinder seen from the front
       transform: [
         { perspective: DRUM_PERSPECTIVE },
@@ -334,6 +335,32 @@ const WheelRow = memo(function WheelRow({ slot, index, scrollY, isSelected, wx, 
   );
 });
 
+/** Non-interactive filler row that continues the drum past the first/last time. Not a time, not selectable, hidden from a11y. */
+const GhostRow = memo(function GhostRow({ index, scrollY, s, cyl }: { index: number; scrollY: SharedValue<number>; s: ReturnType<typeof useWheelStyles>; cyl: Cylinder }) {
+  const drum = useAnimatedStyle(() => {
+    const d = (index * ITEM_H - scrollY.value) / ITEM_H;
+    const ad = Math.abs(d);
+    return {
+      opacity: interpolate(ad, DRUM_OPACITY_STOPS.distance as unknown as number[], DRUM_OPACITY_STOPS.opacity as unknown as number[], Extrapolation.CLAMP),
+      transform: [
+        { perspective: DRUM_PERSPECTIVE },
+        { rotateX: `${Math.max(-DRUM_MAX_DEG, Math.min(DRUM_MAX_DEG, -d * DRUM_DEG_PER_ROW))}deg` },
+        { scale: 1 - ((2 * cyl.bow) / cyl.rowW) * Math.min(1, (ad * ITEM_H) / cyl.half) ** 2 },
+      ],
+    };
+  });
+  return (
+    <Animated.View
+      testID={`wheel-ghost-${index}`}
+      pointerEvents="none"
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={[s.row, drum]}>
+      <View style={s.ghostBar} />
+    </Animated.View>
+  );
+});
+
 /**
  * A custom drum wheel (not the native iOS picker): the rows need weather, availability colours, disabled states and per-row
  * actions, which UIDatePicker cannot render. Curvature/fade run on the UI thread from the scroll offset (react-native-reanimated,
@@ -356,7 +383,9 @@ export const TimeSlotWheel = memo(function TimeSlotWheel({
   const s = useWheelStyles(theme);
   const boxH = fill ? wheelH : WHEEL_H;
   const cyl = useMemo(() => cylinderFor(wheelW || 340, boxH), [wheelW, boxH]);
-  const pad = Math.max(0, (wheelH - ITEM_H) / 2);
+  const pad = wheelPad(wheelH, ITEM_H);
+  const ghosts = useMemo(() => ghostLayout(wheelH, ITEM_H), [wheelH]);
+  const ghostIdx = useMemo(() => ghostIndexes(ghosts.count, slots.length), [ghosts.count, slots.length]);
   const starts = useMemo(() => slots.map((x) => x.start), [slots]);
 
   // Feedback: a subtle tick per meaningful centre change caused by the USER's finger; never for refreshes or programmatic scrolls.
@@ -439,7 +468,8 @@ export const TimeSlotWheel = memo(function TimeSlotWheel({
         onScrollBeginDrag={() => { userDriven.current = true; }}
         onMomentumScrollBegin={() => { userDriven.current = true; }}
         nestedScrollEnabled
-        contentContainerStyle={{ paddingVertical: pad }}>
+        contentContainerStyle={{ paddingVertical: ghosts.remainder }}>
+        {ghostIdx.top.map((gi) => <GhostRow key={`g${gi}`} index={gi} scrollY={scrollY} s={s} cyl={cyl} />)}
         {slots.map((slot, i) => (
           <WheelRow
             key={slot.start}
@@ -454,6 +484,7 @@ export const TimeSlotWheel = memo(function TimeSlotWheel({
             cyl={cyl}
           />
         ))}
+        {ghostIdx.bottom.map((gi) => <GhostRow key={`g${gi}`} index={gi} scrollY={scrollY} s={s} cyl={cyl} />)}
       </Animated.ScrollView>
       {/* Selection band in front of the drum: tinted so the focused row reads through it, spanning the widest part */}
       <View pointerEvents="none" style={[s.bandFront, { top: pad, height: ITEM_H }]} />
@@ -467,8 +498,8 @@ export const TimeSlotWheel = memo(function TimeSlotWheel({
         </View>
       ) : null}
       {/* Soft top/bottom fade so the wheel reads as continuous, not clipped */}
-      <FadeMask position="top" color={theme.sheetBg} height={Math.max(ITEM_H, pad * 0.9)} />
-      <FadeMask position="bottom" color={theme.sheetBg} height={Math.max(ITEM_H, pad * 0.9)} />
+      <FadeMask position="top" color={theme.sheetBg} height={Math.min(ITEM_H * 1.5, Math.max(ITEM_H, pad * 0.5))} />
+      <FadeMask position="bottom" color={theme.sheetBg} height={Math.min(ITEM_H * 1.5, Math.max(ITEM_H, pad * 0.5))} />
     </View>
   );
 });
@@ -480,8 +511,8 @@ function FadeMask({ position, color, height }: { position: 'top' | 'bottom'; col
       <Svg width="100%" height="100%">
         <Defs>
           <LinearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor={color} stopOpacity={position === 'top' ? 0.95 : 0} />
-            <Stop offset="1" stopColor={color} stopOpacity={position === 'top' ? 0 : 0.95} />
+            <Stop offset="0" stopColor={color} stopOpacity={position === 'top' ? 0.7 : 0} />
+            <Stop offset="1" stopColor={color} stopOpacity={position === 'top' ? 0 : 0.7} />
           </LinearGradient>
         </Defs>
         <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${id})`} />
@@ -545,6 +576,7 @@ function useWheelStyles(theme: ThemeTokens) {
         backgroundColor: 'rgba(45,107,255,0.04)', borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth,
         borderColor: 'rgba(45,107,255,0.35)',
       },
+      ghostBar: { alignSelf: 'center', width: '70%', height: 10, borderRadius: 5, backgroundColor: theme.border },
       rowSelected: { borderColor: selBlue, backgroundColor: selBlueBg },
       rowReserved: { backgroundColor: Availability.reservedBg },
       rowBlocked: { backgroundColor: Availability.blockedBg },

@@ -205,7 +205,7 @@ test.describe('header branding (V1-001)', () => {
 test.describe('inspection round 1 regressions (C-001..C-006)', () => {
   const home = src('app/(resident)/index.tsx');
   test('C-001: every publication after an await in Home/Me/My Reports/My Reservations is stale-guarded', () => {
-    expect((home.match(/if \(isStale\(\)\) return;/g) ?? []).length).toBeGreaterThanOrEqual(7);
+    expect((home.match(/if \(isStale\(\)\) return;/g) ?? []).length).toBeGreaterThanOrEqual(6);
     expect(home).toMatch(/finally \{\s*if \(!isStale\(\)\) setLoading\(false\);/);
     const me = src('app/(resident)/me.tsx');
     expect(me).toMatch(/const isStale = loadGuard\.begin\(\)/);
@@ -274,7 +274,7 @@ test.describe('fresh-inspection follow-ups (C)', () => {
   });
   test('C-R302: Home clears community-bound previews (including cancellation banners) on community change', () => {
     const h = src('app/(resident)/index.tsx');
-    expect(h).toMatch(/setBookingRows\(\[\]\); setCancelledBookings\(\[\]\); setAnnouncements\(\[\]\); setUpcomingEvents\(\[\]\); setUpcomingMaintenance\(\[\]\);/);
+    expect(h).toMatch(/setBookingRows\(\[\]\); setCancelledBookings\(\[\]\); setAnnouncements\(\[\]\); setUpcomingEvents\(\[\]\);/);
   });
   test('C-R303: the signed photo URL is refreshed on a timer shortly before it expires', () => {
     const id = src('hooks/useProfileIdentity.ts');

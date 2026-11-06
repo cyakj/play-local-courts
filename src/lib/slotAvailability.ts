@@ -5,6 +5,7 @@
 // The database remains authoritative (exclusion constraint on overlapping confirmed bookings, blockout trigger,
 // amenity-rules trigger); this is the optimistic client view of the same rules.
 
+/** 'limit' means ONLY the resident's daily reservation count is reached. Other reasons have their own states or no row. */
 export type SlotState = 'available' | 'reserved' | 'blocked' | 'limit';
 
 export interface SlotInfo {
@@ -87,7 +88,11 @@ export function computeSlots(input: ComputeSlotsInput): SlotInfo[] {
   const { openMins: open, closeMins: close, durationMins, isToday, nowMins, blocks, stepMins = 30 } = input;
   // Ended reservations no longer occupy time (they still count toward the daily cap via limitReason).
   const reservations = input.reservations.filter((r) => !r.ended);
-  const limited = limitReason(input) !== null;
+  const reason = limitReason(input);
+  // A duration above the server cap can never be booked: offer nothing rather than a wall of misleading "Limit" rows.
+  // (The picker only offers allowed durations - see lib/bookingDurations - so this is a defensive backstop.)
+  if (reason === 'duration') return [];
+  const limited = reason === 'daily';
   const out: SlotInfo[] = [];
   for (let s = open; s < close; s += stepMins) {
     const e = s + durationMins;

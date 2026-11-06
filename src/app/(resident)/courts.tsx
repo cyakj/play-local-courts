@@ -39,6 +39,7 @@ import { db } from '@/lib/untypedDb';
 import { deviceZoneDiffers, reservationTimeProblem, timeZoneLabel } from '@/lib/communityTime';
 import { RequestLedger } from '@/lib/requestLedger';
 import { gateAvailability } from '@/lib/availabilityGate';
+import { allowedDurations, durationCap, resolveDuration } from '@/lib/bookingDurations';
 import { computeSlots, isSelectable, revalidateSelection, toDateKey, toMins, type SlotInfo } from '@/lib/slotAvailability';
 import { CalendarPicker, formatDateLabel } from '@/components/ui/CalendarPicker';
 import { useScrollToTopOnTabEnter } from '@/hooks/useScrollToTopOnTabEnter';
@@ -593,33 +594,15 @@ export default function CourtsScreen() {
   // ── Duration: tennis locked by play type; non-tennis user-selectable ─────────
   const isTennisBooking = useMemo(() => TENNIS_TYPES.has(bookingSheet?.courtType ?? ''), [bookingSheet]);
 
+  const availableDurations = useMemo(() => allowedDurations(isTennisBooking, sheetRules), [sheetRules, isTennisBooking]);
+
   const sheetDuration = useMemo(() => {
-    if (isTennisBooking) {
-      return sheetPlayType === 'singles'
-        ? (sheetRules?.singles_duration_minutes ?? 60)
-        : (sheetRules?.doubles_duration_minutes ?? 90);
-    }
-    if (sheetDurationOverride !== null) return sheetDurationOverride;
-    return sheetRules?.singles_duration_minutes ?? 60;
-  }, [sheetRules, sheetPlayType, sheetDurationOverride, isTennisBooking]);
+    if (isTennisBooking) return durationCap(true, sheetPlayType, sheetRules);
+    return resolveDuration(availableDurations, sheetDurationOverride, sheetRules);
+  }, [sheetRules, sheetPlayType, sheetDurationOverride, isTennisBooking, availableDurations]);
 
-  const availableDurations = useMemo(() => {
-    if (isTennisBooking) return [];
-    if (!sheetRules) return [60];
-    const durations = new Set<number>();
-    if (sheetRules.singles_duration_minutes) durations.add(sheetRules.singles_duration_minutes);
-    if (sheetRules.doubles_duration_minutes) durations.add(sheetRules.doubles_duration_minutes);
-    return Array.from(durations).sort((a, b) => a - b);
-  }, [sheetRules, isTennisBooking]);
-
-  // The cap the database enforces (enforce_amenity_booking_rules, migration 20260922005928): tennis uses the
-  // singles/doubles duration for the chosen play type; every other amenity uses max_duration_minutes (default 60).
-  const sheetDurationCap = useMemo(() => {
-    if (isTennisBooking) {
-      return sheetPlayType === 'doubles' ? (sheetRules?.doubles_duration_minutes ?? 90) : (sheetRules?.singles_duration_minutes ?? 60);
-    }
-    return sheetRules?.max_duration_minutes ?? 60;
-  }, [isTennisBooking, sheetPlayType, sheetRules]);
+  // The cap the database enforces (enforce_amenity_booking_rules, migration 20260922005928); see lib/bookingDurations.
+  const sheetDurationCap = useMemo(() => durationCap(isTennisBooking, sheetPlayType, sheetRules), [isTennisBooking, sheetPlayType, sheetRules]);
 
   // ── Time slots ──────────────────────────────────────────────────────────────
   const sheetTimeSlots = useMemo<SlotInfo[]>(() => {
@@ -715,7 +698,7 @@ export default function CourtsScreen() {
       setSheetSelectedSlot(null);
       setBookingError(
         freshOutcome === 'blocked' ? 'That time is no longer available because the amenity is blocked. Please pick another.'
-        : freshOutcome === 'limit' ? 'You have reached the reservation limit for this amenity.'
+        : freshOutcome === 'limit' ? 'You have reached your daily reservation limit for this amenity.'
         : 'That time was just taken by another reservation or pending request. Please pick another time.');
       await fetchBookingsForDate(dateStr);
       await fetchMaintenanceForSheet(bookingSheet.courtId, isStale);
@@ -1166,6 +1149,8 @@ const BookingSheet = memo(function BookingSheet({
   );
 
   const sheetIsToday = toDateKey(sheetDate) === communityToday(now, tz);
+  // Every offered time is blocked by the resident's own daily cap and nothing else: say so once instead of a wheel of identical rows.
+  const dailyLimitOnly = timeSlots.length > 0 && timeSlots.every(s => s.state === 'limit');
 
   // Weather data for the selected slot — shown in summary row
   const selectedSlotWx = useMemo(() => {
@@ -1264,6 +1249,8 @@ const BookingSheet = memo(function BookingSheet({
                   </TouchableOpacity>
                 ))}
               </View>
+            ) : availableDurations.length === 1 ? (
+              <Text testID="duration-info" style={[styles.durationInlineText, { marginLeft: 0, alignSelf: 'flex-start', paddingVertical: 4 }]}>{availableDurations[0]} min reservations</Text>
             ) : null
           )}
 
@@ -1302,13 +1289,18 @@ const BookingSheet = memo(function BookingSheet({
                     <Text style={styles.allUnavailableText}>Could not refresh this date, so these times may be out of date. Tap to retry.</Text>
                   </TouchableOpacity>
                 )}
-                {!timeSlots.some(isSelectable) && (
+                {!timeSlots.some(isSelectable) && !dailyLimitOnly && (
                   <Text testID="all-unavailable-note" style={styles.allUnavailableText}>
                     {timeSlots.some(s => s.state === 'limit')
-                      ? 'You have reached the reservation limit for this amenity on this date.'
+                      ? 'You have reached your daily reservation limit for this amenity on this date.'
                       : 'Every time on this date is already reserved or blocked.'}
                   </Text>
                 )}
+                {dailyLimitOnly ? (
+                  <View style={styles.noSlotsState} testID="daily-limit-state">
+                    <Text style={styles.noSlotsText}>You've reached your daily reservation limit for this amenity. Pick another date to book.</Text>
+                  </View>
+                ) : (
                 <TimeSlotWheel
                   fill
                   slots={timeSlots}
@@ -1320,6 +1312,7 @@ const BookingSheet = memo(function BookingSheet({
                   now={now}
                   theme={theme}
                 />
+                )}
                 <ReservationLegend theme={theme} variant="picker" hoursNote={[degraded ? OTHERS_NOT_SHOWN_NOTE : null, availableToBookLine(rules), tzNote].filter(Boolean).join(' · ') || null} />
               </>
             )}

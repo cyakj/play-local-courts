@@ -80,13 +80,6 @@ interface UpcomingEvent {
   location: string | null;
 }
 
-interface MaintenanceNotice {
-  id: string;
-  amenityName: string;
-  date: string;
-  description: string | null;
-}
-
 interface CancelledBooking {
   id: string;
   amenityName: string;
@@ -197,7 +190,6 @@ export default function HomeScreen() {
   const [recentResult, setRecentResult] = useState<RecentResult | null>(null);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
-  const [upcomingMaintenance, setUpcomingMaintenance] = useState<MaintenanceNotice[]>([]);
   const [cancelledBookings, setCancelledBookings] = useState<CancelledBooking[]>([]);
   const [dismissedCancellations, setDismissedCancellations] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -347,28 +339,6 @@ export default function HomeScreen() {
         }))
       );
 
-      const hoaCourtIds = (courtsRes.data ?? []).map((c: any) => c.id);
-      if (isCommunityMode && hoaCourtIds.length > 0) {
-        const { data: maintenanceData } = await supabase
-          .from('court_maintenance')
-          .select('id, date, description, courts(name)')
-          .in('court_id', hoaCourtIds)
-          .gte('date', today)
-          .order('date', { ascending: true })
-          .limit(3);
-        if (isStale()) return;
-        setUpcomingMaintenance(
-          (maintenanceData ?? []).map((m: any) => ({
-            id: m.id,
-            amenityName: m.courts?.name ?? 'Amenity',
-            date: m.date,
-            description: m.description ?? null,
-          }))
-        );
-      } else {
-        setUpcomingMaintenance([]);
-      }
-
       setCancelledBookings(
         (cancelledRes.data ?? []).map((b: any) => ({
           id: b.id,
@@ -455,7 +425,7 @@ export default function HomeScreen() {
   loadRef.current = load;
   useEffect(() => {
     // Community-bound content is cleared immediately; it is repopulated from the new community's load.
-    setBookingRows([]); setCancelledBookings([]); setAnnouncements([]); setUpcomingEvents([]); setUpcomingMaintenance([]);
+    setBookingRows([]); setCancelledBookings([]); setAnnouncements([]); setUpcomingEvents([]);
     setLoading(true);
     loadRef.current();
   }, [activeHoaId, communityLoading]);
@@ -849,21 +819,6 @@ export default function HomeScreen() {
             </View>
           )}
 
-          {/* ── Maintenance Notice (Community mode, hidden if empty) ───── */}
-          {isCommunityMode && !loading && upcomingMaintenance.length > 0 && (
-            <View testID="maintenance-notice-banner" style={styles.maintenanceBanner}>
-              <View style={styles.maintenanceBannerHeader}>
-                <Wrench color={Colors.volt} size={16} strokeWidth={1.5} />
-                <Text style={styles.maintenanceBannerLabel}>MAINTENANCE NOTICE</Text>
-              </View>
-              {upcomingMaintenance.map((m) => (
-                <Text key={m.id} testID="maintenance-notice-row" style={styles.maintenanceBannerText}>
-                  {m.amenityName} closed {formatDate(m.date)}{m.description ? `: ${m.description}` : ''}
-                </Text>
-              ))}
-            </View>
-          )}
-
           {/* ── View Full Schedule ──────────────────────────────────────── */}
           <TouchableOpacity
             testID="calendar-link"
@@ -1222,33 +1177,6 @@ function useStyles(theme: ThemeTokens) {
       fontFamily: FontFamily.manropeSemiBold,
       fontSize: FontSize.label,
       color: Colors.blue,
-    },
-
-    maintenanceBanner: {
-      backgroundColor: 'rgba(214,255,61,0.08)',
-      borderRadius: Radius.card,
-      borderWidth: 1,
-      borderColor: Colors.volt,
-      padding: 14,
-    },
-    maintenanceBannerHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      marginBottom: 8,
-    },
-    maintenanceBannerLabel: {
-      fontFamily: FontFamily.jetbrainsMonoSemiBold,
-      fontSize: FontSize.eyebrow,
-      color: Colors.volt,
-      letterSpacing: 1.8,
-    },
-    maintenanceBannerText: {
-      fontFamily: FontFamily.manropeMedium,
-      fontSize: FontSize.label,
-      color: theme.textSecondary,
-      lineHeight: 20,
-      marginTop: 4,
     },
 
     skeletonLine: {

@@ -36,8 +36,8 @@ test.describe('V1-011 reservation sheet layout', () => {
   });
   test('the wheel measures its container instead of using a fixed height when asked to fill', () => {
     expect(wheel).toMatch(/fill \? \{ flex: 1, minHeight: MIN_H \}/);
-    expect(wheel).toMatch(/onLayout=\{fill \?/);
-    expect(wheel).toMatch(/const pad = Math\.max\(0, \(wheelH - ITEM_H\) \/ 2\)/);
+    expect(wheel).toMatch(/onLayout=\{\(e\) => \{[\s\S]*if \(fill && h > 0/);
+    expect(wheel).toMatch(/const pad = wheelPad\(wheelH, ITEM_H\)/);
   });
   test('Stage 2 callers of the wheel keep the legacy fixed height (fill is opt-in)', () => {
     expect(wheel).toMatch(/fill = false/);
@@ -112,8 +112,10 @@ test.describe('booking confirmation safeguards', () => {
     expect(sheet).toMatch(/style: \[styles\.sheetBody, frozen\]/);
   });
   test('B-002: duration cap mirrors the trigger (tennis by play type; others max_duration_minutes default 60)', () => {
-    expect(courts).toMatch(/sheetPlayType === 'doubles' \? \(sheetRules\?\.doubles_duration_minutes \?\? 90\) : \(sheetRules\?\.singles_duration_minutes \?\? 60\)/);
-    expect(courts).toMatch(/return sheetRules\?\.max_duration_minutes \?\? 60;/);
+    const dur = readFileSync('src/lib/bookingDurations.ts', 'utf8');
+    expect(courts).toMatch(/durationCap\(isTennisBooking, sheetPlayType, sheetRules\)/);
+    expect(dur).toMatch(/playType === 'doubles' \? \(rules\?\.doubles_duration_minutes \?\? 90\) : \(rules\?\.singles_duration_minutes \?\? 60\)/);
+    expect(dur).toMatch(/rules\?\.max_duration_minutes \?\? DEFAULT_DURATION_CAP/);
     expect(courts).toMatch(/maxDurationMins: sheetDurationCap/);
     const mig = readFileSync('supabase/migrations/20260922005928_greens_v1_fix_duration_cap_tennis_vs_amenity.sql', 'utf8');
     expect(mig).toMatch(/COALESCE\(r\.doubles_duration_minutes, 90\)/);

@@ -11,7 +11,8 @@ import { Header } from '@/components/ui/Header';
 import { ReservationStatusPill } from '@/components/ui/ReservationStatusPill';
 import { useTheme } from '@/context/ThemeContext';
 import type { ThemeTokens } from '@/constants/theme-tokens';
-import { cancellationState, formatLongDate, formatTime12, kindDescription } from '@/lib/reservations';
+import { cancellationState, formatLongDate, formatTime12 } from '@/lib/reservations';
+import { cancellationLine, detailSummary } from '@/lib/reservationDetailCopy';
 import { reservationKind } from '@/lib/reservationState';
 import { useNow } from '@/hooks/useNow';
 import { db } from '@/lib/untypedDb';
@@ -35,6 +36,8 @@ interface Detail {
   timeZone: string;
   /** The HOA's zone could not be read: times are shown in the fallback zone and cancelling is held back. */
   timeZoneUnavailable: boolean;
+  /** True only when the server answered get_amenity_busy_times, i.e. exclusive pending holds are live. Unknown = false. */
+  holdsEnforced: boolean;
 }
 
 export default function ReservationDetailScreen() {
@@ -72,7 +75,10 @@ export default function ReservationDetailScreen() {
     const tzMissing = isMissingColumnError(tzRes.error); // legacy server only
     const timeZoneUnavailable = !!tzRes.error && !tzMissing;
     const timeZone = !tzRes.error && isValidTimeZone(tzRaw) ? tzRaw : COMMUNITY_TIME_ZONE;
+    // Exclusive pending holds ship with the same migration as get_amenity_busy_times; only promise a hold when it answers.
+    const holdsRes = await db.rpc('get_amenity_busy_times', { p_court_ids: [(b as any).court_id], p_date: b.date });
     setDetail({
+      holdsEnforced: !holdsRes.error,
       id: b.id,
       date: b.date,
       start_time: b.start_time,
@@ -144,7 +150,8 @@ export default function ReservationDetailScreen() {
   }
 
   const kind = detail ? reservationKind(detail, now, detail.timeZone) : null;
-  const display = detail && kind ? { description: kindDescription(kind, detail.communityName ?? undefined) } : null;
+  const display = detail && kind ? { description: detailSummary(kind, detail.holdsEnforced, detail.communityName) } : null;
+  const cancelInfo = detail && kind ? cancellationLine({ kind, status: detail.status, date: detail.date, startTime: detail.start_time, minHours: detail.minCancellationHours, now, timeZone: detail.timeZone, zoneUnavailable: detail.timeZoneUnavailable }) : null;
 
   return (
     <View style={styles.screen}>
@@ -185,25 +192,18 @@ export default function ReservationDetailScreen() {
                   value={detail.requiresApproval ? 'Required by your community' : 'Automatic'} last />
               </View>
 
-              {detail.minCancellationHours != null && (
-                <View style={styles.policy}>
-                  <Info color={theme.textMuted} size={16} strokeWidth={1.75} />
-                  <Text style={styles.policyText}>
-                    Cancellation policy: reservations can be cancelled up to {detail.minCancellationHours} hour
-                    {detail.minCancellationHours === 1 ? '' : 's'} before the start time (community time).
-                  </Text>
-                </View>
-              )}
-
               {cancel.canCancel ? (
-                <TouchableOpacity testID="cancel-reservation-btn" style={styles.cancelBtn}
-                  onPress={confirmCancel} disabled={cancelling} accessibilityRole="button">
-                  <Text style={styles.cancelText}>{cancelling ? 'Cancelling…' : 'Cancel reservation'}</Text>
-                </TouchableOpacity>
-              ) : cancel.reason ? (
-                <View testID="cancel-unavailable" style={styles.unavailable}>
-                  <Text style={styles.unavailableTitle}>Cancellation unavailable</Text>
-                  <Text style={styles.unavailableText}>{cancel.reason}</Text>
+                <View style={{ gap: 8 }}>
+                  <TouchableOpacity testID="cancel-reservation-btn" style={styles.cancelBtn}
+                    onPress={confirmCancel} disabled={cancelling} accessibilityRole="button">
+                    <Text style={styles.cancelText}>{cancelling ? 'Cancelling…' : 'Cancel reservation'}</Text>
+                  </TouchableOpacity>
+                  {cancelInfo && cancelInfo.kind !== 'none' ? <Text testID="cancellation-note" style={styles.policyText}>{cancelInfo.text}</Text> : null}
+                </View>
+              ) : cancelInfo && cancelInfo.kind !== 'none' ? (
+                <View testID="cancel-unavailable" style={styles.policy}>
+                  <Info color={theme.textMuted} size={16} strokeWidth={1.75} />
+                  <Text testID="cancellation-note" style={styles.policyText}>{cancelInfo.text}</Text>
                 </View>
               ) : null}
             </>
