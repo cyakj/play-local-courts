@@ -1620,6 +1620,7 @@ export type Database = {
           title: string
         }
         Insert: {
+          audience?: string // added by migration 20261106110000 (not yet applied to hosted); regenerate types after deploy
           created_at?: string | null
           created_by: string
           description?: string | null

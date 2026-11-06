@@ -21,6 +21,8 @@ import { useUpcomingMatches } from '@/hooks/useUpcomingMatches';
 import { useCommunityName } from '@/hooks/useCommunityName';
 import { isCommunityMode, isTennisMode } from '@/config/productMode';
 import { hasNothingToFetch } from '@/lib/scheduleScope';
+import { CALENDAR_BOOKING_STATUSES, maintenanceToItems, reservationTitle, toWallClockIso, type MaintenanceRow } from '@/lib/scheduleEvents';
+import { communityToday } from '@/lib/communityTime';
 
 // ─── Event type config ─────────────────────────────────────────────────────────
 
@@ -135,6 +137,7 @@ export default function ResidentCalendarScreen() {
   const [activeCommunity, setActiveCommunity] = useState('all');
   // The chip row can still show 'All', but it starts on, and follows, the shared active community (header menu).
   const { community: sharedCommunity } = useActiveCommunity();
+  const communityZone = sharedCommunity?.timeZone ?? null;
   // Community mode only: Tennis-mode matches and lessons carry no community id and would be filtered out.
   useEffect(() => { if (isCommunityMode && sharedCommunity?.hoaId) setActiveCommunity(sharedCommunity.hoaId); }, [sharedCommunity?.hoaId]);
   const [activeEventType, setActiveEventType] = useState('All');
@@ -160,12 +163,13 @@ export default function ResidentCalendarScreen() {
 
     const mapped: ScheduleEvent[] = [];
 
-    // Court bookings — user's own confirmed reservations
+    // Court bookings: the resident's OWN reservations that are still live (confirmed, or pending approval). Cancelled, expired and
+    // denied ones are not scheduled, so they are not on the calendar; other residents' reservations are never listed here.
     const { data: bookings } = await supabase
       .from('bookings')
-      .select('id, date, start_time, end_time, court_id, courts(name, hoa_id)')
+      .select('id, date, start_time, end_time, court_id, status, courts(name, hoa_id)')
       .eq('user_id', uid)
-      .eq('status', 'confirmed');
+      .in('status', [...CALENDAR_BOOKING_STATUSES]);
 
     if (bookings) {
       for (const b of bookings) {
@@ -175,7 +179,7 @@ export default function ResidentCalendarScreen() {
         const endHour   = b.end_time?.slice(0, 5)   || '';
         mapped.push({
           id: b.id,
-          title: `${court.name} · ${fmtTime(startHour)} – ${fmtTime(endHour)}`,
+          title: reservationTitle(court.name, startHour, endHour, (b as any).status, fmtTime),
           event_type: 'court_reservation',
           location: court.name,
           starts_at: `${b.date}T${b.start_time}`,
@@ -248,7 +252,7 @@ export default function ResidentCalendarScreen() {
       .from('hoa_events')
       .select('id, title, event_type, location, starts_at, hoa_id, description')
       .in('hoa_id', hoaIds)
-      .eq('status', 'approved')
+      .eq('status', 'active') // hoa_events.status is 'active' | 'cancelled' (CHECK); the old 'approved' matched nothing, so no event ever showed
       .order('starts_at');
 
     if (hoaEvents) {
@@ -260,11 +264,23 @@ export default function ResidentCalendarScreen() {
           title: e.title,
           event_type: mappedType,
           location: e.location || null,
-          starts_at: e.starts_at,
+          starts_at: toWallClockIso(e.starts_at, e.hoa_id === sharedCommunity?.hoaId ? communityZone : null),
           hoa_id: e.hoa_id,
           community_name: hoaMap.get(e.hoa_id) || '',
           description: e.description || null,
         });
+      }
+    }
+
+    // Planned closures / maintenance windows: the same court_maintenance rows that block booking. Private maintenance REPORTS never appear.
+    if (hoaIds.length > 0) {
+      const { data: closures } = await supabase
+        .from('court_maintenance')
+        .select('id, date, end_date, start_time, end_time, description, courts!inner(name, hoa_id)')
+        .in('courts.hoa_id', hoaIds);
+      if (closures) {
+        const from = communityToday(new Date(), communityZone ?? undefined);
+        mapped.push(...maintenanceToItems(closures as unknown as MaintenanceRow[], hoaMap, from));
       }
     }
 

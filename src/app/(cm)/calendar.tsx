@@ -330,6 +330,8 @@ function AddEventSheet({
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
   const [rsvp, setRsvp] = useState(false);
+  // Board meetings only: hidden from residents (executive session / internal). Needs migration 20261106110000; sent only when on.
+  const [boardOnly, setBoardOnly] = useState(false);
   const [notify, setNotify] = useState(true);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -337,7 +339,7 @@ function AddEventSheet({
   useEffect(() => {
     if (!visible) return;
     setHoaId(defaultHoa); setDate(defaultDate); setTitle(''); setType('community_event'); setStart('10:00'); setEnd(null);
-    setLocation(''); setDescription(''); setRsvp(false); setNotify(true); setErr(null);
+    setLocation(''); setDescription(''); setRsvp(false); setBoardOnly(false); setNotify(true); setErr(null);
   }, [visible, defaultDate, defaultHoa]);
 
   const dirty = title.trim() || location.trim() || description.trim();
@@ -367,13 +369,14 @@ function AddEventSheet({
       starts_at: communityWallToIso(date, start, zone),
       ends_at: end ? communityWallToIso(date, end, zone) : null,
       rsvp_enabled: rsvp, status: 'active',
+      ...(type === 'board_meeting' && boardOnly ? { audience: 'board' } : {}),
     });
     if (error) {
       setSaving(false);
       setErr(/row-level security|permission/i.test(error.message) ? 'You do not have permission to add events to this community.' : error.message);
       return;
     }
-    if (notify) {
+    if (notify && !(type === 'board_meeting' && boardOnly)) {
       const { data: members, error: mErr } = await supabase.from('hoa_memberships').select('user_id').eq('hoa_id', hoaId).eq('status', 'approved');
       if (!mErr && members) {
         const rows = members.filter((m) => m.user_id !== userId).map((m) => ({
@@ -417,6 +420,9 @@ function AddEventSheet({
           <TextInput value={description} onChangeText={setDescription} multiline placeholder="Details residents should know" placeholderTextColor={A.textMuted}
             style={[s.input, { minHeight: 80 }]} accessibilityLabel="Description" />
           <Toggle label="Enable RSVPs" value={rsvp} onChange={setRsvp} />
+          {type === 'board_meeting' ? (
+            <Toggle label="Board only" hint="Hidden from residents' Schedule and not announced to them. Use for executive or internal sessions." value={boardOnly} onChange={setBoardOnly} />
+          ) : null}
           <Toggle label="Notify residents" hint="Sends an in-app notification to approved members." value={notify} onChange={setNotify} />
           {err ? <Text style={[s.body, { color: A.errorText }]} accessibilityLiveRegion="polite">{err}</Text> : null}
         </ScrollView>

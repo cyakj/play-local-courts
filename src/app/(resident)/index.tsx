@@ -304,7 +304,7 @@ export default function HomeScreen() {
           .from('hoa_events')
           .select('id, title, event_type, starts_at, location')
           .eq('hoa_id', hId)
-          .eq('status', 'approved')
+          .eq('status', 'active')
           .gte('starts_at', new Date().toISOString())
           .order('starts_at', { ascending: true })
           .limit(3) : Promise.resolve({ data: [] }),
