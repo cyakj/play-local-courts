@@ -244,6 +244,7 @@ export default function CommunityDetailScreen() {
               <MetricCard Icon={CalendarCheck} tone="info" value={upcoming} label="Upcoming reservations" onPress={openAmenitySchedule} />
             </MetricGrid>
           )}
+          <Button testID="post-announcement" label="Post an announcement" onPress={() => router.push({ pathname: '/(admin)/announcements', params: { hoaId: hoaId ?? '' } } as never)} />
           <SectionTitle>Recent activity</SectionTitle>
           {loading ? <LoadingBlock rows={2} /> : recent.length === 0 ? (
             <Card><EmptyBlock Icon={CalendarClock} title="No recent activity" body="Join requests, reservations awaiting approval and reports will show up here." /></Card>
