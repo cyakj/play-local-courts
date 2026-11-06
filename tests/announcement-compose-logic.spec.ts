@@ -94,7 +94,8 @@ test.describe('amenity rules integrity migration (20261106130000)', () => {
   test('composite foreign key + preflight that aborts without changing data', () => {
     expect(m).toContain('FOREIGN KEY (amenity_id, hoa_id) REFERENCES public.courts (id, hoa_id)');
     expect(m).toMatch(/IF bad > 0 THEN\s+RAISE EXCEPTION/);
-    expect(m).not.toMatch(/\bDELETE\b|\bUPDATE\b/);
+    // never rewrites or removes data (the CASCADE clause and comments are not statements)
+    expect(m.replace(/ON DELETE CASCADE/g, '').split('\n').filter((l) => !l.trim().startsWith('--')).join('\n')).not.toMatch(/\b(DELETE|UPDATE|INSERT)\b/);
   });
   test('re-runnable: the dependent key is dropped before the unique constraint', () => {
     expect(m.indexOf('DROP CONSTRAINT IF EXISTS amenity_rules_amenity_hoa_fkey')).toBeLessThan(m.indexOf('DROP CONSTRAINT IF EXISTS courts_id_hoa_id_key'));
