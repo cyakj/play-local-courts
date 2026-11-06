@@ -76,7 +76,9 @@ test.describe('planned closures as Maintenance (shared with the booking blockout
   test('community wall-clock conversion happens at render so a later zone still applies', () => {
     const c = read('src/app/(resident)/calendar.tsx');
     expect(c).toContain('rawStartsAt');
-    expect(c).toMatch(/activeEventType, communityZone, sharedCommunity\?\.hoaId\]/);
+    expect(c).toMatch(/activeEventType, communityZone, sharedCommunity\?\.hoaId, zonesByHoa\]/);
+    expect(c).toContain('loadHoaZones(comms.map((c) => c.hoaId))'); // every community has its own zone, not just the active one
+    expect(c).toContain('zonesByHoa.get(e.hoa_id)');
   });
   test('maintenance REPORTS are never queried by the resident Schedule', () => {
     expect(read('src/app/(resident)/calendar.tsx')).not.toContain('maintenance_reports');

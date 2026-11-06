@@ -23,6 +23,7 @@ import { isCommunityMode, isTennisMode } from '@/config/productMode';
 import { hasNothingToFetch } from '@/lib/scheduleScope';
 import { CALENDAR_BOOKING_STATUSES, maintenanceToItems, reservationTitle, toWallClockIso, type MaintenanceRow } from '@/lib/scheduleEvents';
 import { communityToday } from '@/lib/communityTime';
+import { loadHoaZones } from '@/lib/hoaZones';
 
 // ─── Event type config ─────────────────────────────────────────────────────────
 
@@ -140,6 +141,8 @@ export default function ResidentCalendarScreen() {
   // The chip row can still show 'All', but it starts on, and follows, the shared active community (header menu).
   const { community: sharedCommunity } = useActiveCommunity();
   const communityZone = sharedCommunity?.timeZone ?? null;
+  // Every community the resident belongs to has its own zone; events are shown on THEIR community's clock, not the device's.
+  const [zonesByHoa, setZonesByHoa] = useState<Map<string, string>>(new Map());
   // Community mode only: Tennis-mode matches and lessons carry no community id and would be filtered out.
   useEffect(() => { if (isCommunityMode && sharedCommunity?.hoaId) setActiveCommunity(sharedCommunity.hoaId); }, [sharedCommunity?.hoaId]);
   const [activeEventType, setActiveEventType] = useState('All');
@@ -311,6 +314,7 @@ export default function ResidentCalendarScreen() {
           name: m.hoas?.name || 'Community',
         }));
         setCommunities(comms);
+        try { setZonesByHoa(await loadHoaZones(comms.map((c) => c.hoaId))); } catch { /* keep the device zone rather than guess */ }
         await fetchAll(user.id, comms);
       } catch {
         setLoading(false);
@@ -353,8 +357,7 @@ export default function ResidentCalendarScreen() {
   })), [openMatches]);
 
   const filteredEvents = useMemo(() => [...events.map((e) => (e.rawStartsAt
-    // Only the active community's zone is known client-side; events of other communities stay in the device zone.
-    ? { ...e, starts_at: toWallClockIso(e.rawStartsAt, e.hoa_id === sharedCommunity?.hoaId ? communityZone : null) }
+    ? { ...e, starts_at: toWallClockIso(e.rawStartsAt, zonesByHoa.get(e.hoa_id) ?? (e.hoa_id === sharedCommunity?.hoaId ? communityZone : null)) }
     : e)), ...openMatchEvents].filter((e) => {
     // Match/lesson types are not relevant in Community mode regardless of
     // source (matches/lesson_requests tables, or a `coaching`-type hoa_events
@@ -364,7 +367,7 @@ export default function ResidentCalendarScreen() {
     const typeKey = EVENT_TYPE_FILTER_MAP[activeEventType];
     if (activeEventType !== 'All' && e.event_type !== typeKey) return false;
     return true;
-  }), [events, openMatchEvents, activeCommunity, activeEventType, communityZone, sharedCommunity?.hoaId]);
+  }), [events, openMatchEvents, activeCommunity, activeEventType, communityZone, sharedCommunity?.hoaId, zonesByHoa]);
 
   function getDotsForDay(year: number, month: number, day: number) {
     const evts = filteredEvents.filter((e) => {
