@@ -41,7 +41,7 @@ import { formatDateFull, formatTime12h } from '@/lib/format';
 import type { ThemeTokens } from '@/constants/theme-tokens';
 import type { Database } from '@/lib/types';
 import { ReservationStatusPill } from '@/components/ui/ReservationStatusPill';
-import { COMMUNITY_TIME_ZONE, isValidTimeZone } from '@/lib/communityTime';
+import { COMMUNITY_TIME_ZONE, isMissingColumnError, isValidTimeZone } from '@/lib/communityTime';
 import { isCurrentReservation } from '@/lib/reservationState';
 import { db } from '@/lib/untypedDb';
 
@@ -381,8 +381,9 @@ export default function ManageAmenitiesScreen() {
     // The list columns exist only after migration 20261106100000. A loaded row tells us whether the server has them.
     // Without them the legacy single cap is still saved (the longest chosen length) so this screen keeps working as before.
     const listsKnownMissing = !!rules.id && !('allowed_durations' in rules);
-    const listsKnownPresent = !!rules.id && !listsKnownMissing;
-    const writeLists = listsKnownPresent || (!rules.id && durDirty);
+    // Duration columns are written ONLY when the administrator changed them (saving a name must never rewrite a cap or turn a legacy
+    // setting into an explicit list). Lists are included unless the loaded row proves the server lacks them.
+    const writeLists = durDirty && !listsKnownMissing;
     const durCols = draftToColumns(editType, durDraft);
     const legacyOnly = Object.fromEntries(Object.entries(durCols).filter(([k]) => !k.endsWith('_allowed_durations') && k !== 'allowed_durations'));
     const multiLength = (isRacquetType(editType) ? [durDraft.singles, durDraft.doubles] : [durDraft.general]).some((l) => l.length > 1);
@@ -412,16 +413,23 @@ export default function ManageAmenitiesScreen() {
       booking_start_time: rules.booking_start_time || null,
       booking_end_time: rules.booking_end_time || null,
       max_duration_minutes: rules.max_duration_minutes ?? null,
-      ...(writeLists ? durCols : durDirty || rules.id ? legacyOnly : {}),
+      ...(writeLists ? durCols : durDirty ? legacyOnly : {}),
       advance_booking_days: rules.advance_booking_days ?? null,
       min_cancellation_hours: rules.min_cancellation_hours ?? null,
       max_reservations_per_day: rules.max_reservations_per_day ?? null,
       requires_admin_approval: rules.requires_admin_approval ?? false,
     };
 
-    const rulesRes = rules.id
-      ? await supabase.from('amenity_rules').update(rulesPayload).eq('id', rules.id)
-      : await supabase.from('amenity_rules').insert(rulesPayload);
+    const writeRules = (payload: typeof rulesPayload) => rules.id
+      ? supabase.from('amenity_rules').update(payload).eq('id', rules.id)
+      : supabase.from('amenity_rules').insert(payload);
+    let rulesRes = await writeRules(rulesPayload);
+    let fellBackToLegacy = false;
+    // No rules row yet, so the server's columns were unknown: if it rejects the list columns, save the legacy cap instead.
+    if (rulesRes.error && writeLists && isMissingColumnError(rulesRes.error)) {
+      rulesRes = await writeRules({ ...rulesPayload, ...legacyOnly } as typeof rulesPayload);
+      fellBackToLegacy = !rulesRes.error;
+    }
 
     setDetailSaving(false);
 
@@ -432,7 +440,7 @@ export default function ManageAmenitiesScreen() {
 
     setDetailCourt(null);
     loadCourts();
-    if (listsKnownMissing && multiLength) {
+    if ((listsKnownMissing || fellBackToLegacy) && multiLength) {
       platformAlert('Saved With One Length', 'Only the longest reservation length was saved. Offering several lengths needs a database update that has not been applied yet.');
     }
   }
@@ -595,7 +603,11 @@ export default function ManageAmenitiesScreen() {
                   <TouchableOpacity
                     key={t}
                     style={[styles.typePill, editType === t && styles.typePillActive]}
-                    onPress={() => setEditType(t)}>
+                    onPress={() => {
+                      // Crossing between racquet and other amenities changes which lists apply: rebuild the draft from what is saved.
+                      if (isRacquetType(t) !== isRacquetType(editType)) { setDurDraft(draftFromRules(t, rules)); setDurDirty(false); }
+                      setEditType(t);
+                    }}>
                     <Text style={[styles.typePillLabel, editType === t && styles.typePillLabelActive]}>
                       {t}
                     </Text>

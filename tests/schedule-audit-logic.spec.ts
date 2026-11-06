@@ -66,7 +66,17 @@ test.describe('planned closures as Maintenance (shared with the booking blockout
   });
   test('rows without a court are ignored; absurd ranges are capped', () => {
     expect(maintenanceToItems([row({ courts: null })], names, '2026-01-01')).toHaveLength(0);
-    expect(maintenanceToItems([row({ end_date: '2030-01-01' })], names, '2026-01-01').length).toBeLessThanOrEqual(60);
+    expect(maintenanceToItems([row({ end_date: '2030-01-01' })], names, '2026-01-01').length).toBeLessThanOrEqual(120);
+  });
+  test('a long ongoing closure still shows today (cap counts from today, not from its start)', () => {
+    const items = maintenanceToItems([row({ date: '2026-09-01', end_date: '2026-12-31' })], names, '2026-11-06');
+    expect(items[0].starts_at.slice(0, 10)).toBe('2026-11-06');
+    expect(items.length).toBeGreaterThan(50);
+  });
+  test('community wall-clock conversion happens at render so a later zone still applies', () => {
+    const c = read('src/app/(resident)/calendar.tsx');
+    expect(c).toContain('rawStartsAt');
+    expect(c).toMatch(/activeEventType, communityZone, sharedCommunity\?\.hoaId\]/);
   });
   test('maintenance REPORTS are never queried by the resident Schedule', () => {
     expect(read('src/app/(resident)/calendar.tsx')).not.toContain('maintenance_reports');

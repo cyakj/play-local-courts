@@ -66,6 +66,8 @@ interface ScheduleEvent {
   event_type: string;
   location: string | null;
   starts_at: string;
+  /** Original timestamptz for instants (HOA events). Reservations/closures are already community wall-clock and have none. */
+  rawStartsAt?: string;
   hoa_id: string;
   community_name: string;
   description: string | null;
@@ -264,7 +266,8 @@ export default function ResidentCalendarScreen() {
           title: e.title,
           event_type: mappedType,
           location: e.location || null,
-          starts_at: toWallClockIso(e.starts_at, e.hoa_id === sharedCommunity?.hoaId ? communityZone : null),
+          starts_at: e.starts_at,
+          rawStartsAt: e.starts_at, // converted to community wall-clock time at render, so a zone that loads later still applies
           hoa_id: e.hoa_id,
           community_name: hoaMap.get(e.hoa_id) || '',
           description: e.description || null,
@@ -349,7 +352,10 @@ export default function ResidentCalendarScreen() {
     description: m.role === 'organizer' && m.openSlots > 0 ? `${m.openSlots} open slot${m.openSlots > 1 ? 's' : ''}` : null,
   })), [openMatches]);
 
-  const filteredEvents = useMemo(() => [...events, ...openMatchEvents].filter((e) => {
+  const filteredEvents = useMemo(() => [...events.map((e) => (e.rawStartsAt
+    // Only the active community's zone is known client-side; events of other communities stay in the device zone.
+    ? { ...e, starts_at: toWallClockIso(e.rawStartsAt, e.hoa_id === sharedCommunity?.hoaId ? communityZone : null) }
+    : e)), ...openMatchEvents].filter((e) => {
     // Match/lesson types are not relevant in Community mode regardless of
     // source (matches/lesson_requests tables, or a `coaching`-type hoa_events
     // row mapped to 'lesson') — mirrors the chip/legend exclusion below.
@@ -358,7 +364,7 @@ export default function ResidentCalendarScreen() {
     const typeKey = EVENT_TYPE_FILTER_MAP[activeEventType];
     if (activeEventType !== 'All' && e.event_type !== typeKey) return false;
     return true;
-  }), [events, openMatchEvents, activeCommunity, activeEventType]);
+  }), [events, openMatchEvents, activeCommunity, activeEventType, communityZone, sharedCommunity?.hoaId]);
 
   function getDotsForDay(year: number, month: number, day: number) {
     const evts = filteredEvents.filter((e) => {

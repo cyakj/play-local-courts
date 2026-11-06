@@ -160,3 +160,26 @@ test.describe('admin editor model', () => {
     expect(a).toContain('legacyOnly');
   });
 });
+
+test.describe('review fixes', () => {
+  test('R4: an explicit list entirely above the server cap is a conflict ([]), never an unlisted fallback', () => {
+    expect(durationOptions('pool', 'singles', { max_duration_minutes: 60, allowed_durations: [90] })).toEqual([]);
+    expect(durationOptions('tennis', 'doubles', { doubles_duration_minutes: 60, doubles_allowed_durations: [90] })).toEqual([]);
+    const c = read('src/app/(resident)/courts.tsx');
+    expect(c).toContain('if (durationConflict) return [];');
+    expect(c).toContain('duration-conflict');
+  });
+  test('R3: durations are written only when the administrator changed them', () => {
+    const a = read('src/app/(admin)/manage-amenities.tsx');
+    expect(a).toContain('const writeLists = durDirty && !listsKnownMissing;');
+    expect(a).toContain('...(writeLists ? durCols : durDirty ? legacyOnly : {})');
+  });
+  test('R2: a server that rejects the list columns on a new rules row falls back to the legacy cap', () => {
+    const a = read('src/app/(admin)/manage-amenities.tsx');
+    expect(a).toContain('isMissingColumnError(rulesRes.error)');
+    expect(a).toContain('fellBackToLegacy');
+  });
+  test('R1: switching between racquet and other amenity types rebuilds the draft', () => {
+    expect(read('src/app/(admin)/manage-amenities.tsx')).toContain('isRacquetType(t) !== isRacquetType(editType)');
+  });
+});

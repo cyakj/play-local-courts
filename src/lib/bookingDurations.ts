@@ -77,18 +77,21 @@ export function serverDurationCap(courtType: string | null | undefined, playType
  * Durations a resident may pick, ascending, for this amenity (and play format when racquet).
  *  - Explicit HOA list (allowed_durations, or singles/doubles_allowed_durations) wins, minus anything the server cap would refuse.
  *  - No list configured: legacy behaviour (racquet = the format's single length; others = allowedDurations()).
- * Never returns [] and never hard-codes 60/90 beyond the legacy defaults already enforced by the server.
+ * Returns [] ONLY for a configuration conflict (an explicit list whose lengths all exceed the server cap): the caller must
+ * block booking and explain, because offering an unlisted length would be rejected by enforce_allowed_durations.
+ * Never hard-codes 60/90 beyond the legacy defaults already enforced by the server.
  */
 export function durationOptions(courtType: string | null | undefined, playType: PlayType, rules: DurationRules | null | undefined): number[] {
   const cap = serverDurationCap(courtType, playType, rules);
   if (isRacquetType(courtType)) {
-    const list = sanitizeDurationList(playType === 'doubles' ? rules?.doubles_allowed_durations : rules?.singles_allowed_durations).filter((d) => d <= cap);
-    if (list.length) return list;
+    const configured = sanitizeDurationList(playType === 'doubles' ? rules?.doubles_allowed_durations : rules?.singles_allowed_durations);
+    if (configured.length) return configured.filter((d) => d <= cap); // [] = configuration conflict (every listed length exceeds the server cap)
     const base = playType === 'doubles' ? (rules?.doubles_duration_minutes ?? 90) : (rules?.singles_duration_minutes ?? 60);
     return [Math.min(base, cap)];
   }
-  const list = sanitizeDurationList(rules?.allowed_durations).filter((d) => d <= cap);
-  return list.length ? list : allowedDurations(false, rules);
+  const configured = sanitizeDurationList(rules?.allowed_durations);
+  if (configured.length) return configured.filter((d) => d <= cap); // [] = conflict: never fall back to an unlisted length the trigger would reject
+  return allowedDurations(false, rules);
 }
 
 /** The chosen length: the resident's pick when still allowed, otherwise the shortest allowed option. */

@@ -42,7 +42,8 @@ export interface ScheduleItem {
   hoa_id: string; community_name: string; description: string | null;
 }
 
-const MAX_CLOSURE_DAYS = 60;
+/** Days materialised per closure, counted from the first day that is not in the past (so a long ongoing closure still shows now). */
+const MAX_CLOSURE_DAYS = 120;
 
 function addDays(date: string, n: number): string {
   const [y, m, d] = date.split('-').map(Number);
@@ -61,8 +62,8 @@ export function maintenanceToItems(rows: MaintenanceRow[], hoaNames: Map<string,
   for (const r of rows) {
     if (!r.courts || !r.date) continue;
     const last = r.end_date && r.end_date >= r.date ? r.end_date : r.date;
-    for (let i = 0, day = r.date; day <= last && i < MAX_CLOSURE_DAYS; i++, day = addDays(r.date, i)) {
-      if (day < fromDate) continue;
+    const first = r.date < fromDate ? fromDate : r.date;
+    for (let i = 0, day = first; day <= last && i < MAX_CLOSURE_DAYS; i++, day = addDays(first, i)) {
       const start = r.start_time.slice(0, 5);
       const end = r.end_time.slice(0, 5);
       out.push({

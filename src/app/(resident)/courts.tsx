@@ -610,6 +610,8 @@ export default function CourtsScreen() {
     doubles: durationOptions(sheetCourtType, 'doubles', sheetRules),
   }), [sheetCourtType, sheetRules]);
   const sheetDuration = useMemo(() => pickDuration(availableDurations, sheetDurationOverride), [availableDurations, sheetDurationOverride]);
+  // An explicit HOA list that conflicts with the server cap leaves nothing bookable; say so instead of offering a length that would be refused.
+  const durationConflict = !!bookingSheet && !!sheetRules && availableDurations.length === 0;
 
   // The cap the database enforces (enforce_amenity_booking_rules, migration 20260922005928); see lib/bookingDurations.
   const sheetDurationCap = useMemo(() => serverDurationCap(sheetCourtType, sheetPlayType, sheetRules), [sheetCourtType, sheetPlayType, sheetRules]);
@@ -619,6 +621,7 @@ export default function CourtsScreen() {
     if (!bookingSheet) return [];
     const freshNow = new Date();
     const dateStr = toDateKey(sheetDate);
+    if (durationConflict) return [];
     if (dateStr < communityToday(freshNow, tz)) return []; // a past day (e.g. the sheet stayed open across community midnight) offers nothing
 
     // Reservations from two sources: every resident's bookings fetched per date (may be empty if that query failed),
@@ -1247,6 +1250,12 @@ const BookingSheet = memo(function BookingSheet({
               ))}
             </View>
           )}
+
+          {!showCalendar && availableDurations.length === 0 && !rulesLoading && rules ? (
+            <Text testID="duration-conflict" style={[styles.durationInlineText, { marginLeft: 0, alignSelf: 'flex-start', paddingVertical: 4 }]}>
+              Reservation lengths for this amenity are not set up correctly. Please contact your community administrator.
+            </Text>
+          ) : null}
 
           {/* Duration: a selector only when the HOA allows more than one length for this amenity / format; a single length is
               already shown on its button (racquet) or as plain text (other amenities). */}
