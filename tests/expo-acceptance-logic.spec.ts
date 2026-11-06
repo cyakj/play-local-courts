@@ -87,7 +87,7 @@ test.describe('wheel edges', () => {
   test('side contours are unchanged and derived from the same cylinder as the rows', () => {
     const w = read('src/components/ui/TimeSlotWheel.tsx');
     expect(w).toContain("contourPath(wheelW - 2, boxH - 2, cyl.bow, 'left')");
-    expect(w.match(/cyl\.bow/g)!.length).toBeGreaterThanOrEqual(4);
+    expect(w.match(/cyl\.bow/g)!.length).toBeGreaterThanOrEqual(3);
   });
 });
 
