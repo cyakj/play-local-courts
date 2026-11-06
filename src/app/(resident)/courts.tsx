@@ -39,7 +39,7 @@ import { db } from '@/lib/untypedDb';
 import { deviceZoneDiffers, reservationTimeProblem, timeZoneLabel } from '@/lib/communityTime';
 import { RequestLedger } from '@/lib/requestLedger';
 import { gateAvailability } from '@/lib/availabilityGate';
-import { allowedDurations, durationCap, resolveDuration } from '@/lib/bookingDurations';
+import { durationOptions, formatDurationSubtext, durationLabel, isRacquetType, pickDuration, serverDurationCap, type PlayType } from '@/lib/bookingDurations';
 import { computeSlots, isSelectable, revalidateSelection, toDateKey, toMins, type SlotInfo } from '@/lib/slotAvailability';
 import { CalendarPicker, formatDateLabel } from '@/components/ui/CalendarPicker';
 import { useScrollToTopOnTabEnter } from '@/hooks/useScrollToTopOnTabEnter';
@@ -99,6 +99,9 @@ interface UserBooking {
   courts: { name: string; hoa_id?: string } | null;
 }
 
+const SHEET_RULE_COLUMNS = 'booking_start_time, booking_end_time, singles_duration_minutes, doubles_duration_minutes, advance_booking_days, min_cancellation_hours, max_duration_minutes, max_reservations_per_day, requires_admin_approval';
+const SHEET_DURATION_LIST_COLUMNS = 'allowed_durations, singles_allowed_durations, doubles_allowed_durations';
+
 interface AmenityRules {
   booking_start_time: string | null;
   booking_end_time: string | null;
@@ -109,6 +112,9 @@ interface AmenityRules {
   max_duration_minutes?: number | null;
   max_reservations_per_day?: number | null;
   requires_admin_approval?: boolean | null;
+  allowed_durations?: number[] | null;
+  singles_allowed_durations?: number[] | null;
+  doubles_allowed_durations?: number[] | null;
 }
 
 interface CourtStatus {
@@ -524,8 +530,11 @@ export default function CourtsScreen() {
       fetchBookingsForDate(dateStr, [court.id]),
       (async () => {
         try {
-          const { data } = await supabase.from('amenity_rules').select('booking_start_time, booking_end_time, singles_duration_minutes, doubles_duration_minutes, advance_booking_days, min_cancellation_hours, max_duration_minutes, max_reservations_per_day, requires_admin_approval').eq('amenity_id', court.id).maybeSingle();
-          if (!isStale()) setSheetRules(data ?? null);
+          // The allowed-duration columns exist only after migration 20261106100000; a server without them errors on the select, so
+          // retry without them rather than losing every other rule (hours, limits, approval).
+          let res = await supabase.from('amenity_rules').select(`${SHEET_RULE_COLUMNS}, ${SHEET_DURATION_LIST_COLUMNS}`).eq('amenity_id', court.id).maybeSingle();
+          if (res.error) res = await supabase.from('amenity_rules').select(SHEET_RULE_COLUMNS).eq('amenity_id', court.id).maybeSingle() as unknown as typeof res;
+          if (!isStale()) setSheetRules((res.data ?? null) as AmenityRules | null);
         } catch { if (!isStale()) setSheetRules(null); }
       })(),
       fetchMaintenanceForSheet(court.id, isStale),
@@ -591,18 +600,19 @@ export default function CourtsScreen() {
     finally { setScheduleLoading(false); }
   }
 
-  // ── Duration: tennis locked by play type; non-tennis user-selectable ─────────
-  const isTennisBooking = useMemo(() => TENNIS_TYPES.has(bookingSheet?.courtType ?? ''), [bookingSheet]);
+  // ── Duration: the HOA's configured lengths per amenity (and per Singles/Doubles for racquet amenities) ─────
+  const isRacquetBooking = useMemo(() => isRacquetType(bookingSheet?.courtType), [bookingSheet]);
+  const sheetCourtType = bookingSheet?.courtType ?? '';
 
-  const availableDurations = useMemo(() => allowedDurations(isTennisBooking, sheetRules), [sheetRules, isTennisBooking]);
-
-  const sheetDuration = useMemo(() => {
-    if (isTennisBooking) return durationCap(true, sheetPlayType, sheetRules);
-    return resolveDuration(availableDurations, sheetDurationOverride, sheetRules);
-  }, [sheetRules, sheetPlayType, sheetDurationOverride, isTennisBooking, availableDurations]);
+  const availableDurations = useMemo(() => durationOptions(sheetCourtType, sheetPlayType, sheetRules), [sheetCourtType, sheetPlayType, sheetRules]);
+  const formatDurations = useMemo(() => ({
+    singles: durationOptions(sheetCourtType, 'singles', sheetRules),
+    doubles: durationOptions(sheetCourtType, 'doubles', sheetRules),
+  }), [sheetCourtType, sheetRules]);
+  const sheetDuration = useMemo(() => pickDuration(availableDurations, sheetDurationOverride), [availableDurations, sheetDurationOverride]);
 
   // The cap the database enforces (enforce_amenity_booking_rules, migration 20260922005928); see lib/bookingDurations.
-  const sheetDurationCap = useMemo(() => durationCap(isTennisBooking, sheetPlayType, sheetRules), [isTennisBooking, sheetPlayType, sheetRules]);
+  const sheetDurationCap = useMemo(() => serverDurationCap(sheetCourtType, sheetPlayType, sheetRules), [sheetCourtType, sheetPlayType, sheetRules]);
 
   // ── Time slots ──────────────────────────────────────────────────────────────
   const sheetTimeSlots = useMemo<SlotInfo[]>(() => {
@@ -967,7 +977,7 @@ export default function CourtsScreen() {
           sheetDate={sheetDate}
           onSheetDateChange={onSheetDateChange}
           playType={sheetPlayType}
-          onPlayTypeChange={t => { setSheetPlayType(t); setSheetSelectedSlot(null); }}
+          onPlayTypeChange={t => { setSheetPlayType(t); setSheetDurationOverride(null); setSheetSelectedSlot(null); }}
           rules={sheetRules}
           rulesLoading={sheetRulesLoading}
           degraded={busyDegraded}
@@ -979,7 +989,8 @@ export default function CourtsScreen() {
           onSelectSlot={setSheetSelectedSlot}
           duration={sheetDuration}
           availableDurations={availableDurations}
-          isTennis={isTennisBooking}
+          isRacquet={isRacquetBooking}
+          formatDurations={formatDurations}
           onDurationChange={(d) => { setSheetDurationOverride(d); setSheetSelectedSlot(null); }}
           weather={weather}
           confirming={confirming}
@@ -1081,7 +1092,7 @@ const BookingSheet = memo(function BookingSheet({
   courtName, courtType, now, sheetDate, onSheetDateChange,
   playType, onPlayTypeChange, rules, rulesLoading, availabilityStatus, onRetryAvailability, degraded, holdsEnforced,
   timeSlots, selectedSlot, onSelectSlot,
-  duration, availableDurations, isTennis, onDurationChange,
+  duration, availableDurations, isRacquet, formatDurations, onDurationChange,
   weather, confirming, success, pending, bookingError, onConfirm, onClose, insets,
 }: {
   courtName: string; courtType: string; now: Date;
@@ -1090,7 +1101,7 @@ const BookingSheet = memo(function BookingSheet({
   rules: AmenityRules | null; rulesLoading: boolean;
   availabilityStatus: 'loading' | 'ok' | 'stale' | 'error'; onRetryAvailability: () => void; degraded: boolean; holdsEnforced: boolean;
   timeSlots: SlotInfo[]; selectedSlot: string | null; onSelectSlot: (s: string | null) => void;
-  duration: number; availableDurations: number[]; isTennis: boolean; onDurationChange: (d: number) => void;
+  duration: number; availableDurations: number[]; isRacquet: boolean; formatDurations: Record<PlayType, number[]>; onDurationChange: (d: number) => void;
   weather: WeatherData | null;
   confirming: boolean; success: boolean; pending: boolean; bookingError: string | null; onConfirm: () => void; onClose: () => void;
   insets: { bottom: number };
@@ -1215,26 +1226,32 @@ const BookingSheet = memo(function BookingSheet({
             </TouchableOpacity>
           </View>
 
-          {/* Play type — tennis only; duration for every other amenity ignores
-              this value entirely, so showing it there was a dead control */}
-          {!showCalendar && isTennis && (
+          {/* Play format: tennis and pickleball only (never pools, clubhouses, rooms). Each button carries its own permitted
+              duration(s), so a length is always tied to the format it belongs to. */}
+          {!showCalendar && isRacquet && (
             <View style={styles.playTypeRow}>
               {(['singles', 'doubles'] as const).map(type => (
                 <TouchableOpacity key={type} testID={`play-type-${type}`}
                   style={[styles.playTypeChip, playType === type && styles.playTypeChipActive]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: playType === type }}
+                  accessibilityLabel={`${type === 'singles' ? 'Singles' : 'Doubles'}, ${formatDurationSubtext(formatDurations[type])}`}
                   onPress={() => onPlayTypeChange(type)} activeOpacity={0.7}>
                   <Text style={[styles.playTypeText, playType === type && styles.playTypeTextActive]}>
                     {type === 'singles' ? 'Singles' : 'Doubles'}
                   </Text>
+                  <Text testID={`play-type-duration-${type}`} style={[styles.playTypeSub, playType === type && styles.playTypeSubActive]}>
+                    {formatDurationSubtext(formatDurations[type])}
+                  </Text>
                 </TouchableOpacity>
               ))}
-              <Text testID="duration-info" style={styles.durationInlineText}>{duration} min</Text>
             </View>
           )}
 
-          {/* Duration: informational for tennis, selector for non-tennis (hidden when calendar open) */}
+          {/* Duration: a selector only when the HOA allows more than one length for this amenity / format; a single length is
+              already shown on its button (racquet) or as plain text (other amenities). */}
           {!showCalendar && (
-            isTennis ? null : availableDurations.length > 1 ? (
+            availableDurations.length > 1 ? (
               <View testID="duration-selector" style={styles.durationRow}>
                 {availableDurations.map(d => (
                   <TouchableOpacity
@@ -1242,15 +1259,17 @@ const BookingSheet = memo(function BookingSheet({
                     testID={`duration-${d}`}
                     style={[styles.durationChip, duration === d && styles.durationChipActive]}
                     onPress={() => onDurationChange(d)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: duration === d }}
                     activeOpacity={0.7}>
                     <Text style={[styles.durationChipText, duration === d && styles.durationChipTextActive]}>
-                      {d} min
+                      {durationLabel(d)}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
-            ) : availableDurations.length === 1 ? (
-              <Text testID="duration-info" style={[styles.durationInlineText, { marginLeft: 0, alignSelf: 'flex-start', paddingVertical: 4 }]}>{availableDurations[0]} min reservations</Text>
+            ) : availableDurations.length === 1 && !isRacquet ? (
+              <Text testID="duration-info" style={[styles.durationInlineText, { marginLeft: 0, alignSelf: 'flex-start', paddingVertical: 4 }]}>{durationLabel(availableDurations[0])} reservations</Text>
             ) : null
           )}
 
@@ -1325,7 +1344,7 @@ const BookingSheet = memo(function BookingSheet({
             {selectedSlot && !showCalendar && (
               <View testID="selected-time-summary" style={styles.slotSummary}>
                 <Text style={styles.slotSummaryLine1} numberOfLines={1}>
-                  {courtName}{isTennis ? ` · ${playType === 'singles' ? 'Singles' : 'Doubles'}` : ''} · {duration} min
+                  {courtName}{isRacquet ? ` · ${playType === 'singles' ? 'Singles' : 'Doubles'}` : ''} · {duration} min
                 </Text>
                 <View style={styles.slotSummaryRow2}>
                   <Text style={styles.slotSummaryLine2} numberOfLines={1}>
@@ -1625,10 +1644,12 @@ function useStyles(theme: ThemeTokens) {
 
   // Play type — equal-width chips
   playTypeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  playTypeChip: { flex: 1, height: 40, paddingHorizontal: 16, borderRadius: Radius.chip, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surface2, alignItems: 'center', justifyContent: 'center' },
+  playTypeChip: { flex: 1, minHeight: 48, paddingVertical: 6, paddingHorizontal: 16, borderRadius: Radius.chip, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surface2, alignItems: 'center', justifyContent: 'center' },
   playTypeChipActive: { backgroundColor: Colors.blue, borderColor: Colors.blue },
   playTypeText: { fontFamily: FontFamily.manropeSemiBold, fontSize: 13, color: theme.textSecondary },
   playTypeTextActive: { color: Colors.white },
+  playTypeSub: { fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: 11, color: theme.textMuted, letterSpacing: 0.4, marginTop: 2 },
+  playTypeSubActive: { color: 'rgba(255,255,255,0.85)' },
 
   // Duration
   durationInlineText: { marginLeft: 'auto' as const, fontFamily: FontFamily.jetbrainsMonoSemiBold, fontSize: 12, color: theme.textMuted, letterSpacing: 0.6 },

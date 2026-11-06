@@ -113,7 +113,7 @@ test.describe('booking confirmation safeguards', () => {
   });
   test('B-002: duration cap mirrors the trigger (tennis by play type; others max_duration_minutes default 60)', () => {
     const dur = readFileSync('src/lib/bookingDurations.ts', 'utf8');
-    expect(courts).toMatch(/durationCap\(isTennisBooking, sheetPlayType, sheetRules\)/);
+    expect(courts).toMatch(/serverDurationCap\(sheetCourtType, sheetPlayType, sheetRules\)/);
     expect(dur).toMatch(/playType === 'doubles' \? \(rules\?\.doubles_duration_minutes \?\? 90\) : \(rules\?\.singles_duration_minutes \?\? 60\)/);
     expect(dur).toMatch(/rules\?\.max_duration_minutes \?\? DEFAULT_DURATION_CAP/);
     expect(courts).toMatch(/maxDurationMins: sheetDurationCap/);
