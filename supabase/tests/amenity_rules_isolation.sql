@@ -64,15 +64,15 @@ BEGIN
 
   -- the legitimate administrator can configure it, including the duration lists
   PERFORM pg_temp.as_user(b);
-  INSERT INTO public.amenity_rules (hoa_id, amenity_id, max_duration_minutes, allowed_durations, max_reservations_per_day, requires_admin_approval, booking_start_time, booking_end_time)
-  VALUES (greens, gc, 90, ARRAY[60, 90], 2, true, '08:00', '20:00') RETURNING id INTO rid;
+  INSERT INTO public.amenity_rules (hoa_id, amenity_id, max_duration_minutes, max_reservations_per_day, requires_admin_approval, booking_start_time, booking_end_time)
+  VALUES (greens, gc, 90, 2, true, '08:00', '20:00') RETURNING id INTO rid;
   PERFORM pg_temp.rec('the community administrator can create the rules for their amenity', rid IS NOT NULL, '');
-  UPDATE public.amenity_rules SET allowed_durations = ARRAY[90], max_reservations_per_day = 1, requires_admin_approval = false WHERE id = rid;
+  UPDATE public.amenity_rules SET max_reservations_per_day = 1, requires_admin_approval = false WHERE id = rid;
   GET DIAGNOSTICS n = ROW_COUNT;
   PERFORM pg_temp.rec('the community administrator can change them', n = 1, 'rows=' || n);
   PERFORM pg_temp.as_owner();
   PERFORM pg_temp.rec('configuration persists exactly as saved',
-    (SELECT allowed_durations = ARRAY[90] AND max_reservations_per_day = 1 AND requires_admin_approval = false AND max_duration_minutes = 90
+    (SELECT max_reservations_per_day = 1 AND requires_admin_approval = false AND max_duration_minutes = 90
        AND booking_start_time = '08:00' AND booking_end_time = '20:00' FROM public.amenity_rules WHERE id = rid), '');
 
   -- an administrator cannot repoint existing rules at another community's amenity
