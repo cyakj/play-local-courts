@@ -129,3 +129,34 @@ test.describe('resident fetch tolerates a server without the new columns', () =>
     expect(c).toMatch(/if \(res\.error\) res = await supabase\.from\('amenity_rules'\)\.select\(SHEET_RULE_COLUMNS\)/);
   });
 });
+
+import { draftFromRules, draftToColumns, validateDraft } from '../src/lib/bookingDurations';
+
+test.describe('admin editor model', () => {
+  test('initial draft shows what residents get today (no silent replacement)', () => {
+    expect(draftFromRules('pool', { max_duration_minutes: 60 })).toEqual({ general: [60], singles: [], doubles: [] });
+    expect(draftFromRules('tennis', { singles_duration_minutes: 60, doubles_duration_minutes: 90 })).toEqual({ general: [], singles: [60], doubles: [90] });
+    expect(draftFromRules('clubhouse', { max_duration_minutes: 240, allowed_durations: [120, 240] }).general).toEqual([120, 240]);
+  });
+  test('saved columns keep the legacy cap in step with the longest listed length', () => {
+    expect(draftToColumns('pool', { general: [90, 60], singles: [], doubles: [] })).toEqual({ allowed_durations: [60, 90], max_duration_minutes: 90 });
+    expect(draftToColumns('pickleball', { general: [], singles: [60], doubles: [60, 90] })).toEqual({
+      singles_allowed_durations: [60], doubles_allowed_durations: [60, 90],
+      singles_duration_minutes: 60, doubles_duration_minutes: 90, max_duration_minutes: 90,
+    });
+  });
+  test('an empty selection cannot be saved', () => {
+    expect(validateDraft('pool', { general: [], singles: [], doubles: [] })).toMatch(/at least one/);
+    expect(validateDraft('tennis', { general: [], singles: [60], doubles: [] })).toMatch(/Doubles/);
+  });
+  test('saved config round-trips to exactly what the resident sees', () => {
+    const cols = draftToColumns('tennis', { general: [], singles: [60], doubles: [60, 90] });
+    expect(durationOptions('tennis', 'singles', cols as never)).toEqual([60]);
+    expect(durationOptions('tennis', 'doubles', cols as never)).toEqual([60, 90]);
+  });
+  test('admin screen degrades to the legacy cap when the server lacks the list columns', () => {
+    const a = read('src/app/(admin)/manage-amenities.tsx');
+    expect(a).toContain("!('allowed_durations' in rules)");
+    expect(a).toContain('legacyOnly');
+  });
+});

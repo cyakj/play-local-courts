@@ -31,6 +31,8 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { AdminHeader, Toggle } from '@/components/admin/kit';
 import { TimePicker } from '@/components/ui/TimePicker';
 import { Stepper } from '@/components/ui/Stepper';
+import { DurationChips } from '@/components/admin/DurationChips';
+import { draftFromRules, draftToColumns, isRacquetType, validateDraft, type DurationDraft } from '@/lib/bookingDurations';
 import { RulesSummary } from '@/components/ui/RulesSummary';
 import { AddAmenityWizard } from '@/components/admin/AddAmenityWizard';
 import { AmenityScheduleSheet } from '@/components/admin/AmenityScheduleSheet';
@@ -136,6 +138,8 @@ export default function ManageAmenitiesScreen() {
   const [editDescription, setEditDescription] = useState('');
   const [editActive, setEditActive] = useState(true);
   const [rules, setRules] = useState<Partial<AmenityRules>>({});
+  const [durDraft, setDurDraft] = useState<DurationDraft>({ general: [60], singles: [], doubles: [] });
+  const [durDirty, setDurDirty] = useState(false);
   const [maintenance, setMaintenance] = useState<Maintenance[]>([]);
   const [upcomingBookings, setUpcomingBookings] = useState<UpcomingBooking[]>([]);
   const [utilization30d, setUtilization30d] = useState(0);
@@ -280,6 +284,8 @@ export default function ManageAmenitiesScreen() {
     ]);
 
     setRules(rulesRes.data ?? {});
+    setDurDraft(draftFromRules(court.court_type, rulesRes.data ?? null));
+    setDurDirty(false);
     setMaintenance(maintRes.data ?? []);
     setUtilization30d(utilRes.count ?? 0);
 
@@ -367,6 +373,20 @@ export default function ManageAmenitiesScreen() {
       return;
     }
 
+    const durError = validateDraft(editType, durDraft);
+    if (durError) {
+      platformAlert('Reservation Lengths', durError);
+      return;
+    }
+    // The list columns exist only after migration 20261106100000. A loaded row tells us whether the server has them.
+    // Without them the legacy single cap is still saved (the longest chosen length) so this screen keeps working as before.
+    const listsKnownMissing = !!rules.id && !('allowed_durations' in rules);
+    const listsKnownPresent = !!rules.id && !listsKnownMissing;
+    const writeLists = listsKnownPresent || (!rules.id && durDirty);
+    const durCols = draftToColumns(editType, durDraft);
+    const legacyOnly = Object.fromEntries(Object.entries(durCols).filter(([k]) => !k.endsWith('_allowed_durations') && k !== 'allowed_durations'));
+    const multiLength = (isRacquetType(editType) ? [durDraft.singles, durDraft.doubles] : [durDraft.general]).some((l) => l.length > 1);
+
     setDetailSaving(true);
 
     const { error: courtError } = await supabase
@@ -392,6 +412,7 @@ export default function ManageAmenitiesScreen() {
       booking_start_time: rules.booking_start_time || null,
       booking_end_time: rules.booking_end_time || null,
       max_duration_minutes: rules.max_duration_minutes ?? null,
+      ...(writeLists ? durCols : durDirty || rules.id ? legacyOnly : {}),
       advance_booking_days: rules.advance_booking_days ?? null,
       min_cancellation_hours: rules.min_cancellation_hours ?? null,
       max_reservations_per_day: rules.max_reservations_per_day ?? null,
@@ -411,6 +432,9 @@ export default function ManageAmenitiesScreen() {
 
     setDetailCourt(null);
     loadCourts();
+    if (listsKnownMissing && multiLength) {
+      platformAlert('Saved With One Length', 'Only the longest reservation length was saved. Offering several lengths needs a database update that has not been applied yet.');
+    }
   }
 
   async function handleBlockoutSaved() {
@@ -631,16 +655,35 @@ export default function ManageAmenitiesScreen() {
               </View>
 
               <View style={{ marginTop: 20, gap: 20 }}>
-                <Stepper
-                  label="BOOKING DURATION"
-                  value={rules.max_duration_minutes ?? 60}
-                  onChange={(v) => setRules((r) => ({ ...r, max_duration_minutes: v }))}
-                  min={15}
-                  max={240}
-                  step={15}
-                  unit="min"
-                  theme={theme}
-                />
+                {isRacquetType(editType) ? (
+                  <>
+                    <DurationChips
+                      testID="admin-durations-singles"
+                      label="SINGLES LENGTHS"
+                      value={durDraft.singles}
+                      onChange={(v) => { setDurDraft((d) => ({ ...d, singles: v })); setDurDirty(true); }}
+                      hint="Residents choosing Singles see only these lengths."
+                      theme={theme}
+                    />
+                    <DurationChips
+                      testID="admin-durations-doubles"
+                      label="DOUBLES LENGTHS"
+                      value={durDraft.doubles}
+                      onChange={(v) => { setDurDraft((d) => ({ ...d, doubles: v })); setDurDirty(true); }}
+                      hint="Residents choosing Doubles see only these lengths."
+                      theme={theme}
+                    />
+                  </>
+                ) : (
+                  <DurationChips
+                    testID="admin-durations-general"
+                    label="ALLOWED RESERVATION LENGTHS"
+                    value={durDraft.general}
+                    onChange={(v) => { setDurDraft((d) => ({ ...d, general: v })); setDurDirty(true); }}
+                    hint="Residents see only these lengths. Pick one for a fixed length."
+                    theme={theme}
+                  />
+                )}
                 <Stepper
                   label="ADVANCE BOOKING WINDOW"
                   value={rules.advance_booking_days ?? 14}

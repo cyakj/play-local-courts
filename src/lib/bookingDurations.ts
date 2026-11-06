@@ -113,3 +113,41 @@ export function validateDurationList(list: number[], label: string): string | nu
   if (list.some((d) => !Number.isInteger(d) || d < 15 || d > 480 || d % 15 !== 0)) return `${label}: durations must be 15–480 minutes in 15-minute steps.`;
   return null;
 }
+
+// ─── Admin editor model (Manage Amenities) ──────────────────────────────────────────────────────────────────────────
+
+export interface DurationDraft { general: number[]; singles: number[]; doubles: number[] }
+
+/** Initial editor state: what residents currently get (explicit list when configured, otherwise the legacy single length / cap). */
+export function draftFromRules(courtType: string | null | undefined, rules: DurationRules | null | undefined): DurationDraft {
+  return {
+    general: isRacquetType(courtType) ? [] : durationOptions(courtType, 'singles', rules),
+    singles: isRacquetType(courtType) ? durationOptions(courtType, 'singles', rules) : [],
+    doubles: isRacquetType(courtType) ? durationOptions(courtType, 'doubles', rules) : [],
+  };
+}
+
+/** Validation message for the draft that applies to this amenity type, or null. */
+export function validateDraft(courtType: string | null | undefined, d: DurationDraft): string | null {
+  if (isRacquetType(courtType)) return validateDurationList(d.singles, 'Singles') ?? validateDurationList(d.doubles, 'Doubles');
+  return validateDurationList(d.general, 'Reservation length');
+}
+
+/**
+ * Columns to write. Lists are written together with the legacy cap columns (set to the longest listed length) so the older
+ * server check (enforce_amenity_booking_rules) and the new one (enforce_allowed_durations) always agree.
+ * Columns of the other amenity kind are not touched.
+ */
+export function draftToColumns(courtType: string | null | undefined, d: DurationDraft): Record<string, number | number[]> {
+  const asc = (l: number[]) => sanitizeDurationList(l);
+  if (isRacquetType(courtType)) {
+    const s = asc(d.singles), b = asc(d.doubles);
+    return {
+      singles_allowed_durations: s, doubles_allowed_durations: b,
+      singles_duration_minutes: Math.max(...s), doubles_duration_minutes: Math.max(...b),
+      max_duration_minutes: Math.max(...s, ...b),
+    };
+  }
+  const g = asc(d.general);
+  return { allowed_durations: g, max_duration_minutes: Math.max(...g) };
+}
