@@ -7,7 +7,7 @@ import Animated, {
 import { scheduleOnRN } from 'react-native-worklets';
 import Svg, { Circle, Defs, G, Line, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
-import { DRUM_OPACITY_STOPS, ghostIndexes, ghostLayout, wheelPad } from '@/lib/wheelLayout';
+import { DRUM_OPACITY_STOPS, wheelPad } from '@/lib/wheelLayout';
 import { centeredIndex, decideFeedback, newGate, type FeedbackGate } from '@/lib/pickerFeedback';
 import {
   getPickerPrefs, hapticConfirm, hapticTick, loadPickerPrefs, soundTick, subscribePickerPrefs, warmPickerSound,
@@ -335,32 +335,6 @@ const WheelRow = memo(function WheelRow({ slot, index, scrollY, isSelected, wx, 
   );
 });
 
-/** Non-interactive filler row that continues the drum past the first/last time. Not a time, not selectable, hidden from a11y. */
-const GhostRow = memo(function GhostRow({ index, scrollY, s, cyl }: { index: number; scrollY: SharedValue<number>; s: ReturnType<typeof useWheelStyles>; cyl: Cylinder }) {
-  const drum = useAnimatedStyle(() => {
-    const d = (index * ITEM_H - scrollY.value) / ITEM_H;
-    const ad = Math.abs(d);
-    return {
-      opacity: interpolate(ad, DRUM_OPACITY_STOPS.distance as unknown as number[], DRUM_OPACITY_STOPS.opacity as unknown as number[], Extrapolation.CLAMP),
-      transform: [
-        { perspective: DRUM_PERSPECTIVE },
-        { rotateX: `${Math.max(-DRUM_MAX_DEG, Math.min(DRUM_MAX_DEG, -d * DRUM_DEG_PER_ROW))}deg` },
-        { scale: 1 - ((2 * cyl.bow) / cyl.rowW) * Math.min(1, (ad * ITEM_H) / cyl.half) ** 2 },
-      ],
-    };
-  });
-  return (
-    <Animated.View
-      testID={`wheel-ghost-${index}`}
-      pointerEvents="none"
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
-      style={[s.row, drum]}>
-      <View style={s.ghostBar} />
-    </Animated.View>
-  );
-});
-
 /**
  * A custom drum wheel (not the native iOS picker): the rows need weather, availability colours, disabled states and per-row
  * actions, which UIDatePicker cannot render. Curvature/fade run on the UI thread from the scroll offset (react-native-reanimated,
@@ -384,8 +358,6 @@ export const TimeSlotWheel = memo(function TimeSlotWheel({
   const boxH = fill ? wheelH : WHEEL_H;
   const cyl = useMemo(() => cylinderFor(wheelW || 340, boxH), [wheelW, boxH]);
   const pad = wheelPad(wheelH, ITEM_H);
-  const ghosts = useMemo(() => ghostLayout(wheelH, ITEM_H), [wheelH]);
-  const ghostIdx = useMemo(() => ghostIndexes(ghosts.count, slots.length), [ghosts.count, slots.length]);
   const starts = useMemo(() => slots.map((x) => x.start), [slots]);
 
   // Feedback: a subtle tick per meaningful centre change caused by the USER's finger; never for refreshes or programmatic scrolls.
@@ -468,8 +440,7 @@ export const TimeSlotWheel = memo(function TimeSlotWheel({
         onScrollBeginDrag={() => { userDriven.current = true; }}
         onMomentumScrollBegin={() => { userDriven.current = true; }}
         nestedScrollEnabled
-        contentContainerStyle={{ paddingVertical: ghosts.remainder }}>
-        {ghostIdx.top.map((gi) => <GhostRow key={`g${gi}`} index={gi} scrollY={scrollY} s={s} cyl={cyl} />)}
+        contentContainerStyle={{ paddingVertical: pad }}>
         {slots.map((slot, i) => (
           <WheelRow
             key={slot.start}
@@ -484,7 +455,6 @@ export const TimeSlotWheel = memo(function TimeSlotWheel({
             cyl={cyl}
           />
         ))}
-        {ghostIdx.bottom.map((gi) => <GhostRow key={`g${gi}`} index={gi} scrollY={scrollY} s={s} cyl={cyl} />)}
       </Animated.ScrollView>
       {/* Selection band in front of the drum: tinted so the focused row reads through it, spanning the widest part */}
       <View pointerEvents="none" style={[s.bandFront, { top: pad, height: ITEM_H }]} />
@@ -576,7 +546,6 @@ function useWheelStyles(theme: ThemeTokens) {
         backgroundColor: 'rgba(45,107,255,0.04)', borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth,
         borderColor: 'rgba(45,107,255,0.35)',
       },
-      ghostBar: { alignSelf: 'center', width: '70%', height: 10, borderRadius: 5, backgroundColor: theme.border },
       rowSelected: { borderColor: selBlue, backgroundColor: selBlueBg },
       rowReserved: { backgroundColor: Availability.reservedBg },
       rowBlocked: { backgroundColor: Availability.blockedBg },

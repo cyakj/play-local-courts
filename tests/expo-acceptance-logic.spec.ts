@@ -5,7 +5,7 @@ import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { allowedDurations, durationCap, resolveDuration } from '../src/lib/bookingDurations';
 import { computeSlots, limitReason } from '../src/lib/slotAvailability';
-import { ghostIndexes, ghostLayout, wheelPad, DRUM_OPACITY_STOPS } from '../src/lib/wheelLayout';
+import { wheelPad, DRUM_OPACITY_STOPS } from '../src/lib/wheelLayout';
 import { cancellationLine, detailSummary } from '../src/lib/reservationDetailCopy';
 
 const read = (p: string) => readFileSync(p, 'utf8');
@@ -72,33 +72,16 @@ test.describe('reason labels are distinct', () => {
 
 test.describe('wheel edges', () => {
   const ITEM = 44;
-  test('ghost rows + remainder reproduce the original padding exactly (real rows do not move)', () => {
-    for (const h of [132, 200, 308, 396, 463]) {
-      const g = ghostLayout(h, ITEM);
-      expect(g.count * ITEM + g.remainder).toBeCloseTo(wheelPad(h, ITEM), 6);
-      expect(g.remainder).toBeGreaterThanOrEqual(0);
-      expect(g.remainder).toBeLessThan(ITEM);
-    }
-  });
-  test('ghost indexes never collide with a real slot, for 1, 2 and many slots', () => {
-    for (const n of [1, 2, 30]) {
-      const { top, bottom } = ghostIndexes(4, n);
-      expect(top.every((i) => i < 0)).toBe(true);
-      expect(bottom.every((i) => i >= n)).toBe(true);
-      expect(top).toHaveLength(4);
-      expect(bottom).toHaveLength(4);
-    }
-  });
-  test('a tall wheel on the first/last slot is filled by rows and selectable rows stay readable', () => {
-    expect(ghostLayout(463, ITEM).count).toBeGreaterThanOrEqual(4);
-    expect(DRUM_OPACITY_STOPS.opacity[3]).toBeGreaterThanOrEqual(0.4);
-  });
-  test('ghost rows are inert: hidden from accessibility, no press handler, no time or weather', () => {
+  test('no placeholder/ghost rows: the end padding is empty and equals the original centring pad', () => {
     const w = read('src/components/ui/TimeSlotWheel.tsx');
-    const ghost = w.slice(w.indexOf('const GhostRow'), w.indexOf('A custom drum wheel'));
-    expect(ghost).toContain('pointerEvents="none"');
-    expect(ghost).toContain('no-hide-descendants');
-    expect(ghost).not.toMatch(/onPress|TouchableOpacity|wxForSlot|fmtSlot/);
+    expect(w).not.toMatch(/ghost/i);
+    expect(w).toContain('contentContainerStyle={{ paddingVertical: pad }}');
+    expect(read('src/lib/wheelLayout.ts')).not.toMatch(/export function ghost/);
+    for (const h of [132, 308, 463]) expect(wheelPad(h, ITEM)).toBe((h - ITEM) / 2);
+  });
+  test('first and last real rows can still be centred and only available rows select', () => {
+    const w = read('src/components/ui/TimeSlotWheel.tsx');
+    expect(DRUM_OPACITY_STOPS.opacity[3]).toBeGreaterThanOrEqual(0.4);
     expect(w).toMatch(/slot\.state !== 'available'\) return; \/\/ disabled rows never select/);
   });
   test('side contours are unchanged and derived from the same cylinder as the rows', () => {
