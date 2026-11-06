@@ -48,12 +48,15 @@ Pulse announcement (`pickPulseAnnouncement`), no maintenance_reports access. Unr
 Dependency: the maintenance/service announcement category needs the written-but-unapplied migration from commit d4baba9.
 
 ## 10. Tests
-`npx playwright test -c playwright.logic.config.ts` → 628 passed (new `tests/expo-acceptance-logic.spec.ts`; three stale source-regex tests
+`npx playwright test -c playwright.logic.config.ts` → 629 passed (new `tests/expo-acceptance-logic.spec.ts`; three stale source-regex tests
 updated: `workstream-b` ×2 for the moved duration/pad code, `workstream-c` ×2 for the removed maintenance state). `npx expo export --platform ios` succeeds.
 `tsc` shows no errors in touched files (repo has unrelated pre-existing errors). Automated tests do not prove the iPhone appearance.
 
 ## 11. Codex findings
-See the section appended below after the inspection.
+Independent Codex inspection (codex-cli 0.162.1, gpt-6.1-sol, read-only, fresh session; base 5ff92cb). Static review only.
+Run 1 returned APPROVED with no findings but was recorded as failed ("code changed during inspection" - the tree was still being edited).
+Run 2: REVISE, one medium finding **R-001**: the cancellation deadline omitted the HOA time zone, so a resident whose phone is in another zone could read
+"9:00 AM" as local time. Fixed: the zone name is appended whenever the device zone differs (test added). The fix itself has not had a further Codex pass.
 
 ## 12. Migrations
 None new. Still unapplied from earlier sprints: exclusive pending holds / `get_amenity_busy_times` (20261031110000) and the announcements

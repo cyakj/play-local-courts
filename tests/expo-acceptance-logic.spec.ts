@@ -138,8 +138,19 @@ test.describe('reservation detail copy', () => {
     for (const k of ['confirmed', 'completed', 'request_expired', 'rejected', 'cancelled'] as const) expect(detailSummary(k, true).length).toBeLessThan(90);
   });
   test('cancellation available: deadline in the HOA zone from the HOA window (not hardcoded 24)', () => {
-    expect(cancellationLine({ kind: 'pending', status: 'pending', minHours: 24, ...common })).toEqual({ kind: 'available', text: 'Cancel before Nov 5 at 9:00 AM.' });
-    expect(cancellationLine({ kind: 'confirmed', status: 'confirmed', minHours: 48, ...common })).toEqual({ kind: 'available', text: 'Cancel before Nov 4 at 9:00 AM.' });
+    // a zone label such as " (Eastern Standard Time)" is appended when the device zone differs, so match the prefix
+    const a = cancellationLine({ kind: 'pending', status: 'pending', minHours: 24, ...common });
+    const b = cancellationLine({ kind: 'confirmed', status: 'confirmed', minHours: 48, ...common });
+    expect(a.kind === 'available' && a.text).toMatch(/^Cancel before Nov 5 at 9:00 AM( \(.+\))?\.$/);
+    expect(b.kind === 'available' && b.text).toMatch(/^Cancel before Nov 4 at 9:00 AM( \(.+\))?\.$/);
+  });
+  test('deadline names the HOA zone when the device zone differs (R-001)', () => {
+    const prev = process.env.TZ;
+    const line = cancellationLine({ kind: 'pending', status: 'pending', minHours: 24, ...common, timeZone: 'Pacific/Honolulu' });
+    expect(line.kind).toBe('available');
+    expect(read('src/lib/reservationDetailCopy.ts')).toContain('deviceZoneDiffers(timeZone, d)');
+    if (line.kind === 'available' && Intl.DateTimeFormat().resolvedOptions().timeZone !== 'Pacific/Honolulu') expect(line.text).toMatch(/Hawaii|HST|Honolulu/i);
+    process.env.TZ = prev;
   });
   test('deadline passed: one closed line using the HOA window', () => {
     expect(cancellationLine({ kind: 'confirmed', status: 'confirmed', minHours: 72, ...common })).toEqual({ kind: 'closed', text: 'Cancellation closed · Less than 72 hours before start.' });

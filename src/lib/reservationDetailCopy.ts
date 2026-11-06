@@ -1,5 +1,5 @@
 // Concise copy for the reservation detail screen. Pure (Node-testable). Reuses cancellationState: the business rule is unchanged.
-import { localToUtcMs } from '@/lib/communityTime';
+import { deviceZoneDiffers, localToUtcMs, timeZoneLabel } from '@/lib/communityTime';
 import { cancellationState } from '@/lib/reservations';
 import type { ReservationKind } from '@/lib/reservationState';
 
@@ -31,7 +31,8 @@ function formatDeadline(ms: number, timeZone: string): string {
   const d = new Date(ms);
   const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone });
   const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone });
-  return `${date} at ${time}`;
+  // Name the HOA zone whenever the phone is in a different one, so the deadline is never read as device-local time.
+  return `${date} at ${time}${deviceZoneDiffers(timeZone, d) ? ` (${timeZoneLabel(timeZone, d)})` : ''}`;
 }
 
 /**
