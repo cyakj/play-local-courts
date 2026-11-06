@@ -32,7 +32,7 @@ import { AdminHeader, Toggle } from '@/components/admin/kit';
 import { TimePicker } from '@/components/ui/TimePicker';
 import { Stepper } from '@/components/ui/Stepper';
 import { DurationChips } from '@/components/admin/DurationChips';
-import { draftFromRules, draftToColumns, isRacquetType, validateDraft, type DurationDraft } from '@/lib/bookingDurations';
+import { draftFromRules, draftToColumns, isRacquetType, legacyColumnsFor, validateDraft, type DurationDraft } from '@/lib/bookingDurations';
 import { RulesSummary } from '@/components/ui/RulesSummary';
 import { AddAmenityWizard } from '@/components/admin/AddAmenityWizard';
 import { AmenityScheduleSheet } from '@/components/admin/AmenityScheduleSheet';
@@ -385,7 +385,7 @@ export default function ManageAmenitiesScreen() {
     // setting into an explicit list). Lists are included unless the loaded row proves the server lacks them.
     const writeLists = durDirty && !listsKnownMissing;
     const durCols = draftToColumns(editType, durDraft);
-    const legacyOnly = Object.fromEntries(Object.entries(durCols).filter(([k]) => !k.endsWith('_allowed_durations') && k !== 'allowed_durations'));
+    const legacyOnly = legacyColumnsFor(editType, durDraft);
     const multiLength = (isRacquetType(editType) ? [durDraft.singles, durDraft.doubles] : [durDraft.general]).some((l) => l.length > 1);
 
     setDetailSaving(true);
@@ -427,7 +427,8 @@ export default function ManageAmenitiesScreen() {
     let fellBackToLegacy = false;
     // No rules row yet, so the server's columns were unknown: if it rejects the list columns, save the legacy cap instead.
     if (rulesRes.error && writeLists && isMissingColumnError(rulesRes.error)) {
-      rulesRes = await writeRules({ ...rulesPayload, ...legacyOnly } as typeof rulesPayload);
+      const { allowed_durations: _a, singles_allowed_durations: _s, doubles_allowed_durations: _d, ...withoutLists } = rulesPayload as Record<string, unknown>;
+      rulesRes = await writeRules({ ...withoutLists, ...legacyOnly } as typeof rulesPayload);
       fellBackToLegacy = !rulesRes.error;
     }
 

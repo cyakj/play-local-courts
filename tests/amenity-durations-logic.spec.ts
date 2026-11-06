@@ -183,3 +183,21 @@ test.describe('review fixes', () => {
     expect(read('src/app/(admin)/manage-amenities.tsx')).toContain('isRacquetType(t) !== isRacquetType(editType)');
   });
 });
+
+import { legacyColumnsFor } from '../src/lib/bookingDurations';
+test.describe('second inspection fixes', () => {
+  test('legacy-only save for a pool yields exactly the chosen longest length for residents', () => {
+    const cols = legacyColumnsFor('pool', { general: [120], singles: [], doubles: [] });
+    expect(cols).toMatchObject({ max_duration_minutes: 120, singles_duration_minutes: 120, doubles_duration_minutes: 120 });
+    expect(cols).not.toHaveProperty('allowed_durations');
+    expect(durationOptions('pool', 'singles', cols as never)).toEqual([120]);
+  });
+  test('legacy-only racquet save keeps format columns and no list keys', () => {
+    const cols = legacyColumnsFor('tennis', { general: [], singles: [60], doubles: [60, 90] });
+    expect(cols).toEqual({ singles_duration_minutes: 60, doubles_duration_minutes: 90, max_duration_minutes: 90 });
+  });
+  test('the retry payload drops the list keys', () => {
+    const a = read('src/app/(admin)/manage-amenities.tsx');
+    expect(a).toContain('allowed_durations: _a, singles_allowed_durations: _s, doubles_allowed_durations: _d, ...withoutLists');
+  });
+});

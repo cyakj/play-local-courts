@@ -154,3 +154,15 @@ export function draftToColumns(courtType: string | null | undefined, d: Duration
   const g = asc(d.general);
   return { allowed_durations: g, max_duration_minutes: Math.max(...g) };
 }
+
+/**
+ * Legacy-only columns (server without the list columns). A non-racquet amenity's legacy options come from singles/doubles minutes
+ * (<= the cap), so those are set to the longest length as well: residents then get exactly that one length, as the notice says.
+ */
+export function legacyColumnsFor(courtType: string | null | undefined, d: DurationDraft): Record<string, number> {
+  const cols = draftToColumns(courtType, d);
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(cols)) if (typeof v === 'number') out[k] = v;
+  if (!isRacquetType(courtType)) { out.singles_duration_minutes = out.max_duration_minutes; out.doubles_duration_minutes = out.max_duration_minutes; }
+  return out;
+}
