@@ -10,9 +10,11 @@ PORT="${1:-}"; BK="${2:-}"; SCR="${3:-}"
 [ -f "$BK/RESTORE-VERIFIED.txt" ] && [ -f "$BK/full.dump" ] || { echo "backup is not a restore-verified backup" >&2; exit 2; }
 [ ! -e "$SCR" ] || { echo "$SCR already exists" >&2; exit 2; }
 case "$SCR" in "$BK"*) echo "scratch dir must be outside the backup folder" >&2; exit 2;; esac
+# PG_SERVER_BIN: run the SERVER from another major version (e.g. 15.8 to match hosted) while the clients (psql/pg_restore, 17) stay as in common.sh.
+SRV_BIN="${PG_SERVER_BIN:-$PG_BIN}"
 mkdir -p "$SCR"
-"$PG_BIN/initdb.exe" -D "$SCR/data" -U postgres -A trust -E UTF8 --locale=C >"$SCR/initdb.out" 2>&1
-"$PG_BIN/pg_ctl.exe" -D "$SCR/data" -o "-p $PORT -c listen_addresses=127.0.0.1" -l "$SCR/server.log" -w start >"$SCR/start.out" 2>&1
+"$SRV_BIN/initdb.exe" -D "$SCR/data" -U postgres -A trust -E UTF8 --locale=C >"$SCR/initdb.out" 2>&1
+"$SRV_BIN/pg_ctl.exe" -D "$SCR/data" -o "-p $PORT -c listen_addresses=127.0.0.1" -l "$SCR/server.log" -w start >"$SCR/start.out" 2>&1
 pq -d postgres -c "create database restore_ref"
 # roles recorded from the live project (names only)
 while IFS='|' read -r name _; do
