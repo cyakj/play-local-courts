@@ -83,3 +83,20 @@ test.describe('event cancellation (admin calendar)', () => {
     expect(c).not.toMatch(/from\('hoa_events'\)\.delete/);
   });
 });
+
+test.describe('amenity rules integrity migration (20261106130000)', () => {
+  const m = readFileSync('supabase/migrations/20261106130000_amenity_rules_hoa_integrity.sql', 'utf8');
+  test('policy requires the amenity to belong to the rules community, in USING and WITH CHECK', () => {
+    const using = m.slice(m.indexOf('USING ('), m.indexOf('WITH CHECK ('));
+    const check = m.slice(m.indexOf('WITH CHECK ('));
+    for (const part of [using, check]) expect(part).toContain('c.id = amenity_rules.amenity_id AND c.hoa_id = amenity_rules.hoa_id');
+  });
+  test('composite foreign key + preflight that aborts without changing data', () => {
+    expect(m).toContain('FOREIGN KEY (amenity_id, hoa_id) REFERENCES public.courts (id, hoa_id)');
+    expect(m).toMatch(/IF bad > 0 THEN\s+RAISE EXCEPTION/);
+    expect(m).not.toMatch(/\bDELETE\b|\bUPDATE\b/);
+  });
+  test('re-runnable: the dependent key is dropped before the unique constraint', () => {
+    expect(m.indexOf('DROP CONSTRAINT IF EXISTS amenity_rules_amenity_hoa_fkey')).toBeLessThan(m.indexOf('DROP CONSTRAINT IF EXISTS courts_id_hoa_id_key'));
+  });
+});
