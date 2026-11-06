@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  AppState,
   Modal,
   ScrollView,
   StyleSheet,
@@ -362,10 +363,20 @@ export default function ResidentCalendarScreen() {
   })), [openMatches]);
 
   const communityNames = useMemo(() => new Map(communities.map((c) => [c.hoaId, c.name])), [communities]);
+  // A clock that advances while the screen stays open (and when the app returns to the foreground), so a pending request whose start has
+  // passed stops reading 'Pending approval' without a data reload.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNowMs(Date.now()), 30000);
+    const sub = AppState.addEventListener('change', (st) => { if (st === 'active') setNowMs(Date.now()); });
+    return () => { clearInterval(t); sub.remove(); };
+  }, []);
+  // A community's zone is trusted only when it was loaded (or is the active community's shared-store zone); never default to another zone.
+  const trustedZone = (hoaId: string): string | undefined => zonesByHoa.get(hoaId) ?? (hoaId === sharedCommunity?.hoaId ? communityZone ?? undefined : undefined);
   const closureItems = useMemo<ScheduleEvent[]>(() => maintenanceToItems(
-    closureRows, communityNames,
-    (hoaId) => communityToday(new Date(), zonesByHoa.get(hoaId) ?? (hoaId === sharedCommunity?.hoaId ? communityZone : null) ?? undefined),
-  ).map((i) => ({ ...i })), [closureRows, communityNames, zonesByHoa, communityZone, sharedCommunity?.hoaId]);
+    closureRows.filter((r) => !!trustedZone(r.courts?.hoa_id ?? '')), communityNames,
+    (hoaId) => communityToday(new Date(nowMs), trustedZone(hoaId)),
+  ).map((i) => ({ ...i })), [closureRows, communityNames, zonesByHoa, communityZone, sharedCommunity?.hoaId, nowMs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const reloadZones = useCallback(async () => {
     try { setZonesByHoa(await loadHoaZones(communities.map((c) => c.hoaId))); setZonesFailed(false); } catch { setZonesFailed(true); }
@@ -375,8 +386,9 @@ export default function ResidentCalendarScreen() {
     // never show a device-zone time as a community time: without a zone, only the active community's (shared store) zone is trusted
     if (e.rawStartsAt && zonesFailed && !zonesByHoa.get(e.hoa_id) && !(e.hoa_id === sharedCommunity?.hoaId && communityZone)) return false;
     if (e.pendingSlot) {
-      const z = zonesByHoa.get(e.hoa_id) ?? (e.hoa_id === sharedCommunity?.hoaId ? communityZone : null) ?? undefined;
-      return reservationKind({ status: 'pending', date: e.pendingSlot.date, start_time: e.pendingSlot.start, end_time: e.pendingSlot.end }, new Date(), z) === 'pending';
+      const z = trustedZone(e.hoa_id);
+      if (!z) return false; // no trusted community zone: hide rather than compare against another zone
+      return reservationKind({ status: 'pending', date: e.pendingSlot.date, start_time: e.pendingSlot.start, end_time: e.pendingSlot.end }, new Date(nowMs), z) === 'pending';
     }
     return true;
   }).map((e) => (e.rawStartsAt
@@ -390,7 +402,7 @@ export default function ResidentCalendarScreen() {
     const typeKey = EVENT_TYPE_FILTER_MAP[activeEventType];
     if (activeEventType !== 'All' && e.event_type !== typeKey) return false;
     return true;
-  }), [events, closureItems, openMatchEvents, activeCommunity, activeEventType, communityZone, sharedCommunity?.hoaId, zonesByHoa, zonesFailed]);
+  }), [events, closureItems, openMatchEvents, activeCommunity, activeEventType, communityZone, sharedCommunity?.hoaId, zonesByHoa, zonesFailed, nowMs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function getDotsForDay(year: number, month: number, day: number) {
     const evts = filteredEvents.filter((e) => {

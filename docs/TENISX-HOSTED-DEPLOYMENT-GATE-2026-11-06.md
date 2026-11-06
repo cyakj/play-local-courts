@@ -134,3 +134,9 @@ Use a TEST resident and a TEST administrator of The Greens, after the relevant s
 ## 10. Ready vs not ready
 **Ready to deploy (rehearsed on restores of the real data, applied/re-applied/rolled back on PG 15.8 and 17.11):** all 20 pending files, in file order and in §6 order; S1 and S2 standalone.
 **Not ready:** anything touching hosted before §5 is read and you approve; independent Codex PASS; device validation; iOS export; Edge function; the optional `20261013100100` data move needs your decision.
+
+## Codex round 5 (fresh inspection of `a7181a4..e97a20c`): **REVISE** — no PASS
+- R5-1 (medium): the Schedule's pending-expiry used a clock evaluated once in a memo → fixed (30 s ticker + app-resume refresh, `nowMs` in deps).
+- R5-2 (medium): pending requests / closure cutoffs fell back to the Puerto Rico zone when a community zone was unavailable → fixed (hidden until a trusted zone exists).
+- R5-3 (low): `booking_approval.sql` check 10 invalid after 23:00 PR time (end wraps past midnight) → fixed (start shifted 1 h in late evening). Re-run: 10 PASS.
+- Node suite after fixes: 717 passed. **These round-5 fixes have not been re-inspected.** The Codex review has returned REVISE five times and has never returned APPROVED.

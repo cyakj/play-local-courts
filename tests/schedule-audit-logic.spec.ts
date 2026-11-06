@@ -76,7 +76,7 @@ test.describe('planned closures as Maintenance (shared with the booking blockout
   test('community wall-clock conversion happens at render so a later zone still applies', () => {
     const c = read('src/app/(resident)/calendar.tsx');
     expect(c).toContain('rawStartsAt');
-    expect(c).toMatch(/activeEventType, communityZone, sharedCommunity\?\.hoaId, zonesByHoa, zonesFailed\]/);
+    expect(c).toMatch(/activeEventType, communityZone, sharedCommunity\?\.hoaId, zonesByHoa, zonesFailed, nowMs]/);
     expect(c).toContain('loadHoaZones(comms.map((c) => c.hoaId))'); // every community has its own zone, not just the active one
     expect(c).toContain('zonesByHoa.get(e.hoa_id)');
   });
@@ -141,5 +141,18 @@ test.describe('Codex round 4 fixes', () => {
     expect(a).toContain('hoaRef.current = hoaId;');
     expect(a).toContain('if (hoaRef.current !== postedTo) return;');
     expect(a).toContain('if (hoaRef.current !== removedFrom) return;');
+  });
+});
+
+test.describe('Codex round 5 fixes', () => {
+  const c = read('src/app/(resident)/calendar.tsx');
+  test('R5-1: the Schedule clock advances while open and on app resume', () => {
+    expect(c).toContain('setInterval(() => setNowMs(Date.now()), 30000)');
+    expect(c).toContain("AppState.addEventListener('change'");
+    expect(c).toContain('new Date(nowMs)');
+  });
+  test('R5-2: pending requests and closure cutoffs need a trusted community zone (never default to another zone)', () => {
+    expect(c).toContain('if (!z) return false;');
+    expect(c).toContain('closureRows.filter((r) => !!trustedZone(');
   });
 });

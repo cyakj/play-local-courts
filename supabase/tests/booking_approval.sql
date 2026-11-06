@@ -199,6 +199,7 @@ DECLARE c t_ctx; pr_now timestamp := now() AT TIME ZONE 'America/Puerto_Rico'; s
 BEGIN
   SELECT * INTO c FROM t_ctx;
   start_ts := date_trunc('minute', pr_now + interval '25 hours');
+  IF start_ts::time > '23:00' THEN start_ts := start_ts + interval '1 hour'; END IF; -- keep start+30min inside the same day (late evening runs)
   -- fixture: widen THIS pool's own hours/advance window (table owner, inside the rolled-back transaction) so the check runs at any time of day
   -- instead of silently skipping. Production rules are not changed.
   UPDATE public.amenity_rules SET booking_start_time = '00:00', booking_end_time = '23:59', advance_booking_days = 3, max_duration_minutes = 60, max_reservations_per_day = 10, max_reservations_per_week = 20
