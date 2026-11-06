@@ -76,7 +76,7 @@ test.describe('planned closures as Maintenance (shared with the booking blockout
   test('community wall-clock conversion happens at render so a later zone still applies', () => {
     const c = read('src/app/(resident)/calendar.tsx');
     expect(c).toContain('rawStartsAt');
-    expect(c).toMatch(/activeEventType, communityZone, sharedCommunity\?\.hoaId, zonesByHoa\]/);
+    expect(c).toMatch(/activeEventType, communityZone, sharedCommunity\?\.hoaId, zonesByHoa, zonesFailed\]/);
     expect(c).toContain('loadHoaZones(comms.map((c) => c.hoaId))'); // every community has its own zone, not just the active one
     expect(c).toContain('zonesByHoa.get(e.hoa_id)');
   });
@@ -121,5 +121,25 @@ test.describe('Codex round 3 fixes', () => {
     const c = read('src/app/(resident)/calendar.tsx');
     expect(c).toContain('setClosureRows(');
     expect(c).toMatch(/zonesByHoa\.get\(hoaId\)/);
+  });
+});
+
+test.describe('Codex round 4 fixes', () => {
+  const c = read('src/app/(resident)/calendar.tsx');
+  test('R4-2: an unswept expired pending request is not shown as awaiting approval', () => {
+    expect(c).toContain('pendingSlot');
+    expect(c).toContain("reservationKind({ status: 'pending'");
+    expect(c).toContain("=== 'pending';");
+  });
+  test('R4-3: a zone-loading failure is surfaced with a retry and never presents device-zone times as community times', () => {
+    expect(c).toContain('setZonesFailed(true)');
+    expect(c).toContain('testID="zones-retry"');
+    expect(c).toContain('reloadZones');
+  });
+  test('R4-1: the announcements screen compares against the community displayed now, not a stale closure', () => {
+    const a = read('src/app/(admin)/announcements.tsx');
+    expect(a).toContain('hoaRef.current = hoaId;');
+    expect(a).toContain('if (hoaRef.current !== postedTo) return;');
+    expect(a).toContain('if (hoaRef.current !== removedFrom) return;');
   });
 });

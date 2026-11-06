@@ -35,6 +35,8 @@ export default function AnnouncementsAdminScreen() {
   const [rows, setRows] = useState<AnnouncementRow[]>([]);
   const [listLoading, setListLoading] = useState(false);
   const listGen = useRef(0); // only the newest list request may update the screen
+  const hoaRef = useRef(''); // the community displayed RIGHT NOW (async completions compare against it, not a stale closure)
+  hoaRef.current = hoaId;
 
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
@@ -94,10 +96,11 @@ export default function AnnouncementsAdminScreen() {
     setPosting(true);
     const { error: err } = await db.from('hoa_announcements').insert(buildInsert(draft, hoaId, userId));
     setPosting(false);
+    if (hoaRef.current !== postedTo) return; // the administrator switched community while posting: leave the other community's form and list alone
     if (err) { setFormError(postErrorMessage(err, draft)); return; }
     setTitle(''); setBody(''); setUrgent(false); setCategory('general');
     setNotice('Posted. Residents will see it in Community Pulse.');
-    if (postedTo === hoaId) void loadList();
+    void loadList();
   }
 
   function confirmRemove(row: AnnouncementRow) {
@@ -112,8 +115,10 @@ export default function AnnouncementsAdminScreen() {
     if (!rows.some((r) => r.id === row.id)) return; // only a row of the community currently displayed can be removed
     setRemovingId(row.id);
     setNotice(null);
+    const removedFrom = hoaRef.current;
     const { data, error: err } = await db.rpc('archive_announcement', { p_id: row.id });
     setRemovingId(null);
+    if (hoaRef.current !== removedFrom) return; // community switched meanwhile
     if (err) { setFormError(removeErrorMessage(err)); return; }
     if (data === false) { setFormError('That announcement was already removed.'); }
     else { setFormError(null); setNotice('Removed.'); }

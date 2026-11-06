@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Modal,
   ScrollView,
@@ -24,6 +24,7 @@ import { hasNothingToFetch } from '@/lib/scheduleScope';
 import { CALENDAR_BOOKING_STATUSES, maintenanceToItems, reservationTitle, toWallClockIso, type MaintenanceRow } from '@/lib/scheduleEvents';
 import { communityToday } from '@/lib/communityTime';
 import { loadHoaZones } from '@/lib/hoaZones';
+import { reservationKind } from '@/lib/reservationState';
 
 // ─── Event type config ─────────────────────────────────────────────────────────
 
@@ -69,6 +70,8 @@ interface ScheduleEvent {
   starts_at: string;
   /** Original timestamptz for instants (HOA events). Reservations/closures are already community wall-clock and have none. */
   rawStartsAt?: string;
+  /** Own PENDING reservation: shown only while its start (in its community's zone) is still ahead; an unswept expired request is not 'awaiting approval'. */
+  pendingSlot?: { date: string; start: string; end: string };
   hoa_id: string;
   community_name: string;
   description: string | null;
@@ -143,6 +146,7 @@ export default function ResidentCalendarScreen() {
   const communityZone = sharedCommunity?.timeZone ?? null;
   // Every community the resident belongs to has its own zone; events are shown on THEIR community's clock, not the device's.
   const [zonesByHoa, setZonesByHoa] = useState<Map<string, string>>(new Map());
+  const [zonesFailed, setZonesFailed] = useState(false);
   const [closureRows, setClosureRows] = useState<MaintenanceRow[]>([]); // converted to items at render, with each community's own date
   // Community mode only: Tennis-mode matches and lessons carry no community id and would be filtered out.
   useEffect(() => { if (isCommunityMode && sharedCommunity?.hoaId) setActiveCommunity(sharedCommunity.hoaId); }, [sharedCommunity?.hoaId]);
@@ -189,6 +193,7 @@ export default function ResidentCalendarScreen() {
           event_type: 'court_reservation',
           location: court.name,
           starts_at: `${b.date}T${b.start_time}`,
+          ...((b as any).status === 'pending' ? { pendingSlot: { date: b.date, start: b.start_time, end: b.end_time } } : {}),
           hoa_id: court.hoa_id,
           community_name: hoaMap.get(court.hoa_id) || '',
           description: null,
@@ -314,7 +319,7 @@ export default function ResidentCalendarScreen() {
           name: m.hoas?.name || 'Community',
         }));
         setCommunities(comms);
-        try { setZonesByHoa(await loadHoaZones(comms.map((c) => c.hoaId))); } catch { /* keep the device zone rather than guess */ }
+        try { setZonesByHoa(await loadHoaZones(comms.map((c) => c.hoaId))); setZonesFailed(false); } catch { setZonesFailed(true); }
         await fetchAll(user.id, comms);
       } catch {
         setLoading(false);
@@ -362,7 +367,19 @@ export default function ResidentCalendarScreen() {
     (hoaId) => communityToday(new Date(), zonesByHoa.get(hoaId) ?? (hoaId === sharedCommunity?.hoaId ? communityZone : null) ?? undefined),
   ).map((i) => ({ ...i })), [closureRows, communityNames, zonesByHoa, communityZone, sharedCommunity?.hoaId]);
 
-  const filteredEvents = useMemo(() => [...closureItems, ...events.map((e) => (e.rawStartsAt
+  const reloadZones = useCallback(async () => {
+    try { setZonesByHoa(await loadHoaZones(communities.map((c) => c.hoaId))); setZonesFailed(false); } catch { setZonesFailed(true); }
+  }, [communities]);
+
+  const filteredEvents = useMemo(() => [...closureItems, ...events.filter((e) => {
+    // never show a device-zone time as a community time: without a zone, only the active community's (shared store) zone is trusted
+    if (e.rawStartsAt && zonesFailed && !zonesByHoa.get(e.hoa_id) && !(e.hoa_id === sharedCommunity?.hoaId && communityZone)) return false;
+    if (e.pendingSlot) {
+      const z = zonesByHoa.get(e.hoa_id) ?? (e.hoa_id === sharedCommunity?.hoaId ? communityZone : null) ?? undefined;
+      return reservationKind({ status: 'pending', date: e.pendingSlot.date, start_time: e.pendingSlot.start, end_time: e.pendingSlot.end }, new Date(), z) === 'pending';
+    }
+    return true;
+  }).map((e) => (e.rawStartsAt
     ? { ...e, starts_at: toWallClockIso(e.rawStartsAt, zonesByHoa.get(e.hoa_id) ?? (e.hoa_id === sharedCommunity?.hoaId ? communityZone : null)) }
     : e)), ...openMatchEvents].filter((e) => {
     // Match/lesson types are not relevant in Community mode regardless of
@@ -373,7 +390,7 @@ export default function ResidentCalendarScreen() {
     const typeKey = EVENT_TYPE_FILTER_MAP[activeEventType];
     if (activeEventType !== 'All' && e.event_type !== typeKey) return false;
     return true;
-  }), [events, closureItems, openMatchEvents, activeCommunity, activeEventType, communityZone, sharedCommunity?.hoaId, zonesByHoa]);
+  }), [events, closureItems, openMatchEvents, activeCommunity, activeEventType, communityZone, sharedCommunity?.hoaId, zonesByHoa, zonesFailed]);
 
   function getDotsForDay(year: number, month: number, day: number) {
     const evts = filteredEvents.filter((e) => {
@@ -619,6 +636,12 @@ export default function ResidentCalendarScreen() {
               </View>
             ))}
           </View>
+
+          {zonesFailed ? (
+            <TouchableOpacity testID="zones-retry" onPress={() => { void reloadZones(); }} accessibilityRole="button" accessibilityLabel="Retry loading community time zones">
+              <Text style={styles.noEvents}>Could not load every community's time zone, so some events are hidden. Tap to retry.</Text>
+            </TouchableOpacity>
+          ) : null}
 
           {/* Day events section */}
           <View testID="day-events-section">

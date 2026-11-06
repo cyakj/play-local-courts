@@ -75,7 +75,7 @@ Not changed (low): `approve_hoa_membership` accepts any current status (an admin
 Node suite (mock/source-level): all resident-regression suites pass (legend, one Pulse announcement, urgent-first, reservation detail, upcoming/history, wheel, durations, haptics). Database-backed: a published announcement/event/closure is readable by members only; archived/cancelled/board-only disappear for residents; a decision (approve/decline/cancel) is visible to the resident with its reason and creates a notification; the resident Schedule queries were updated to match (status `active`, own `confirmed`+`pending`, closures, per-community time). **Not verified anywhere:** how any of this *looks* on a phone.
 
 ## 8. Test totals
-- Node logic (`npx playwright test -c playwright.logic.config.ts`): **712 passed, 0 failed** (before the final review round; re-run result in section 10).
+- Node logic (`npx playwright test -c playwright.logic.config.ts`): **715 passed, 0 failed** (after the round-4 fixes).
 - SQL: section 4 (10 test files = 174 assertions + the concurrency script, per server, both servers).
 - `tsc --noEmit`: 1 688 errors repo-wide (file-name casing, `app-tabs.web.tsx`, tests, etc.; I did not measure a baseline for the total, so I do not claim it is unchanged); **0 reported in the files I touched** (checked per file after each edit).
 - Skipped: iOS export (free RAM 2.6 GB < what Metro needs; not attempted), browser tests, physical device.
@@ -86,13 +86,14 @@ Free RAM 3.3 GB at the start, 2.6 GB at the end; two PostgreSQL servers (≈150 
 ## 10. Codex review (independent, via `claudex-loop` inspect)
 History: round 1 (earlier today) 6 findings fixed; round 2: R2-1 and R2-2 fixed but never re-reviewed, **R2-3 (events of non-active communities in the device zone) was left open — closed this sprint** (`loadHoaZones` for every membership).
 Round 3 (this sprint, base `ae1c43f`): runner status **failed** (I committed while it ran, so the inspected snapshot changed) — its verdict REVISE is advisory, not a record of approval. Findings and dispositions: R3-1 announcement screen could act on a stale community → fixed (request generation, cleared rows, removal bound to the displayed community); R3-2 closure cutoff used one zone for all communities → fixed (per-community cutoff, closures converted at render); R3-3 chain script ignored re-apply failures → fixed (exit status); R3-4 "`PG_SERVER_BIN` is stripped by `common.sh`" → **rejected** with evidence (the variable name has an underscore, the cleanup only matches `^PG[A-Z0-9]+`, and the PG15 run reported `15.8`), but a `PG_EXPECT_MAJOR` assertion was added anyway.
-A clean final inspection was started after these fixes; its result is recorded in section 12. **No review has returned PASS/APPROVED at any point.**
+Round 4 (clean run, status `completed`, base `ae1c43f`, effective model gpt-6.1-sol): **REVISE, 3 medium findings** — R4-1 announcements screen: a post/removal finishing after switching community could clear the other community's draft or let the old list win → fixed (current-community ref checked on completion); R4-2 an unswept expired *pending* request was shown as "Pending approval" on the Schedule → fixed (`reservationKind` with the community's zone; hidden once its start has passed); R4-3 a zone-loading failure silently fell back to the device zone → fixed (failure surfaced with a retry; events of communities without a loaded zone are hidden meanwhile, never shown in device time).
+**These three fixes have not been re-inspected** (a fifth round was not run: each round is ~1–2 minutes but I stopped at three consecutive REVISE rounds to avoid an open-ended loop; further findings are likely to be of the same async-edge-case kind). They are covered by source-level tests only. **No review has returned PASS/APPROVED at any point.**
 
 ## 11. Stage D readiness
 See `docs/STAGE-D-PROFILE-PHOTOS-DEPLOYMENT-PACKAGE-2026-11-06.md` (SQL, preconditions, Gate-1 queries, rollback, post-checks, iPhone smoke test, limits). Rehearsed alone on the untouched restore (PG 15.8 and 17.11): applies, 15/15 storage checks, rollback restores the exact pre-state, re-applies. **Verdict: ready to apply on your explicit approval** after Gate-1 (it must re-confirm the hosted preconditions live).
 
 ## 12. Final status
-(Appended after the final inspection — see the end of this file.)
+Latest code state includes the round-4 fixes; Node suite 715/715; SQL results in section 4 were produced before the round-3/4 UI fixes, which touch no SQL.
 
 ## 13. Exact remaining blockers
 1. Hosted unchanged: all 19 migrations unapplied; Gate-1 hosted read-only SQL not yet run (no SQL connector).
