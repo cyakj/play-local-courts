@@ -10,7 +10,7 @@ import Svg, { Circle, Defs, G, Line, LinearGradient, Path, Rect, Stop } from 're
 import { DRUM_OPACITY_STOPS, wheelPad } from '@/lib/wheelLayout';
 import { centeredIndex, decideFeedback, newGate, type FeedbackGate } from '@/lib/pickerFeedback';
 import {
-  getPickerPrefs, hapticConfirm, hapticTick, loadPickerPrefs, soundTick, subscribePickerPrefs, warmPickerSound,
+  acquirePickerSound, getPickerPrefs, hapticConfirm, hapticTick, loadPickerPrefs, soundTick, subscribePickerPrefs, warmPickerSound,
 } from '@/lib/pickerFeedbackRuntime';
 import { Availability, Colors, FontFamily, Radius } from '@/constants/design';
 import type { SlotInfo } from '@/lib/slotAvailability';
@@ -366,10 +366,12 @@ export const TimeSlotWheel = memo(function TimeSlotWheel({
   const prefsRef = useRef(getPickerPrefs());
   useEffect(() => {
     void loadPickerPrefs().then((p) => { prefsRef.current = p; if (p.sound) warmPickerSound(); });
-    return subscribePickerPrefs((p) => { prefsRef.current = p; if (p.sound) warmPickerSound(); });
+    const release = acquirePickerSound();
+    const unsub = subscribePickerPrefs((p) => { prefsRef.current = p; if (p.sound) warmPickerSound(); });
+    return () => { unsub(); release(); };
   }, []);
-  const onCentreChange = useCallback((idx: number) => {
-    const d = decideFeedback(gateRef.current, idx, Date.now(), { userDriven: userDriven.current, ...prefsRef.current });
+  const onCentreChange = useCallback((idx: number, eventAt: number) => {
+    const d = decideFeedback(gateRef.current, idx, Date.now(), { userDriven: userDriven.current, eventAt, ...prefsRef.current });
     gateRef.current = d.gate;
     if (d.haptic) hapticTick();
     if (d.sound) soundTick();
@@ -398,7 +400,7 @@ export const TimeSlotWheel = memo(function TimeSlotWheel({
       const idx = centeredIndex(e.contentOffset.y, ITEM_H, slots.length);
       if (idx !== lastIdx.value) {
         lastIdx.value = idx;
-        scheduleOnRN(onCentreChange, idx);
+        scheduleOnRN(onCentreChange, idx, Date.now());
       }
     },
   });

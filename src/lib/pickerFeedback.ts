@@ -8,9 +8,18 @@ export function centeredIndex(offsetY: number, itemHeight: number, count: number
   return Math.max(0, Math.min(raw, count - 1));
 }
 
-/** Minimum time between two ticks. A fast flick crosses a row every few ms; we feel/hear at most one per gap. */
+// ── Tunables (all feedback tuning lives here; physical-iPhone tuning is still required) ───────────────────────────────
+/** Playback volume of the tick, 0..1. 0.35 is about -9 dB, i.e. roughly half the perceived loudness of the former full-volume tick. */
+export const PICKER_SOUND_VOLUME = 0.35;
+/** Haptic style names (mapped to expo-haptics in the runtime): the tick is a Light impact (clearly stronger than the old selection tick), selecting a time is Medium. */
+export const PICKER_HAPTIC_TICK = 'light' as const;
+export const PICKER_HAPTIC_CONFIRM = 'medium' as const;
+/** Minimum time between two haptic ticks: a fast flick crosses a row every few ms; the Taptic Engine blurs anything denser. */
 export const HAPTIC_MIN_GAP_MS = 40;
-export const SOUND_MIN_GAP_MS = 70;
+/** The tick clip is ~22 ms and played from a small player pool, so sound can follow rows more closely than haptics. */
+export const SOUND_MIN_GAP_MS = 30;
+/** A row change reported to JS later than this after it happened is dropped, so a busy JS thread never replays a backlog late. */
+export const FEEDBACK_STALE_MS = 80;
 
 export interface FeedbackGate { lastIdx: number | null; lastHapticAt: number; lastSoundAt: number }
 export const newGate = (): FeedbackGate => ({ lastIdx: null, lastHapticAt: -Infinity, lastSoundAt: -Infinity });
@@ -22,13 +31,16 @@ export interface FeedbackDecision { gate: FeedbackGate; haptic: boolean; sound: 
  *  - nothing fires when the centred row has not changed (a re-render or data refresh never ticks);
  *  - the first observed index only seeds the gate (landing on the initial selection is not a user scroll);
  *  - `userDriven=false` (programmatic scrollTo, refresh) updates the gate silently;
+ *  - `eventAt` (when the row change happened on the UI thread) older than FEEDBACK_STALE_MS updates the gate silently:
+ *    a late tick would feel detached from the scroll;
  *  - haptic and sound are throttled independently, and each only when its preference is on.
  */
 export function decideFeedback(
   gate: FeedbackGate, idx: number, now: number,
-  opts: { userDriven: boolean; haptics: boolean; sound: boolean },
+  opts: { userDriven: boolean; haptics: boolean; sound: boolean; eventAt?: number },
 ): FeedbackDecision {
-  if (gate.lastIdx === null || !opts.userDriven || idx === gate.lastIdx) {
+  const stale = typeof opts.eventAt === 'number' && now - opts.eventAt > FEEDBACK_STALE_MS;
+  if (gate.lastIdx === null || !opts.userDriven || idx === gate.lastIdx || stale) {
     return { gate: { ...gate, lastIdx: idx }, haptic: false, sound: false };
   }
   const haptic = opts.haptics && now - gate.lastHapticAt >= HAPTIC_MIN_GAP_MS;

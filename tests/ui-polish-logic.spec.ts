@@ -51,11 +51,11 @@ test.describe('picker feedback decisions', () => {
     expect(fired).toBeLessThanOrEqual(Math.ceil(100 / HAPTIC_MIN_GAP_MS) + 1);
     expect(fired).toBeGreaterThanOrEqual(2);
   });
-  test('sound is throttled separately and more strongly than haptics', () => {
-    expect(SOUND_MIN_GAP_MS).toBeGreaterThan(HAPTIC_MIN_GAP_MS);
+  test('sound is throttled independently of haptics and never closer than its own gap', () => {
     let g = decideFeedback(newGate(), 0, 0, on).gate;
     const sounds: number[] = [];
     for (let i = 1; i <= 30; i++) { const d = decideFeedback(g, i, i * 10, on); g = d.gate; if (d.sound) sounds.push(i * 10); }
+    expect(sounds.length).toBeGreaterThan(5);
     for (let i = 1; i < sounds.length; i++) expect(sounds[i] - sounds[i - 1]).toBeGreaterThanOrEqual(SOUND_MIN_GAP_MS);
   });
   test('programmatic scrolls (landing on the selection, tapping Select) update the gate silently', () => {
