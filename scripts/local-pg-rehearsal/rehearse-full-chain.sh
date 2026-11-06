@@ -30,6 +30,7 @@ FILE_ORDER=(
   20261106110000_hoa_event_audience
   20261106120000_announcement_archive
   20261106130000_amenity_rules_hoa_integrity
+  20261106140000_revoke_anon_policy_helper_functions
 )
 PLAN_ORDER=(
   20261030120000_profile_photos_private_bucket
@@ -51,6 +52,7 @@ PLAN_ORDER=(
   20261106110000_hoa_event_audience
   20261106120000_announcement_archive
   20261106130000_amenity_rules_hoa_integrity
+  20261106140000_revoke_anon_policy_helper_functions
 )
 if [ "$ORDER" = plan ]; then LIST=("${PLAN_ORDER[@]}"); else LIST=("${FILE_ORDER[@]}"); fi
 pq -d postgres -c "DROP DATABASE IF EXISTS $DB" -c "CREATE DATABASE $DB TEMPLATE $SRC"

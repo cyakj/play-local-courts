@@ -199,10 +199,10 @@ DECLARE c t_ctx; pr_now timestamp := now() AT TIME ZONE 'America/Puerto_Rico'; s
 BEGIN
   SELECT * INTO c FROM t_ctx;
   start_ts := date_trunc('minute', pr_now + interval '25 hours');
-  IF start_ts::time < '07:00' OR start_ts::time > '18:30' OR start_ts::date > pr_now::date + 1 THEN
-    INSERT INTO t_results (name, ok, detail) VALUES ('cancellation window uses community time (SKIPPED: 25h slot outside amenity hours/advance window)', true, start_ts::text);
-    RETURN;
-  END IF;
+  -- fixture: widen THIS pool's own hours/advance window (table owner, inside the rolled-back transaction) so the check runs at any time of day
+  -- instead of silently skipping. Production rules are not changed.
+  UPDATE public.amenity_rules SET booking_start_time = '00:00', booking_end_time = '23:59', advance_booking_days = 3, max_duration_minutes = 60, max_reservations_per_day = 10, max_reservations_per_week = 20
+  WHERE amenity_id = c.court_auto;
   PERFORM pg_temp.as_user(c.resident);
   INSERT INTO public.bookings (court_id, user_id, date, start_time, end_time, status, play_type)
   VALUES (c.court_auto, c.resident, start_ts::date, start_ts::time, (start_ts + interval '30 minutes')::time, 'confirmed', 'singles');

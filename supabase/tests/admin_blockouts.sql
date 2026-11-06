@@ -214,6 +214,9 @@ DO $$
 DECLARE c t_ctx; bid uuid; n int; ttl text;
 BEGIN
   SELECT * INTO c FROM t_ctx;
+  -- fixture hygiene: The Greens Court allows ONE reservation per resident per day (a real rule, left untouched), so clear this
+  -- resident's earlier fixture bookings for the day (as the table owner, inside the rolled-back transaction) before inserting.
+  DELETE FROM public.bookings WHERE user_id = c.resident AND court_id = c.court_a AND date = c.d;
   PERFORM pg_temp.as_user(c.resident);
   INSERT INTO public.bookings (court_id, user_id, date, start_time, end_time, status, play_type)
   VALUES (c.court_a, c.resident, c.d, '16:00', '16:30', 'confirmed', 'singles') RETURNING id INTO bid;  -- forced to pending
