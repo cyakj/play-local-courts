@@ -59,7 +59,8 @@
       "expo-status-bar",
       "expo-web-browser",
       "expo-sharing",
-      ["expo-audio", { "microphonePermission": false }]
+      ["expo-audio", { "microphonePermission": false }],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,
