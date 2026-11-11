@@ -9,6 +9,12 @@
  */
 
 import { test, expect } from '@playwright/test';
+import * as nodePath from 'path';
+
+// Resolve a repo-relative path (either separator) from the repo root, so these
+// source-inspection tests are portable across machines and operating systems.
+const REPO_ROOT = nodePath.resolve(__dirname, '..');
+const repoFile = (rel: string) => nodePath.join(REPO_ROOT, ...rel.split(/[\\/]/));
 
 // ---------------------------------------------------------------------------
 // Helpers mirroring the production functions in useCoachRequests.ts
@@ -419,7 +425,7 @@ test.describe('Weekly schedule viewer', () => {
       'src\\components\\coach\\schedule\\CoachWeekCalendar.tsx',
     ];
     for (const rel of deleted) {
-      const abs = `C:\\Users\\info\\tenisx-native\\${rel}`;
+      const abs = repoFile(rel);
       expect(fs.existsSync(abs), `Should be deleted: ${rel}`).toBe(false);
     }
   });
@@ -427,7 +433,7 @@ test.describe('Weekly schedule viewer', () => {
   test('schedule.tsx uses CoachAvailabilityEditor as primary schedule UI', async () => {
     const fs = await import('fs');
     const content = fs.readFileSync(
-      'C:\\Users\\info\\tenisx-native\\src\\app\\(coach)\\schedule.tsx', 'utf-8'
+      repoFile('src\\app\\(coach)\\schedule.tsx'), 'utf-8'
     );
     expect(content).toContain('CoachAvailabilityEditor');
     expect(content).toContain('useCoachAvailability');
@@ -442,7 +448,7 @@ test.describe('Weekly schedule viewer', () => {
   test('schedule.tsx shows clinic count metric', async () => {
     const fs = await import('fs');
     const content = fs.readFileSync(
-      'C:\\Users\\info\\tenisx-native\\src\\app\\(coach)\\schedule.tsx', 'utf-8'
+      repoFile('src\\app\\(coach)\\schedule.tsx'), 'utf-8'
     );
     expect(content).toContain('clinicCount');
     expect(content).toContain('CLINICS');
@@ -452,7 +458,7 @@ test.describe('Weekly schedule viewer', () => {
   test('_layout.tsx no longer declares schedule-settings or schedule-week tabs', async () => {
     const fs = await import('fs');
     const content = fs.readFileSync(
-      'C:\\Users\\info\\tenisx-native\\src\\app\\(coach)\\_layout.tsx', 'utf-8'
+      repoFile('src\\app\\(coach)\\_layout.tsx'), 'utf-8'
     );
     expect(content).not.toContain('schedule-settings');
     expect(content).not.toContain('schedule-week');
@@ -490,7 +496,7 @@ test.describe('Bug-fix regressions', () => {
   test('settings.tsx uses router.canGoBack() for safe back navigation', async () => {
     const fs = await import('fs');
     const content = fs.readFileSync(
-      'C:\\Users\\info\\tenisx-native\\src\\app\\settings.tsx', 'utf-8'
+      repoFile('src\\app\\settings.tsx'), 'utf-8'
     );
     expect(content).toContain('canGoBack()');
     expect(content).toContain('handleBack');
@@ -501,7 +507,7 @@ test.describe('Bug-fix regressions', () => {
   test('settings.tsx has no visible DEV AUTH STATE debug panel', async () => {
     const fs = await import('fs');
     const content = fs.readFileSync(
-      'C:\\Users\\info\\tenisx-native\\src\\app\\settings.tsx', 'utf-8'
+      repoFile('src\\app\\settings.tsx'), 'utf-8'
     );
     expect(content).not.toContain('DEV · AUTH STATE');
     expect(content).not.toContain('session: PRESENT');
@@ -511,7 +517,7 @@ test.describe('Bug-fix regressions', () => {
   test('CreateClinicSheet.tsx defines QUICK_DATES before use', async () => {
     const fs = await import('fs');
     const content = fs.readFileSync(
-      'C:\\Users\\info\\tenisx-native\\src\\components\\coaching\\CreateClinicSheet.tsx', 'utf-8'
+      repoFile('src\\components\\coaching\\CreateClinicSheet.tsx'), 'utf-8'
     );
     const quickDatesIdx = content.indexOf('const QUICK_DATES');
     const usageIdx = content.indexOf('QUICK_DATES');
@@ -522,7 +528,7 @@ test.describe('Bug-fix regressions', () => {
   test('CreateClinicSheet.tsx defines TIME_PRESETS before use', async () => {
     const fs = await import('fs');
     const content = fs.readFileSync(
-      'C:\\Users\\info\\tenisx-native\\src\\components\\coaching\\CreateClinicSheet.tsx', 'utf-8'
+      repoFile('src\\components\\coaching\\CreateClinicSheet.tsx'), 'utf-8'
     );
     const presetsIdx = content.indexOf('const TIME_PRESETS');
     const usageIdx = content.indexOf('TIME_PRESETS');
@@ -533,7 +539,7 @@ test.describe('Bug-fix regressions', () => {
   test('useCoachRequests.ts uses Date.now() for unique realtime channel names', async () => {
     const fs = await import('fs');
     const content = fs.readFileSync(
-      'C:\\Users\\info\\tenisx-native\\src\\hooks\\useCoachRequests.ts', 'utf-8'
+      repoFile('src\\hooks\\useCoachRequests.ts'), 'utf-8'
     );
     // Must use Date.now() — not a fixed string (tick.current resets to 0 on remount)
     expect(content).toContain('Date.now()');
@@ -546,7 +552,7 @@ test.describe('Bug-fix regressions', () => {
   test('CreateClinicSheet.tsx price input has dollar prefix and decimal formatting', async () => {
     const fs = await import('fs');
     const content = fs.readFileSync(
-      'C:\\Users\\info\\tenisx-native\\src\\components\\coaching\\CreateClinicSheet.tsx', 'utf-8'
+      repoFile('src\\components\\coaching\\CreateClinicSheet.tsx'), 'utf-8'
     );
     expect(content).toContain('currencyRow');
     expect(content).toContain('currencyPrefix');
@@ -583,7 +589,7 @@ test.describe('Bug-fix regressions', () => {
   test('CoachAvailabilityEditor overlap error message matches spec', async () => {
     const fs = await import('fs');
     const content = fs.readFileSync(
-      'C:\\Users\\info\\tenisx-native\\src\\components\\coach\\CoachAvailabilityEditor.tsx', 'utf-8'
+      repoFile('src\\components\\coach\\CoachAvailabilityEditor.tsx'), 'utf-8'
     );
     // Exact spec text required
     expect(content).toContain('This time overlaps an existing availability.');
@@ -595,7 +601,7 @@ test.describe('Bug-fix regressions', () => {
   test('CoachAvailabilityEditor has auto-scroll refs for start/end time chips', async () => {
     const fs = await import('fs');
     const content = fs.readFileSync(
-      'C:\\Users\\info\\tenisx-native\\src\\components\\coach\\CoachAvailabilityEditor.tsx', 'utf-8'
+      repoFile('src\\components\\coach\\CoachAvailabilityEditor.tsx'), 'utf-8'
     );
     expect(content).toContain('startScrollRef');
     expect(content).toContain('endScrollRef');
